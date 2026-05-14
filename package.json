@@ -35,12 +35,12 @@
     "lint": "pnpm typecheck"
   },
   "devDependencies": {
-    "@runxhq/adapters": "workspace:^0.1.0",
+    "@runxhq/adapters": "workspace:^0.1.5",
     "@runxhq/authoring": "workspace:*",
-    "@runxhq/contracts": "workspace:^0.2.0",
-    "@runxhq/core": "workspace:^0.1.0",
-    "@runxhq/host-adapters": "workspace:^0.1.0",
-    "@runxhq/runtime-local": "workspace:^0.1.0",
+    "@runxhq/contracts": "workspace:^0.2.4",
+    "@runxhq/core": "workspace:^0.1.5",
+    "@runxhq/host-adapters": "workspace:^0.1.1",
+    "@runxhq/runtime-local": "workspace:^0.1.1",
     "@sinclair/typebox": "^0.34.41",
     "@types/node": "^24.0.0",
     "tsx": "^4.20.6",
