@@ -1,6 +1,6 @@
 {
   "name": "@runxhq/host-adapters",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Thin host response adapters over the runx host protocol.",
   "private": false,
   "license": "Apache-2.0",
@@ -18,6 +18,6 @@
     }
   },
   "dependencies": {
-    "@runxhq/runtime-local": "workspace:^0.1.0"
+    "@runxhq/runtime-local": "workspace:^0.1.1"
   }
 }
