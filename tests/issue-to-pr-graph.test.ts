@@ -49,6 +49,7 @@ describe("issue-to-PR composite skill", () => {
       "scafld-complete",
       "scafld-final-status",
       "scafld-handoff",
+      "capture-work-item",
       "package-pull-request",
       "push-pull-request",
       "package-thread-story",
@@ -74,10 +75,17 @@ describe("issue-to-PR composite skill", () => {
     expect(graph.steps.find((step) => step.id === "normalize-spec")).toMatchObject({
       tool: "spec.normalize_scafld_frontmatter",
     });
+    expect(graph.steps.find((step) => step.id === "capture-work-item")).toMatchObject({
+      tool: "control.capture_work_item",
+      inputs: {
+        work_item: "$input.work_item",
+      },
+    });
     expect(graph.steps.find((step) => step.id === "package-pull-request")).toMatchObject({
       label: "package reviewer PR story",
       tool: "outbox.build_pull_request",
       context: {
+        work_item: "capture-work-item.work_item",
         handoff_markdown: "scafld-handoff.stdout",
         build_result: "scafld-build.result",
         review_result: "scafld-review.result",
@@ -91,6 +99,7 @@ describe("issue-to-PR composite skill", () => {
       label: "package source-thread story",
       tool: "outbox.build_work_item_story",
       context: {
+        work_item: "capture-work-item.work_item",
         build_result: "scafld-build.result",
         review_result: "scafld-review.result",
         completion_result: "scafld-complete.result",
@@ -139,6 +148,35 @@ describe("issue-to-PR composite skill", () => {
         source_refs: [],
       };
       await writeFile(threadPath, `${JSON.stringify(thread, null, 2)}\n`);
+      const workItem = {
+        schema: "runx.work_item.v1",
+        work_item_id: "wi_fixture_issue_to_pr",
+        state: "build_ready",
+        source_events: [
+          {
+            provider: "file",
+            source_locator: "local://fixtures/repo/issues/123",
+            thread_locator: "local://fixtures/repo/issues/123",
+            title: "Fixture thread-driven change",
+          },
+        ],
+        dedupe: {
+          algorithm: "sha256",
+          source_locator: "local://fixtures/repo/issues/123",
+          fingerprint: "sha256:fixture-issue-to-pr",
+        },
+        triage: {
+          category: "bug",
+          severity: "medium",
+          confidence: 0.9,
+          action: "issue-to-pr",
+          needs_human: false,
+          rationale: "Fixture is bounded.",
+        },
+        status_summary: "Build is ready.",
+        created_at: "2026-05-15T00:00:00Z",
+        updated_at: "2026-05-15T00:01:00Z",
+      };
 
       const result = await runLocalSkill({
         skillPath: path.resolve("skills/issue-to-pr"),
@@ -149,6 +187,7 @@ describe("issue-to-PR composite skill", () => {
           thread_body: "Apply a bounded fixture docs update.",
           thread_locator: "local://fixtures/repo/issues/123",
           thread,
+          work_item: workItem,
           target_repo: "fixtures/repo",
           size: "micro",
           risk: "low",
@@ -193,6 +232,10 @@ describe("issue-to-PR composite skill", () => {
             branch: taskId,
             base: "main",
           },
+          work_item: {
+            work_item_id: "wi_fixture_issue_to_pr",
+            state: "build_ready",
+          },
           pull_request: {
             title: "Fixture thread-driven change",
             body_markdown: expect.stringContaining("# Handoff: Fixture thread-driven change"),
@@ -228,6 +271,7 @@ describe("issue-to-PR composite skill", () => {
       ]);
       await expect(readFile(threadPath, "utf8")).resolves.toContain(`pull_request:${taskId}`);
       await expect(readFile(threadPath, "utf8")).resolves.toContain(`message:${taskId}:merge_gate`);
+      await expect(readFile(threadPath, "utf8")).resolves.toContain("wi_fixture_issue_to_pr");
       expect(result.receipt.steps.map((step) => [step.step_id, step.status])).toEqual([
         ["scafld-plan", "success"],
         ["author-spec", "success"],
@@ -248,6 +292,7 @@ describe("issue-to-PR composite skill", () => {
         ["scafld-complete", "success"],
         ["scafld-final-status", "success"],
         ["scafld-handoff", "success"],
+        ["capture-work-item", "success"],
         ["package-pull-request", "success"],
         ["push-pull-request", "success"],
         ["package-thread-story", "success"],

@@ -72,6 +72,18 @@ describe("graph retry and idempotency", () => {
       }
       expect(result.reasons).toEqual(["step 'deploy' declares mutating retry without an idempotency key"]);
       expect(adapter.callCount()).toBe(0);
+      expect(result.receipt).toMatchObject({
+        status: "failure",
+        disposition: "policy_denied",
+        steps: [
+          {
+            step_id: "deploy",
+            status: "failure",
+            disposition: "policy_denied",
+            receipt_id: undefined,
+          },
+        ],
+      });
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -124,6 +136,18 @@ describe("graph retry and idempotency", () => {
       }
       expect(result.reasons).toEqual(["step 'deploy' declares mutating retry without an idempotency key"]);
       expect(adapter.callCount()).toBe(0);
+      expect(result.receipt).toMatchObject({
+        status: "failure",
+        disposition: "policy_denied",
+        steps: [
+          {
+            step_id: "deploy",
+            status: "failure",
+            disposition: "policy_denied",
+            receipt_id: undefined,
+          },
+        ],
+      });
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

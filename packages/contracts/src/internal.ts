@@ -14,6 +14,7 @@ export const RUNX_CONTRACT_IDS = {
   toolManifest: `${RUNX_SCHEMA_BASE_URL}/runx/tool/manifest/v1.json`,
   packetIndex: `${RUNX_SCHEMA_BASE_URL}/runx/packet/index/v1.json`,
   capabilityExecution: `${RUNX_SCHEMA_BASE_URL}/runx/capability-execution/v1.json`,
+  workItem: `${RUNX_SCHEMA_BASE_URL}/runx/work-item/v1.json`,
   ledgerEntry: `${RUNX_SCHEMA_BASE_URL}/runx/ledger-entry/v1.json`,
   handoffSignal: `${RUNX_SCHEMA_BASE_URL}/runx/handoff-signal/v1.json`,
   handoffState: `${RUNX_SCHEMA_BASE_URL}/runx/handoff-state/v1.json`,
@@ -29,6 +30,7 @@ export const RUNX_LOGICAL_SCHEMAS = {
   toolManifest: "runx.tool.manifest.v1",
   packetIndex: "runx.packet.index.v1",
   capabilityExecution: "runx.capability_execution.v1",
+  workItem: "runx.work_item.v1",
   ledgerEntry: "runx.ledger.entry.v1",
   handoffSignal: "runx.handoff_signal.v1",
   handoffState: "runx.handoff_state.v1",
@@ -46,6 +48,7 @@ export const RUNX_CONTROL_SCHEMA_REFS = {
   adapter_invoke_result: "https://runx.ai/spec/adapter-invoke-result.schema.json",
   credential_envelope: "https://runx.ai/spec/credential-envelope.schema.json",
   scope_admission: "https://runx.ai/spec/scope-admission.schema.json",
+  authority_proof: "https://runx.ai/spec/authority-proof.schema.json",
 } as const;
 
 export const RUNX_AUXILIARY_SCHEMA_IDS = {

@@ -8,6 +8,9 @@ import {
 
 const authorityKinds = ["read_only", "constructive", "destructive"] as const;
 const scopeAdmissionStatuses = ["allow", "deny"] as const;
+const credentialMaterialStatuses = ["not_requested", "not_resolved", "resolved", "denied"] as const;
+
+export const authorityProofSchemaVersion = "runx.authority-proof.v1" as const;
 
 export const credentialGrantReferenceSchema = Type.Object(
   {
@@ -57,6 +60,119 @@ export const scopeAdmissionSchema = Type.Object(
 
 export type ScopeAdmissionContract = DeepReadonly<Static<typeof scopeAdmissionSchema>>;
 
+const authorityProofRequestedSchema = Type.Object(
+  {
+    connected_auth: Type.Boolean(),
+    scopes: Type.Array(Type.String({ minLength: 1 })),
+    mutating: Type.Boolean(),
+    scope_family: Type.Optional(Type.String({ minLength: 1 })),
+    authority_kind: Type.Optional(stringEnum(authorityKinds)),
+    target_repo: Type.Optional(Type.String({ minLength: 1 })),
+    target_locator: Type.Optional(Type.String({ minLength: 1 })),
+    sandbox_profile: Type.Optional(Type.String({ minLength: 1 })),
+  },
+  { additionalProperties: false },
+);
+
+const authorityProofCredentialMaterialSchema = Type.Object(
+  {
+    status: stringEnum(credentialMaterialStatuses),
+    grant_id: Type.Optional(Type.String({ minLength: 1 })),
+    provider: Type.Optional(Type.String({ minLength: 1 })),
+    connection_id: Type.Optional(Type.String({ minLength: 1 })),
+    scopes: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+    grant_reference: Type.Optional(credentialGrantReferenceSchema),
+    material_ref_hash: Type.Optional(Type.String({ minLength: 1 })),
+    scope_family: Type.Optional(Type.String({ minLength: 1 })),
+    authority_kind: Type.Optional(stringEnum(authorityKinds)),
+    target_repo: Type.Optional(Type.String({ minLength: 1 })),
+    target_locator: Type.Optional(Type.String({ minLength: 1 })),
+  },
+  { additionalProperties: false },
+);
+
+const authorityProofSandboxNetworkSchema = Type.Object(
+  {
+    declared: Type.Optional(Type.Boolean()),
+    enforcement: Type.Optional(Type.String({ minLength: 1 })),
+  },
+  { additionalProperties: false },
+);
+
+const authorityProofSandboxFilesystemSchema = Type.Object(
+  {
+    enforcement: Type.Optional(Type.String({ minLength: 1 })),
+    readonly_paths: Type.Optional(Type.Boolean()),
+    writable_paths_enforced: Type.Optional(Type.Boolean()),
+    private_tmp: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false },
+);
+
+const authorityProofSandboxRuntimeSchema = Type.Object(
+  {
+    enforcer: Type.Optional(Type.String({ minLength: 1 })),
+    reason: Type.Optional(Type.String({ minLength: 1 })),
+  },
+  { additionalProperties: false },
+);
+
+const authorityProofSandboxSchema = Type.Object(
+  {
+    profile: Type.String({ minLength: 1 }),
+    cwd_policy: Type.Optional(Type.String({ minLength: 1 })),
+    require_enforcement: Type.Optional(Type.Boolean()),
+    network: Type.Optional(authorityProofSandboxNetworkSchema),
+    filesystem: Type.Optional(authorityProofSandboxFilesystemSchema),
+    runtime: Type.Optional(authorityProofSandboxRuntimeSchema),
+    approval_required: Type.Optional(Type.Boolean()),
+    approval_approved: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false },
+);
+
+const authorityProofApprovalGateSchema = Type.Object(
+  {
+    gate_id: Type.String({ minLength: 1 }),
+    gate_type: Type.String({ minLength: 1 }),
+    decision: stringEnum(["approved", "denied"] as const),
+    reason: Type.Optional(Type.String()),
+  },
+  { additionalProperties: false },
+);
+
+const authorityProofRedactionSchema = Type.Object(
+  {
+    status: Type.Literal("applied"),
+    secret_material: Type.Literal("omitted"),
+    stdout: Type.Literal("hashed"),
+    stderr: Type.Literal("hashed"),
+    metadata_secret_keys: Type.Array(Type.String({ minLength: 1 })),
+  },
+  { additionalProperties: false },
+);
+
+export const authorityProofSchema = Type.Object(
+  {
+    schema_version: Type.Literal(authorityProofSchemaVersion),
+    run_id: Type.Optional(Type.String({ minLength: 1 })),
+    skill_name: Type.String({ minLength: 1 }),
+    source_type: Type.String({ minLength: 1 }),
+    requested: authorityProofRequestedSchema,
+    scope_admission: scopeAdmissionSchema,
+    credential_material: authorityProofCredentialMaterialSchema,
+    sandbox: Type.Optional(authorityProofSandboxSchema),
+    approval_gate: Type.Optional(authorityProofApprovalGateSchema),
+    redaction: authorityProofRedactionSchema,
+  },
+  {
+    $id: RUNX_CONTROL_SCHEMA_REFS.authority_proof,
+    additionalProperties: false,
+  },
+);
+
+export type AuthorityProofContract = DeepReadonly<Static<typeof authorityProofSchema>>;
+
 export function validateCredentialEnvelopeContract(
   value: unknown,
   label = "credential_envelope",
@@ -66,4 +182,8 @@ export function validateCredentialEnvelopeContract(
 
 export function validateScopeAdmissionContract(value: unknown, label = "scope_admission"): ScopeAdmissionContract {
   return validateContractSchema(scopeAdmissionSchema, value, label);
+}
+
+export function validateAuthorityProofContract(value: unknown, label = "authority_proof"): AuthorityProofContract {
+  return validateContractSchema(authorityProofSchema, value, label);
 }

@@ -22,9 +22,11 @@ import {
   materializeOutboxEntryFiles,
   pushOutboxEntryViaAdapter,
   reduceHandoffState,
+  renderIssueToPrReviewerMarkdown,
   renderWorkItemStoryMarkdown,
   readOutboxEntryControl,
   sanitizePublicMarkdown,
+  summarizePublicHandoffMarkdown,
   sortOutboxEntriesByRecency,
   threadAllowsGate,
   summarizeThread,
@@ -301,6 +303,18 @@ describe("thread contract", () => {
     expect(sanitizePublicMarkdown(
       "wrote /tmp/runx/output.json with OPENAI_API_KEY=sk-test",
     )).toBe("wrote [local-path] with OPENAI_API_KEY=[secret]");
+    expect(sanitizePublicMarkdown(
+      "provider returned sk-proj-abcdefghijklmnopqrstuvwx1234567890",
+    )).toBe("provider returned [secret]");
+    expect(sanitizePublicMarkdown(
+      "Status: super-secret-token",
+    )).toBe("Status: [secret]");
+    expect(sanitizePublicMarkdown(
+      "Blockers: leaked bearer abc123",
+    )).toBe("Blockers: leaked bearer [secret]");
+    expect(sanitizePublicMarkdown(
+      "Status: material_ref=nango:github:conn_1",
+    )).toBe("Status: material_ref=[secret]");
   });
 
   it("renders stable work-item story markdown and message outbox entries", () => {
@@ -361,6 +375,7 @@ describe("thread contract", () => {
         schema_version: "runx.outbox-entry.work-item-story.v1",
         workflow: "issue-to-pr",
         milestone_kind: "review",
+        outbox_receipt_id: expect.stringMatching(/^story:issue-to-pr:checkout-fix:review:[a-f0-9]{20}$/),
         updated_at: "2026-05-14T12:00:00Z",
         control: {
           workflow: "issue-to-pr",
@@ -380,6 +395,74 @@ describe("thread contract", () => {
     });
     expect(renderWorkItemStoryMarkdown(localStory)).not.toContain("/tmp/runx");
     expect(renderWorkItemStoryMarkdown(localStory)).toContain("Source thread: `[local-path]`");
+  });
+
+  it("renders sanitized issue-to-PR reviewer markdown from shared knowledge helpers", () => {
+    const markdown = renderIssueToPrReviewerMarkdown({
+      taskId: "fixture-task",
+      title: "Fix fixture behavior",
+      sourceTitle: "Checkout failure",
+      sourceLocator: "github://example/repo/issues/123",
+      branch: "fixture-task",
+      base: "main",
+      governanceStatus: "completed",
+      checkStatus: "success",
+      buildPassed: 2,
+      buildFailed: 0,
+      reviewVerdict: "pass",
+      blockingCount: 0,
+      nonBlockingCount: 1,
+      handoffMarkdown: [
+        "# Handoff: Fix fixture behavior",
+        "Status: completed",
+        "Next: none",
+        "RUNX_BIN=/Users/kam/dev/runx/dist/index.js",
+        "Changed /tmp/workspace/app.txt",
+        "provider returned sk-proj-abcdefghijklmnopqrstuvwx1234567890",
+      ].join("\n"),
+    });
+
+    expect(markdown).toContain("## Source Thread");
+    expect(markdown).toContain("## Human Merge Gate");
+    expect(markdown).toContain("Blocking findings: 0");
+    expect(markdown).toContain("Status: completed");
+    expect(markdown).toContain("Detailed handoff output omitted");
+    expect(markdown).not.toContain("RUNX_BIN=");
+    expect(markdown).not.toContain("/Users/kam");
+    expect(markdown).not.toContain("/tmp/workspace");
+    expect(markdown).not.toContain("sk-proj-");
+  });
+
+  it("summarizes public handoff markdown instead of publishing raw command logs", () => {
+    expect(summarizePublicHandoffMarkdown([
+      "# Handoff: Fixture",
+      "Status: review",
+      "Next: scafld review fixture",
+      "RUNX_BIN=/Users/kam/dev/runx/dist/index.js",
+      "node --test very-long-private-command",
+    ].join("\n"))).toBe([
+      "# Handoff: Fixture",
+      "Status: review",
+      "Next: scafld review fixture",
+      "",
+      "Detailed handoff output omitted from public markdown; run `scafld handoff` in the workspace for private evidence.",
+    ].join("\n"));
+  });
+
+  it("redacts secret-looking values on allowlisted handoff summary lines", () => {
+    const summary = summarizePublicHandoffMarkdown([
+      "# Handoff: Fixture",
+      "Status: super-secret-token",
+      "Blockers: leaked bearer abc123",
+      "Next: material_ref=nango:github:conn_1",
+    ].join("\n"));
+
+    expect(summary).toBe([
+      "# Handoff: Fixture",
+      "Status: [secret]",
+      "Blockers: leaked bearer [secret]",
+      "Next: material_ref=[secret]",
+    ].join("\n"));
   });
 
   it("rejects missing thread locator fields", () => {

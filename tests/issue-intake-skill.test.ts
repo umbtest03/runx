@@ -22,6 +22,7 @@ describe("issue-intake official skill", () => {
     expect(runner.source.outputs).toEqual({
       intake_report: "object",
       change_set: "object",
+      work_item: "object",
     });
     expect(runner.inputs.thread_title?.type).toBe("string");
     expect(runner.inputs.thread_body?.type).toBe("string");
@@ -30,6 +31,8 @@ describe("issue-intake official skill", () => {
     expect(runner.inputs.outbox_entry?.type).toBe("json");
     expect(runner.inputs.product_context?.type).toBe("string");
     expect(runner.inputs.operator_context?.type).toBe("string");
+    expect(runner.inputs.source_event?.type).toBe("json");
+    expect(runner.inputs.source_policy?.type).toBe("json");
   });
 
   it("passes the inline harness suite, including supervisor-oriented gate examples", async () => {

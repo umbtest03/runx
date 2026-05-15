@@ -67,6 +67,9 @@ condition, action, and exit artifact.
 - `change_set`: the parent change artifact inherited from intake or constructed
   for the objective when intake did not already produce one. It should preserve
   the shared objective, target surfaces, invariants, and success criteria.
+- `work_item`: when supplied, the same `runx.work_item.v1` packet with state
+  advanced to `planning_ready` or `blocked`. Preserve source events, dedupe,
+  and triage fields rather than reconstructing them from prose.
 - `objective_summary`: one sentence capturing the deliverable.
 - `workspace_change_plan`: phased plan for the whole change set. It must
   contain:
@@ -111,6 +114,8 @@ condition, action, and exit artifact.
   constrains the decomposition.
 - `change_set` (optional): parent change artifact from `issue-intake` or a
   workspace supervisor. Prefer this when present.
+- `work_item` (optional): portable issue control-plane packet from intake.
+  Preserve it as state, not as a prose handoff.
 - `thread_locator` (optional): canonical locator for the bounded thread the
   plan is serving.
 - `thread` (optional): portable thread when the objective is

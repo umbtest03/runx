@@ -19,6 +19,7 @@ export default defineTool({
     thread_title: stringInput({ optional: true, description: "Canonical source thread title." }),
     thread_locator: stringInput({ optional: true, description: "Canonical source thread locator." }),
     thread: recordInput({ optional: true, description: "Optional hydrated source thread." }),
+    work_item: recordInput({ optional: true, description: "Optional runx.work_item.v1 packet from intake or hosted queue state." }),
     build_result: recordInput({ optional: true, description: "Native scafld build result payload." }),
     review_result: recordInput({ optional: true, description: "Native scafld review result payload." }),
     completion_result: recordInput({ optional: true, description: "Native scafld completion payload." }),
@@ -47,6 +48,10 @@ export default defineTool({
 
 function runBuildWorkItemStory({ inputs }) {
   const thread = optionalRecord(inputs.thread);
+  const workItem = optionalRecord(inputs.work_item);
+  const workItemSource = firstWorkItemSourceEvent(workItem);
+  const workItemTriage = optionalRecord(workItem?.triage);
+  const workItemDedupe = optionalRecord(workItem?.dedupe);
   const buildResult = unwrapRecord(inputs.build_result) ?? {};
   const reviewResult = unwrapRecord(inputs.review_result) ?? {};
   const completionResult = unwrapRecord(inputs.completion_result) ?? {};
@@ -59,6 +64,8 @@ function runBuildWorkItemStory({ inputs }) {
   const pullRequestMetadata = optionalRecord(pullRequestOutboxEntry.metadata) ?? {};
   const threadLocator = firstNonEmptyString(
     inputs.thread_locator,
+    workItemSource?.thread_locator,
+    workItemSource?.source_locator,
     thread?.thread_locator,
     draftThread.thread_locator,
     pullRequestOutboxEntry.thread_locator,
@@ -67,6 +74,7 @@ function runBuildWorkItemStory({ inputs }) {
   const taskId = firstNonEmptyString(inputs.task_id, draftPullRequest.task_id, pullRequestMetadata.task_id);
   const title = firstNonEmptyString(
     inputs.thread_title,
+    workItemSource?.title,
     thread?.title,
     draftPullRequestBody.title,
     pullRequestOutboxEntry.title,
@@ -109,14 +117,25 @@ function runBuildWorkItemStory({ inputs }) {
       {
         kind: "intake",
         status: "completed",
-        summary: "Source thread captured as the work item's control surface.",
-        details: [`Thread: ${threadLocator}`],
+        summary: firstNonEmptyString(workItem?.status_summary, "Source thread captured as the work item's control surface."),
+        details: [
+          `Thread: ${threadLocator}`,
+          workItem?.work_item_id ? `Work item: ${workItem.work_item_id}` : undefined,
+          workItem?.state ? `State: ${workItem.state}` : undefined,
+          workItemDedupe?.fingerprint ? `Dedupe: ${workItemDedupe.fingerprint}` : undefined,
+        ].filter(Boolean),
       },
       {
         kind: "triage",
         status: "passed",
-        summary: "Issue accepted as bounded scafld-governed engineering work.",
-        details: ["Repo-specific Slack, Sentry, owner, and channel policy remains outside runx core."],
+        summary: workItemTriage?.rationale
+          ? `Triage selected ${firstNonEmptyString(workItemTriage.action, "a runx lane")}: ${workItemTriage.rationale}`
+          : "Issue accepted as bounded scafld-governed engineering work.",
+        details: [
+          workItemTriage?.severity ? `Severity: ${workItemTriage.severity}` : undefined,
+          typeof workItemTriage?.confidence === "number" ? `Confidence: ${workItemTriage.confidence}` : undefined,
+          "Repo-specific Slack, Sentry, owner, and channel policy remains outside runx core.",
+        ].filter(Boolean),
       },
       {
         kind: "spec",
@@ -138,8 +157,8 @@ function runBuildWorkItemStory({ inputs }) {
         status: reviewVerdict && !isPassingReview(reviewVerdict) ? "failed" : reviewVerdict ? "passed" : "ready",
         summary: reviewVerdict ? `Review verdict: ${reviewVerdict}.` : "Review gate completed.",
         details: [
-          reviewResult.blocking_count !== undefined ? `Blocking findings: ${reviewResult.blocking_count}` : undefined,
-          reviewResult.non_blocking_count !== undefined ? `Non-blocking findings: ${reviewResult.non_blocking_count}` : undefined,
+          reviewFindingCount(reviewResult, "blocking") !== undefined ? `Blocking findings: ${reviewFindingCount(reviewResult, "blocking")}` : undefined,
+          reviewFindingCount(reviewResult, "non_blocking") !== undefined ? `Non-blocking findings: ${reviewFindingCount(reviewResult, "non_blocking")}` : undefined,
         ].filter(Boolean),
       },
       {
@@ -183,31 +202,37 @@ function runBuildWorkItemStory({ inputs }) {
   });
   const bodyMarkdown = renderWorkItemStoryMarkdown(story);
   const milestoneKind = outcomeObserved ? "outcome" : "merge_gate";
+  const outboxEntry = buildWorkItemStoryOutboxEntry({
+    taskId,
+    threadLocator,
+    title: outcomeObserved ? "Issue-to-PR outcome" : "Issue-to-PR story",
+    milestone: {
+      kind: milestoneKind,
+      status: outcomeObserved ? "completed" : "ready",
+      summary: outcomeObserved
+        ? `Provider outcome observed: ${providerOutcome.kind}.`
+        : "Human merge gate is ready with the lifecycle story attached.",
+    },
+    bodyMarkdown,
+    updatedAt: new Date().toISOString(),
+  });
 
   return {
     story: {
       schema: "runx.work-item-story.v1",
       data: story,
     },
-    outbox_entry: buildWorkItemStoryOutboxEntry({
-      taskId,
-      threadLocator,
-      title: outcomeObserved ? "Issue-to-PR outcome" : "Issue-to-PR story",
-      milestone: {
-        kind: milestoneKind,
-        status: outcomeObserved ? "completed" : "ready",
-        summary: outcomeObserved
-          ? `Provider outcome observed: ${providerOutcome.kind}.`
-          : "Human merge gate is ready with the lifecycle story attached.",
-      },
-      bodyMarkdown,
-      updatedAt: new Date().toISOString(),
-    }),
+    outbox_entry: preserveTrustedStoryProviderState(thread, outboxEntry),
   };
 }
 
 function optionalRecord(value) {
   return isRecord(value) ? value : undefined;
+}
+
+function firstWorkItemSourceEvent(workItem) {
+  const events = Array.isArray(workItem?.source_events) ? workItem.source_events : [];
+  return optionalRecord(events[0]);
 }
 
 function unwrapRecord(value) {
@@ -225,6 +250,27 @@ function isPassingReview(value) {
   return verdict === "pass" || verdict === "pass_with_issues";
 }
 
+function reviewFindingCount(reviewResult, kind) {
+  const explicit = numberOrUndefined(reviewResult[`${kind}_count`]);
+  if (explicit !== undefined) {
+    return explicit;
+  }
+  if (!Array.isArray(reviewResult.findings)) {
+    return undefined;
+  }
+  if (kind === "blocking") {
+    return reviewResult.findings
+      .filter((finding) => isRecord(finding) && finding.blocks_completion === true)
+      .length;
+  }
+  if (kind === "non_blocking") {
+    return reviewResult.findings
+      .filter((finding) => isRecord(finding) && finding.blocks_completion === false)
+      .length;
+  }
+  return undefined;
+}
+
 function latestPullRequestOutbox(state) {
   const outbox = Array.isArray(state?.outbox) ? state.outbox : [];
   for (let index = outbox.length - 1; index >= 0; index -= 1) {
@@ -234,6 +280,88 @@ function latestPullRequestOutbox(state) {
     }
   }
   return undefined;
+}
+
+function numberOrUndefined(value) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+
+function preserveTrustedStoryProviderState(thread, outboxEntry) {
+  const existing = latestTrustedStoryOutbox(thread, outboxEntry);
+  if (!existing) {
+    return outboxEntry;
+  }
+  const existingMetadata = optionalRecord(existing.metadata) ?? {};
+  const nextMetadata = optionalRecord(outboxEntry.metadata) ?? {};
+  return prune({
+    ...outboxEntry,
+    locator: firstNonEmptyString(existing.locator, outboxEntry.locator),
+    metadata: prune({
+      ...existingMetadata,
+      ...nextMetadata,
+      channel: firstNonEmptyString(existingMetadata.channel, nextMetadata.channel),
+      comment_id: firstNonEmptyString(existingMetadata.comment_id, nextMetadata.comment_id),
+      outbox_receipt_id: firstNonEmptyString(existingMetadata.outbox_receipt_id, nextMetadata.outbox_receipt_id),
+    }),
+  });
+}
+
+function latestTrustedStoryOutbox(state, outboxEntry) {
+  const outbox = Array.isArray(state?.outbox) ? state.outbox.filter(isRecord) : [];
+  const adapter = optionalRecord(state?.adapter) ?? {};
+  const adapterType = firstNonEmptyString(adapter.type);
+  const requestedMetadata = optionalRecord(outboxEntry.metadata) ?? {};
+  const requestedMilestone = firstNonEmptyString(requestedMetadata.milestone_kind);
+  for (let index = outbox.length - 1; index >= 0; index -= 1) {
+    const candidate = outbox[index];
+    const candidateMetadata = optionalRecord(candidate.metadata) ?? {};
+    const candidateMilestone = firstNonEmptyString(candidateMetadata.milestone_kind);
+    if (
+      candidate.kind === "message" &&
+      storyEntryCanRefresh(
+        firstNonEmptyString(candidate.entry_id),
+        firstNonEmptyString(outboxEntry.entry_id),
+        candidateMilestone,
+        requestedMilestone,
+      ) &&
+      firstNonEmptyString(candidate.locator) &&
+      storyProviderStateIsTrusted(adapterType, candidateMetadata) &&
+      firstNonEmptyString(candidateMetadata.schema_version) === "runx.outbox-entry.work-item-story.v1" &&
+      storyMilestoneCanRefresh(
+        candidateMilestone,
+        requestedMilestone,
+      )
+    ) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+function storyProviderStateIsTrusted(adapterType, metadata) {
+  if (adapterType === "file") {
+    return true;
+  }
+  return Boolean(firstNonEmptyString(metadata.outbox_receipt_id));
+}
+
+function storyEntryCanRefresh(existingEntryId, requestedEntryId, existingMilestone, requestedMilestone) {
+  if (existingEntryId === requestedEntryId) {
+    return true;
+  }
+  if (existingMilestone === "merge_gate" && requestedMilestone === "outcome") {
+    return existingEntryId === requestedEntryId?.replace(/:outcome$/, ":merge_gate");
+  }
+  return false;
+}
+
+function storyMilestoneCanRefresh(existingMilestone, requestedMilestone) {
+  if (existingMilestone === requestedMilestone) {
+    return true;
+  }
+  return existingMilestone === "merge_gate" && requestedMilestone === "outcome";
 }
 
 function observeProviderOutcome({

@@ -1,0 +1,640 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.runx.dev/runx/work-item/v1.json",
+  "x-runx-schema": "runx.work_item.v1",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema",
+    "work_item_id",
+    "state",
+    "source_events",
+    "dedupe",
+    "status_summary",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema": {
+      "const": "runx.work_item.v1",
+      "type": "string"
+    },
+    "work_item_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "state": {
+      "anyOf": [
+        {
+          "const": "intake_received",
+          "type": "string"
+        },
+        {
+          "const": "dedupe_pending",
+          "type": "string"
+        },
+        {
+          "const": "duplicate_candidate",
+          "type": "string"
+        },
+        {
+          "const": "triage_pending",
+          "type": "string"
+        },
+        {
+          "const": "planning_ready",
+          "type": "string"
+        },
+        {
+          "const": "build_ready",
+          "type": "string"
+        },
+        {
+          "const": "review_ready",
+          "type": "string"
+        },
+        {
+          "const": "pr_ready",
+          "type": "string"
+        },
+        {
+          "const": "merge_gate",
+          "type": "string"
+        },
+        {
+          "const": "outcome_merged",
+          "type": "string"
+        },
+        {
+          "const": "outcome_closed",
+          "type": "string"
+        },
+        {
+          "const": "outcome_rejected",
+          "type": "string"
+        },
+        {
+          "const": "blocked",
+          "type": "string"
+        }
+      ]
+    },
+    "source_events": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider",
+          "source_locator"
+        ],
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "const": "slack",
+                "type": "string"
+              },
+              {
+                "const": "sentry",
+                "type": "string"
+              },
+              {
+                "const": "github",
+                "type": "string"
+              },
+              {
+                "const": "file",
+                "type": "string"
+              },
+              {
+                "const": "api",
+                "type": "string"
+              },
+              {
+                "const": "other",
+                "type": "string"
+              }
+            ]
+          },
+          "source_locator": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "event_kind": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "thread_locator": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "provider_event_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "body_preview": {
+            "minLength": 1,
+            "maxLength": 2000,
+            "type": "string"
+          },
+          "confidence": {
+            "minimum": 0,
+            "maximum": 1,
+            "type": "number"
+          },
+          "fingerprint": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "occurred_at": {
+            "minLength": 1,
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "dedupe": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "algorithm",
+        "source_locator",
+        "fingerprint"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "sha256",
+          "type": "string"
+        },
+        "source_locator": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "fingerprint": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "provider_event_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "duplicate_of": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "candidate_work_item_ids": {
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          }
+        }
+      }
+    },
+    "triage": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "category",
+        "severity",
+        "confidence",
+        "action",
+        "needs_human",
+        "rationale"
+      ],
+      "properties": {
+        "category": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "const": "low",
+              "type": "string"
+            },
+            {
+              "const": "medium",
+              "type": "string"
+            },
+            {
+              "const": "high",
+              "type": "string"
+            },
+            {
+              "const": "critical",
+              "type": "string"
+            }
+          ]
+        },
+        "confidence": {
+          "minimum": 0,
+          "maximum": 1,
+          "type": "number"
+        },
+        "action": {
+          "anyOf": [
+            {
+              "const": "reply-only",
+              "type": "string"
+            },
+            {
+              "const": "issue-intake",
+              "type": "string"
+            },
+            {
+              "const": "work-plan",
+              "type": "string"
+            },
+            {
+              "const": "issue-to-pr",
+              "type": "string"
+            },
+            {
+              "const": "manual-review",
+              "type": "string"
+            }
+          ]
+        },
+        "recommended_lane": {
+          "anyOf": [
+            {
+              "const": "reply-only",
+              "type": "string"
+            },
+            {
+              "const": "issue-intake",
+              "type": "string"
+            },
+            {
+              "const": "work-plan",
+              "type": "string"
+            },
+            {
+              "const": "issue-to-pr",
+              "type": "string"
+            },
+            {
+              "const": "manual-review",
+              "type": "string"
+            }
+          ]
+        },
+        "needs_human": {
+          "type": "boolean"
+        },
+        "rationale": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "change_set": {
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {}
+      }
+    },
+    "plan": {
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {}
+      }
+    },
+    "owner_suggestion": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "owner",
+        "rationale"
+      ],
+      "properties": {
+        "owner": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "confidence": {
+          "minimum": 0,
+          "maximum": 1,
+          "type": "number"
+        },
+        "rationale": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "target_repo_suggestion": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "repo",
+        "rationale"
+      ],
+      "properties": {
+        "repo": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "confidence": {
+          "minimum": 0,
+          "maximum": 1,
+          "type": "number"
+        },
+        "rationale": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "issue": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "provider",
+        "locator"
+      ],
+      "properties": {
+        "provider": {
+          "anyOf": [
+            {
+              "const": "slack",
+              "type": "string"
+            },
+            {
+              "const": "sentry",
+              "type": "string"
+            },
+            {
+              "const": "github",
+              "type": "string"
+            },
+            {
+              "const": "file",
+              "type": "string"
+            },
+            {
+              "const": "api",
+              "type": "string"
+            },
+            {
+              "const": "other",
+              "type": "string"
+            }
+          ]
+        },
+        "locator": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "url": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "pull_request": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "provider",
+        "locator"
+      ],
+      "properties": {
+        "provider": {
+          "anyOf": [
+            {
+              "const": "slack",
+              "type": "string"
+            },
+            {
+              "const": "sentry",
+              "type": "string"
+            },
+            {
+              "const": "github",
+              "type": "string"
+            },
+            {
+              "const": "file",
+              "type": "string"
+            },
+            {
+              "const": "api",
+              "type": "string"
+            },
+            {
+              "const": "other",
+              "type": "string"
+            }
+          ]
+        },
+        "locator": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "url": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "merge_gate": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "required",
+        "summary"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "summary": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "reviewer_handoff": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "provider_ref": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "provider",
+            "locator"
+          ],
+          "properties": {
+            "provider": {
+              "anyOf": [
+                {
+                  "const": "slack",
+                  "type": "string"
+                },
+                {
+                  "const": "sentry",
+                  "type": "string"
+                },
+                {
+                  "const": "github",
+                  "type": "string"
+                },
+                {
+                  "const": "file",
+                  "type": "string"
+                },
+                {
+                  "const": "api",
+                  "type": "string"
+                },
+                {
+                  "const": "other",
+                  "type": "string"
+                }
+              ]
+            },
+            "locator": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "url": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "status": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "outcome": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "state",
+        "summary"
+      ],
+      "properties": {
+        "state": {
+          "anyOf": [
+            {
+              "const": "merged",
+              "type": "string"
+            },
+            {
+              "const": "closed",
+              "type": "string"
+            },
+            {
+              "const": "rejected",
+              "type": "string"
+            },
+            {
+              "const": "superseded",
+              "type": "string"
+            }
+          ]
+        },
+        "summary": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "observed_at": {
+          "minLength": 1,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "type": "string"
+        },
+        "provider_ref": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "provider",
+            "locator"
+          ],
+          "properties": {
+            "provider": {
+              "anyOf": [
+                {
+                  "const": "slack",
+                  "type": "string"
+                },
+                {
+                  "const": "sentry",
+                  "type": "string"
+                },
+                {
+                  "const": "github",
+                  "type": "string"
+                },
+                {
+                  "const": "file",
+                  "type": "string"
+                },
+                {
+                  "const": "api",
+                  "type": "string"
+                },
+                {
+                  "const": "other",
+                  "type": "string"
+                }
+              ]
+            },
+            "locator": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "url": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "status": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "status_summary": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "created_at": {
+      "minLength": 1,
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "type": "string"
+    },
+    "updated_at": {
+      "minLength": 1,
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "type": "string"
+    }
+  }
+}

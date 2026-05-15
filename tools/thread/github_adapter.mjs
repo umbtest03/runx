@@ -754,7 +754,7 @@ export function pushGitHubMessage({
   });
   const commentBodyWithMetadata = ensureGitHubOutboxMetadataMarker(commentBody, commentMetadata);
   if (shouldPublish) {
-    runCommand(resolveGhBinary(env), [
+    runGhCommand([
       "issue",
       "comment",
       issueRef.issue_number,
@@ -767,7 +767,7 @@ export function pushGitHubMessage({
       env,
     }, { tokenFallback: true });
   } else {
-    runCommand(resolveGhBinary(env), [
+    runGhCommand([
       "api",
       `repos/${repoSlug}/issues/comments/${commentId}`,
       "--method",
@@ -777,7 +777,7 @@ export function pushGitHubMessage({
     ], {
       cwd: workspacePath ?? process.cwd(),
       env,
-    });
+    }, { tokenFallback: true });
   }
 
   return {

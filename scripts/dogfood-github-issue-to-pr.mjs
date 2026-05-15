@@ -11,6 +11,7 @@ import {
   fetchGitHubIssueThread,
   firstNonEmptyString,
   parseGitHubIssueRef,
+  pushGitHubMessage,
   selectPreferredGitHubPullRequest,
 } from "../tools/thread/github_adapter.mjs";
 import { sanitizePublicMarkdown } from "../tools/public_markdown.mjs";
@@ -24,8 +25,19 @@ class DogfoodPreflightError extends Error {
 
 try {
   const args = parseArgs(process.argv.slice(2));
-  const issueRef = parseGitHubIssueRef(`${requiredFlag(args, "repo")}#issue/${requiredFlag(args, "issue")}`);
-  const workspace = path.resolve(requiredFlag(args, "workspace"));
+  if (args.help) {
+    process.stdout.write(dogfoodHelp());
+    process.exit(0);
+  }
+  const mode = normalizeMode(args);
+  const resolved = resolveDogfoodConfig(args, { mode });
+  if (!resolved.ok) {
+    process.stdout.write(`${JSON.stringify(resolved.payload, null, 2)}\n`);
+    process.exitCode = resolved.exitCode;
+    process.exit(resolved.exitCode);
+  }
+  const issueRef = parseGitHubIssueRef(`${resolved.repo}#issue/${resolved.issue}`);
+  const workspace = path.resolve(resolved.workspace);
   const taskId = firstNonEmptyString(args.task_id, args.branch, `issue-${issueRef.issue_number}`);
   const branchName = firstNonEmptyString(args.branch, taskId);
   const scafldBin = firstNonEmptyString(
@@ -40,11 +52,24 @@ try {
     scafldBin,
     taskId,
     branchName,
+    allowlist: resolved.allowlist,
   });
 
-  if (args.preflight) {
+  if (mode === "preflight") {
     process.stdout.write(`${JSON.stringify(preflight, null, 2)}\n`);
     process.exitCode = preflight.status === "ready" ? 0 : 1;
+  } else if (mode === "observe") {
+    if (preflight.status === "blocked") {
+      throw new DogfoodPreflightError(preflight);
+    }
+    const observed = observeDogfoodOutcome({
+      issueRef,
+      workspace,
+      taskId,
+      branchName,
+      env: process.env,
+    });
+    process.stdout.write(`${JSON.stringify(observed, null, 2)}\n`);
   } else if (preflight.status === "blocked") {
     throw new DogfoodPreflightError(preflight);
   } else {
@@ -58,7 +83,11 @@ try {
       root: runtimeRoot,
       receiptDir: args.receipt_dir ? path.resolve(args.receipt_dir) : undefined,
       runxHome: args.runx_home ? path.resolve(args.runx_home) : undefined,
-      env: process.env,
+      env: {
+        ...process.env,
+        RUNX_CWD: workspace,
+        INIT_CWD: workspace,
+      },
     });
 
     const before = fetchGitHubIssueThread({
@@ -96,7 +125,7 @@ try {
       ? safeJsonParse(result.execution.stdout)
       : undefined;
     const preferredBeforePull = selectPreferredGitHubPullRequest(
-      before.outbox.map((entry) => ({
+      threadOutbox(before).map((entry) => ({
         number: optionalNumber(entry.metadata?.number),
         url: entry.locator,
         headRefName: entry.metadata?.branch,
@@ -107,7 +136,7 @@ try {
       branchName,
     );
     const preferredAfterPull = selectPreferredGitHubPullRequest(
-      after.outbox.map((entry) => ({
+      threadOutbox(after).map((entry) => ({
         number: optionalNumber(entry.metadata?.number),
         url: entry.locator,
         headRefName: entry.metadata?.branch,
@@ -121,16 +150,27 @@ try {
     const output = {
       status: result.status,
       task_id: taskId,
+      mode,
       repo: issueRef.repo_slug,
       issue: {
         number: issueRef.issue_number,
         url: issueRef.issue_url,
       },
-      workspace,
-      receipt_dir: runtime.paths.receiptDir,
-      runx_home: runtime.paths.runxHome,
+      workspace: summarizeLocalPath(workspace),
+      receipt_dir: summarizeLocalPath(runtime.paths.receiptDir),
+      runx_home: summarizeLocalPath(runtime.paths.runxHome),
       before: summarizeThread(before, preferredBeforePull),
       after: summarizeThread(after, preferredAfterPull),
+      dossier: buildDogfoodDossier({
+        issueRef,
+        taskId,
+        branchName,
+        result,
+        before,
+        after,
+        preferredPull: preferredAfterPull,
+        executionPayload,
+      }),
       execution: executionPayload,
     };
 
@@ -160,16 +200,27 @@ function parseArgs(argv) {
   const parsed = {};
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
+    if (token === "--") {
+      continue;
+    }
     if (!token.startsWith("--")) {
       throw new Error(`unexpected argument: ${token}`);
     }
     const key = token.slice(2).replace(/-/g, "_");
     const next = argv[index + 1];
+    const value = !next || next.startsWith("--")
+      ? true
+      : next;
+    if (parsed[key] === undefined) {
+      parsed[key] = value;
+    } else if (Array.isArray(parsed[key])) {
+      parsed[key].push(value);
+    } else {
+      parsed[key] = [parsed[key], value];
+    }
     if (!next || next.startsWith("--")) {
-      parsed[key] = true;
       continue;
     }
-    parsed[key] = next;
     index += 1;
   }
   return parsed;
@@ -183,7 +234,186 @@ function requiredFlag(argsRecord, key) {
   return value;
 }
 
-async function buildDogfoodPreflight({ args: argsRecord, issueRef, workspace, scafldBin, taskId, branchName }) {
+function normalizeMode(argsRecord) {
+  const mode = firstNonEmptyString(argsRecord.mode);
+  if (argsRecord.preflight === true) {
+    return "preflight";
+  }
+  if (argsRecord.observe_outcome === true || mode === "observe" || mode === "outcome") {
+    return "observe";
+  }
+  if (!mode || mode === "create" || mode === "live-create") {
+    return "create";
+  }
+  if (mode === "preflight") {
+    return "preflight";
+  }
+  throw new Error("--mode must be one of preflight, create, or observe.");
+}
+
+function resolveDogfoodConfig(argsRecord, { mode }) {
+  const repo = firstNonEmptyString(argsRecord.repo, process.env.RUNX_LIVE_ISSUE_TO_PR_REPO);
+  const issue = firstNonEmptyString(argsRecord.issue, process.env.RUNX_LIVE_ISSUE_TO_PR_ISSUE);
+  const workspace = firstNonEmptyString(argsRecord.workspace, process.env.RUNX_LIVE_ISSUE_TO_PR_WORKSPACE);
+  const allowlist = parseDogfoodRepoAllowlist(argsRecord, process.env);
+  const missing = [
+    repo ? undefined : "repo",
+    issue ? undefined : "issue",
+    workspace ? undefined : "workspace",
+  ].filter(Boolean);
+  if (missing.length === 0) {
+    const allowlistCheck = inspectDogfoodRepoAllowlist(repo, allowlist);
+    if (allowlistCheck.status === "blocked") {
+      return {
+        ok: false,
+        payload: {
+          status: "blocked",
+          reason: "live_issue_to_pr_repo_not_allowlisted",
+          mode,
+          repo,
+          allowed_repos: allowlist,
+          mutation: "none",
+          check: allowlistCheck,
+          next: "Add the proving-ground repo with --allow-repo or RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS before running live create/observe.",
+        },
+        exitCode: 1,
+      };
+    }
+    return { ok: true, repo: allowlistCheck.repo, issue, workspace, allowlist };
+  }
+  const payload = {
+    status: "skipped",
+    reason: "live_issue_to_pr_target_not_configured",
+    mode,
+    missing,
+    required: {
+      repo: "pass --repo or RUNX_LIVE_ISSUE_TO_PR_REPO",
+      issue: "pass --issue or RUNX_LIVE_ISSUE_TO_PR_ISSUE",
+      workspace: "pass --workspace or RUNX_LIVE_ISSUE_TO_PR_WORKSPACE",
+      allowlist: "pass --allow-repo or RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS",
+    },
+    mutation: "none",
+    next: "Configure an allowlisted proving-ground repo and rerun preflight before create mode.",
+  };
+  return {
+    ok: false,
+    payload,
+    exitCode: mode === "preflight" ? 0 : 1,
+  };
+}
+
+function parseDogfoodRepoAllowlist(argsRecord, env) {
+  const values = [
+    ...arrayValues(argsRecord.allow_repo),
+    ...splitList(env?.RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS),
+  ];
+  const seen = new Set();
+  const repos = [];
+  for (const value of values) {
+    const repo = normalizeRepoSlug(value);
+    if (!repo || seen.has(repo)) {
+      continue;
+    }
+    seen.add(repo);
+    repos.push(repo);
+  }
+  return repos;
+}
+
+function inspectDogfoodRepoAllowlist(repo, allowlist) {
+  const normalizedRepo = normalizeRepoSlug(repo);
+  if (!normalizedRepo) {
+    return {
+      name: "target_repo_allowlist",
+      status: "blocked",
+      repo,
+      allowed_repos: allowlist,
+      reason: "target repo must be an owner/repo slug.",
+      next: "Pass a GitHub repo slug like owner/repo.",
+    };
+  }
+  if (!Array.isArray(allowlist) || allowlist.length === 0) {
+    return {
+      name: "target_repo_allowlist",
+      status: "blocked",
+      repo: normalizedRepo,
+      allowed_repos: [],
+      reason: "live issue-to-PR requires an explicit proving-ground repo allowlist.",
+      next: "Pass --allow-repo owner/repo or set RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS=owner/repo.",
+    };
+  }
+  if (!allowlist.includes(normalizedRepo)) {
+    return {
+      name: "target_repo_allowlist",
+      status: "blocked",
+      repo: normalizedRepo,
+      allowed_repos: allowlist,
+      reason: "target repo is not in the configured proving-ground allowlist.",
+      next: "Use a configured proving-ground repo, or intentionally add this repo to --allow-repo/RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS.",
+    };
+  }
+  return {
+    name: "target_repo_allowlist",
+    status: "ready",
+    repo: normalizedRepo,
+    allowed_repos: allowlist,
+    reason: "target repo is explicitly allowlisted for live dogfood mutation.",
+  };
+}
+
+function arrayValues(value) {
+  const values = Array.isArray(value) ? value : [value];
+  return values.flatMap((entry) => splitList(entry));
+}
+
+function splitList(value) {
+  const text = firstNonEmptyString(value);
+  if (!text) {
+    return [];
+  }
+  return text
+    .split(/[,\s]+/g)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function normalizeRepoSlug(value) {
+  const text = firstNonEmptyString(value);
+  if (!text) {
+    return undefined;
+  }
+  const normalized = text.trim().toLowerCase();
+  return /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(normalized)
+    ? normalized
+    : undefined;
+}
+
+function dogfoodHelp() {
+  return `GitHub issue-to-PR dogfood harness
+
+Modes:
+  --mode preflight, --preflight  Validate target, scafld, branch, and local tooling. No mutation.
+  --mode create                 Run the governed issue-to-PR lane. May create/update branch, issue comments, and PR.
+  --mode observe                Observe PR/issue outcome after a human merge or close. No code mutation; terminal outcomes upsert a source-thread comment.
+
+Mutation gates:
+  - target repo and issue are explicit flags or RUNX_LIVE_ISSUE_TO_PR_* env
+  - target repo must be in --allow-repo or RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS
+  - workspace must be a git repo with .scafld
+  - branch must match the generated task branch, or --prepare-branch must be explicit
+  - dirty worktrees block branch preparation
+  - scafld must be executable from the target workspace
+  - provider publication requires explicit RUNX_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN env
+  - missing live target config makes preflight return a skipped JSON payload with exit 0
+
+Examples:
+  pnpm live:issue-to-pr -- --allow-repo owner/repo --repo owner/repo --issue 123 --workspace /repo
+  pnpm dogfood:github-issue-to-pr -- --mode create --prepare-branch --allow-repo owner/repo --repo owner/repo --issue 123 --workspace /repo
+  pnpm dogfood:github-issue-to-pr -- --mode observe --allow-repo owner/repo --repo owner/repo --issue 123 --workspace /repo
+`;
+}
+
+async function buildDogfoodPreflight({ args: argsRecord, issueRef, workspace, scafldBin, taskId, branchName, allowlist }) {
   const workspaceCheck = await inspectWorkspace(workspace);
   const scafldCheck = workspaceCheck.status === "ready"
     ? inspectCommand({
@@ -226,7 +456,9 @@ async function buildDogfoodPreflight({ args: argsRecord, issueRef, workspace, sc
       source: "env:RUNX_BIN",
       reason: "RUNX_BIN is not set; this script uses the local package runtime directly.",
     };
+  const githubPublishAuthCheck = inspectGitHubPublishAuth(process.env);
   const checks = {
+    target_repo_allowlist: inspectDogfoodRepoAllowlist(issueRef.repo_slug, allowlist),
     workspace: workspaceCheck,
     branch: workspaceCheck.status === "ready"
       ? inspectGitBranch(workspace, branchName, {
@@ -237,9 +469,10 @@ async function buildDogfoodPreflight({ args: argsRecord, issueRef, workspace, sc
           status: "skipped",
           reason: "workspace is not ready",
           expected: branchName,
-        },
+    },
     scafld: scafldCheck,
     runx_bin: runxBinCheck,
+    github_publish_auth: githubPublishAuthCheck,
     github: {
       status: "deferred",
       reason: "GitHub issue hydration runs after local runner and workspace checks.",
@@ -248,6 +481,7 @@ async function buildDogfoodPreflight({ args: argsRecord, issueRef, workspace, sc
   const blocking = Object.values(checks).filter((check) => check.status === "blocked");
   const nextCommand = [
     "pnpm dogfood:github-issue-to-pr --",
+    "--allow-repo", issueRef.repo_slug,
     "--repo", issueRef.repo_slug,
     "--issue", issueRef.issue_number,
     "--workspace", shellQuote(workspace),
@@ -270,6 +504,21 @@ async function buildDogfoodPreflight({ args: argsRecord, issueRef, workspace, sc
     task_id: taskId,
     branch: branchName,
     workspace,
+    modes: {
+      preflight: "read-only local validation; no provider mutation",
+      create: "runs issue-to-pr and may create/update the issue thread and PR",
+      observe: "observes provider state after a human merge or close; no code mutation; terminal outcomes upsert one source-thread comment",
+    },
+    mutation_gates: [
+      "explicit repo, issue, and workspace",
+      "target repo is in the explicit proving-ground allowlist",
+      "workspace .scafld exists",
+      "workspace is on the intended issue branch or --prepare-branch is explicit",
+      "dirty worktrees block branch preparation",
+      "scafld list --json succeeds from the target workspace",
+      "explicit GitHub token env is present for the provider-push sandbox",
+      "human merge remains outside the harness",
+    ],
     checks,
     next_command: nextCommand,
     next_action: blocking.length > 0
@@ -540,6 +789,26 @@ function inspectCommand({ name, source, command, requested, args: commandArgs, c
   };
 }
 
+function inspectGitHubPublishAuth(env) {
+  const present = ["RUNX_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"]
+    .filter((name) => firstNonEmptyString(env?.[name]));
+  if (present.length > 0) {
+    return {
+      name: "github_publish_auth",
+      status: "ready",
+      source: present,
+      reason: "explicit token env is available to the provider-push sandbox.",
+    };
+  }
+  return {
+    name: "github_publish_auth",
+    status: "blocked",
+    source: [],
+    reason: "GitHub issue hydration can use ambient gh auth, but thread.push_outbox receives only explicit token env.",
+    next: "Export RUNX_GITHUB_TOKEN, GH_TOKEN, or GITHUB_TOKEN before create/observe publication. For local dogfood, use `export RUNX_GITHUB_TOKEN=\"$(gh auth token)\"` in the shell running the harness.",
+  };
+}
+
 function resolveCommandCandidate(candidate, baseDir) {
   const value = firstNonEmptyString(candidate);
   if (!value) {
@@ -591,14 +860,14 @@ async function createAnswersCaller(answersPath) {
 }
 
 function firstIssueBody(state) {
-  const issueEntry = state.entries.find((entry) => String(entry.entry_id).startsWith("issue-"));
+  const issueEntry = threadEntries(state).find((entry) => String(entry.entry_id).startsWith("issue-"));
   return firstNonEmptyString(issueEntry?.body);
 }
 
 function summarizeThread(state, preferredPull) {
   return {
-    entries: state.entries.length,
-    outbox: state.outbox.length,
+    entries: threadEntries(state).length,
+    outbox: threadOutbox(state).length,
     cursor: state.adapter.cursor,
     preferred_pull_request: preferredPull
       ? {
@@ -612,6 +881,208 @@ function summarizeThread(state, preferredPull) {
   };
 }
 
+function buildDogfoodDossier({
+  issueRef,
+  taskId,
+  branchName,
+  result,
+  before,
+  after,
+  preferredPull,
+  executionPayload,
+}) {
+  return {
+    schema: "runx.dogfood.issue_to_pr.v1",
+    status: result.status,
+    task_id: taskId,
+    branch: branchName,
+    source_issue_url: issueRef.issue_url,
+    pull_request_url: firstNonEmptyString(preferredPull?.url),
+    receipt_id: firstNonEmptyString(result.receipt?.id),
+    human_gate: {
+      required: true,
+      state: preferredPull ? "pr_ready" : "not_reached",
+      summary: preferredPull
+        ? "PR is created or refreshed; a human must merge or close it."
+        : "PR was not observed after the run.",
+    },
+    milestones: {
+      before_outbox_count: threadOutbox(before).length,
+      after_outbox_count: threadOutbox(after).length,
+      execution_status: result.status,
+      review_verdict: firstNonEmptyString(executionPayload?.draft_pull_request?.governance?.review_verdict),
+    },
+  };
+}
+
+function observeDogfoodOutcome({ issueRef, workspace, taskId, branchName, env }) {
+  const thread = fetchGitHubIssueThread({
+    adapterRef: issueRef.adapter_ref,
+    env,
+    cwd: workspace,
+  });
+  const preferredPull = selectPreferredGitHubPullRequest(
+    threadOutbox(thread).map((entry) => ({
+      number: optionalNumber(entry.metadata?.number),
+      url: entry.locator,
+      headRefName: entry.metadata?.branch,
+      updatedAt: entry.metadata?.updated_at,
+      isDraft: entry.status === "draft",
+      state: entry.status === "closed" ? "CLOSED" : "OPEN",
+      mergedAt: entry.metadata?.merged_at,
+    })),
+    branchName,
+  );
+  const providerOutcome = observedProviderOutcome(preferredPull);
+  const pushed = providerOutcome
+    ? pushGitHubMessage({
+        thread,
+        outboxEntry: buildDogfoodOutcomeOutboxEntry({
+          issueRef,
+          taskId,
+          branchName,
+          preferredPull,
+          providerOutcome,
+        }),
+        workspacePath: workspace,
+        nextStatus: "published",
+        env,
+      })
+    : undefined;
+  const refreshedThread = pushed
+    ? fetchGitHubIssueThread({
+        adapterRef: issueRef.adapter_ref,
+        env,
+        cwd: workspace,
+      })
+    : thread;
+  return {
+    status: preferredPull ? "observed" : "blocked",
+    reason: preferredPull
+      ? providerOutcome
+        ? "dogfood_outcome_published"
+        : "dogfood_pr_open_human_gate_pending"
+      : "dogfood_pr_not_found",
+    mode: "observe",
+    mutation: pushed ? "source_thread_comment" : "none",
+    source_issue_url: issueRef.issue_url,
+    pull_request_url: firstNonEmptyString(preferredPull?.url),
+    pull_request: preferredPull
+      ? {
+          number: firstNonEmptyString(preferredPull.number),
+          url: firstNonEmptyString(preferredPull.url),
+          branch: firstNonEmptyString(preferredPull.headRefName),
+          state: firstNonEmptyString(preferredPull.state),
+          outcome: providerOutcome,
+          merged_at: firstNonEmptyString(preferredPull.mergedAt),
+          is_draft: preferredPull.isDraft === true,
+        }
+      : undefined,
+    outcome_comment: pushed
+      ? {
+          locator: firstNonEmptyString(pushed.message?.locator, pushed.outbox_entry?.locator),
+          comment_id: firstNonEmptyString(pushed.message?.comment_id, pushed.outbox_entry?.metadata?.comment_id),
+        }
+      : undefined,
+    thread: summarizeThread(refreshedThread, preferredPull),
+    next: preferredPull
+      ? providerOutcome
+        ? "Terminal provider outcome has been recorded on the source thread."
+        : "Human merge gate is still pending; merge or close the PR outside the harness, then observe again."
+      : "Run create mode first, or pass the branch that matches the PR created for this issue.",
+  };
+}
+
+function observedProviderOutcome(preferredPull) {
+  if (!preferredPull) {
+    return undefined;
+  }
+  if (firstNonEmptyString(preferredPull.mergedAt, preferredPull.merged_at)) {
+    return "merged";
+  }
+  if (String(preferredPull.state ?? "").toUpperCase() === "CLOSED") {
+    return "closed";
+  }
+  return undefined;
+}
+
+function buildDogfoodOutcomeOutboxEntry({
+  issueRef,
+  taskId,
+  branchName,
+  preferredPull,
+  providerOutcome,
+}) {
+  const entryId = `message:${taskId}:outcome`;
+  return {
+    entry_id: entryId,
+    kind: "message",
+    status: "pending",
+    thread_locator: issueRef.thread_locator,
+    title: "Issue-to-PR outcome",
+    metadata: {
+      schema_version: "runx.outbox-entry.message.v1",
+      channel: "github_issue_comment",
+      outbox_receipt_id: `dogfood-outcome:${taskId}`,
+      body_markdown: buildDogfoodOutcomeMarkdown({
+        issueRef,
+        taskId,
+        branchName,
+        preferredPull,
+        providerOutcome,
+      }),
+    },
+  };
+}
+
+function buildDogfoodOutcomeMarkdown({
+  issueRef,
+  taskId,
+  branchName,
+  preferredPull,
+  providerOutcome,
+}) {
+  const pullUrl = firstNonEmptyString(preferredPull?.url);
+  const mergedAt = firstNonEmptyString(preferredPull?.mergedAt, preferredPull?.merged_at);
+  const summary = providerOutcome === "merged"
+    ? "The generated PR was merged by a human."
+    : "The generated PR was closed by a human.";
+  const lines = [
+    "## Issue-to-PR outcome",
+    "",
+    summary,
+    "",
+    `- Source issue: ${issueRef.issue_url}`,
+    pullUrl ? `- Pull request: ${pullUrl}` : undefined,
+    `- Branch: ${branchName}`,
+    `- scafld task: ${taskId}`,
+    `- Outcome: ${providerOutcome}`,
+    mergedAt ? `- Merged at: ${mergedAt}` : undefined,
+    "",
+    "Human merge gate remained outside the harness; observe mode only recorded the provider outcome back to the source thread.",
+  ].filter(Boolean);
+  return sanitizePublicMarkdown(lines.join("\n"));
+}
+
+function summarizeLocalPath(value) {
+  const text = firstNonEmptyString(value);
+  if (!text) {
+    return undefined;
+  }
+  return {
+    basename: path.basename(text),
+    hash: `sha256:${hashString(text).slice(0, 16)}`,
+  };
+}
+
+function hashString(value) {
+  let hash = 5381;
+  for (const char of value) {
+    hash = ((hash << 5) + hash + char.charCodeAt(0)) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
 function safeJsonParse(value) {
   return JSON.parse(value);
 }
@@ -623,6 +1094,14 @@ function isRecord(value) {
 function optionalNumber(value) {
   const text = firstNonEmptyString(value);
   return text ? Number(text) : undefined;
+}
+
+function threadEntries(state) {
+  return Array.isArray(state?.entries) ? state.entries : [];
+}
+
+function threadOutbox(state) {
+  return Array.isArray(state?.outbox) ? state.outbox : [];
 }
 
 function errorMessage(error) {

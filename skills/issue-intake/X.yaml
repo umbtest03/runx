@@ -75,6 +75,33 @@ harness:
               success_criteria:
                 - Public docs point to issue-to-pr as the canonical command.
                 - The change remains bounded to one repo-scoped remediation lane.
+            work_item:
+              schema: runx.work_item.v1
+              work_item_id: wi_docs_work_101
+              state: build_ready
+              source_events:
+                - provider: github
+                  source_locator: github://example/repo/issues/101
+                  thread_locator: github://example/repo/issues/101
+                  title: README should point users to issue-to-pr
+                  body_preview: The public docs should present issue-to-pr as the canonical command.
+              dedupe:
+                algorithm: sha256
+                source_locator: github://example/repo/issues/101
+                fingerprint: sha256:docs-issue-to-pr-command
+              triage:
+                category: docs
+                severity: low
+                confidence: 0.95
+                action: issue-to-pr
+                recommended_lane: issue-to-pr
+                needs_human: false
+                rationale: The report is a bounded one-repo documentation fix with low risk.
+              change_set:
+                change_set_id: change_set_docs_work_101
+              status_summary: Bounded docs fix is ready for issue-to-pr.
+              created_at: "2026-05-15T00:00:00Z"
+              updated_at: "2026-05-15T00:00:00Z"
       expect:
         status: success
         receipt:
@@ -156,6 +183,33 @@ harness:
               success_criteria:
                 - A phased workspace change plan is authored before repo mutation.
                 - Child workers preserve one shared abandoned-cart objective.
+            work_item:
+              schema: runx.work_item.v1
+              work_item_id: wi_abandoned_cart_982
+              state: planning_ready
+              source_events:
+                - provider: other
+                  source_locator: support://request/982
+                  thread_locator: support://request/982
+                  title: Add abandoned cart recovery across email and SMS
+                  body_preview: We need a generated workflow, copy, timing rules, and reporting for abandoned cart recovery.
+              dedupe:
+                algorithm: sha256
+                source_locator: support://request/982
+                fingerprint: sha256:abandoned-cart-recovery
+              triage:
+                category: feature_request
+                severity: medium
+                confidence: 0.86
+                action: work-plan
+                recommended_lane: work-plan
+                needs_human: true
+                rationale: The request spans multiple deliverables and should be planned before mutation.
+              change_set:
+                change_set_id: change_set_abandoned_cart_982
+              status_summary: Cross-surface feature request is ready for work-plan.
+              created_at: "2026-05-15T00:00:00Z"
+              updated_at: "2026-05-15T00:00:00Z"
       expect:
         status: success
         receipt:
@@ -201,6 +255,36 @@ harness:
                 - Do not open a mutation lane for guidance-only requests.
               success_criteria:
                 - The operator sends or adapts the documented API key rotation guidance.
+            work_item:
+              schema: runx.work_item.v1
+              work_item_id: wi_support_983
+              state: outcome_closed
+              source_events:
+                - provider: other
+                  source_locator: support://request/983
+                  thread_locator: support://request/983
+                  title: How do I rotate my API key?
+                  body_preview: I only need the operator instructions for rotating an API key safely.
+              dedupe:
+                algorithm: sha256
+                source_locator: support://request/983
+                fingerprint: sha256:api-key-rotation-guidance
+              triage:
+                category: question
+                severity: low
+                confidence: 0.98
+                action: reply-only
+                recommended_lane: reply-only
+                needs_human: false
+                rationale: No code or planning lane is required to answer this request.
+              change_set:
+                change_set_id: change_set_support_983
+              outcome:
+                state: closed
+                summary: Guidance-only request should be answered without mutation.
+              status_summary: Reply-only request does not need a PR lane.
+              created_at: "2026-05-15T00:00:00Z"
+              updated_at: "2026-05-15T00:00:00Z"
       expect:
         status: success
         receipt:
@@ -261,6 +345,33 @@ harness:
                 - Do not guess the target repo from incomplete issue text.
               success_criteria:
                 - The maintainer confirms the target surface before any planner or worker starts.
+            work_item:
+              schema: runx.work_item.v1
+              work_item_id: wi_support_984
+              state: blocked
+              source_events:
+                - provider: github
+                  source_locator: github://example/repo/issues/984
+                  thread_locator: github://example/repo/issues/984
+                  title: Clarify the affected repo before we start
+                  body_preview: The report mentions API failures and docs drift, but target ownership is ambiguous.
+              dedupe:
+                algorithm: sha256
+                source_locator: github://example/repo/issues/984
+                fingerprint: sha256:ambiguous-api-docs-drift
+              triage:
+                category: other
+                severity: medium
+                confidence: 0.74
+                action: manual-review
+                recommended_lane: manual-review
+                needs_human: false
+                rationale: The maintainer needs to confirm the target surface before mutation starts.
+              change_set:
+                change_set_id: change_set_support_984
+              status_summary: Mutation is blocked until the target surface is confirmed.
+              created_at: "2026-05-15T00:00:00Z"
+              updated_at: "2026-05-15T00:00:00Z"
       expect:
         status: success
         receipt:
@@ -278,6 +389,7 @@ runners:
     outputs:
       intake_report: object
       change_set: object
+      work_item: object
     artifacts:
       wrap_as: issue_intake_packet
       packet: runx.issue.intake.v1
@@ -310,3 +422,11 @@ runners:
         type: string
         required: false
         description: "Tone, escalation, or operator posture guidance."
+      source_event:
+        type: json
+        required: false
+        description: "Optional admitted source event used to seed the portable work-item packet."
+      source_policy:
+        type: json
+        required: false
+        description: "Optional consuming-repo source admission policy; channel and owner rules stay outside runx core."

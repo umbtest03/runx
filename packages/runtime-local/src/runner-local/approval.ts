@@ -76,11 +76,11 @@ export function withSandboxApproval(skill: ValidatedSkill, approvedSandboxEscala
   };
 }
 
-export async function writeApprovalDeniedReceipt(options: {
+export async function writePolicyDeniedReceipt(options: {
   readonly skill: ValidatedSkill;
   readonly inputs: Readonly<Record<string, unknown>>;
   readonly reasons: readonly string[];
-  readonly approval: ApprovalDecision;
+  readonly approval?: ApprovalDecision;
   readonly receiptMetadata?: Readonly<Record<string, unknown>>;
   readonly executionSemantics: NormalizedExecutionSemantics;
   readonly runOptions: {
@@ -108,7 +108,7 @@ export async function writeApprovalDeniedReceipt(options: {
       errorMessage: options.reasons.join("; "),
       metadata: mergeMetadata(
         runnerTrustMetadata(options.skill.source.type),
-        approvalReceiptMetadata(options.approval),
+        options.approval ? approvalReceiptMetadata(options.approval) : undefined,
         options.receiptMetadata,
       ),
     },

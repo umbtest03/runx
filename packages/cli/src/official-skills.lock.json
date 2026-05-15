@@ -41,13 +41,13 @@
   },
   {
     "skill_id": "runx/issue-intake",
-    "version": "sha-3a2f7e12ef13",
-    "digest": "d349985fdb9b414f5369b19f55509954de7011adef4133e78747bf968643e559"
+    "version": "sha-d5e80da230d1",
+    "digest": "05b36157bce03b2bf0b9d9054cc21d2b670f6ea6395eeb4f67410a44ff1e6c3a"
   },
   {
     "skill_id": "runx/issue-to-pr",
-    "version": "sha-f9ba4499433a",
-    "digest": "16b929bad2e02d44474cb03501eaae93a1876a79e3505bbd6e8ac6356398e0cb"
+    "version": "sha-490c358fb19b",
+    "digest": "b7fedbb53b95ae19eabbfcc0ddc16370058f1be2213aa7dbbb1a3355642d091b"
   },
   {
     "skill_id": "runx/issue-triage",
@@ -116,8 +116,8 @@
   },
   {
     "skill_id": "runx/work-plan",
-    "version": "sha-0bdc8e216012",
-    "digest": "7c86d27d3deb99c728df19644ba516e9e574434e52a845ad6de6d1c2c58ba00c"
+    "version": "sha-226d87b8ff3a",
+    "digest": "1f1baf17aa0ec284aa009b52774b7a6d8fbbf9bd226d0babb32e81dbe6fc20c8"
   },
   {
     "skill_id": "runx/write-harness",

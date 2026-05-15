@@ -380,6 +380,20 @@ steps:
         disposition: "policy_denied",
         fanout_group: "advisors",
       });
+      expect(result.receipt?.metadata).toMatchObject({
+        authority_proof: {
+          skill_name: "json-output",
+          source_type: "cli-tool",
+          requested: {
+            connected_auth: false,
+            scopes: [],
+            mutating: false,
+          },
+          credential_material: {
+            status: "not_requested",
+          },
+        },
+      });
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

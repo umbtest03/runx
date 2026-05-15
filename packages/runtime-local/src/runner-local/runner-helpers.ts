@@ -8,6 +8,8 @@ import type { GraphScopeGrant } from "@runxhq/core/policy";
 import { hashStable, type LocalReceipt } from "@runxhq/core/receipts";
 import { isPlainRecord, isRecord } from "@runxhq/core/util";
 
+const atomicMetadataKeys = new Set(["authority_proof"]);
+
 export interface RetryReceiptContext {
   readonly attempt: number;
   readonly maxAttempts: number;
@@ -169,7 +171,9 @@ function mergeRecord(left: Readonly<Record<string, unknown>>, right: Readonly<Re
   const merged: Record<string, unknown> = { ...left };
   for (const [key, value] of Object.entries(right)) {
     const existing = merged[key];
-    merged[key] = isPlainRecord(existing) && isPlainRecord(value) ? mergeRecord(existing, value) : value;
+    merged[key] = isPlainRecord(existing) && isPlainRecord(value) && !atomicMetadataKeys.has(key)
+      ? mergeRecord(existing, value)
+      : value;
   }
   return merged;
 }

@@ -12,6 +12,21 @@ describe("outbox.build_pull_request tool", () => {
       thread_title: "Fix fixture behavior",
       thread_locator: "github://example/repo/issues/123",
       target_repo: "example/repo",
+      work_item: {
+        schema: "runx.work_item.v1",
+        work_item_id: "wi_fixture_123",
+        state: "merge_gate",
+        status_summary: "PR is ready for human merge gate.",
+        dedupe: {
+          fingerprint: "sha256:fixture-123",
+        },
+        triage: {
+          category: "bug",
+          severity: "medium",
+          action: "issue-to-pr",
+          confidence: 0.9,
+        },
+      },
       handoff_markdown: "# Handoff: Fix fixture behavior\n\nStatus: completed\nNext: none\n",
       build_result: {
         status: "review",
@@ -20,8 +35,13 @@ describe("outbox.build_pull_request tool", () => {
       },
       review_result: {
         verdict: "pass_with_issues",
-        blocking_count: 0,
-        non_blocking_count: 1,
+        findings: [
+          {
+            id: "non-blocking-fixture",
+            severity: "low",
+            blocks_completion: false,
+          },
+        ],
       },
       completion_result: {
         status: "completed",
@@ -58,6 +78,10 @@ describe("outbox.build_pull_request tool", () => {
         repo: "example/repo",
         branch: "fixture-task",
         base: "main",
+        work_item: {
+          work_item_id: "wi_fixture_123",
+          state: "merge_gate",
+        },
         review_verdict: "pass_with_issues",
         check_status: "success",
         push_ready: true,
@@ -73,6 +97,13 @@ describe("outbox.build_pull_request tool", () => {
         repo: "example/repo",
         branch: "fixture-task",
         base: "main",
+      },
+      work_item: {
+        work_item_id: "wi_fixture_123",
+        state: "merge_gate",
+        triage: {
+          action: "issue-to-pr",
+        },
       },
       pull_request: {
         title: "Fix fixture behavior",
@@ -195,8 +226,8 @@ describe("outbox.build_pull_request tool", () => {
 
     expect(result.draft_pull_request.pull_request.body_markdown).not.toContain("/Users/kam");
     expect(result.draft_pull_request.pull_request.body_markdown).not.toContain("/tmp/workspace");
-    expect(result.draft_pull_request.pull_request.body_markdown).toContain("RUNX_BIN=[local-path]");
-    expect(result.draft_pull_request.pull_request.body_markdown).toContain("[local-path]");
+    expect(result.draft_pull_request.pull_request.body_markdown).not.toContain("RUNX_BIN=");
+    expect(result.draft_pull_request.pull_request.body_markdown).toContain("Detailed handoff omitted from public markdown");
   });
 });
 

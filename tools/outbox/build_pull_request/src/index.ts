@@ -6,7 +6,11 @@ import {
   recordInput,
   stringInput,
 } from "@runxhq/authoring";
-import { sanitizePublicMarkdown } from "../../../public_markdown.mjs";
+import {
+  renderIssueToPrReviewerMarkdown,
+  sanitizePublicMarkdown,
+  summarizePublicHandoffMarkdown,
+} from "@runxhq/core/knowledge";
 
 export default defineTool({
   name: "outbox.build_pull_request",
@@ -17,6 +21,7 @@ export default defineTool({
     thread_locator: stringInput({ optional: true, description: "Canonical thread locator for the bounded work item." }),
     thread: recordInput({ optional: true, description: "Optional hydrated thread that may already carry a pull_request outbox entry." }),
     outbox_entry: recordInput({ optional: true, description: "Optional current pull_request outbox entry when refreshing an existing draft." }),
+    work_item: recordInput({ optional: true, description: "Optional runx.work_item.v1 packet from the issue control plane." }),
     target_repo: stringInput({ optional: true, description: "Intended repository slug when the caller already knows it." }),
     branch: stringInput({ optional: true, description: "Explicit head branch for provider publication." }),
     fix_bundle: recordInput({ optional: true, description: "Bounded fix bundle used to derive the governed file list for provider publication." }),
@@ -55,6 +60,7 @@ function runBuildPullRequest({ inputs }) {
   const statusSnapshot = unwrapRecord(inputs.status_snapshot);
   const currentBranch = unwrapRecord(inputs.current_branch);
   const thread = optionalRecord(inputs.thread);
+  const workItem = optionalRecord(inputs.work_item);
   const explicitOutboxEntry = optionalRecord(inputs.outbox_entry);
   const fixBundle = unwrapRecord(inputs.fix_bundle);
 
@@ -124,6 +130,7 @@ function runBuildPullRequest({ inputs }) {
       base,
       remote: "origin",
     }),
+    work_item: summarizeWorkItem(workItem),
     pull_request: {
       title,
       body_markdown: buildReviewerPullRequestBody({
@@ -143,7 +150,7 @@ function runBuildPullRequest({ inputs }) {
       }),
       is_draft: true,
     },
-    engineering_summary_markdown: sanitizePublicMarkdown(firstNonEmptyText(handoffMarkdown)) ?? "",
+    engineering_summary_markdown: summarizePublicHandoffMarkdown(firstNonEmptyText(handoffMarkdown)) ?? "",
     checks: Object.keys(check).length > 0 ? check : undefined,
     governance: prune({
       status: firstNonEmptyString(
@@ -181,6 +188,7 @@ function runBuildPullRequest({ inputs }) {
       repo: draftPullRequest.target?.repo,
       branch: draftPullRequest.target?.branch,
       base: draftPullRequest.target?.base,
+      work_item: summarizeWorkItem(workItem),
       title,
       review_verdict: reviewVerdict,
       check_status: checkStatus,
@@ -206,6 +214,34 @@ function runBuildPullRequest({ inputs }) {
     draft_pull_request: draftPullRequest,
     outbox_entry: outboxEntry,
   };
+}
+
+function summarizeWorkItem(workItem) {
+  if (!workItem) {
+    return undefined;
+  }
+  const triage = optionalRecord(workItem.triage);
+  const dedupe = optionalRecord(workItem.dedupe);
+  return prune({
+    schema: firstNonEmptyString(workItem.schema),
+    work_item_id: firstNonEmptyString(workItem.work_item_id),
+    state: firstNonEmptyString(workItem.state),
+    status_summary: firstNonEmptyString(workItem.status_summary),
+    dedupe: dedupe
+      ? prune({
+          fingerprint: firstNonEmptyString(dedupe.fingerprint),
+          duplicate_of: firstNonEmptyString(dedupe.duplicate_of),
+        })
+      : undefined,
+    triage: triage
+      ? prune({
+          category: firstNonEmptyString(triage.category),
+          severity: firstNonEmptyString(triage.severity),
+          action: firstNonEmptyString(triage.action),
+          confidence: typeof triage.confidence === "number" ? triage.confidence : undefined,
+        })
+      : undefined,
+  });
 }
 
 function optionalRecord(value) {
@@ -244,6 +280,16 @@ function reviewFindingCount(reviewResult, severity) {
   if (!Array.isArray(reviewResult.findings)) {
     return undefined;
   }
+  if (severity === "blocking") {
+    return reviewResult.findings
+      .filter((finding) => isRecord(finding) && finding.blocks_completion === true)
+      .length;
+  }
+  if (severity === "non_blocking") {
+    return reviewResult.findings
+      .filter((finding) => isRecord(finding) && finding.blocks_completion === false)
+      .length;
+  }
   return reviewResult.findings
     .filter((finding) => isRecord(finding) && finding.severity === severity)
     .length;
@@ -278,45 +324,29 @@ function buildReviewerPullRequestBody(options) {
     threadLocator,
     threadContext.thread_locator,
   ));
-  const handoff = sanitizePublicMarkdown(firstNonEmptyText(handoffMarkdown));
+  const handoff = firstNonEmptyText(handoffMarkdown);
   const checkStatus = firstNonEmptyString(check.status, buildResult.status);
   const buildPassed = numberOrUndefined(buildResult.passed);
   const buildFailed = numberOrUndefined(buildResult.failed);
   const blockingCount = reviewFindingCount(reviewResult, "blocking");
   const nonBlockingCount = reviewFindingCount(reviewResult, "non_blocking");
   const completedStatus = firstNonEmptyString(completionResult.status, statusSnapshot?.status);
-  const lines = [
-    `# ${sanitizePublicMarkdown(title) ?? taskId}`,
-    "",
-    "## Source Thread",
-    `- Thread: ${sourceLocator ? `\`${sourceLocator}\`` : "not provided"}`,
-    `- Request: ${sourceTitle ?? "not provided"}`,
-    "",
-    "## Scoped Change",
-    `- Task: \`${taskId}\``,
-    `- Branch: ${branch ? `\`${sanitizePublicMarkdown(branch)}\`` : "not reported"}`,
-    `- Base: ${base ? `\`${sanitizePublicMarkdown(base)}\`` : "not reported"}`,
-    `- Governance status: ${completedStatus ?? "not reported"}`,
-    "",
-    "## Validation",
-    `- scafld build: ${checkStatus ?? "not reported"}`,
-    `- Passed: ${buildPassed ?? "not reported"}`,
-    `- Failed: ${buildFailed ?? "not reported"}`,
-    "",
-    "## Review",
-    `- Verdict: ${sanitizePublicMarkdown(reviewVerdict) ?? "not reported"}`,
-    `- Blocking findings: ${blockingCount ?? "not reported"}`,
-    `- Non-blocking findings: ${nonBlockingCount ?? "not reported"}`,
-    "",
-    "## Human Merge Gate",
-    "- This PR is generated and reviewable; runx will not merge it.",
-    "- A human reviewer must merge, close, or request changes.",
-    "- After provider state changes, the source thread can be updated with the observed outcome.",
-    "",
-    "## scafld Handoff",
-    handoff ?? "No scafld handoff was reported.",
-  ];
-  return `${lines.join("\n")}\n`;
+  return renderIssueToPrReviewerMarkdown({
+    taskId,
+    title,
+    sourceTitle,
+    sourceLocator,
+    branch,
+    base,
+    governanceStatus: completedStatus,
+    checkStatus,
+    buildPassed,
+    buildFailed,
+    reviewVerdict,
+    blockingCount,
+    nonBlockingCount,
+    handoffMarkdown: handoff,
+  });
 }
 
 function firstNonEmptyText(...values) {

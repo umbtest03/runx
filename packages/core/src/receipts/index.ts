@@ -638,6 +638,9 @@ function redactValue(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => redactValue(item));
   }
+  if (typeof value === "string") {
+    return redactSecretString(value);
+  }
   if (value === null || typeof value !== "object") {
     return value;
   }
@@ -651,7 +654,19 @@ function redactValue(value: unknown): unknown {
 }
 
 function isSecretKey(key: string): boolean {
-  return /(access[_-]?token|refresh[_-]?token|api[_-]?key|client[_-]?secret|password|raw[_-]?secret|raw[_-]?token)/i.test(key);
+  const normalized = key.toLowerCase();
+  if (/(material[_-]?ref[_-]?hash|materialrefhash)/i.test(normalized)) {
+    return false;
+  }
+  return /(access[_-]?token|refresh[_-]?token|api[_-]?key|client[_-]?secret|password|material[_-]?ref|materialref|raw[_-]?secret|raw[_-]?token)/i.test(normalized);
+}
+
+function redactSecretString(value: string): string {
+  return value
+    .replace(/\b(gh[pousr]_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})\b/g, "[redacted]")
+    .replace(/\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b/g, "[redacted]")
+    .replace(/\b((?:bearer|authorization)\s+)[A-Za-z0-9._:-]{6,}\b/gi, "$1[redacted]")
+    .replace(/\b[A-Za-z0-9]+(?:[-_](?:secret|token|password|api[-_]?key))+[A-Za-z0-9_-]*\b(?!\s*=)/gi, "[redacted]");
 }
 
 function receiptTimestamp(receipt: LocalReceipt): string {

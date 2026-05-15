@@ -1,0 +1,32 @@
+{
+  "schema": "runx.tool.manifest.v1",
+  "name": "control.capture_work_item",
+  "description": "Capture the current work-item packet as an explicit graph context value.",
+  "source": {
+    "type": "cli-tool",
+    "command": "node",
+    "args": [
+      "./run.mjs"
+    ]
+  },
+  "inputs": {
+    "work_item": {
+      "type": "json",
+      "required": false,
+      "description": "Optional runx.work_item.v1 packet from the issue control plane."
+    }
+  },
+  "output": {},
+  "scopes": [
+    "runx:control:read"
+  ],
+  "runtime": {
+    "command": "node",
+    "args": [
+      "./run.mjs"
+    ]
+  },
+  "source_hash": "sha256:38bf9ce1c0386a4ba7e837e44df1476aceb9062218a07cd869511075376c9846",
+  "schema_hash": "sha256:0eb4e57f229a262572bd9d150d57b91146fd868feafdc01094b848b265488728",
+  "toolkit_version": "0.1.4"
+}

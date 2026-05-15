@@ -236,6 +236,72 @@ describe("thread.push_outbox tool", () => {
     }
   });
 
+  it("updates one file-backed story entry when the same stable message id is pushed twice", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-thread-tool-story-idempotency-"));
+    const statePath = path.join(tempDir, "thread.json");
+
+    try {
+      const baseThread = {
+        kind: "runx.thread.v1",
+        adapter: {
+          type: "file",
+          adapter_ref: statePath,
+        },
+        thread_kind: "work_item",
+        thread_locator: "local://provider/issues/123",
+        entries: [],
+        decisions: [],
+        outbox: [],
+        source_refs: [],
+      };
+      await writeFile(statePath, `${JSON.stringify(baseThread, null, 2)}\n`);
+
+      const first = runTool({
+        thread: baseThread,
+        outbox_entry: {
+          entry_id: "message:fixture-task:merge_gate",
+          kind: "message",
+          title: "Issue-to-PR story",
+          status: "proposed",
+          thread_locator: "local://provider/issues/123",
+          metadata: {
+            schema_version: "runx.outbox-entry.work-item-story.v1",
+            body_markdown: "Human merge gate is ready.",
+          },
+        },
+        next_status: "published",
+      });
+
+      const second = runTool({
+        thread: first.thread,
+        outbox_entry: {
+          entry_id: "message:fixture-task:merge_gate",
+          kind: "message",
+          title: "Issue-to-PR story",
+          status: "proposed",
+          thread_locator: "local://provider/issues/123",
+          metadata: {
+            schema_version: "runx.outbox-entry.work-item-story.v1",
+            body_markdown: "Human merge gate now includes the PR link.",
+          },
+        },
+        next_status: "published",
+      });
+
+      expect(second.outbox_entry.locator).toBe(first.outbox_entry.locator);
+      expect(second.thread.outbox).toHaveLength(1);
+      expect(second.thread.outbox[0]).toMatchObject({
+        entry_id: "message:fixture-task:merge_gate",
+        status: "published",
+        metadata: {
+          body_markdown: "Human merge gate now includes the PR link.",
+        },
+      });
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("pushes a GitHub draft pull request, rehydrates the issue thread, and returns refreshed thread", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-thread-gh-tool-"));
     const workspace = path.join(tempDir, "workspace");
@@ -1496,13 +1562,16 @@ describe("thread.push_outbox tool", () => {
           metadata: {
             schema_version: "runx.outbox-entry.message.v1",
             channel: "github_issue_comment",
-            body_markdown: "I built a private Sourcey preview for this repo.",
+            body_markdown: "I built a private Sourcey preview for this repo. Provider token sk-proj-abcdefghijklmnopqrstuvwx1234567890",
           },
         },
         next_status: "published",
       }, {
         RUNX_GH_BIN: fakeGh,
         RUNX_FAKE_GH_STATE: fakeState,
+        RUNX_GITHUB_TOKEN: "runx-token-123",
+        GH_TOKEN: undefined,
+        GITHUB_TOKEN: undefined,
       });
 
       expect(result).toMatchObject({
@@ -1550,11 +1619,12 @@ describe("thread.push_outbox tool", () => {
       expect(result.thread.entries).toEqual(expect.arrayContaining([
         expect.objectContaining({
           entry_id: "comment-1000",
-          body: "I built a private Sourcey preview for this repo.",
+          body: "I built a private Sourcey preview for this repo. Provider token [secret]",
         }),
       ]));
 
       expect(JSON.parse(await readFile(fakeState, "utf8"))).toMatchObject({
+        ghIssueCommentTokens: ["runx-token-123"],
         issue: {
           comments: [
             {
@@ -1564,12 +1634,13 @@ describe("thread.push_outbox tool", () => {
             },
             {
               id: "1000",
-              body: expect.stringContaining("I built a private Sourcey preview for this repo."),
+              body: expect.stringContaining("Provider token [secret]"),
               url: "https://github.com/example/repo/issues/123#issuecomment-1000",
             },
           ],
         },
       });
+      expect(JSON.stringify(JSON.parse(await readFile(fakeState, "utf8")))).not.toContain("sk-proj-");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -1655,6 +1726,9 @@ describe("thread.push_outbox tool", () => {
       }, {
         RUNX_GH_BIN: fakeGh,
         RUNX_FAKE_GH_STATE: fakeState,
+        RUNX_GITHUB_TOKEN: "runx-token-123",
+        GH_TOKEN: undefined,
+        GITHUB_TOKEN: undefined,
       });
 
       expect(result).toMatchObject({
@@ -1684,6 +1758,7 @@ describe("thread.push_outbox tool", () => {
       ]));
 
       expect(JSON.parse(await readFile(fakeState, "utf8"))).toMatchObject({
+        ghIssueCommentPatchTokens: ["runx-token-123"],
         issue: {
           comments: [
             {
@@ -1830,6 +1905,7 @@ describe("thread.push_outbox tool", () => {
       await rm(tempDir, { recursive: true, force: true });
     }
   }, 15_000);
+
 });
 
 function runTool(inputs: Readonly<Record<string, unknown>>, envOverrides: NodeJS.ProcessEnv = {}) {
@@ -1900,6 +1976,7 @@ if (args[0] === "issue" && args[1] === "view") {
 }
 
 if (args[0] === "issue" && args[1] === "comment") {
+  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
   const issueNumber = args[2];
   const repo = readFlag(args, "--repo");
   const body = readFlag(args, "--body");
@@ -1915,6 +1992,7 @@ if (args[0] === "issue" && args[1] === "comment") {
       login: "runx-bot",
     },
   };
+  state.ghIssueCommentTokens = [...(state.ghIssueCommentTokens || []), token];
   state.issue.comments.push(comment);
   state.issue.updatedAt = "2026-04-22T01:00:00Z";
   writeFileSync(statePath, \`\${JSON.stringify(state, null, 2)}\\n\`);
@@ -1923,12 +2001,14 @@ if (args[0] === "issue" && args[1] === "comment") {
 }
 
 if (args[0] === "api" && /^repos\\/[^/]+\\/[^/]+\\/issues\\/comments\\/\\d+$/.test(args[1] || "")) {
+  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
   const body = readField(args, "body");
   const commentId = (args[1] || "").split("/").pop();
   const comment = state.issue.comments.find((candidate) => String(candidate.id) === String(commentId));
   if (!comment) {
     throw new Error(\`unknown comment \${commentId}\`);
   }
+  state.ghIssueCommentPatchTokens = [...(state.ghIssueCommentPatchTokens || []), token];
   comment.body = body;
   comment.updatedAt = "2026-04-22T02:00:00Z";
   state.issue.updatedAt = "2026-04-22T02:00:00Z";

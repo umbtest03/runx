@@ -151,6 +151,9 @@ denial before `write-fix`.
 - `thread_locator`: canonical locator for the bounded thread.
 - `thread`: portable thread for the current work item.
 - `outbox_entry`: existing pull-request outbox entry when refreshing a draft.
+- `work_item`: optional `runx.work_item.v1` packet. Preserve source event,
+  dedupe, triage, linked issue/PR, merge gate, and outcome fields as stateful
+  context instead of reparsing source-thread prose.
 - `target_repo`: intended repository slug for PR packaging.
 - `repo_snapshot`: compact structured snapshot of the target repo.
 - `repo_snapshot_path`: optional path to a fuller repo snapshot artifact.

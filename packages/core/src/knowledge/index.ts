@@ -57,10 +57,13 @@ export {
   type WorkItemStoryMilestone,
   type WorkItemStory,
   type BuildWorkItemStoryOutboxEntryOptions,
+  type RenderIssueToPrReviewerMarkdownOptions,
   validateWorkItemStoryMilestone,
   validateWorkItemStory,
   renderWorkItemStoryMarkdown,
   buildWorkItemStoryOutboxEntry,
+  renderIssueToPrReviewerMarkdown,
+  summarizePublicHandoffMarkdown,
   sanitizePublicMarkdown,
 } from "./work-item-story.js";
 

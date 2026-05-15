@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   optionalEnum,
   optionalString,
@@ -52,7 +54,25 @@ export interface BuildWorkItemStoryOutboxEntryOptions {
   readonly title?: string;
   readonly workflow?: string;
   readonly bodyMarkdown?: string;
+  readonly outboxReceiptId?: string;
   readonly updatedAt?: string;
+}
+
+export interface RenderIssueToPrReviewerMarkdownOptions {
+  readonly taskId: string;
+  readonly title?: string;
+  readonly sourceTitle?: string;
+  readonly sourceLocator?: string;
+  readonly branch?: string;
+  readonly base?: string;
+  readonly governanceStatus?: string;
+  readonly checkStatus?: string;
+  readonly buildPassed?: number;
+  readonly buildFailed?: number;
+  readonly reviewVerdict?: string;
+  readonly blockingCount?: number;
+  readonly nonBlockingCount?: number;
+  readonly handoffMarkdown?: string;
 }
 
 const milestoneKinds = [
@@ -139,6 +159,12 @@ export function buildWorkItemStoryOutboxEntry(
   const milestone = validateWorkItemStoryMilestone(options.milestone);
   const workflow = normalizeIdentifierSegment(options.workflow ?? "issue-to-pr");
   const taskId = normalizeIdentifierSegment(options.taskId);
+  const outboxReceiptId = sanitizePublicMarkdown(options.outboxReceiptId) ?? stableStoryOutboxReceiptId({
+    workflow,
+    taskId,
+    milestoneKind: milestone.kind,
+    threadLocator: options.threadLocator,
+  });
   const bodyMarkdown = sanitizePublicMarkdown(
     options.bodyMarkdown ?? renderWorkItemStoryMarkdown({
       thread_locator: options.threadLocator,
@@ -157,6 +183,7 @@ export function buildWorkItemStoryOutboxEntry(
       schema_version: "runx.outbox-entry.work-item-story.v1",
       workflow,
       milestone_kind: milestone.kind,
+      outbox_receipt_id: outboxReceiptId,
       body_markdown: bodyMarkdown,
       updated_at: options.updatedAt,
       control: {
@@ -167,16 +194,137 @@ export function buildWorkItemStoryOutboxEntry(
   };
 }
 
+function stableStoryOutboxReceiptId(options: {
+  readonly workflow: string;
+  readonly taskId: string;
+  readonly milestoneKind: WorkItemStoryMilestoneKind;
+  readonly threadLocator: string;
+}): string {
+  const digest = createHash("sha256")
+    .update(JSON.stringify([
+      "runx.work-item-story",
+      options.workflow,
+      options.taskId,
+      options.milestoneKind,
+      options.threadLocator,
+    ]))
+    .digest("hex")
+    .slice(0, 20);
+  return `story:${options.workflow}:${options.taskId}:${options.milestoneKind}:${digest}`;
+}
+
+export function renderIssueToPrReviewerMarkdown(
+  options: RenderIssueToPrReviewerMarkdownOptions,
+): string {
+  const title = sanitizePublicMarkdown(options.title) ?? options.taskId;
+  const sourceTitle = sanitizePublicMarkdown(options.sourceTitle);
+  const sourceLocator = sanitizePublicMarkdown(options.sourceLocator);
+  const branch = sanitizePublicMarkdown(options.branch);
+  const base = sanitizePublicMarkdown(options.base);
+  const reviewVerdict = sanitizePublicMarkdown(options.reviewVerdict);
+  const handoff = summarizePublicHandoffMarkdown(options.handoffMarkdown);
+  const lines = [
+    `# ${title}`,
+    "",
+    "## Source Thread",
+    `- Thread: ${sourceLocator ? `\`${sourceLocator}\`` : "not provided"}`,
+    `- Request: ${sourceTitle ?? "not provided"}`,
+    "",
+    "## Scoped Change",
+    `- Task: \`${sanitizePublicMarkdown(options.taskId) ?? options.taskId}\``,
+    `- Branch: ${branch ? `\`${branch}\`` : "not reported"}`,
+    `- Base: ${base ? `\`${base}\`` : "not reported"}`,
+    `- Governance status: ${sanitizePublicMarkdown(options.governanceStatus) ?? "not reported"}`,
+    "",
+    "## Validation",
+    `- scafld build: ${sanitizePublicMarkdown(options.checkStatus) ?? "not reported"}`,
+    `- Passed: ${formatReportedNumber(options.buildPassed)}`,
+    `- Failed: ${formatReportedNumber(options.buildFailed)}`,
+    "",
+    "## Review",
+    `- Verdict: ${reviewVerdict ?? "not reported"}`,
+    `- Blocking findings: ${formatReportedNumber(options.blockingCount)}`,
+    `- Non-blocking findings: ${formatReportedNumber(options.nonBlockingCount)}`,
+    "",
+    "## Human Merge Gate",
+    "- This PR is generated and reviewable; runx will not merge it.",
+    "- A human reviewer must merge, close, or request changes.",
+    "- After provider state changes, the source thread can be updated with the observed outcome.",
+    "",
+    "## scafld Handoff",
+    handoff ?? "No scafld handoff was reported.",
+  ];
+  return `${lines.join("\n")}\n`;
+}
+
+export function summarizePublicHandoffMarkdown(value: string | undefined): string | undefined {
+  const sanitized = sanitizePublicMarkdown(value);
+  if (!sanitized) {
+    return undefined;
+  }
+
+  const lines: string[] = [];
+  let inFence = false;
+  for (const rawLine of sanitized.split(/\r?\n/)) {
+    const line = rawLine.trimEnd();
+    if (line.trim().startsWith("```")) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence || line.trim().length === 0) {
+      continue;
+    }
+    if (isPublicHandoffSummaryLine(line)) {
+      lines.push(line);
+    }
+    if (lines.length >= 12) {
+      break;
+    }
+  }
+
+  const summary = lines.join("\n").slice(0, 1200).trim();
+  if (summary.length === 0) {
+    return "Detailed handoff omitted from public markdown; run `scafld handoff` in the workspace for private evidence.";
+  }
+  const omitted = sanitized.length > summary.length || sanitized.split(/\r?\n/).length > lines.length;
+  return omitted
+    ? `${summary}\n\nDetailed handoff output omitted from public markdown; run \`scafld handoff\` in the workspace for private evidence.`
+    : summary;
+}
+
 export function sanitizePublicMarkdown(value: string | undefined): string | undefined {
   if (value === undefined) {
     return undefined;
   }
   return value
-    .replace(/\b([A-Z][A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API[_-]?KEY)[A-Z0-9_]*)=("[^"]*"|'[^']*'|\S+)/gi, "$1=[secret]")
+    .replace(/\b([A-Z][A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API[_-]?KEY|MATERIAL[_-]?REF)[A-Z0-9_]*)=("[^"]*"|'[^']*'|\S+)/gi, "$1=[secret]")
+    .replace(/\b((?:bearer|authorization|token|secret|password|api[_-]?key|material[_-]?ref|materialRef)\s*[:=]\s*)(["']?)[^\s`),;]+/gi, "$1[secret]")
+    .replace(/\b((?:bearer|authorization)\s+)[A-Za-z0-9._:-]{6,}\b/gi, "$1[secret]")
     .replace(/\b(gh[pousr]_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})\b/g, "[secret]")
+    .replace(/\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b/g, "[secret]")
+    .replace(/\b[A-Za-z0-9]+(?:[-_](?:secret|token|password|api[-_]?key))+[A-Za-z0-9_-]*\b(?!\s*=)/gi, "[secret]")
     .replace(/\b([A-Z][A-Z0-9_]*=)(?:\/Users|\/home|\/var|\/private|\/tmp|[A-Za-z]:\\)[^\s`)]+/g, "$1[local-path]")
     .replace(/(?:\/Users|\/home|\/var|\/private|\/tmp)\/[^\s`)]+/g, "[local-path]")
     .replace(/[A-Za-z]:\\[^\s`)]+/g, "[local-path]");
+}
+
+function isPublicHandoffSummaryLine(line: string): boolean {
+  const trimmed = line.trim();
+  return /^#{1,3}\s+Handoff:/i.test(trimmed)
+    || /^Status:/i.test(trimmed)
+    || /^Next:/i.test(trimmed)
+    || /^Gate:/i.test(trimmed)
+    || /^Review gate:/i.test(trimmed)
+    || /^Current phase:/i.test(trimmed)
+    || /^Blockers:/i.test(trimmed)
+    || /^Allowed follow-up command:/i.test(trimmed)
+    || /^- \[(?:pass|fail|pending)\]/i.test(trimmed);
+}
+
+function formatReportedNumber(value: number | undefined): string {
+  return typeof value === "number" && Number.isFinite(value)
+    ? String(value)
+    : "not reported";
 }
 
 function normalizeIdentifierSegment(value: string): string {

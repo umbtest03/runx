@@ -87,6 +87,12 @@ When present, these fields mean:
 
 Always emit `change_set` alongside `intake_report`.
 
+Also emit `work_item` when a source event is admitted. `work_item` must follow
+`runx.work_item.v1` and carry the source event, dedupe fingerprint, triage
+decision, current lifecycle state, and status summary. This packet is the
+portable control-plane state that `work-plan`, `issue-to-pr`, hosted queues,
+and source-thread projections preserve.
+
 The `change_set` is the parent artifact for any later planning or worker
 fanout. It is what keeps multiple repo-scoped lanes aligned to one shared
 objective.
@@ -163,3 +169,8 @@ Prefer conservative routing:
   or refreshes
 - `product_context` (optional): product-specific constraints or routing hints
 - `operator_context` (optional): maintainer or support posture guidance
+- `source_event` (optional): admitted Slack, Sentry, GitHub, file, API, or
+  other provider event. Consuming repos decide source filters before calling
+  this skill.
+- `source_policy` (optional): source admission and routing policy. Do not
+  hardcode channel names, Sentry projects, or owners in this skill.

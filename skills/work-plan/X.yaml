@@ -297,6 +297,7 @@ runners:
     task: work-plan
     outputs:
       change_set: object
+      work_item: object
       objective_summary: string
       workspace_change_plan: object
       orchestration_steps: array
@@ -326,3 +327,7 @@ runners:
         type: object
         required: false
         description: "Optional parent change set from issue-intake or a workspace supervisor."
+      work_item:
+        type: object
+        required: false
+        description: "Optional runx.work_item.v1 packet; preserve it when planning a source-thread change."

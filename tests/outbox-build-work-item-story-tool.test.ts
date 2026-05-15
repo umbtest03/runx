@@ -12,14 +12,42 @@ describe("outbox.build_work_item_story tool", () => {
       thread_title: "Fix fixture behavior",
       thread_locator: "github://example/repo/issues/123",
       target_repo: "example/repo",
+      work_item: {
+        schema: "runx.work_item.v1",
+        work_item_id: "wi_fixture_123",
+        state: "merge_gate",
+        status_summary: "PR is ready for human merge gate.",
+        source_events: [
+          {
+            provider: "github",
+            source_locator: "github://example/repo/issues/123",
+            thread_locator: "github://example/repo/issues/123",
+            title: "Fix fixture behavior",
+          },
+        ],
+        dedupe: {
+          fingerprint: "sha256:fixture-123",
+        },
+        triage: {
+          severity: "medium",
+          confidence: 0.9,
+          action: "issue-to-pr",
+          rationale: "The request is bounded and reproducible.",
+        },
+      },
       build_result: {
         passed: 3,
         failed: 0,
       },
       review_result: {
         verdict: "pass",
-        blocking_count: 0,
-        non_blocking_count: 1,
+        findings: [
+          {
+            id: "non-blocking-fixture",
+            severity: "low",
+            blocks_completion: false,
+          },
+        ],
       },
       completion_result: {
         status: "completed",
@@ -70,10 +98,13 @@ describe("outbox.build_work_item_story tool", () => {
         schema_version: "runx.outbox-entry.work-item-story.v1",
         workflow: "issue-to-pr",
         milestone_kind: "merge_gate",
+        outbox_receipt_id: expect.stringMatching(/^story:issue-to-pr:fixture-task:merge_gate:[a-f0-9]{20}$/),
         body_markdown: expect.stringContaining("PR: https://github.com/example/repo/pull/77"),
       },
     });
     expect(result.outbox_entry.metadata.body_markdown).toContain("Human merge gate");
+    expect(result.outbox_entry.metadata.body_markdown).toContain("Work item: wi_fixture_123");
+    expect(result.outbox_entry.metadata.body_markdown).toContain("Dedupe: sha256:fixture-123");
     expect(result.outbox_entry.metadata.body_markdown).toContain("Blocking findings: 0");
     expect(result.outbox_entry.metadata.body_markdown).toContain("No final provider outcome has been observed yet");
   });
@@ -131,7 +162,7 @@ describe("outbox.build_work_item_story tool", () => {
   it("packages observed closed provider outcomes from refreshed PR state", () => {
     const result = runTool({
       task_id: "fixture-task",
-      thread_title: "Fix fixture behavior",
+      thread_title: "Fix fixture behavior ghp_123456789012345678901234567890123456",
       thread_locator: "github://example/repo/issues/123",
       build_result: {
         passed: 3,
@@ -174,6 +205,234 @@ describe("outbox.build_work_item_story tool", () => {
       metadata: {
         milestone_kind: "outcome",
         body_markdown: expect.stringContaining("Provider state: CLOSED"),
+      },
+    });
+  });
+
+  it("redacts local paths and token-shaped values from source-thread story output", () => {
+    const result = runTool({
+      task_id: "fixture-task",
+      thread_title: "Fix fixture behavior",
+      thread_locator: "/Users/kam/dev/runx/thread.json",
+      build_result: {
+        passed: 1,
+        failed: 0,
+      },
+      review_result: {
+        verdict: "pass",
+      },
+      completion_result: {
+        status: "completed",
+        title: "Fix fixture behavior",
+      },
+      pull_request_outbox_entry: {
+        kind: "pull_request",
+        locator: "https://github.com/example/repo/pull/77",
+        metadata: {
+          branch: "fixture-task",
+          base: "main",
+        },
+      },
+      push_result: {
+        status: "pushed",
+        pull_request: {
+          url: "https://github.com/example/repo/pull/77",
+        },
+      },
+    });
+
+    expect(result.outbox_entry.metadata.body_markdown).not.toContain("/Users/kam");
+    expect(result.outbox_entry.metadata.body_markdown).toContain("[local-path]");
+    expect(result.outbox_entry.metadata.body_markdown).not.toContain("ghp_123456789012345678901234567890123456");
+  });
+
+  it("carries trusted existing provider state for story refreshes", () => {
+    const result = runTool({
+      task_id: "fixture-task",
+      thread_title: "Fix fixture behavior",
+      thread_locator: "github://example/repo/issues/123",
+      thread: {
+        kind: "runx.thread.v1",
+        adapter: {
+          type: "github",
+          adapter_ref: "example/repo#issue/123",
+        },
+        thread_kind: "work_item",
+        thread_locator: "github://example/repo/issues/123",
+        entries: [],
+        decisions: [],
+        outbox: [
+          {
+            entry_id: "message:fixture-task:merge_gate",
+            kind: "message",
+            locator: "https://github.com/example/repo/issues/123#issuecomment-1000",
+            status: "published",
+            thread_locator: "github://example/repo/issues/123",
+            metadata: {
+              schema_version: "runx.outbox-entry.work-item-story.v1",
+              milestone_kind: "merge_gate",
+              channel: "github_issue_comment",
+              comment_id: "1000",
+              outbox_receipt_id: "receipt-fixture-story",
+              body_markdown: "Old story body.",
+            },
+          },
+        ],
+        source_refs: [],
+      },
+      build_result: {
+        passed: 1,
+        failed: 0,
+      },
+      review_result: {
+        verdict: "pass",
+      },
+      completion_result: {
+        status: "completed",
+        title: "Fix fixture behavior",
+      },
+      pull_request_outbox_entry: {
+        kind: "pull_request",
+        locator: "https://github.com/example/repo/pull/77",
+      },
+    });
+
+    expect(result.outbox_entry).toMatchObject({
+      entry_id: "message:fixture-task:merge_gate",
+      locator: "https://github.com/example/repo/issues/123#issuecomment-1000",
+      metadata: {
+        comment_id: "1000",
+        outbox_receipt_id: "receipt-fixture-story",
+        body_markdown: expect.stringContaining("PR: https://github.com/example/repo/pull/77"),
+      },
+    });
+    expect(result.outbox_entry.metadata.body_markdown).not.toContain("Old story body.");
+  });
+
+  it("refreshes the existing merge-gate story when publishing an observed outcome", () => {
+    const result = runTool({
+      task_id: "fixture-task",
+      thread_title: "Fix fixture behavior",
+      thread_locator: "github://example/repo/issues/123",
+      thread: {
+        kind: "runx.thread.v1",
+        adapter: {
+          type: "github",
+          adapter_ref: "example/repo#issue/123",
+        },
+        thread_kind: "work_item",
+        thread_locator: "github://example/repo/issues/123",
+        entries: [],
+        decisions: [],
+        outbox: [
+          {
+            entry_id: "message:fixture-task:merge_gate",
+            kind: "message",
+            locator: "https://github.com/example/repo/issues/123#issuecomment-1000",
+            status: "published",
+            thread_locator: "github://example/repo/issues/123",
+            metadata: {
+              schema_version: "runx.outbox-entry.work-item-story.v1",
+              milestone_kind: "merge_gate",
+              channel: "github_issue_comment",
+              comment_id: "1000",
+              outbox_receipt_id: "receipt-fixture-story",
+            },
+          },
+        ],
+        source_refs: [],
+      },
+      build_result: {
+        passed: 1,
+        failed: 0,
+      },
+      review_result: {
+        verdict: "pass",
+      },
+      completion_result: {
+        status: "completed",
+        title: "Fix fixture behavior",
+      },
+      pull_request_outbox_entry: {
+        kind: "pull_request",
+        locator: "https://github.com/example/repo/pull/77",
+        metadata: {
+          provider_outcome: "merged",
+          merged_at: "2026-05-14T12:00:00Z",
+        },
+      },
+    });
+
+    expect(result.outbox_entry).toMatchObject({
+      entry_id: "message:fixture-task:outcome",
+      locator: "https://github.com/example/repo/issues/123#issuecomment-1000",
+      metadata: {
+        milestone_kind: "outcome",
+        comment_id: "1000",
+        outbox_receipt_id: "receipt-fixture-story",
+        body_markdown: expect.stringContaining("Provider outcome observed: merged."),
+      },
+    });
+  });
+
+  it("refreshes a file-backed merge-gate story outcome without receipt metadata", () => {
+    const result = runTool({
+      task_id: "fixture-task",
+      thread_title: "Fix fixture behavior",
+      thread_locator: "local://provider/issues/123",
+      thread: {
+        kind: "runx.thread.v1",
+        adapter: {
+          type: "file",
+          adapter_ref: "/tmp/thread.json",
+        },
+        thread_kind: "work_item",
+        thread_locator: "local://provider/issues/123",
+        entries: [],
+        decisions: [],
+        outbox: [
+          {
+            entry_id: "message:fixture-task:merge_gate",
+            kind: "message",
+            locator: "file://fixture-thread.json#outbox/message%3Afixture-task%3Amerge_gate",
+            status: "published",
+            thread_locator: "local://provider/issues/123",
+            metadata: {
+              schema_version: "runx.outbox-entry.work-item-story.v1",
+              milestone_kind: "merge_gate",
+              body_markdown: "Old story body.",
+            },
+          },
+        ],
+        source_refs: [],
+      },
+      build_result: {
+        passed: 1,
+        failed: 0,
+      },
+      review_result: {
+        verdict: "pass",
+      },
+      completion_result: {
+        status: "completed",
+        title: "Fix fixture behavior",
+      },
+      pull_request_outbox_entry: {
+        kind: "pull_request",
+        locator: "https://github.com/example/repo/pull/77",
+        metadata: {
+          provider_outcome: "closed",
+          state: "CLOSED",
+        },
+      },
+    });
+
+    expect(result.outbox_entry).toMatchObject({
+      entry_id: "message:fixture-task:outcome",
+      locator: "file://fixture-thread.json#outbox/message%3Afixture-task%3Amerge_gate",
+      metadata: {
+        milestone_kind: "outcome",
+        body_markdown: expect.stringContaining("Provider outcome observed: closed."),
       },
     });
   });

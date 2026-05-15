@@ -73,6 +73,10 @@ import {
 } from "@runxhq/core/parser";
 import {
   admitLocalSkill,
+  buildAuthorityProofMetadata,
+  buildLocalScopeAdmission,
+  connectedAuthRequirement,
+  validateCredentialBinding,
   type GraphScopeGrant,
   type LocalAdmissionGrant,
 } from "@runxhq/core/policy";
@@ -83,7 +87,6 @@ import {
   type GovernedDisposition,
   type LocalGraphReceipt,
   type LocalReceipt,
-  type LocalSkillReceipt,
   type OutcomeState,
   type ReceiptInputContext,
   type ReceiptOutcome,
@@ -96,6 +99,7 @@ import {
   type SingleStepState,
 } from "@runxhq/core/state-machine";
 import type { RegistryStore } from "@runxhq/core/registry";
+import type { ScopeAdmissionContract } from "@runxhq/contracts";
 import type { ToolCatalogAdapter } from "@runxhq/runtime-local/tool-catalogs";
 import {
   mergeExecutionSemantics,
@@ -109,7 +113,7 @@ import {
   approvalReceiptMetadata,
   approveSandboxEscalationIfNeeded,
   withSandboxApproval,
-  writeApprovalDeniedReceipt,
+  writePolicyDeniedReceipt,
 } from "./approval.js";
 import {
   materializeInlineGraph,
@@ -217,6 +221,8 @@ export interface RunValidatedSkillOptions {
   readonly voiceProfile?: ContextDocument;
   readonly voiceProfilePath?: string;
   readonly selectedRunnerName?: string;
+  readonly authorityMutating?: boolean;
+  readonly authorityScopeAdmission?: ScopeAdmissionContract;
   readonly workspacePolicy?: RunxWorkspacePolicy;
   readonly lineage?: RunLineageMetadata;
 }
@@ -290,7 +296,7 @@ export type RunLocalSkillResult =
       readonly skill: ValidatedSkill;
       readonly reasons: readonly string[];
       readonly approval?: ApprovalDecision;
-      readonly receipt?: LocalSkillReceipt;
+      readonly receipt?: LocalReceipt;
     }
   | {
       readonly status: "success" | "failure";
@@ -535,6 +541,7 @@ export async function runValidatedSkill(options: RunValidatedSkillOptions): Prom
   const { skill } = options;
   const runId = options.runId ?? options.resumeFromRunId ?? uniqueReceiptId("rx");
   const contextEnvelopeRunId = options.orchestrationRunId ?? runId;
+  const authorityMutating = options.authorityMutating ?? skill.mutating === true;
   const workspacePolicy = options.workspacePolicy ?? await loadRunxWorkspacePolicy(options.env ?? process.env);
   const contextSnapshot =
     options.context
@@ -573,10 +580,34 @@ export async function runValidatedSkill(options: RunValidatedSkillOptions): Prom
     executionPolicy: workspacePolicy,
   });
   if (structuralAdmission.status === "deny") {
+    const structuralScopeAdmission = buildLocalScopeAdmission(skill.auth, [], {
+      deniedBeforeGrantResolution: true,
+    });
+    const receipt = await writePolicyDeniedReceipt({
+      skill,
+      inputs: options.inputs,
+      reasons: structuralAdmission.reasons,
+      runOptions: options,
+      receiptMetadata: mergeMetadata(
+        inheritedReceiptMetadata,
+        buildAuthorityProofMetadata({
+          runId,
+          skillName: skill.name,
+          sourceType: skill.source.type,
+          auth: skill.auth,
+          grants: [],
+          scopeAdmission: structuralScopeAdmission,
+          sandboxDeclaration: skill.source.sandbox,
+          mutating: authorityMutating,
+        }),
+      ),
+      executionSemantics,
+    });
     return {
       status: "policy_denied",
       skill,
       reasons: structuralAdmission.reasons,
+      receipt,
     };
   }
 
@@ -584,6 +615,10 @@ export async function runValidatedSkill(options: RunValidatedSkillOptions): Prom
     skill,
     inputs: options.inputs,
   });
+  const scopeAdmission = buildLocalScopeAdmission(skill.auth, grantResolution?.grants ?? []);
+  const authorityProofScopeAdmission = connectedAuthRequirement(skill.auth)
+    ? scopeAdmission
+    : options.authorityScopeAdmission ?? scopeAdmission;
   if (grantResolution) {
     await options.caller.report({
       type: "auth_resolved",
@@ -601,18 +636,28 @@ export async function runValidatedSkill(options: RunValidatedSkillOptions): Prom
     executionPolicy: workspacePolicy,
   });
   if (admission.status === "deny") {
-    const receipt =
-      sandboxApproval && !sandboxApproval.approved
-        ? await writeApprovalDeniedReceipt({
-            skill,
-            inputs: options.inputs,
-            reasons: admission.reasons,
-            approval: sandboxApproval,
-            runOptions: options,
-            receiptMetadata: inheritedReceiptMetadata,
-            executionSemantics,
-          })
-        : undefined;
+    const receipt = await writePolicyDeniedReceipt({
+      skill,
+      inputs: options.inputs,
+      reasons: admission.reasons,
+      approval: sandboxApproval && !sandboxApproval.approved ? sandboxApproval : undefined,
+      runOptions: options,
+      receiptMetadata: mergeMetadata(
+        inheritedReceiptMetadata,
+        buildAuthorityProofMetadata({
+          runId,
+          skillName: skill.name,
+          sourceType: skill.source.type,
+          auth: skill.auth,
+          grants: grantResolution?.grants ?? [],
+          scopeAdmission: authorityProofScopeAdmission,
+          sandboxDeclaration: skill.source.sandbox,
+          approval: sandboxApproval,
+          mutating: authorityMutating,
+        }),
+      ),
+      executionSemantics,
+    });
     return {
       status: "policy_denied",
       skill,
@@ -633,6 +678,7 @@ export async function runValidatedSkill(options: RunValidatedSkillOptions): Prom
       message: "Executing graph skill source.",
     });
 
+    const graphRunId = options.resumeFromRunId ?? uniqueReceiptId("gx");
     const graphResult = await runLocalGraph({
       graph: materializeInlineGraph(skill),
       graphDirectory: options.skillDirectory,
@@ -645,7 +691,7 @@ export async function runValidatedSkill(options: RunValidatedSkillOptions): Prom
       adapters: options.adapters,
       allowedSourceTypes: options.allowedSourceTypes,
       authResolver: options.authResolver,
-      runId: options.resumeFromRunId ?? uniqueReceiptId("gx"),
+      runId: graphRunId,
       skillEnvironment: {
         name: skill.name,
         body: skill.body,
@@ -656,7 +702,20 @@ export async function runValidatedSkill(options: RunValidatedSkillOptions): Prom
       officialSkillResolver: options.officialSkillResolver,
       skillCacheDir: options.skillCacheDir,
       toolCatalogAdapters: options.toolCatalogAdapters,
-      receiptMetadata: inheritedReceiptMetadata,
+      receiptMetadata: mergeMetadata(
+        inheritedReceiptMetadata,
+        buildAuthorityProofMetadata({
+          runId: graphRunId,
+          skillName: skill.name,
+          sourceType: skill.source.type,
+          auth: skill.auth,
+          grants: grantResolution?.grants ?? [],
+          scopeAdmission,
+          sandboxDeclaration: skill.source.sandbox,
+          approval: sandboxApproval,
+          mutating: authorityMutating,
+        }),
+      ),
       context: contextSnapshot,
       voiceProfile,
       voiceProfilePath: options.voiceProfilePath,
@@ -683,6 +742,7 @@ export async function runValidatedSkill(options: RunValidatedSkillOptions): Prom
         status: "policy_denied",
         skill,
         reasons: graphResult.reasons,
+        receipt: graphResult.receipt,
       };
     }
 
@@ -754,11 +814,51 @@ export async function runValidatedSkill(options: RunValidatedSkillOptions): Prom
     voiceProfilePath: options.voiceProfilePath,
   });
 
+  const admittedCredentialGrants = admittedGrantsForCredential(grantResolution?.grants ?? [], scopeAdmission);
   const credentialResolution = await options.authResolver?.resolveCredential({
     skill,
     inputs: options.inputs,
-    grants: grantResolution?.grants ?? [],
+    grants: admittedCredentialGrants,
   });
+  const credentialBinding = validateCredentialBinding({
+    auth: skill.auth,
+    grants: admittedCredentialGrants,
+    scopeAdmission,
+    credential: credentialResolution?.credential,
+  });
+  if (credentialBinding.status === "deny") {
+    const receipt = await writePolicyDeniedReceipt({
+      skill,
+      inputs: options.inputs,
+      reasons: credentialBinding.reasons,
+      runOptions: options,
+      receiptMetadata: mergeMetadata(
+        inheritedReceiptMetadata,
+        credentialResolution?.receiptMetadata,
+        preparedAgentContext.receiptMetadata,
+        sandboxApproval ? approvalReceiptMetadata(sandboxApproval) : undefined,
+        buildAuthorityProofMetadata({
+          runId,
+          skillName: skill.name,
+          sourceType: skill.source.type,
+          auth: skill.auth,
+          grants: grantResolution?.grants ?? [],
+          scopeAdmission: authorityProofScopeAdmission,
+          credential: credentialResolution?.credential,
+          sandboxDeclaration: skill.source.sandbox,
+          approval: sandboxApproval,
+          mutating: authorityMutating,
+        }),
+      ),
+      executionSemantics,
+    });
+    return {
+      status: "policy_denied",
+      skill,
+      reasons: credentialBinding.reasons,
+      receipt,
+    };
+  }
 
   await options.caller.report({
     type: "executing",
@@ -971,6 +1071,19 @@ export async function runValidatedSkill(options: RunValidatedSkillOptions): Prom
         preparedAgentContext.receiptMetadata,
         sandboxApproval ? approvalReceiptMetadata(sandboxApproval) : undefined,
         inheritedReceiptMetadata,
+        buildAuthorityProofMetadata({
+          runId,
+          skillName: skill.name,
+          sourceType: skill.source.type,
+          auth: skill.auth,
+          grants: grantResolution?.grants ?? [],
+          scopeAdmission: authorityProofScopeAdmission,
+          credential: credentialResolution?.credential,
+          sandboxDeclaration: skill.source.sandbox,
+          sandboxMetadata: execution.metadata?.sandbox,
+          approval: sandboxApproval,
+          mutating: authorityMutating,
+        }),
         createLedgerAnchorMetadata(ledgerPlan.anchor),
       ),
     },
@@ -1024,4 +1137,14 @@ export async function runValidatedSkill(options: RunValidatedSkillOptions): Prom
     state,
     receipt,
   };
+}
+
+function admittedGrantsForCredential(
+  grants: readonly LocalAdmissionGrant[],
+  scopeAdmission: { readonly status: "allow" | "deny"; readonly grant_id?: string },
+): readonly LocalAdmissionGrant[] {
+  if (scopeAdmission.status !== "allow" || !scopeAdmission.grant_id) {
+    return [];
+  }
+  return grants.filter((grant) => grant.grant_id === scopeAdmission.grant_id);
 }

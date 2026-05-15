@@ -50,6 +50,13 @@ export function materializeContext(
   });
 }
 
+export function materializeStepInputs(
+  stepInputs: Readonly<Record<string, unknown>>,
+  graphInputs: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  return resolveGraphInputReferences(stepInputs, graphInputs) as Readonly<Record<string, unknown>>;
+}
+
 export function resolveOutputPath(output: GraphStepOutput, outputPath: string): unknown {
   const record: Record<string, unknown> = {
     ...output.fields,
@@ -71,6 +78,36 @@ export function resolveOutputPath(output: GraphStepOutput, outputPath: string): 
 
     throw new Error(`Context output path '${outputPath}' was not produced by the source step.`);
   }, record);
+}
+
+function resolveGraphInputReferences(value: unknown, graphInputs: Readonly<Record<string, unknown>>): unknown {
+  if (typeof value === "string") {
+    if (!value.startsWith("$input.")) {
+      return value;
+    }
+    return resolveInputPath(graphInputs, value.slice("$input.".length));
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => resolveGraphInputReferences(entry, graphInputs));
+  }
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, resolveGraphInputReferences(entry, graphInputs)]),
+    );
+  }
+  return value;
+}
+
+function resolveInputPath(inputs: Readonly<Record<string, unknown>>, inputPath: string): unknown {
+  if (!inputPath) {
+    return undefined;
+  }
+  return inputPath.split(".").reduce<unknown>((value, key) => {
+    if (!isRecord(value) || !(key in value)) {
+      return undefined;
+    }
+    return value[key];
+  }, inputs);
 }
 
 function resolveOutputArtifact(output: GraphStepOutput, outputPath: string): ArtifactEnvelope | undefined {

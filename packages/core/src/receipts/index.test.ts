@@ -136,6 +136,9 @@ describe("local receipts", () => {
               provider: "github",
               connection_id: "conn_1",
               access_token: "super-secret-token",
+              material_ref: "nango:github:conn_1",
+              material_ref_hash: "sha256:abc123",
+              note: "leaked bearer abc123",
             },
           },
         },
@@ -143,7 +146,12 @@ describe("local receipts", () => {
 
       const contents = await readFile(path.join(receiptDir, `${receipt.id}.json`), "utf8");
       expect(contents).toContain('"access_token": "[redacted]"');
+      expect(contents).toContain('"material_ref": "[redacted]"');
+      expect(contents).toContain('"material_ref_hash": "sha256:abc123"');
+      expect(contents).toContain('"note": "leaked bearer [redacted]"');
       expect(contents).not.toContain("super-secret-token");
+      expect(contents).not.toContain("nango:github:conn_1");
+      expect(contents).not.toContain("bearer abc123");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

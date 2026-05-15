@@ -1,0 +1,405 @@
+{
+  "$id": "https://runx.ai/spec/authority-proof.schema.json",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema_version",
+    "skill_name",
+    "source_type",
+    "requested",
+    "scope_admission",
+    "credential_material",
+    "redaction"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "runx.authority-proof.v1",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "skill_name": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "source_type": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "requested": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "connected_auth",
+        "scopes",
+        "mutating"
+      ],
+      "properties": {
+        "connected_auth": {
+          "type": "boolean"
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "mutating": {
+          "type": "boolean"
+        },
+        "scope_family": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "authority_kind": {
+          "anyOf": [
+            {
+              "const": "read_only",
+              "type": "string"
+            },
+            {
+              "const": "constructive",
+              "type": "string"
+            },
+            {
+              "const": "destructive",
+              "type": "string"
+            }
+          ]
+        },
+        "target_repo": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "target_locator": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sandbox_profile": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "scope_admission": {
+      "$id": "https://runx.ai/spec/scope-admission.schema.json",
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "status",
+        "requested_scopes",
+        "granted_scopes"
+      ],
+      "properties": {
+        "status": {
+          "anyOf": [
+            {
+              "const": "allow",
+              "type": "string"
+            },
+            {
+              "const": "deny",
+              "type": "string"
+            }
+          ]
+        },
+        "requested_scopes": {
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "granted_scopes": {
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "grant_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "decision_summary": {
+          "type": "string"
+        }
+      }
+    },
+    "credential_material": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "anyOf": [
+            {
+              "const": "not_requested",
+              "type": "string"
+            },
+            {
+              "const": "not_resolved",
+              "type": "string"
+            },
+            {
+              "const": "resolved",
+              "type": "string"
+            },
+            {
+              "const": "denied",
+              "type": "string"
+            }
+          ]
+        },
+        "grant_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "provider": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "connection_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "grant_reference": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "grant_id",
+            "scope_family",
+            "authority_kind"
+          ],
+          "properties": {
+            "grant_id": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "scope_family": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "authority_kind": {
+              "anyOf": [
+                {
+                  "const": "read_only",
+                  "type": "string"
+                },
+                {
+                  "const": "constructive",
+                  "type": "string"
+                },
+                {
+                  "const": "destructive",
+                  "type": "string"
+                }
+              ]
+            },
+            "target_repo": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "target_locator": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        },
+        "material_ref_hash": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "scope_family": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "authority_kind": {
+          "anyOf": [
+            {
+              "const": "read_only",
+              "type": "string"
+            },
+            {
+              "const": "constructive",
+              "type": "string"
+            },
+            {
+              "const": "destructive",
+              "type": "string"
+            }
+          ]
+        },
+        "target_repo": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "target_locator": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "sandbox": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "profile"
+      ],
+      "properties": {
+        "profile": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "cwd_policy": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "require_enforcement": {
+          "type": "boolean"
+        },
+        "network": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "declared": {
+              "type": "boolean"
+            },
+            "enforcement": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        },
+        "filesystem": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "enforcement": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "readonly_paths": {
+              "type": "boolean"
+            },
+            "writable_paths_enforced": {
+              "type": "boolean"
+            },
+            "private_tmp": {
+              "type": "boolean"
+            }
+          }
+        },
+        "runtime": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "enforcer": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "reason": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        },
+        "approval_required": {
+          "type": "boolean"
+        },
+        "approval_approved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "approval_gate": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "gate_id",
+        "gate_type",
+        "decision"
+      ],
+      "properties": {
+        "gate_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "gate_type": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "decision": {
+          "anyOf": [
+            {
+              "const": "approved",
+              "type": "string"
+            },
+            {
+              "const": "denied",
+              "type": "string"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "redaction": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "status",
+        "secret_material",
+        "stdout",
+        "stderr",
+        "metadata_secret_keys"
+      ],
+      "properties": {
+        "status": {
+          "const": "applied",
+          "type": "string"
+        },
+        "secret_material": {
+          "const": "omitted",
+          "type": "string"
+        },
+        "stdout": {
+          "const": "hashed",
+          "type": "string"
+        },
+        "stderr": {
+          "const": "hashed",
+          "type": "string"
+        },
+        "metadata_secret_keys": {
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -102,6 +102,9 @@ export interface ComparableRunSummary {
   readonly disposition?: string;
   readonly outcomeState?: string;
   readonly runnerProvider?: string;
+  readonly workItemState?: string;
+  readonly workItemStatusSummary?: string;
+  readonly workItemId?: string;
   readonly approval?: RunApprovalSummary;
   readonly lineage?: RunLineageSummary;
   readonly error?: string;
@@ -572,6 +575,7 @@ async function summarizeLocalReceipt(
   const actors = extractReceiptActors(receipt);
   const artifactTypes = extractReceiptArtifactTypes(receipt, ledgerEntries);
   const metadata = isRecord(receipt.metadata) ? receipt.metadata : undefined;
+  const workItem = extractReceiptWorkItem(receipt, ledgerEntries);
   const approval = extractReceiptApproval(receipt);
   const lineage = extractReceiptLineage(receipt);
   const runnerProvider = metadata ? readNestedString(metadata, ["runner", "provider"]) : undefined;
@@ -592,6 +596,9 @@ async function summarizeLocalReceipt(
       approval,
       lineage,
       runnerProvider,
+      workItemState: workItem?.state,
+      workItemStatusSummary: workItem?.statusSummary,
+      workItemId: workItem?.id,
       ledgerVerification: ledgerInspection.verification,
     };
   }
@@ -611,8 +618,54 @@ async function summarizeLocalReceipt(
     approval,
     lineage,
     runnerProvider,
+    workItemState: workItem?.state,
+    workItemStatusSummary: workItem?.statusSummary,
+    workItemId: workItem?.id,
     ledgerVerification: ledgerInspection.verification,
   };
+}
+
+function extractReceiptWorkItem(
+  receipt: LocalReceipt,
+  ledgerEntries: readonly ArtifactEnvelope[],
+): { readonly id?: string; readonly state?: string; readonly statusSummary?: string } | undefined {
+  const directArtifactIds = receipt.kind === "skill_execution" && Array.isArray(receipt.artifact_ids)
+    ? new Set(receipt.artifact_ids)
+    : undefined;
+  for (const entry of ledgerEntries) {
+    if (entry.type === null || SYSTEM_ARTIFACT_TYPES.has(entry.type)) {
+      continue;
+    }
+    if (directArtifactIds && !directArtifactIds.has(entry.meta.artifact_id)) {
+      continue;
+    }
+    const workItem = findWorkItemRecord(entry.data);
+    if (workItem) {
+      return workItem;
+    }
+  }
+  return undefined;
+}
+
+function findWorkItemRecord(value: unknown): { readonly id?: string; readonly state?: string; readonly statusSummary?: string } | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  if (value.schema === "runx.work_item.v1") {
+    return {
+      id: readString(value.work_item_id),
+      state: readString(value.state),
+      statusSummary: readString(value.status_summary),
+    };
+  }
+  if (isRecord(value.work_item)) {
+    return findWorkItemRecord(value.work_item);
+  }
+  return undefined;
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 function resolveSummaryName(field: string | null | undefined, fallbackId: string): string {

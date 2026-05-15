@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveOutputPath, type GraphStepOutput } from "./graph-context.js";
+import { materializeStepInputs, resolveOutputPath, type GraphStepOutput } from "./graph-context.js";
 
 function makeOutput(): GraphStepOutput {
   return {
@@ -59,5 +59,31 @@ describe("resolveOutputPath", () => {
     expect(() => resolveOutputPath(makeOutput(), "file_bundle_write.data.files")).toThrow(
       "Context output path 'file_bundle_write.data.files' was not produced by the source step.",
     );
+  });
+});
+
+describe("materializeStepInputs", () => {
+  it("resolves explicit graph input references in step inputs", () => {
+    expect(materializeStepInputs({
+      work_item: "$input.work_item",
+      nested: {
+        state: "$input.work_item.state",
+      },
+      literal: "not an input ref",
+    }, {
+      work_item: {
+        work_item_id: "wi_123",
+        state: "build_ready",
+      },
+    })).toEqual({
+      work_item: {
+        work_item_id: "wi_123",
+        state: "build_ready",
+      },
+      nested: {
+        state: "build_ready",
+      },
+      literal: "not an input ref",
+    });
   });
 });

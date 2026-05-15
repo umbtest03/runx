@@ -12,11 +12,15 @@ export {
   credentialGrantReferenceSchema,
   credentialEnvelopeSchema,
   scopeAdmissionSchema,
+  authorityProofSchema,
+  authorityProofSchemaVersion,
   validateCredentialEnvelopeContract,
   validateScopeAdmissionContract,
+  validateAuthorityProofContract,
   type CredentialGrantReferenceContract,
   type CredentialEnvelopeContract,
   type ScopeAdmissionContract,
+  type AuthorityProofContract,
 } from "./schemas/credentials.js";
 
 export {
@@ -216,6 +220,43 @@ export {
 } from "./schemas/capability-execution.js";
 
 export {
+  workItemSchemaVersion,
+  workItemStates,
+  workItemStateTransitions,
+  workItemActions,
+  workItemSourceProviders,
+  workItemStateSchema,
+  workItemActionSchema,
+  workItemSourceProviderSchema,
+  workItemSourceEventSchema,
+  workItemDedupeSchema,
+  workItemTriageSchema,
+  workItemOwnerSuggestionSchema,
+  workItemTargetRepoSuggestionSchema,
+  workItemProviderRefSchema,
+  workItemMergeGateSchema,
+  workItemOutcomeSchema,
+  workItemSchema,
+  isWorkItemState,
+  nextWorkItemStates,
+  canTransitionWorkItemState,
+  validateWorkItemContract,
+  type WorkItemStateName,
+  type WorkItemStateContract,
+  type WorkItemActionContract,
+  type WorkItemSourceProviderContract,
+  type WorkItemSourceEventContract,
+  type WorkItemDedupeContract,
+  type WorkItemTriageContract,
+  type WorkItemOwnerSuggestionContract,
+  type WorkItemTargetRepoSuggestionContract,
+  type WorkItemProviderRefContract,
+  type WorkItemMergeGateContract,
+  type WorkItemOutcomeContract,
+  type WorkItemContract,
+} from "./schemas/work-item.js";
+
+export {
   handoffSignalV1Schema,
   handoffStateV1Schema,
   suppressionRecordV1Schema,
@@ -229,7 +270,7 @@ export {
 
 import { agentContextEnvelopeSchema } from "./schemas/context.js";
 import { agentWorkRequestSchema, approvalGateSchema, questionSchema } from "./schemas/agent-work.js";
-import { credentialEnvelopeSchema, scopeAdmissionSchema } from "./schemas/credentials.js";
+import { credentialEnvelopeSchema, scopeAdmissionSchema, authorityProofSchema } from "./schemas/credentials.js";
 import { outputContractSchema } from "./schemas/output.js";
 import { adapterInvokeResultSchema, resolutionRequestSchema, resolutionResponseSchema } from "./schemas/resolution.js";
 import { registryBindingSchema, reviewReceiptOutputSchema } from "./schemas/registry.js";
@@ -241,6 +282,7 @@ import { fixtureV1Schema } from "./schemas/fixture.js";
 import { toolManifestV1Schema } from "./schemas/tool-manifest.js";
 import { packetIndexV1Schema } from "./schemas/packet-index.js";
 import { capabilityExecutionV1Schema } from "./schemas/capability-execution.js";
+import { workItemSchema } from "./schemas/work-item.js";
 import { ledgerRecordSchema } from "./schemas/ledger.js";
 import { handoffSignalV1Schema, handoffStateV1Schema, suppressionRecordV1Schema } from "./schemas/handoff.js";
 
@@ -255,6 +297,7 @@ export const runxContractSchemas = {
   adapterInvokeResult: adapterInvokeResultSchema,
   credentialEnvelope: credentialEnvelopeSchema,
   scopeAdmission: scopeAdmissionSchema,
+  authorityProof: authorityProofSchema,
   doctor: doctorV1Schema,
   dev: devV1Schema,
   list: listV1Schema,
@@ -263,6 +306,7 @@ export const runxContractSchemas = {
   toolManifest: toolManifestV1Schema,
   packetIndex: packetIndexV1Schema,
   capabilityExecution: capabilityExecutionV1Schema,
+  workItem: workItemSchema,
   ledgerEntry: ledgerRecordSchema,
   handoffSignal: handoffSignalV1Schema,
   handoffState: handoffStateV1Schema,
@@ -285,6 +329,7 @@ export const runxGeneratedSchemaArtifacts = {
   "adapter-invoke-result.schema.json": adapterInvokeResultSchema,
   "credential-envelope.schema.json": credentialEnvelopeSchema,
   "scope-admission.schema.json": scopeAdmissionSchema,
+  "authority-proof.schema.json": authorityProofSchema,
   "doctor.schema.json": doctorV1Schema,
   "dev.schema.json": devV1Schema,
   "list.schema.json": listV1Schema,
@@ -293,6 +338,7 @@ export const runxGeneratedSchemaArtifacts = {
   "tool-manifest.schema.json": toolManifestV1Schema,
   "packet-index.schema.json": packetIndexV1Schema,
   "capability-execution.schema.json": capabilityExecutionV1Schema,
+  "work-item.schema.json": workItemSchema,
   "ledger-entry.schema.json": ledgerRecordSchema,
   "handoff-signal.schema.json": handoffSignalV1Schema,
   "handoff-state.schema.json": handoffStateV1Schema,

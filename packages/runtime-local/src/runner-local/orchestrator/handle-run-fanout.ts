@@ -12,7 +12,7 @@ import {
 } from "@runxhq/core/state-machine";
 
 import { runFanout } from "../fanout.js";
-import { findGraphStep, materializeContext } from "../graph-context.js";
+import { findGraphStep, materializeContext, materializeStepInputs } from "../graph-context.js";
 import {
   appendGraphLedgerEntries,
   appendGraphStepFailureLedgerEntry,
@@ -30,6 +30,8 @@ import {
 import {
   buildDeniedGraphStepRun,
   buildGraphStepGovernance,
+  graphStepAuthorityProofMetadata,
+  graphStepScopeAdmission,
   governanceReceiptMetadata,
   latestFanoutReceiptIds,
   toGraphReceiptSyncPoint,
@@ -91,7 +93,7 @@ export async function handleRunFanoutPlan(
     ctx.involvedAgentMediatedWork ||= isAgentMediatedSource(stepSkill.source.type);
     const stepInputs = materializeDeclaredInputs(stepSkill.inputs, {
       ...(options.inputs ?? {}),
-      ...step.inputs,
+      ...materializeStepInputs(step.inputs, options.inputs ?? {}),
       ...Object.fromEntries(context.map((edge) => [edge.input, edge.value])),
     });
     const governance = buildGraphStepGovernance(step, ctx.graphGrant);
@@ -118,7 +120,10 @@ export async function handleRunFanoutPlan(
         stepRuns: [...ctx.stepRuns, deniedRun],
         errorMessage: transitionGate.reason,
         executionSemantics: ctx.executionSemantics,
-        receiptMetadata: ctx.inheritedReceiptMetadata,
+        receiptMetadata: mergeMetadata(
+          ctx.inheritedReceiptMetadata,
+          graphStepAuthorityProofMetadata({ graphId: ctx.graphId, step, stepSkill, governance }),
+        ),
       });
       return {
         kind: "return",
@@ -153,7 +158,10 @@ export async function handleRunFanoutPlan(
         stepRuns: [...ctx.stepRuns, deniedRun],
         errorMessage: governance.scopeAdmission.reasons?.join("; ") ?? "graph step scope denied",
         executionSemantics: ctx.executionSemantics,
-        receiptMetadata: ctx.inheritedReceiptMetadata,
+        receiptMetadata: mergeMetadata(
+          ctx.inheritedReceiptMetadata,
+          graphStepAuthorityProofMetadata({ graphId: ctx.graphId, step, stepSkill, governance }),
+        ),
       });
       return {
         kind: "return",
@@ -177,6 +185,32 @@ export async function handleRunFanoutPlan(
       idempotencyKey: retryContext.idempotencyKey,
     });
     if (retryAdmission.status === "deny") {
+      const deniedRun = buildDeniedGraphStepRun({
+        step,
+        stepSkillPath,
+        attempt: plan.attempts[step.id] ?? 1,
+        parentReceipt: fanoutParentReceipt,
+        fanoutGroup: plan.groupId,
+        governance,
+        context,
+        stderr: retryAdmission.reasons.join("; "),
+      });
+      const receipt = await writePolicyDeniedGraphReceipt({
+        receiptDir: ctx.receiptDir,
+        runxHome: options.runxHome ?? options.env?.RUNX_HOME,
+        graph: ctx.graph,
+        graphId: ctx.graphId,
+        startedAt: ctx.startedAt,
+        startedAtMs: ctx.startedAtMs,
+        inputs: options.inputs ?? {},
+        stepRuns: [...ctx.stepRuns, deniedRun],
+        errorMessage: retryAdmission.reasons.join("; "),
+        executionSemantics: ctx.executionSemantics,
+        receiptMetadata: mergeMetadata(
+          ctx.inheritedReceiptMetadata,
+          graphStepAuthorityProofMetadata({ graphId: ctx.graphId, step, stepSkill, governance }),
+        ),
+      });
       return {
         kind: "return",
         result: {
@@ -186,6 +220,7 @@ export async function handleRunFanoutPlan(
           skill: stepSkill,
           reasons: retryAdmission.reasons,
           state: ctx.state,
+          receipt,
         },
       };
     }
@@ -254,6 +289,8 @@ export async function handleRunFanoutPlan(
         voiceProfile: ctx.voiceProfile,
         voiceProfilePath: options.voiceProfilePath,
         workspacePolicy: ctx.workspacePolicy,
+        authorityMutating: prep.step.mutating || prep.stepSkill.mutating === true,
+        authorityScopeAdmission: graphStepScopeAdmission(prep.governance),
       });
     },
   }));

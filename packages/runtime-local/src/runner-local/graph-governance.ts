@@ -1,11 +1,16 @@
-import { admitGraphStepScopes, type GraphScopeGrant } from "@runxhq/core/policy";
+import {
+  admitGraphStepScopes,
+  buildAuthorityProofMetadata,
+  type GraphScopeGrant,
+} from "@runxhq/core/policy";
 import {
   writeLocalGraphReceipt,
   type GraphReceiptStep,
   type GraphReceiptSyncPoint,
   type LocalGraphReceipt,
 } from "@runxhq/core/receipts";
-import type { ExecutionGraph, GraphStep } from "@runxhq/core/parser";
+import type { ScopeAdmissionContract } from "@runxhq/contracts";
+import type { ExecutionGraph, GraphStep, ValidatedSkill } from "@runxhq/core/parser";
 import type { FanoutSyncDecision } from "@runxhq/core/state-machine";
 
 import { graphStepReference, graphStepRunner } from "./graph-reporting.js";
@@ -56,6 +61,37 @@ export function governanceReceiptMetadata(
       },
     },
   };
+}
+
+export function graphStepScopeAdmission(governance: GraphStepGovernance): ScopeAdmissionContract {
+  return {
+    status: governance.scopeAdmission.status,
+    requested_scopes: [...governance.scopeAdmission.requestedScopes],
+    granted_scopes: [...governance.scopeAdmission.grantedScopes],
+    grant_id: governance.scopeAdmission.grantId,
+    reasons: governance.scopeAdmission.reasons ? [...governance.scopeAdmission.reasons] : undefined,
+    decision_summary: governance.scopeAdmission.status === "allow"
+      ? "graph step scope admission allowed"
+      : "graph step scope admission denied",
+  };
+}
+
+export function graphStepAuthorityProofMetadata(options: {
+  readonly graphId: string;
+  readonly step: GraphStep;
+  readonly stepSkill: ValidatedSkill;
+  readonly governance: GraphStepGovernance;
+}): Readonly<Record<string, unknown>> {
+  return buildAuthorityProofMetadata({
+    runId: options.graphId,
+    skillName: options.stepSkill.name,
+    sourceType: options.stepSkill.source.type,
+    auth: options.stepSkill.auth,
+    grants: [],
+    scopeAdmission: graphStepScopeAdmission(options.governance),
+    sandboxDeclaration: options.stepSkill.source.sandbox,
+    mutating: options.step.mutating || options.stepSkill.mutating === true,
+  });
 }
 
 export function buildDeniedGraphStepRun(options: {

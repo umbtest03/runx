@@ -8,6 +8,47 @@ import { describe, expect, it } from "vitest";
 const scriptPath = path.resolve("scripts/dogfood-github-issue-to-pr.mjs");
 
 describe("GitHub issue-to-PR dogfood script", () => {
+  it("skips read-only preflight when no live target is configured", () => {
+    const result = runDogfood(["--preflight"], {
+      RUNX_LIVE_ISSUE_TO_PR_REPO: undefined,
+      RUNX_LIVE_ISSUE_TO_PR_ISSUE: undefined,
+      RUNX_LIVE_ISSUE_TO_PR_WORKSPACE: undefined,
+      RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS: undefined,
+    });
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      status: "skipped",
+      reason: "live_issue_to_pr_target_not_configured",
+      mutation: "none",
+      missing: ["repo", "issue", "workspace"],
+    });
+  });
+
+  it("blocks configured live targets that are not explicitly allowlisted", () => {
+    const result = runDogfood([
+      "--preflight",
+      "--repo", "example/repo",
+      "--issue", "123",
+      "--workspace", "/tmp/example-repo",
+    ], {
+      RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS: "runxhq/runx-workspace",
+    });
+
+    expect(result.status).toBe(1);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      status: "blocked",
+      reason: "live_issue_to_pr_repo_not_allowlisted",
+      repo: "example/repo",
+      mutation: "none",
+      check: {
+        name: "target_repo_allowlist",
+        status: "blocked",
+        allowed_repos: ["runxhq/runx-workspace"],
+      },
+    });
+  });
+
   it("reports a ready read-only preflight without hydrating GitHub", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-dogfood-preflight-"));
 
@@ -26,6 +67,8 @@ describe("GitHub issue-to-PR dogfood script", () => {
         "--scafld-bin", fakeScafld,
       ], {
         RUNX_BIN: undefined,
+        RUNX_GITHUB_TOKEN: "test-token",
+        RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS: "example/repo",
       });
 
       expect(result.status).toBe(0);
@@ -39,6 +82,10 @@ describe("GitHub issue-to-PR dogfood script", () => {
           number: "123",
         },
         checks: {
+          target_repo_allowlist: {
+            status: "ready",
+            repo: "example/repo",
+          },
           workspace: {
             status: "ready",
           },
@@ -55,11 +102,21 @@ describe("GitHub issue-to-PR dogfood script", () => {
             status: "skipped",
             source: "env:RUNX_BIN",
           },
+          github_publish_auth: {
+            status: "ready",
+            source: ["RUNX_GITHUB_TOKEN"],
+          },
           github: {
             status: "deferred",
           },
-        },
-      });
+	        },
+	        mutation_gates: expect.arrayContaining([
+            "target repo is in the explicit proving-ground allowlist",
+            "explicit GitHub token env is present for the provider-push sandbox",
+	          "human merge remains outside the harness",
+	        ]),
+	      });
+      expect(payload.modes.observe).toContain("terminal outcomes upsert one source-thread comment");
       expect(payload.next_command).toContain("pnpm dogfood:github-issue-to-pr --");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
@@ -85,6 +142,8 @@ describe("GitHub issue-to-PR dogfood script", () => {
         "--scafld-bin", fakeScafld,
       ], {
         RUNX_BIN: missingRunx,
+        RUNX_GITHUB_TOKEN: "test-token",
+        RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS: "example/repo",
       });
 
       expect(result.status).toBe(1);
@@ -123,6 +182,8 @@ describe("GitHub issue-to-PR dogfood script", () => {
         "--scafld-bin", fakeScafld,
       ], {
         RUNX_BIN: undefined,
+        RUNX_GITHUB_TOKEN: "test-token",
+        RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS: "example/repo",
       });
 
       expect(result.status).toBe(1);
@@ -161,6 +222,8 @@ describe("GitHub issue-to-PR dogfood script", () => {
         "--scafld-bin", fakeScafld,
       ], {
         RUNX_BIN: undefined,
+        RUNX_GITHUB_TOKEN: "test-token",
+        RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS: "example/repo",
       });
 
       expect(result.status).toBe(0);
@@ -173,6 +236,43 @@ describe("GitHub issue-to-PR dogfood script", () => {
         action: "create_branch",
       });
       expect(payload.next_command).toContain("--prepare-branch");
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks live publication without explicit GitHub token env for the push sandbox", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-dogfood-token-"));
+
+    try {
+      const workspace = path.join(tempDir, "workspace");
+      const fakeScafld = path.join(tempDir, "fake-scafld.mjs");
+      await mkdir(path.join(workspace, ".scafld"), { recursive: true });
+      initGitWorkspace(workspace, "issue-123");
+      await writeFakeScafld(fakeScafld);
+
+      const result = runDogfood([
+        "--preflight",
+        "--repo", "example/repo",
+        "--issue", "123",
+        "--workspace", workspace,
+        "--scafld-bin", fakeScafld,
+      ], {
+        RUNX_BIN: undefined,
+        RUNX_GITHUB_TOKEN: undefined,
+        GH_TOKEN: undefined,
+        GITHUB_TOKEN: undefined,
+        RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS: "example/repo",
+      });
+
+      expect(result.status).toBe(1);
+      const payload = JSON.parse(result.stdout);
+      expect(payload.checks.github_publish_auth).toMatchObject({
+        name: "github_publish_auth",
+        status: "blocked",
+        source: [],
+      });
+      expect(payload.checks.github_publish_auth.next).toContain("RUNX_GITHUB_TOKEN");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

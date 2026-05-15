@@ -169,6 +169,10 @@ export function renderHistory(
     lines.push(
       `  ${icon}  ${t.bold}${name}${t.reset}  ${t.dim}${source.padEnd(16)}${t.reset}  ${t.dim}${verification.padEnd(16)}${t.reset}  ${t.dim}${when.padEnd(10)}${t.reset}  ${t.dim}${id}${t.reset}`,
     );
+    const workItemStatus = formatWorkItemHistoryStatus(receipt);
+    if (workItemStatus) {
+      lines.push(`     ${t.dim}${workItemStatus}${t.reset}`);
+    }
   }
   lines.push("");
   if (pendingRuns.length > 0) {
@@ -178,6 +182,18 @@ export function renderHistory(
   }
   lines.push("");
   return lines.join("\n");
+}
+
+function formatWorkItemHistoryStatus(receipt: LocalReceiptSummary): string | undefined {
+  if (!receipt.workItemState && !receipt.workItemStatusSummary && !receipt.workItemId) {
+    return undefined;
+  }
+  const parts = [
+    receipt.workItemId ? `work item ${receipt.workItemId}` : "work item",
+    receipt.workItemState,
+    receipt.workItemStatusSummary,
+  ].filter((value): value is string => Boolean(value));
+  return parts.join(" · ");
 }
 
 export function renderPausedRunInspection(

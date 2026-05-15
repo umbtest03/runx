@@ -27,6 +27,7 @@ steps:
   - id: echo
     skill: ./skills/governed-echo
     runner: governed-echo-cli
+    mutation: true
     scopes:
       - repo:read
     inputs:
@@ -68,6 +69,17 @@ steps:
         metadata?: Record<string, unknown>;
       };
       expect(stepReceipt.metadata).toMatchObject({
+        authority_proof: {
+          requested: {
+            mutating: true,
+          },
+          scope_admission: {
+            status: "allow",
+            requested_scopes: ["repo:read"],
+            granted_scopes: ["repo:*"],
+            grant_id: "grant_repo",
+          },
+        },
         graph_governance: {
           step_id: "echo",
           selected_runner: "governed-echo-cli",
@@ -142,6 +154,73 @@ steps:
             },
           },
         ],
+      });
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("carries fanout step mutating authority into branch receipt proofs", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-graph-fanout-authority-"));
+    const receiptDir = path.join(tempDir, "receipts");
+
+    try {
+      await Promise.all([
+        writeGovernedSkill(path.join(tempDir, "skills", "left")),
+        writeGovernedSkill(path.join(tempDir, "skills", "right")),
+      ]);
+      const graphPath = path.join(tempDir, "graph.yaml");
+      await writeFile(
+        graphPath,
+        `name: graph-fanout-authority
+fanout:
+  groups:
+    branches:
+      strategy: all
+steps:
+  - id: left
+    mode: fanout
+    fanout_group: branches
+    skill: ./skills/left
+    runner: governed-echo-cli
+    mutation: true
+    inputs:
+      message: left
+  - id: right
+    mode: fanout
+    fanout_group: branches
+    skill: ./skills/right
+    runner: governed-echo-cli
+    inputs:
+      message: right
+`,
+      );
+
+      const result = await runLocalGraph({
+        graphPath,
+        caller,
+        receiptDir,
+        runxHome: path.join(tempDir, "home"),
+        env: process.env,
+        adapters: createDefaultSkillAdapters(),
+      });
+
+      expect(result.status).toBe("success");
+      if (result.status !== "success") {
+        return;
+      }
+
+      const left = result.steps.find((step) => step.stepId === "left");
+      expect(left?.receiptId).toEqual(expect.any(String));
+      const stepReceipt = JSON.parse(await readFile(path.join(receiptDir, `${left?.receiptId}.json`), "utf8")) as {
+        metadata?: Record<string, unknown>;
+      };
+      expect(stepReceipt.metadata).toMatchObject({
+        authority_proof: {
+          requested: {
+            mutating: true,
+          },
+        },
       });
     } finally {
       await rm(tempDir, { recursive: true, force: true });

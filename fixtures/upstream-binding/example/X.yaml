@@ -1,0 +1,27 @@
+skill: example-upstream
+
+runners:
+  default:
+    default: true
+    type: agent-step
+    agent: tester
+    task: example-upstream
+    outputs:
+      summary:
+        type: string
+
+harness:
+  cases:
+    - name: example-upstream-smoke
+      runner: default
+      inputs: {}
+      caller:
+        answers:
+          agent_step.example-upstream.output:
+            summary: ok
+      expect:
+        status: success
+        receipt:
+          kind: skill_execution
+          status: success
+          skill_name: example-upstream

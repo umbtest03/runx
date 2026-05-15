@@ -39,6 +39,7 @@ describe("scafld issue-to-PR skill contract", () => {
       "scafld-complete",
       "scafld-final-status",
       "scafld-handoff",
+      "capture-work-item",
       "package-pull-request",
       "push-pull-request",
       "package-thread-story",
@@ -61,7 +62,12 @@ describe("scafld issue-to-PR skill contract", () => {
     expect(graph.steps.map((step) => step.inputs.command).filter(Boolean)).not.toEqual(
       expect.arrayContaining(["new", "start", "branch", "audit", "summary", "checks", "pr-body"]),
     );
-    expect(graph.steps.some((step) => (step.tool ?? "").includes("capture"))).toBe(false);
+    expect(graph.steps.find((step) => step.id === "capture-work-item")).toMatchObject({
+      tool: "control.capture_work_item",
+      inputs: {
+        work_item: "$input.work_item",
+      },
+    });
     expect(graph.steps.find((step) => step.id === "author-spec")).toMatchObject({
       run: {
         type: "agent-step",
@@ -113,6 +119,7 @@ describe("scafld issue-to-PR skill contract", () => {
     expect(graph.steps.find((step) => step.id === "package-pull-request")).toMatchObject({
       tool: "outbox.build_pull_request",
       context: {
+        work_item: "capture-work-item.work_item",
         handoff_markdown: "scafld-handoff.stdout",
         build_result: "scafld-build.result",
         review_result: "scafld-review.result",
@@ -136,6 +143,7 @@ describe("scafld issue-to-PR skill contract", () => {
     expect(graph.steps.find((step) => step.id === "package-thread-story")).toMatchObject({
       tool: "outbox.build_work_item_story",
       context: {
+        work_item: "capture-work-item.work_item",
         build_result: "scafld-build.result",
         review_result: "scafld-review.result",
         completion_result: "scafld-complete.result",

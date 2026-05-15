@@ -1,0 +1,32 @@
+{
+  "schema": "runx.registry_binding.v1",
+  "state": "harness_verified",
+  "skill": {
+    "id": "fixture/example-upstream",
+    "name": "example-upstream",
+    "description": "Fixture upstream skill for registry publish dry-run checks."
+  },
+  "upstream": {
+    "host": "github.com",
+    "owner": "fixture",
+    "repo": "example-upstream",
+    "path": "SKILL.md",
+    "commit": "0000000000000000000000000000000000000000",
+    "source_of_truth": true
+  },
+  "registry": {
+    "owner": "fixture",
+    "trust_tier": "verified",
+    "version": "upstream-fixture",
+    "profile_path": "X.yaml",
+    "materialized_package_is_registry_artifact": true
+  },
+  "harness": {
+    "status": "harness_verified",
+    "case_count": 1,
+    "assertion_count": 1,
+    "case_names": [
+      "example-upstream-smoke"
+    ]
+  }
+}

@@ -35,6 +35,11 @@
       "required": false,
       "description": "Optional current pull_request outbox entry when refreshing an existing draft."
     },
+    "work_item": {
+      "type": "json",
+      "required": false,
+      "description": "Optional runx.work_item.v1 packet from the issue control plane."
+    },
     "target_repo": {
       "type": "string",
       "required": false,
@@ -117,7 +122,7 @@
       "./run.mjs"
     ]
   },
-  "source_hash": "sha256:a790945c5956f6261f7f754dc39d249b32b95b123ce5f2b51884d9f423bb6891",
-  "schema_hash": "sha256:6df4c15d8c80494285dd16c161fc11b0727cc31f23147675976482e2ea6e25c6",
+  "source_hash": "sha256:e7783c2d7ef97033bbec1dadf26c7f4deceeccead85a5bc16deea822154ff386",
+  "schema_hash": "sha256:5a2e3b4d1539900aff46ca95c51c8e54e0f1ab3afa9d2af031cb1b5e3abc4631",
   "toolkit_version": "0.1.4"
 }

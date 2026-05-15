@@ -5,9 +5,12 @@ import {
   admitLocalSkill,
   admitRetryPolicy,
   admitSandbox,
+  buildAuthorityProofMetadata,
+  buildLocalScopeAdmission,
   evaluatePublicCommentOpportunity,
   evaluatePublicPullRequestCandidate,
   sandboxRequiresApproval,
+  validateCredentialBinding,
 } from "./index.js";
 
 describe("admitLocalSkill", () => {
@@ -150,6 +153,118 @@ describe("admitLocalSkill", () => {
     expect(decision.status).toBe("allow");
   });
 
+  it("allows connected auth when a wildcard grant covers the requested scope", () => {
+    const skill = {
+      name: "connected",
+      source: { type: "cli-tool" },
+      auth: { type: "nango", provider: "github", scopes: ["repo:read"] },
+    } as const;
+    const grants = [
+      {
+        grant_id: "grant_wildcard",
+        provider: "github",
+        scopes: ["repo:*"],
+        status: "active" as const,
+      },
+    ];
+
+    expect(admitLocalSkill(skill, { connectedGrants: grants }).status).toBe("allow");
+    expect(buildLocalScopeAdmission(skill.auth, grants)).toEqual({
+      status: "allow",
+      requested_scopes: ["repo:read"],
+      granted_scopes: ["repo:*"],
+      grant_id: "grant_wildcard",
+      decision_summary: "matching active grant admitted",
+    });
+    expect(validateCredentialBinding({
+      auth: skill.auth,
+      grants,
+      scopeAdmission: buildLocalScopeAdmission(skill.auth, grants),
+      credential: {
+        kind: "runx.credential-envelope.v1",
+        grant_id: "grant_wildcard",
+        provider: "github",
+        connection_id: "conn_1",
+        scopes: ["repo:*"],
+        material_ref: "nango:github:conn_1",
+      },
+    }).status).toBe("allow");
+  });
+
+  it("requires targeted connected auth grants to match the requested reference", () => {
+    const skill = {
+      name: "targeted-connected",
+      source: { type: "cli-tool" },
+      auth: {
+        type: "nango",
+        provider: "github",
+        scopes: ["repo:read"],
+        scope_family: "github_repo",
+        authority_kind: "read_only",
+        target_repo: "runxhq/aster",
+        target_locator: "runxhq/aster#issue/4",
+      },
+    } as const;
+
+    expect(
+      admitLocalSkill(skill, {
+        connectedGrants: [
+          {
+            grant_id: "grant_other_issue",
+            provider: "github",
+            scopes: ["repo:read"],
+            status: "active",
+            scope_family: "github_repo",
+            authority_kind: "read_only",
+            target_repo: "runxhq/aster",
+            target_locator: "runxhq/aster#issue/5",
+          },
+        ],
+      }).status,
+    ).toBe("deny");
+    expect(
+      admitLocalSkill(skill, {
+        connectedGrants: [
+          {
+            grant_id: "grant_issue_4",
+            provider: "github",
+            scopes: ["repo:read"],
+            status: "active",
+            scope_family: "github_repo",
+            authority_kind: "read_only",
+            target_repo: "runxhq/aster",
+            target_locator: "runxhq/aster#issue/4",
+          },
+        ],
+      }).status,
+    ).toBe("allow");
+  });
+
+  it("does not satisfy untargeted connected auth with a targeted grant", () => {
+    const decision = admitLocalSkill(
+      {
+        name: "untargeted-connected",
+        source: { type: "cli-tool" },
+        auth: { type: "nango", provider: "github", scopes: ["repo:read"] },
+      },
+      {
+        connectedGrants: [
+          {
+            grant_id: "grant_targeted",
+            provider: "github",
+            scopes: ["repo:read"],
+            status: "active",
+            scope_family: "github_repo",
+            authority_kind: "read_only",
+            target_repo: "runxhq/aster",
+          },
+        ],
+      },
+    );
+
+    expect(decision.status).toBe("deny");
+  });
+
   it("denies readonly sandbox declarations with writable paths", () => {
     const decision = admitLocalSkill({
       name: "readonly-write",
@@ -286,6 +401,255 @@ describe("admitGraphStepScopes", () => {
         grant: { scopes: ["*"] },
       }).requestedScopes,
     ).toEqual(["repo:read"]);
+  });
+});
+
+describe("authority proof", () => {
+  it("summarizes matching grants and opaque credential material without raw secrets", () => {
+    const scopeAdmission = buildLocalScopeAdmission(
+      {
+        type: "nango",
+        provider: "github",
+        scopes: ["repo:read"],
+      },
+      [
+        {
+          grant_id: "grant_1",
+          provider: "github",
+          scopes: ["repo:read", "user:read"],
+          status: "active",
+        },
+      ],
+    );
+
+    expect(scopeAdmission).toEqual({
+      status: "allow",
+      requested_scopes: ["repo:read"],
+      granted_scopes: ["repo:read", "user:read"],
+      grant_id: "grant_1",
+      decision_summary: "matching active grant admitted",
+    });
+
+    const metadata = buildAuthorityProofMetadata({
+      runId: "rx_abc",
+      skillName: "connected-review",
+      sourceType: "agent-step",
+      auth: {
+        type: "nango",
+        provider: "github",
+        scopes: ["repo:read"],
+        scope_family: "github_repo",
+        authority_kind: "read_only",
+        target_repo: "runxhq/aster",
+        target_locator: "runxhq/aster#issue/4",
+      },
+      scopeAdmission,
+      credential: {
+        kind: "runx.credential-envelope.v1",
+        grant_id: "grant_1",
+        provider: "github",
+        connection_id: "conn_1",
+        scopes: ["repo:read"],
+        material_ref: "nango:github:conn_1",
+      },
+    });
+
+    expect(metadata).toMatchObject({
+      authority_proof: {
+        schema_version: "runx.authority-proof.v1",
+        requested: {
+          connected_auth: true,
+          scopes: ["repo:read"],
+          scope_family: "github_repo",
+          authority_kind: "read_only",
+          target_repo: "runxhq/aster",
+          target_locator: "runxhq/aster#issue/4",
+        },
+        credential_material: {
+          status: "resolved",
+          material_ref_hash: expect.any(String),
+        },
+        redaction: {
+          secret_material: "omitted",
+          stdout: "hashed",
+          stderr: "hashed",
+        },
+      },
+    });
+    expect(JSON.stringify(metadata)).not.toContain("super-secret-token");
+    expect(JSON.stringify(metadata)).not.toContain("sk-contract-test");
+    expect(JSON.stringify(metadata)).not.toContain("nango:github:conn_1");
+  });
+
+  it("records denied connected auth without resolving credential material", () => {
+    const metadata = buildAuthorityProofMetadata({
+      skillName: "connected-review",
+      sourceType: "agent-step",
+      auth: {
+        type: "nango",
+        provider: "github",
+        scopes: ["repo:write"],
+        scope_family: "github_repo",
+        authority_kind: "constructive",
+        target_repo: "runxhq/aster",
+        target_locator: "runxhq/aster#issue/4",
+      },
+      grants: [],
+    });
+
+    expect(metadata).toMatchObject({
+      authority_proof: {
+        scope_admission: {
+          status: "deny",
+          requested_scopes: ["repo:write"],
+          granted_scopes: [],
+        },
+        credential_material: {
+          status: "denied",
+          provider: "github",
+          scopes: ["repo:write"],
+          scope_family: "github_repo",
+          authority_kind: "constructive",
+          target_repo: "runxhq/aster",
+          target_locator: "runxhq/aster#issue/4",
+        },
+      },
+    });
+    expect(JSON.stringify(metadata)).not.toContain("material_ref");
+  });
+
+  it("summarizes sandbox enforcement rather than copying ambient environment", () => {
+    const metadata = buildAuthorityProofMetadata({
+      skillName: "write-file",
+      sourceType: "cli-tool",
+      mutating: true,
+      sandboxDeclaration: {
+        profile: "workspace-write",
+        cwdPolicy: "workspace",
+        network: false,
+        requireEnforcement: true,
+      },
+      sandboxMetadata: {
+        profile: "workspace-write",
+        cwd: "/private/workspace",
+        workspace_root: "/private/workspace",
+        env: { mode: "allowlist", allowlist: ["PATH", "HOME"] },
+        network: { declared: false, enforcement: "isolated-namespace" },
+        filesystem: {
+          enforcement: "bubblewrap-mount-namespace",
+          readonly_paths: true,
+          writable_paths_enforced: true,
+          private_tmp: true,
+        },
+        runtime: { enforcer: "bubblewrap" },
+        approval: { required: false, approved: false },
+      },
+    });
+
+    expect(metadata).toMatchObject({
+      authority_proof: {
+        requested: {
+          mutating: true,
+          sandbox_profile: "workspace-write",
+        },
+        sandbox: {
+          profile: "workspace-write",
+          cwd_policy: "workspace",
+          require_enforcement: true,
+          network: {
+            declared: false,
+            enforcement: "isolated-namespace",
+          },
+          filesystem: {
+            enforcement: "bubblewrap-mount-namespace",
+            writable_paths_enforced: true,
+          },
+          runtime: {
+            enforcer: "bubblewrap",
+          },
+        },
+      },
+    });
+    expect(JSON.stringify(metadata)).not.toContain("/private/workspace");
+    expect(JSON.stringify(metadata)).not.toContain("allowlist");
+  });
+
+  it("denies credential envelopes that do not bind to the admitted grant", () => {
+    const auth = {
+      type: "nango",
+      provider: "github",
+      scopes: ["repo:read"],
+      scope_family: "github_repo",
+      authority_kind: "read_only",
+      target_repo: "runxhq/aster",
+      target_locator: "runxhq/aster#issue/4",
+    };
+    const grants = [
+      {
+        grant_id: "grant_expected",
+        provider: "github",
+        scopes: ["repo:read"],
+        status: "active" as const,
+        scope_family: "github_repo",
+        authority_kind: "read_only" as const,
+        target_repo: "runxhq/aster",
+        target_locator: "runxhq/aster#issue/4",
+      },
+    ];
+    const scopeAdmission = buildLocalScopeAdmission(auth, grants);
+
+    expect(validateCredentialBinding({
+      auth,
+      grants,
+      scopeAdmission,
+      credential: {
+        kind: "runx.credential-envelope.v1",
+        grant_id: "grant_other",
+        provider: "github",
+        connection_id: "conn_1",
+        scopes: ["repo:read"],
+        grant_reference: {
+          grant_id: "grant_other",
+          scope_family: "github_repo",
+          authority_kind: "read_only",
+          target_repo: "runxhq/aster",
+          target_locator: "runxhq/aster#issue/4",
+        },
+        material_ref: "nango:github:conn_1",
+      },
+    })).toEqual({
+      status: "deny",
+      reasons: [
+        "credential grant_id 'grant_other' does not match admitted grant 'grant_expected'",
+        "credential grant_reference.grant_id does not match admitted grant",
+      ],
+    });
+  });
+
+  it("denies admitted connected auth when credential material is missing", () => {
+    const auth = {
+      type: "nango",
+      provider: "github",
+      scopes: ["repo:read"],
+    };
+    const grants = [
+      {
+        grant_id: "grant_1",
+        provider: "github",
+        scopes: ["repo:read"],
+        status: "active" as const,
+      },
+    ];
+    const scopeAdmission = buildLocalScopeAdmission(auth, grants);
+
+    expect(validateCredentialBinding({
+      auth,
+      grants,
+      scopeAdmission,
+    })).toEqual({
+      status: "deny",
+      reasons: ["credential material was not resolved for admitted connected auth grant"],
+    });
   });
 });
 

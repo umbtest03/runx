@@ -8,6 +8,7 @@ import {
   buildHostedOpenApiSchemas,
   agentContextEnvelopeSchema,
   adapterInvokeResultSchema,
+  authorityProofSchema,
   outputContractSchema,
   credentialEnvelopeSchema,
   registryBindingSchema,
@@ -17,6 +18,7 @@ import {
   runxGeneratedSchemaArtifacts,
   validateAdapterInvokeResultContract,
   validateAgentContextEnvelopeContract,
+  validateAuthorityProofContract,
   validateOutputContractContract,
   validateResolutionRequestContract,
   validateCredentialEnvelopeContract,
@@ -30,6 +32,9 @@ import {
   validateReviewReceiptOutputContract,
   validateScopeAdmissionContract,
   validateSuppressionRecordContract,
+  validateWorkItemContract,
+  canTransitionWorkItemState,
+  nextWorkItemStates,
 } from "./index.js";
 
 describe("@runxhq/contracts", () => {
@@ -87,6 +92,47 @@ describe("@runxhq/contracts", () => {
       requested_scopes: ["repo:status"],
       granted_scopes: ["repo:*"],
     })).toThrow(/scope-admission\.schema\.json/);
+  });
+
+  it("owns authority proof schema and generated artifact", () => {
+    expect(authorityProofSchema.$id).toBe(RUNX_CONTROL_SCHEMA_REFS.authority_proof);
+    expect(runxContractSchemas.authorityProof).toBe(authorityProofSchema);
+    expect(runxGeneratedSchemaArtifacts["authority-proof.schema.json"]).toBe(authorityProofSchema);
+    expect(validateAuthorityProofContract({
+      schema_version: "runx.authority-proof.v1",
+      skill_name: "connected-review",
+      source_type: "agent-step",
+      requested: {
+        connected_auth: true,
+        scopes: ["repo:read"],
+        mutating: false,
+        scope_family: "github_repo",
+        authority_kind: "read_only",
+        target_repo: "runxhq/aster",
+      },
+      scope_admission: {
+        status: "allow",
+        requested_scopes: ["repo:read"],
+        granted_scopes: ["repo:*"],
+      },
+      credential_material: {
+        status: "not_resolved",
+        provider: "github",
+        scopes: ["repo:read"],
+        scope_family: "github_repo",
+        authority_kind: "read_only",
+        target_repo: "runxhq/aster",
+      },
+      redaction: {
+        status: "applied",
+        secret_material: "omitted",
+        stdout: "hashed",
+        stderr: "hashed",
+        metadata_secret_keys: ["token-like metadata keys"],
+      },
+    })).toMatchObject({
+      schema_version: "runx.authority-proof.v1",
+    });
   });
 
   it("owns executor control protocol schemas and runtime validation", () => {
@@ -174,10 +220,100 @@ describe("@runxhq/contracts", () => {
     expect(runxAuxiliarySchemas.reviewReceiptOutput).toBe(reviewReceiptOutputSchema);
     expect(runxGeneratedSchemaArtifacts["doctor.schema.json"]).toBe(runxContractSchemas.doctor);
     expect(runxGeneratedSchemaArtifacts["capability-execution.schema.json"]).toBe(runxContractSchemas.capabilityExecution);
+    expect(runxGeneratedSchemaArtifacts["work-item.schema.json"]).toBe(runxContractSchemas.workItem);
     expect(runxGeneratedSchemaArtifacts["handoff-signal.schema.json"]).toBe(runxContractSchemas.handoffSignal);
     expect(runxGeneratedSchemaArtifacts["handoff-state.schema.json"]).toBe(runxContractSchemas.handoffState);
     expect(runxGeneratedSchemaArtifacts["suppression-record.schema.json"]).toBe(runxContractSchemas.suppressionRecord);
     expect(runxGeneratedSchemaArtifacts["review-receipt-output.schema.json"]).toBe(reviewReceiptOutputSchema);
+  });
+
+  it("owns the portable work-item lifecycle contract", () => {
+    expect(RUNX_LOGICAL_SCHEMAS.workItem).toBe("runx.work_item.v1");
+    expect(RUNX_CONTRACT_IDS.workItem).toBe("https://schemas.runx.dev/runx/work-item/v1.json");
+    expect(nextWorkItemStates("build_ready")).toEqual(["review_ready", "outcome_closed", "outcome_rejected", "blocked"]);
+    expect(nextWorkItemStates("intake_received")).toContain("planning_ready");
+    expect(nextWorkItemStates("intake_received")).toContain("build_ready");
+    expect(canTransitionWorkItemState("build_ready", "review_ready")).toBe(true);
+    expect(canTransitionWorkItemState("intake_received", "build_ready")).toBe(true);
+    expect(canTransitionWorkItemState("build_ready", "merge_gate")).toBe(false);
+    expect(canTransitionWorkItemState("merge_gate", "build_ready")).toBe(false);
+    expect(validateWorkItemContract({
+      schema: "runx.work_item.v1",
+      work_item_id: "wi_101",
+      state: "merge_gate",
+      source_events: [
+        {
+          provider: "slack",
+          source_locator: "slack://T1/C1/171000.0001",
+          event_kind: "message",
+          thread_locator: "slack://T1/C1/171000.0001",
+          provider_event_id: "171000.0001",
+          title: "Checkout fails on discount retry",
+          body_preview: "Sentry and support both show checkout retry failures.",
+          occurred_at: "2026-05-15T00:00:00Z",
+        },
+      ],
+      dedupe: {
+        algorithm: "sha256",
+        source_locator: "slack://T1/C1/171000.0001",
+        fingerprint: "sha256:checkout-discount-retry",
+        provider_event_id: "171000.0001",
+        candidate_work_item_ids: ["wi_099"],
+      },
+      triage: {
+        category: "bug",
+        severity: "high",
+        confidence: 0.91,
+        action: "issue-to-pr",
+        recommended_lane: "issue-to-pr",
+        needs_human: false,
+        rationale: "The report is reproducible and bounded to checkout retry behavior.",
+      },
+      change_set: {
+        change_set_id: "change_set_checkout_retry",
+      },
+      owner_suggestion: {
+        owner: "payments-team",
+        confidence: 0.8,
+        rationale: "Checkout retry behavior is owned by the payments surface.",
+      },
+      target_repo_suggestion: {
+        repo: "runxhq/example",
+        confidence: 0.86,
+        rationale: "The source event points at the example checkout repo.",
+      },
+      issue: {
+        provider: "github",
+        locator: "github://runxhq/example/issues/101",
+        url: "https://github.com/runxhq/example/issues/101",
+        status: "open",
+      },
+      pull_request: {
+        provider: "github",
+        locator: "github://runxhq/example/pulls/102",
+        url: "https://github.com/runxhq/example/pull/102",
+        status: "open",
+      },
+      merge_gate: {
+        required: true,
+        summary: "Human reviewer must merge or close the generated PR.",
+      },
+      status_summary: "PR is ready; waiting at the human merge gate.",
+      created_at: "2026-05-15T00:00:00Z",
+      updated_at: "2026-05-15T00:10:00Z",
+    })).toMatchObject({
+      schema: "runx.work_item.v1",
+      state: "merge_gate",
+      owner_suggestion: {
+        owner: "payments-team",
+      },
+      target_repo_suggestion: {
+        repo: "runxhq/example",
+      },
+      triage: {
+        action: "issue-to-pr",
+      },
+    });
   });
 
   it("owns hosted OpenAPI components for cloud consumers", () => {

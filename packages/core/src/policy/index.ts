@@ -2,10 +2,10 @@ export const policyPackage = "@runxhq/core/policy";
 
 import path from "node:path";
 
-import { isRecord } from "../util/types.js";
 import { unique } from "../util/array.js";
 
 import { admitSandbox } from "./sandbox.js";
+import { connectedAuthRequirement } from "./authority-proof.js";
 
 export interface LocalAdmissionSkill {
   readonly name: string;
@@ -48,6 +48,10 @@ export interface LocalAdmissionGrant {
   readonly provider: string;
   readonly scopes: readonly string[];
   readonly status?: "active" | "revoked";
+  readonly scope_family?: string;
+  readonly authority_kind?: "read_only" | "constructive" | "destructive";
+  readonly target_repo?: string;
+  readonly target_locator?: string;
 }
 
 export interface RetryAdmissionRequest {
@@ -199,29 +203,6 @@ export function admitGraphStepScopes(request: GraphScopeAdmissionRequest): Graph
   };
 }
 
-function connectedAuthRequirement(auth: unknown): { readonly provider: string; readonly scopes: readonly string[] } | undefined {
-  if (auth === undefined || auth === null || auth === false) {
-    return undefined;
-  }
-
-  if (!isRecord(auth)) {
-    return {
-      provider: "unknown",
-      scopes: [],
-    };
-  }
-
-  const type = auth.type;
-  if (type === "env" || type === "none" || type === "local") {
-    return undefined;
-  }
-
-  return {
-    provider: typeof auth.provider === "string" ? auth.provider : typeof type === "string" ? type : "unknown",
-    scopes: Array.isArray(auth.scopes) ? auth.scopes.filter((scope): scope is string => typeof scope === "string") : [],
-  };
-}
-
 function inlineCliToolViolation(command: string | undefined, args: readonly string[] | undefined): string | undefined {
   const interpreter = detectInlineInterpreter(command, args ?? []);
   if (!interpreter) {
@@ -326,15 +307,55 @@ function isPythonLike(commandName: string): boolean {
 }
 
 function findMatchingGrant(
-  requirement: { readonly provider: string; readonly scopes: readonly string[] },
+  requirement: {
+    readonly provider: string;
+    readonly scopes: readonly string[];
+    readonly scope_family?: string;
+    readonly authority_kind?: "read_only" | "constructive" | "destructive";
+    readonly target_repo?: string;
+    readonly target_locator?: string;
+  },
   grants: readonly LocalAdmissionGrant[],
 ): LocalAdmissionGrant | undefined {
   return grants.find(
     (grant) =>
       grant.provider === requirement.provider &&
       grant.status !== "revoked" &&
-      requirement.scopes.every((scope) => grant.scopes.includes(scope)),
+      requirement.scopes.every((scope) => grant.scopes.some((grantedScope) => scopeAllows(grantedScope, scope))) &&
+      grantReferenceMatches(requirement, grant),
   );
+}
+
+function grantReferenceMatches(
+  requirement: {
+    readonly scope_family?: string;
+    readonly authority_kind?: "read_only" | "constructive" | "destructive";
+    readonly target_repo?: string;
+    readonly target_locator?: string;
+  },
+  grant: {
+    readonly scope_family?: string;
+    readonly authority_kind?: "read_only" | "constructive" | "destructive";
+    readonly target_repo?: string;
+    readonly target_locator?: string;
+  },
+): boolean {
+  if (!hasGrantReference(requirement)) {
+    return !hasGrantReference(grant);
+  }
+  return grant.scope_family === requirement.scope_family &&
+    grant.authority_kind === requirement.authority_kind &&
+    grant.target_repo === requirement.target_repo &&
+    grant.target_locator === requirement.target_locator;
+}
+
+function hasGrantReference(value: {
+  readonly scope_family?: string;
+  readonly authority_kind?: "read_only" | "constructive" | "destructive";
+  readonly target_repo?: string;
+  readonly target_locator?: string;
+}): boolean {
+  return Boolean(value.scope_family || value.authority_kind || value.target_repo || value.target_locator);
 }
 
 function scopeAllows(grantedScope: string, requestedScope: string): boolean {
@@ -348,6 +369,19 @@ function scopeAllows(grantedScope: string, requestedScope: string): boolean {
 }
 
 
+export {
+  buildAuthorityProof,
+  buildAuthorityProofMetadata,
+  buildLocalScopeAdmission,
+  connectedAuthRequirement,
+  validateCredentialBinding,
+  type AuthorityProofApproval,
+  type AuthorityProofGrant,
+  type BuildAuthorityProofOptions,
+  type ConnectedAuthRequirement,
+  type CredentialBindingDecision,
+  type AuthorityProofSandboxDeclaration,
+} from "./authority-proof.js";
 export {
   admitSandbox,
   normalizeSandboxDeclaration,

@@ -235,6 +235,10 @@ runners:
         type: json
         required: false
         description: "Current outbox entry when the lane is refreshing an adapter-owned target."
+      work_item:
+        type: json
+        required: false
+        description: "Optional runx.work_item.v1 packet tying intake, dedupe, triage, issue, PR, merge gate, and outcome together."
       target_repo:
         type: string
         required: false
@@ -529,12 +533,20 @@ runners:
             - scafld:handoff:read
           inputs:
             command: handoff
+        - id: capture-work-item
+          label: capture work item context
+          tool: control.capture_work_item
+          scopes:
+            - runx:control:read
+          inputs:
+            work_item: $input.work_item
         - id: package-pull-request
           label: package reviewer PR story
           tool: outbox.build_pull_request
           scopes:
             - runx:repo:package
           context:
+            work_item: capture-work-item.work_item
             handoff_markdown: scafld-handoff.stdout
             build_result: scafld-build.result
             review_result: scafld-review.result
@@ -558,6 +570,7 @@ runners:
           scopes:
             - runx:repo:package
           context:
+            work_item: capture-work-item.work_item
             build_result: scafld-build.result
             review_result: scafld-review.result
             completion_result: scafld-complete.result

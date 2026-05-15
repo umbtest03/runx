@@ -91,31 +91,72 @@ control surface.
 Use the live preflight before running against a real GitHub issue:
 
 ```bash
-pnpm live:issue-to-pr -- --repo owner/repo --issue 123 --workspace /path/to/repo
+pnpm live:issue-to-pr -- --allow-repo owner/repo --repo owner/repo --issue 123 --workspace /path/to/repo
 ```
 
 The preflight is read-only. It verifies that the workspace is a scafld repo,
+that the target repo is explicitly allowlisted for proving-ground mutation,
 that the workspace is on the intended issue branch, that the selected scafld
-binary can run in that workspace, and that `RUNX_BIN` is either unset or points
-at an executable CLI. It returns JSON with blocked checks and the exact dogfood
-command to run next.
+binary can run in that workspace, that `RUNX_BIN` is either unset or points at
+an executable CLI, and that provider publication has explicit token env
+available to the sandbox. It returns JSON with blocked checks and the exact
+dogfood command to run next.
+
+Live create/observe requires an explicit proving-ground repo allowlist. Pass
+`--allow-repo owner/repo` or set
+`RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS=owner/repo`. Multiple repos may be
+comma-separated, but keep the list intentionally small; this harness is for
+known proving-ground repos, not arbitrary customer or product repositories.
+
+The provider-push tool does not receive ambient `gh` keychain state. Export an
+explicit `RUNX_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN` for create mode and
+terminal observe mode. For local dogfood, `RUNX_GITHUB_TOKEN="$(gh auth token)"`
+is sufficient when the active GitHub CLI account has repo access.
+
+`pnpm live:issue-to-pr` without a configured target is also read-only: it emits
+`status: "skipped"` and names the missing `repo`, `issue`, and `workspace`
+inputs. Configure those with flags or `RUNX_LIVE_ISSUE_TO_PR_REPO`,
+`RUNX_LIVE_ISSUE_TO_PR_ISSUE`, `RUNX_LIVE_ISSUE_TO_PR_WORKSPACE`, and
+`RUNX_LIVE_ISSUE_TO_PR_ALLOWED_REPOS`.
+
+The harness modes are explicit:
+
+- `preflight`: local validation only, no provider mutation.
+- `create`: runs the governed lane and may create/update issue comments, branch,
+  and PR.
+- `observe`: reads the source issue and PR after a human merge/close; it does
+  not mutate code, and when the PR is terminal it upserts one source-thread
+  outcome comment.
 
 If the workspace is clean and you want the live command to create or switch to
 the issue branch before mutation, pass `--prepare-branch`:
 
 ```bash
-pnpm live:issue-to-pr -- --prepare-branch --repo owner/repo --issue 123 --workspace /path/to/repo
+pnpm live:issue-to-pr -- --prepare-branch --allow-repo owner/repo --repo owner/repo --issue 123 --workspace /path/to/repo
 ```
 
 When the preflight is ready, run:
 
 ```bash
-pnpm dogfood:github-issue-to-pr -- --prepare-branch --repo owner/repo --issue 123 --workspace /path/to/repo
+pnpm dogfood:github-issue-to-pr -- --prepare-branch --allow-repo owner/repo --repo owner/repo --issue 123 --workspace /path/to/repo
 ```
 
 The dogfood command hydrates the GitHub issue thread, executes the governed
 lane, publishes the draft PR through `thread.push_outbox`, and rehydrates the
-source thread so the output shows before/after provider state.
+source thread so the output shows before/after provider state. The emitted
+dossier records source issue URL, PR URL, receipt id, branch, review verdict,
+and the human merge gate without printing absolute local paths.
+
+After a human merges or closes the PR, observe the outcome:
+
+```bash
+pnpm dogfood:github-issue-to-pr -- --mode observe --allow-repo owner/repo --repo owner/repo --issue 123 --workspace /path/to/repo
+```
+
+Observe mode is intentionally narrow: it records `merged` or `closed` provider
+state back to the source issue with the PR URL, branch, scafld task id, and the
+human-gate statement. If the PR is still open, it returns
+`dogfood_pr_open_human_gate_pending` and does not post another comment.
 
 ## Fixtures
 

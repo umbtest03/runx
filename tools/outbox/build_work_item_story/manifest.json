@@ -30,6 +30,11 @@
       "required": false,
       "description": "Optional hydrated source thread."
     },
+    "work_item": {
+      "type": "json",
+      "required": false,
+      "description": "Optional runx.work_item.v1 packet from intake or hosted queue state."
+    },
     "build_result": {
       "type": "json",
       "required": false,
@@ -97,7 +102,7 @@
       "./run.mjs"
     ]
   },
-  "source_hash": "sha256:4b8a0bd8309691e2bf52f65853550f2b422f2a4a2bc99762dafec8bcc365e5c3",
-  "schema_hash": "sha256:5806d878799fb22e38d2ceca601fe4bbab13d6caee19c43442d1fb99d6a6cd65",
+  "source_hash": "sha256:6b355dbbff16364730121ff6ecadde8f0f94a331489f732a30f77c0e96aa35de",
+  "schema_hash": "sha256:07483090a3761f2e111accac7d1b0c7afd0ea0fca8c7e21665cbae8d4150352d",
   "toolkit_version": "0.1.4"
 }

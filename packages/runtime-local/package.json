@@ -1,6 +1,6 @@
 {
   "name": "@runxhq/runtime-local",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Runx local runtime: orchestration, harness execution, SDK host bridge, local receipts, and local process sandboxing.",
   "private": false,
   "license": "Apache-2.0",
