@@ -4,7 +4,7 @@ import {
   compactHttpFailure,
   compactPublishSummary,
   hostedSkillMatchesPublishedState,
-} from "../../.github/scripts/registry-publish-summary.js";
+} from "../scripts/registry-publish-summary.js";
 
 describe("registry publish log summaries", () => {
   afterEach(() => {
