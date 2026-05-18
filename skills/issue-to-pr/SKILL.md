@@ -12,8 +12,8 @@ packet.
 The graph separates cognition from mutation. Agent phases author the scafld
 markdown spec and the bounded repo change bundle. Deterministic `fs.write` and
 `fs.write_bundle` phases are the only places files are written to disk. scafld
-owns the workflow kernel: `plan`, `validate`, `approve`, `build`, `status`,
-`review`, `complete`, and `handoff`. runx owns the explicit authoring
+owns the workflow kernel: `plan`, `validate`, `approve`, `build_to_review`,
+`status`, `review`, `complete`, and `handoff`. runx owns the explicit authoring
 boundaries, deterministic writes, receipts, and final outbox packaging.
 
 Branch creation and provider PR mutation are outside scafld. The caller or
@@ -28,13 +28,13 @@ The graph runs:
 
 `scafld plan` -> author markdown spec -> write spec -> read spec -> validate ->
 approve -> read approved spec -> read declared files -> author fix bundle ->
-write fix bundle -> open build -> complete build -> status -> read current
-branch -> review -> complete -> final status -> handoff -> package draft PR
-outbox -> adapter push.
+write fix bundle -> build to review -> status -> read current branch -> review
+-> complete -> final status -> handoff -> package draft PR outbox -> adapter
+push.
 
 There are no translation projection steps. `scafld handoff` is the human handoff
-surface, repeated `scafld build` calls open and complete the native
-validation/check surface, and `scafld review` is the native review boundary.
+surface, `build_to_review` drives bounded native `scafld build` advances until
+the task is review-ready, and `scafld review` is the native review boundary.
 
 ## Thread Story
 

@@ -217,6 +217,222 @@ process.exit(1);
     }
   });
 
+  it("drives build_to_review through bounded native build advances", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-scafld-build-to-review-"));
+    const fakeScafld = path.join(tempDir, "fake-scafld.mjs");
+    const tracePath = path.join(tempDir, "trace.json");
+
+    try {
+      await writeFile(
+        fakeScafld,
+        `#!/usr/bin/env node
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const statePath = join(__dirname, "state.json");
+const tracePath = join(__dirname, "trace.json");
+const argv = process.argv.slice(2);
+const command = argv[0] || "";
+const trace = existsSync(tracePath) ? JSON.parse(readFileSync(tracePath, "utf8")) : [];
+trace.push(argv);
+writeFileSync(tracePath, JSON.stringify(trace));
+const state = existsSync(statePath) ? JSON.parse(readFileSync(statePath, "utf8")) : { builds: 0 };
+
+if (command === "build") {
+  state.builds += 1;
+  writeFileSync(statePath, JSON.stringify(state));
+  const reviewReady = state.builds >= 3;
+  process.stdout.write(JSON.stringify({
+    ok: true,
+    command: "build",
+    result: {
+      task_id: "fixture-task",
+      status: reviewReady ? "review" : "active",
+      passed: reviewReady ? 2 : 0,
+      failed: 0,
+    },
+  }) + "\\n");
+  process.exit(0);
+}
+if (command === "status") {
+  process.stdout.write(JSON.stringify({
+    ok: true,
+    command: "status",
+    result: {
+      task_id: "fixture-task",
+      status: state.builds >= 3 ? "review" : "active",
+    },
+  }) + "\\n");
+  process.exit(0);
+}
+process.stderr.write(\`unsupported command: \${command}\\n\`);
+process.exit(1);
+`,
+        { mode: 0o755 },
+      );
+
+      const result = await runLocalSkill({
+        skillPath: path.resolve("skills/scafld"),
+        runner: "scafld-cli",
+        inputs: {
+          command: "build_to_review",
+          task_id: "fixture-task",
+          fixture: tempDir,
+          max_builds: "5",
+          scafld_bin: fakeScafld,
+        },
+        caller,
+        adapters: createDefaultSkillAdapters(),
+        receiptDir: path.join(tempDir, "receipts"),
+        runxHome: path.join(tempDir, "home"),
+        env: process.env,
+      });
+
+      expect(result.status).toBe("success");
+      if (result.status !== "success") {
+        return;
+      }
+      expect(JSON.parse(result.execution.stdout)).toMatchObject({
+        ok: true,
+        command: "build_to_review",
+        result: {
+          task_id: "fixture-task",
+          status: "review",
+          passed: 2,
+          failed: 0,
+          build_count: 3,
+        },
+      });
+      expect(JSON.parse(await readFile(tracePath, "utf8"))).toEqual([
+        ["build", "fixture-task", "--json"],
+        ["status", "fixture-task", "--json"],
+        ["build", "fixture-task", "--json"],
+        ["status", "fixture-task", "--json"],
+        ["build", "fixture-task", "--json"],
+      ]);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves native build failures during build_to_review", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-scafld-build-to-review-failure-"));
+    const fakeScafld = path.join(tempDir, "fake-scafld.mjs");
+
+    try {
+      await writeFile(
+        fakeScafld,
+        `#!/usr/bin/env node
+const argv = process.argv.slice(2);
+if ((argv[0] || "") === "build") {
+  process.stdout.write(JSON.stringify({
+    ok: false,
+    command: "build",
+    error: {
+      code: "acceptance_failed",
+      message: "acceptance command failed",
+      exit_code: 1,
+    },
+  }) + "\\n");
+  process.exit(1);
+}
+process.stderr.write(\`unsupported command: \${argv[0] || ""}\\n\`);
+process.exit(1);
+`,
+        { mode: 0o755 },
+      );
+
+      const result = await runLocalSkill({
+        skillPath: path.resolve("skills/scafld"),
+        runner: "scafld-cli",
+        inputs: {
+          command: "build_to_review",
+          task_id: "fixture-task",
+          fixture: tempDir,
+          scafld_bin: fakeScafld,
+        },
+        caller,
+        adapters: createDefaultSkillAdapters(),
+        receiptDir: path.join(tempDir, "receipts"),
+        runxHome: path.join(tempDir, "home"),
+        env: process.env,
+      });
+
+      expect(result.status).toBe("failure");
+      if (result.status !== "failure") {
+        return;
+      }
+      expect(JSON.parse(result.execution.stdout)).toEqual({
+        ok: false,
+        command: "build",
+        error: {
+          code: "acceptance_failed",
+          message: "acceptance command failed",
+          exit_code: 1,
+        },
+      });
+      expect(result.execution.exitCode).toBe(1);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("extracts the final native JSON envelope after provider progress", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-scafld-progress-json-"));
+    const fakeScafld = path.join(tempDir, "fake-scafld.mjs");
+
+    try {
+      await writeFile(
+        fakeScafld,
+        `#!/usr/bin/env node
+const argv = process.argv.slice(2);
+if ((argv[0] || "") === "review") {
+  process.stdout.write("provider: running review\\n");
+  process.stdout.write(JSON.stringify({
+    ok: true,
+    command: "review",
+    result: { task_id: "fixture-task", verdict: "pass", findings: [] },
+  }) + "\\n");
+  process.exit(0);
+}
+process.stderr.write(\`unsupported command: \${argv[0] || ""}\\n\`);
+process.exit(1);
+`,
+        { mode: 0o755 },
+      );
+
+      const result = await runLocalSkill({
+        skillPath: path.resolve("skills/scafld"),
+        runner: "scafld-cli",
+        inputs: {
+          command: "review",
+          task_id: "fixture-task",
+          fixture: tempDir,
+          scafld_bin: fakeScafld,
+        },
+        caller,
+        adapters: createDefaultSkillAdapters(),
+        receiptDir: path.join(tempDir, "receipts"),
+        runxHome: path.join(tempDir, "home"),
+        env: process.env,
+      });
+
+      expect(result.status).toBe("success");
+      if (result.status !== "success") {
+        return;
+      }
+      expect(JSON.parse(result.execution.stdout)).toEqual({
+        ok: true,
+        command: "review",
+        result: { task_id: "fixture-task", verdict: "pass", findings: [] },
+      });
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("resolves relative scafld_bin paths from the scafld skill directory", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-scafld-relative-"));
     const fixtureDir = path.join(tempDir, "fixtures");

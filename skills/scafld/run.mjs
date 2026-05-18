@@ -35,6 +35,7 @@ const jsonCommands = new Set([
   "list",
   "report",
   "build",
+  "build_to_review",
 ]);
 const commandsWithoutTaskId = new Set(["init", "list", "report"]);
 
@@ -89,6 +90,9 @@ switch (command) {
   case "build":
     args.push(command, taskId);
     break;
+  case "build_to_review":
+    args.push("build", taskId);
+    break;
   case "review":
     args.push("review", taskId);
     if (inputs.provider) {
@@ -130,6 +134,25 @@ for (const key of Object.keys(env)) {
 }
 if (path.isAbsolute(scafld) || scafld.includes(path.sep)) {
   env.PATH = `${path.dirname(scafld)}${path.delimiter}${env.PATH || "/usr/local/bin:/usr/bin:/bin"}`;
+}
+
+if (command === "build_to_review") {
+  const outcome = runBuildToReview({
+    scafld,
+    scafldSource,
+    scafldCandidate,
+    cwd,
+    env,
+    taskId,
+    maxBuilds: parseMaxBuilds(inputs.max_builds),
+  });
+  if (outcome.stdout) {
+    process.stdout.write(outcome.stdout);
+  }
+  if (outcome.stderr) {
+    process.stderr.write(outcome.stderr);
+  }
+  process.exit(outcome.exitCode);
 }
 
 const result = spawnSync(scafld, args, {
@@ -225,6 +248,222 @@ function formatSpawnError({ error, source, requestedBinary, resolvedBinary, cwd:
   ].join("\n");
 }
 
+function runBuildToReview({ scafld: scafldBinary, scafldSource: source, scafldCandidate: requestedBinary, cwd: workingDirectory, env: processEnv, taskId: targetTaskId, maxBuilds }) {
+  const builds = [];
+  let finalStatus = "";
+  let lastBuild = null;
+  let lastStatus = null;
+  let combinedStderr = "";
+
+  for (let attempt = 1; attempt <= maxBuilds; attempt += 1) {
+    const buildResult = runNativeJsonCommand({
+      scafldBinary,
+      source,
+      requestedBinary,
+      workingDirectory,
+      processEnv,
+      commandName: "build",
+      argv: ["build", targetTaskId, "--json"],
+    });
+    combinedStderr += buildResult.stderr;
+
+    if (buildResult.errorMessage) {
+      return {
+        exitCode: buildResult.exitCode,
+        stdout: "",
+        stderr: `${combinedStderr}${buildResult.errorMessage}\n`,
+      };
+    }
+    if (buildResult.structured) {
+      lastBuild = buildResult.structured;
+      builds.push({
+        attempt,
+        command: "build",
+        exit_code: buildResult.exitCode,
+        result: buildResult.structured.result,
+        error: buildResult.structured.error,
+      });
+      finalStatus = firstNonEmptyString(
+        buildResult.structured?.result?.status,
+        buildResult.structured?.status,
+        finalStatus,
+      );
+    }
+    if (buildResult.exitCode !== 0) {
+      return {
+        exitCode: buildResult.exitCode,
+        stdout: `${JSON.stringify(buildResult.structured)}\n`,
+        stderr: combinedStderr,
+      };
+    }
+    if (isReviewReadyStatus(finalStatus)) {
+      return buildToReviewSuccess({
+        taskId: targetTaskId,
+        status: finalStatus,
+        builds,
+        lastBuild,
+        lastStatus,
+        stderr: combinedStderr,
+      });
+    }
+
+    const statusResult = runNativeJsonCommand({
+      scafldBinary,
+      source,
+      requestedBinary,
+      workingDirectory,
+      processEnv,
+      commandName: "status",
+      argv: ["status", targetTaskId, "--json"],
+    });
+    combinedStderr += statusResult.stderr;
+
+    if (statusResult.errorMessage) {
+      return {
+        exitCode: statusResult.exitCode,
+        stdout: "",
+        stderr: `${combinedStderr}${statusResult.errorMessage}\n`,
+      };
+    }
+    if (statusResult.structured) {
+      lastStatus = statusResult.structured;
+      finalStatus = firstNonEmptyString(
+        statusResult.structured?.result?.status,
+        statusResult.structured?.status,
+        finalStatus,
+      );
+    }
+    if (statusResult.exitCode !== 0) {
+      return {
+        exitCode: statusResult.exitCode,
+        stdout: `${JSON.stringify(statusResult.structured)}\n`,
+        stderr: combinedStderr,
+      };
+    }
+    if (isReviewReadyStatus(finalStatus)) {
+      return buildToReviewSuccess({
+        taskId: targetTaskId,
+        status: finalStatus,
+        builds,
+        lastBuild,
+        lastStatus,
+        stderr: combinedStderr,
+      });
+    }
+  }
+
+  return {
+    exitCode: 4,
+    stdout: `${JSON.stringify({
+      ok: false,
+      command: "build_to_review",
+      error: {
+        code: "build_to_review_exhausted",
+        message: `scafld build did not reach review after ${maxBuilds} attempts`,
+        exit_code: 4,
+      },
+      result: {
+        task_id: targetTaskId,
+        status: finalStatus || undefined,
+        max_builds: maxBuilds,
+        builds,
+        last_build: lastBuild?.result,
+        last_status: lastStatus?.result,
+      },
+    })}\n`,
+    stderr: combinedStderr,
+  };
+}
+
+function runNativeJsonCommand({ scafldBinary, source, requestedBinary, workingDirectory, processEnv, commandName, argv }) {
+  const result = spawnSync(scafldBinary, argv, {
+    cwd: workingDirectory,
+    env: processEnv,
+    encoding: "utf8",
+    shell: false,
+  });
+  if (result.error) {
+    return {
+      exitCode: 1,
+      stderr: "",
+      errorMessage: formatSpawnError({
+        error: result.error,
+        source,
+        requestedBinary,
+        resolvedBinary: scafldBinary,
+        cwd: workingDirectory,
+        command: commandName,
+        args: argv,
+      }),
+    };
+  }
+
+  const stdout = result.stdout ?? "";
+  const stderr = result.stderr ?? "";
+  const exitCode = result.status ?? 1;
+  try {
+    return {
+      exitCode,
+      stderr,
+      structured: parseJsonPayload(commandName, stdout),
+    };
+  } catch (error) {
+    return {
+      exitCode: exitCode === 0 ? 1 : exitCode,
+      stderr,
+      errorMessage: error.message,
+    };
+  }
+}
+
+function buildToReviewSuccess({ taskId: targetTaskId, status, builds, lastBuild, lastStatus, stderr }) {
+  const lastBuildResult = lastBuild?.result ?? {};
+  const result = {
+    task_id: targetTaskId,
+    status,
+    passed: lastBuildResult.passed,
+    failed: lastBuildResult.failed,
+    build_count: builds.length,
+    builds,
+    last_build: lastBuild?.result,
+    last_status: lastStatus?.result,
+  };
+  return {
+    exitCode: 0,
+    stdout: `${JSON.stringify({
+      ok: true,
+      command: "build_to_review",
+      result,
+    })}\n`,
+    stderr,
+  };
+}
+
+function isReviewReadyStatus(status) {
+  return status === "review" || status === "completed";
+}
+
+function parseMaxBuilds(value) {
+  const parsed = Number.parseInt(String(value || "12"), 10);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return 12;
+}
+
+function firstNonEmptyString(...values) {
+  for (const value of values) {
+    if (typeof value !== "string") {
+      continue;
+    }
+    const trimmed = value.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return undefined;
+}
+
 function parseJsonPayload(commandName, rawStdout) {
   const trimmed = rawStdout.trim();
   if (!trimmed) {
@@ -233,10 +472,25 @@ function parseJsonPayload(commandName, rawStdout) {
   try {
     return JSON.parse(trimmed);
   } catch (error) {
+    const extracted = parseLastJsonObject(trimmed);
+    if (extracted) {
+      return extracted;
+    }
     const preview = trimmed.length > 240 ? `${trimmed.slice(0, 240)}...` : trimmed;
     throw new Error(
       `scafld ${commandName} did not emit valid JSON. ` +
       `This runx binding requires native scafld JSON contracts. Output preview: ${preview}`,
     );
   }
+}
+
+function parseLastJsonObject(text) {
+  for (let index = text.lastIndexOf("{"); index >= 0; index = text.lastIndexOf("{", index - 1)) {
+    try {
+      return JSON.parse(text.slice(index));
+    } catch {
+      continue;
+    }
+  }
+  return null;
 }

@@ -28,7 +28,9 @@ describe("scafld skill contract", () => {
     expect(wrapper).toContain('"plan"');
     expect(wrapper).toContain('"harden"');
     expect(wrapper).toContain('"build"');
+    expect(wrapper).toContain('"build_to_review"');
     expect(wrapper).toContain('"handoff"');
+    expect(wrapper).toContain("function runBuildToReview");
     expect(wrapper).not.toContain('"new"');
     expect(wrapper).not.toContain('"branch"');
     expect(wrapper).not.toContain('"checks"');
