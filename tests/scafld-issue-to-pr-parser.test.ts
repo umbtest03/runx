@@ -115,7 +115,7 @@ describe("scafld issue-to-PR skill contract", () => {
       },
       context: {
         spec_path: "scafld-approve.result.path",
-        declared_file_context: "read-declared-files.data.data",
+        declared_file_context: "read-declared-files.declared_file_context.data.data",
       },
     });
     expect(graph.steps.find((step) => step.id === "author-fix")?.instructions).toContain("fix_bundle.status: blocked");

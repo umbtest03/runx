@@ -474,7 +474,7 @@ runners:
             spec_path: scafld-approve.result.path
             spec_file: read-approved-spec.file_read.data.data
             spec_contents: read-approved-spec.file_read.data.data.contents
-            declared_file_context: read-declared-files.data.data
+            declared_file_context: read-declared-files.declared_file_context.data.data
           artifacts:
             named_emits:
               fix_bundle: fix_bundle
