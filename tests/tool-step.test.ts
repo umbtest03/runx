@@ -375,7 +375,9 @@ steps:
     const receiptDir = path.join(tempDir, "receipts");
     const specPath = path.join(tempDir, ".scafld", "specs", "drafts", "task.md");
     await mkdir(path.dirname(specPath), { recursive: true });
+    await mkdir(path.join(tempDir, "app", "services", "flow"), { recursive: true });
     await mkdir(path.join(tempDir, "docs"), { recursive: true });
+    await writeFile(path.join(tempDir, "app", "services", "flow", "executor.rb"), "executor\n");
     await writeFile(path.join(tempDir, "docs", "flows.md"), "live flow\n");
     await writeFile(
       specPath,
@@ -413,6 +415,9 @@ steps:
     tool: spec.read_declared_files
     inputs:
       repo_root: ${JSON.stringify(tempDir)}
+      extra_files:
+        - path: app/services/flow/executor.rb
+          reason: Runtime backtrace target.
     context:
       spec_contents: read_spec.file_read.data.data.contents
 `),
@@ -454,7 +459,7 @@ steps:
       };
       const declaredContext = declaredEnvelope.data;
       expect(declaredContext).toMatchObject({
-        declared_count: 2,
+        declared_count: 3,
       });
       expect(declaredContext.files).toEqual([
         {
@@ -463,6 +468,13 @@ steps:
           kind: "governance_artifact",
           declared_in: ["phase.changes"],
           contents: expect.stringContaining("spec_version: '2.0'"),
+        },
+        {
+          path: "app/services/flow/executor.rb",
+          exists: true,
+          kind: "repo_file",
+          declared_in: ["input.extra_files"],
+          contents: "executor\n",
         },
         {
           path: "docs/flows.md",

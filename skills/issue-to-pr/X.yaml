@@ -419,6 +419,8 @@ runners:
           tool: spec.read_declared_files
           scopes:
             - spec.read_declared_files
+          inputs:
+            extra_files: $input.repo_snapshot.recommended_files
           context:
             spec_contents: read-approved-spec.file_read.data.data.contents
         - id: author-fix

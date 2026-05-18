@@ -80,6 +80,15 @@ describe("issue-to-PR composite skill", () => {
         work_item: "$input.work_item",
       },
     });
+    expect(graph.steps.find((step) => step.id === "read-declared-files")).toMatchObject({
+      tool: "spec.read_declared_files",
+      inputs: {
+        extra_files: "$input.repo_snapshot.recommended_files",
+      },
+      context: {
+        spec_contents: "read-approved-spec.file_read.data.data.contents",
+      },
+    });
     expect(graph.steps.find((step) => step.id === "package-pull-request")).toMatchObject({
       label: "package reviewer PR story",
       tool: "outbox.build_pull_request",

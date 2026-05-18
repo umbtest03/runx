@@ -99,6 +99,15 @@ describe("scafld issue-to-PR skill contract", () => {
         path: "scafld-approve.result.path",
       },
     });
+    expect(graph.steps.find((step) => step.id === "read-declared-files")).toMatchObject({
+      tool: "spec.read_declared_files",
+      inputs: {
+        extra_files: "$input.repo_snapshot.recommended_files",
+      },
+      context: {
+        spec_contents: "read-approved-spec.file_read.data.data.contents",
+      },
+    });
     expect(graph.steps.find((step) => step.id === "author-fix")).toMatchObject({
       run: {
         type: "agent-step",

@@ -5,10 +5,15 @@ target:
   ref: spec.read_declared_files
 workspace:
   files:
+    spec/flow_executor_spec.rb: |
+      describe Flow::Executor
     src/index.ts: |
       export const value = 1;
 inputs:
   repo_root: $RUNX_FIXTURE_ROOT
+  extra_files:
+    - path: spec/flow_executor_spec.rb
+      reason: Targeted regression coverage.
   spec_contents: |
     ## Context
 
@@ -24,4 +29,4 @@ expect:
   output:
     matches_packet: runx.spec.declared_file_context.v1
     subset:
-      declared_count: 1
+      declared_count: 2

@@ -15,6 +15,11 @@
       "required": true,
       "description": "Raw scafld 2 markdown spec contents to inspect for declared file paths."
     },
+    "extra_files": {
+      "type": "json",
+      "required": false,
+      "description": "Additional repo-relative file targets to read, such as repo_snapshot.recommended_files."
+    },
     "repo_root": {
       "type": "string",
       "required": false,
@@ -44,7 +49,7 @@
       "./run.mjs"
     ]
   },
-  "source_hash": "sha256:8089c006459651388d3c2b8bb567abf0b05e994ad02413f2241521313b7e5f6f",
-  "schema_hash": "sha256:881919ff6af36be1585b7ee46d0068082beebbdd3e100261d7b7be2fb37bb6a7",
+  "source_hash": "sha256:53769aeeb1753ddd61cc8ae823daf4f75ac9a5471a9f84078abdadf28ff4c2a3",
+  "schema_hash": "sha256:979afae9825132a2e568d6f77cf03086cdbe68072868265c782dc4289df8a3a7",
   "toolkit_version": "0.1.4"
 }
