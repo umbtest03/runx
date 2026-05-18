@@ -1,4 +1,4 @@
-import type { OutputContract, OutputContractEntry } from "@runxhq/core/executor";
+import type { Output, OutputEntry } from "@runxhq/core/executor";
 import type { SkillInput } from "@runxhq/core/parser";
 
 import { FINAL_RESULT_TOOL_NAME } from "./types.js";
@@ -48,12 +48,12 @@ export function normalizeInputType(type: string): string | undefined {
   }
 }
 
-export function outputContractToJsonSchema(contract: OutputContract): Readonly<Record<string, unknown>> {
+export function outputToJsonSchema(contract: Output): Readonly<Record<string, unknown>> {
   const properties = Object.fromEntries(
-    Object.entries(contract).map(([key, entry]) => [key, outputContractEntryToJsonSchema(entry)]),
+    Object.entries(contract).map(([key, entry]) => [key, outputEntryToJsonSchema(entry)]),
   );
   const required = Object.entries(contract)
-    .filter(([, entry]) => outputContractEntryRequired(entry))
+    .filter(([, entry]) => outputEntryRequired(entry))
     .map(([key]) => key);
   return {
     type: "object",
@@ -63,7 +63,7 @@ export function outputContractToJsonSchema(contract: OutputContract): Readonly<R
   };
 }
 
-export function outputContractEntryToJsonSchema(entry: OutputContractEntry): Readonly<Record<string, unknown>> {
+export function outputEntryToJsonSchema(entry: OutputEntry): Readonly<Record<string, unknown>> {
   if (typeof entry === "string") {
     return simpleJsonSchemaForType(entry);
   }
@@ -102,14 +102,14 @@ export function simpleJsonSchemaForType(type: string): Record<string, unknown> {
   }
 }
 
-export function outputContractEntryRequired(entry: OutputContractEntry): boolean {
+export function outputEntryRequired(entry: OutputEntry): boolean {
   if (typeof entry === "string") {
     return true;
   }
   return entry.required !== false;
 }
 
-export function validateFinalPayload(payload: unknown, contract: OutputContract | undefined): string | undefined {
+export function validateFinalPayload(payload: unknown, contract: Output | undefined): string | undefined {
   if (!contract) {
     return undefined;
   }
@@ -126,12 +126,12 @@ export function validateFinalPayload(payload: unknown, contract: OutputContract 
   for (const [key, entry] of Object.entries(contract)) {
     const value = record[key];
     if (value === undefined) {
-      if (outputContractEntryRequired(entry)) {
+      if (outputEntryRequired(entry)) {
         return `${FINAL_RESULT_TOOL_NAME} is missing required field '${key}'.`;
       }
       continue;
     }
-    const mismatch = validateOutputContractValue(value, entry, key);
+    const mismatch = validateOutputValue(value, entry, key);
     if (mismatch) {
       return mismatch;
     }
@@ -140,9 +140,9 @@ export function validateFinalPayload(payload: unknown, contract: OutputContract 
   return undefined;
 }
 
-export function validateOutputContractValue(
+export function validateOutputValue(
   value: unknown,
-  entry: OutputContractEntry,
+  entry: OutputEntry,
   key: string,
 ): string | undefined {
   const spec = typeof entry === "string" ? { type: entry } : entry;

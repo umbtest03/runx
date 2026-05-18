@@ -52,20 +52,20 @@ export {
 } from "./outbox.js";
 
 export {
-  type WorkItemStoryMilestoneKind,
-  type WorkItemStoryMilestoneStatus,
-  type WorkItemStoryMilestone,
-  type WorkItemStory,
-  type BuildWorkItemStoryOutboxEntryOptions,
+  type FeedStoryMilestoneKind,
+  type FeedStoryMilestoneStatus,
+  type FeedStoryMilestone,
+  type FeedStory,
+  type BuildFeedStoryOutboxEntryOptions,
   type RenderIssueToPrReviewerMarkdownOptions,
-  validateWorkItemStoryMilestone,
-  validateWorkItemStory,
-  renderWorkItemStoryMarkdown,
-  buildWorkItemStoryOutboxEntry,
+  validateFeedStoryMilestone,
+  validateFeedStory,
+  renderFeedStoryMarkdown,
+  buildFeedStoryOutboxEntry,
   renderIssueToPrReviewerMarkdown,
   summarizePublicHandoffMarkdown,
   sanitizePublicMarkdown,
-} from "./work-item-story.js";
+} from "./feed-entry.js";
 
 export {
   type HandoffSignal,

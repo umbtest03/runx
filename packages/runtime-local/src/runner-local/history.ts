@@ -102,9 +102,9 @@ export interface ComparableRunSummary {
   readonly disposition?: string;
   readonly outcomeState?: string;
   readonly runnerProvider?: string;
-  readonly workItemState?: string;
-  readonly workItemStatusSummary?: string;
-  readonly workItemId?: string;
+  readonly harnessState?: string;
+  readonly harnessSealSummary?: string;
+  readonly harnessId?: string;
   readonly approval?: RunApprovalSummary;
   readonly lineage?: RunLineageSummary;
   readonly error?: string;
@@ -575,7 +575,7 @@ async function summarizeLocalReceipt(
   const actors = extractReceiptActors(receipt);
   const artifactTypes = extractReceiptArtifactTypes(receipt, ledgerEntries);
   const metadata = isRecord(receipt.metadata) ? receipt.metadata : undefined;
-  const workItem = extractReceiptWorkItem(receipt, ledgerEntries);
+  const harness = extractReceiptHarness(receipt, ledgerEntries);
   const approval = extractReceiptApproval(receipt);
   const lineage = extractReceiptLineage(receipt);
   const runnerProvider = metadata ? readNestedString(metadata, ["runner", "provider"]) : undefined;
@@ -596,9 +596,9 @@ async function summarizeLocalReceipt(
       approval,
       lineage,
       runnerProvider,
-      workItemState: workItem?.state,
-      workItemStatusSummary: workItem?.statusSummary,
-      workItemId: workItem?.id,
+      harnessState: harness?.state,
+      harnessSealSummary: harness?.sealSummary,
+      harnessId: harness?.id,
       ledgerVerification: ledgerInspection.verification,
     };
   }
@@ -618,17 +618,17 @@ async function summarizeLocalReceipt(
     approval,
     lineage,
     runnerProvider,
-    workItemState: workItem?.state,
-    workItemStatusSummary: workItem?.statusSummary,
-    workItemId: workItem?.id,
+    harnessState: harness?.state,
+    harnessSealSummary: harness?.sealSummary,
+    harnessId: harness?.id,
     ledgerVerification: ledgerInspection.verification,
   };
 }
 
-function extractReceiptWorkItem(
+function extractReceiptHarness(
   receipt: LocalReceipt,
   ledgerEntries: readonly ArtifactEnvelope[],
-): { readonly id?: string; readonly state?: string; readonly statusSummary?: string } | undefined {
+): { readonly id?: string; readonly state?: string; readonly sealSummary?: string } | undefined {
   const directArtifactIds = receipt.kind === "skill_execution" && Array.isArray(receipt.artifact_ids)
     ? new Set(receipt.artifact_ids)
     : undefined;
@@ -639,27 +639,28 @@ function extractReceiptWorkItem(
     if (directArtifactIds && !directArtifactIds.has(entry.meta.artifact_id)) {
       continue;
     }
-    const workItem = findWorkItemRecord(entry.data);
-    if (workItem) {
-      return workItem;
+    const harness = findHarnessRecord(entry.data);
+    if (harness) {
+      return harness;
     }
   }
   return undefined;
 }
 
-function findWorkItemRecord(value: unknown): { readonly id?: string; readonly state?: string; readonly statusSummary?: string } | undefined {
+function findHarnessRecord(value: unknown): { readonly id?: string; readonly state?: string; readonly sealSummary?: string } | undefined {
   if (!isRecord(value)) {
     return undefined;
   }
-  if (value.schema === "runx.work_item.v1") {
+  if (value.schema === "runx.harness.v1") {
+    const seal = isRecord(value.seal) ? value.seal : undefined;
     return {
-      id: readString(value.work_item_id),
+      id: readString(value.harness_id),
       state: readString(value.state),
-      statusSummary: readString(value.status_summary),
+      sealSummary: readString(seal?.summary),
     };
   }
-  if (isRecord(value.work_item)) {
-    return findWorkItemRecord(value.work_item);
+  if (isRecord(value.harness)) {
+    return findHarnessRecord(value.harness);
   }
   return undefined;
 }

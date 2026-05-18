@@ -8,19 +8,19 @@ observations; it is not the source of truth.
 
 The shared implementation lives in `@runxhq/core/knowledge` as typed helpers:
 
-- `validateWorkItemStory`
-- `validateWorkItemStoryMilestone`
-- `renderWorkItemStoryMarkdown`
-- `buildWorkItemStoryOutboxEntry`
+- `buildThreadStoryMarkdown`
+- `buildThreadStoryMessageOutboxEntry`
+- `buildThreadStatusMarkdown`
+- `buildThreadPullRequestReviewerPacketMarkdown`
 
-The `outbox.build_work_item_story` tool uses those helpers to produce:
+The thread outbox tools use those helpers to produce:
 
-- `story.schema`: `runx.work-item-story.v1`
+- `story.schema`: `runx.thread-story.control.v1`
 - `story.data.thread_locator`
 - `story.data.title`
 - `story.data.next_action`
 - `story.data.milestones`
-- `outbox_entry.metadata.schema_version`: `runx.outbox-entry.work-item-story.v1`
+- `outbox_entry.metadata.schema_version`: `runx.outbox-entry.message.v1`
 - `outbox_entry.metadata.workflow`
 - `outbox_entry.metadata.milestone_kind`
 - `outbox_entry.metadata.body_markdown`

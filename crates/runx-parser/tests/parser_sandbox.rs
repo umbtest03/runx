@@ -1,0 +1,81 @@
+use runx_parser::{
+    ValidateSkillOptions, parse_skill_markdown, validate_skill, validate_skill_with_options,
+};
+
+#[test]
+fn skill_sandbox_uses_core_policy_normalization() -> Result<(), String> {
+    let raw = parse_skill_markdown(
+        r#"---
+name: networked-cli
+source:
+  type: cli-tool
+  command: node
+  sandbox:
+    profile: network
+---
+# Networked CLI
+"#,
+    )
+    .map_err(|error| error.to_string())?;
+    let skill = validate_skill(raw).map_err(|error| error.to_string())?;
+
+    let sandbox = skill
+        .source
+        .sandbox
+        .ok_or_else(|| "expected sandbox".to_owned())?;
+
+    assert_eq!(sandbox.profile, "network");
+    assert_eq!(sandbox.cwd_policy.as_deref(), Some("skill-directory"));
+    assert_eq!(sandbox.network, Some(true));
+    assert!(sandbox.writable_paths.is_empty());
+    assert_eq!(sandbox.require_enforcement, Some(false));
+    assert!(sandbox.raw.contains_key("profile"));
+    Ok(())
+}
+
+#[test]
+fn approved_escalation_stays_raw_only() -> Result<(), String> {
+    let raw = parse_skill_markdown(
+        r#"---
+name: cli-tool
+source:
+  type: cli-tool
+  command: node
+  sandbox:
+    profile: workspace-write
+    approvedEscalation: true
+---
+# CLI tool
+"#,
+    )
+    .map_err(|error| error.to_string())?;
+    let skill = validate_skill(raw).map_err(|error| error.to_string())?;
+
+    let sandbox = skill
+        .source
+        .sandbox
+        .ok_or_else(|| "expected sandbox".to_owned())?;
+
+    assert!(sandbox.approved_escalation.is_none());
+    assert!(sandbox.raw.contains_key("approvedEscalation"));
+    Ok(())
+}
+
+#[test]
+fn lenient_skill_validation_ignores_non_object_runx_metadata() -> Result<(), String> {
+    let raw = parse_skill_markdown(
+        r#"---
+name: portable
+runx: invalid
+---
+Body
+"#,
+    )
+    .map_err(|error| error.to_string())?;
+    let skill = validate_skill_with_options(raw, ValidateSkillOptions::lenient())
+        .map_err(|error| error.to_string())?;
+
+    assert!(skill.runx.is_none());
+    assert_eq!(skill.source.source_type, "agent");
+    Ok(())
+}

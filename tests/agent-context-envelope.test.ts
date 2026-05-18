@@ -37,31 +37,31 @@ describe("agent context envelope", () => {
 
       const request = result.requests[0];
       expect(request?.id).toBe("agent_step.evolve-plan.output");
-      expect(request?.kind).toBe("cognitive_work");
-      expect(request?.kind === "cognitive_work" ? request.work.envelope.run_id : undefined).toBe(result.runId);
-      expect(request?.kind === "cognitive_work" ? request.work.envelope.step_id : undefined).toBe("plan");
-      expect(request?.kind === "cognitive_work" ? request.work.envelope.skill : undefined).toBe("evolve.plan");
-      expect(request?.kind === "cognitive_work" ? request.work.envelope.allowed_tools : undefined).toEqual([
+      expect(request?.kind).toBe("agent_act");
+      expect(request?.kind === "agent_act" ? request.invocation.envelope.run_id : undefined).toBe(result.runId);
+      expect(request?.kind === "agent_act" ? request.invocation.envelope.step_id : undefined).toBe("plan");
+      expect(request?.kind === "agent_act" ? request.invocation.envelope.skill : undefined).toBe("evolve.plan");
+      expect(request?.kind === "agent_act" ? request.invocation.envelope.allowed_tools : undefined).toEqual([
         "fs.read",
         "git.status",
         "shell.exec",
       ]);
-      expect(request?.kind === "cognitive_work" ? request.work.envelope.execution_location?.skill_directory : undefined)
+      expect(request?.kind === "agent_act" ? request.invocation.envelope.execution_location?.skill_directory : undefined)
         .toBe(path.resolve("skills/evolve"));
-      expect(request?.kind === "cognitive_work" ? request.work.envelope.current_context.map((artifact) => artifact.type) : []).toEqual([
+      expect(request?.kind === "agent_act" ? request.invocation.envelope.current_context.map((artifact) => artifact.type) : []).toEqual([
         "repo_profile",
       ]);
-      expect(request?.kind === "cognitive_work" ? request.work.envelope.provenance : []).toEqual([
+      expect(request?.kind === "agent_act" ? request.invocation.envelope.provenance : []).toEqual([
         {
           input: "repo_profile",
           output: "repo_profile.data",
           from_step: "preflight",
           artifact_id:
-            request?.kind === "cognitive_work" ? request.work.envelope.current_context[0]?.meta.artifact_id : undefined,
-          receipt_id: request?.kind === "cognitive_work" ? request.work.envelope.provenance[0]?.receipt_id : undefined,
+            request?.kind === "agent_act" ? request.invocation.envelope.current_context[0]?.meta.artifact_id : undefined,
+          receipt_id: request?.kind === "agent_act" ? request.invocation.envelope.provenance[0]?.receipt_id : undefined,
         },
       ]);
-      expect(request?.kind === "cognitive_work" ? request.work.envelope.historical_context : []).toEqual([]);
+      expect(request?.kind === "agent_act" ? request.invocation.envelope.historical_context : []).toEqual([]);
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -74,7 +74,7 @@ describe("agent context envelope", () => {
 
     const completionCaller: Caller = {
       resolve: async (request) => {
-        if (request.kind === "cognitive_work" && request.id === "agent_step.evolve-plan.output") {
+        if (request.kind === "agent_act" && request.id === "agent_step.evolve-plan.output") {
           return {
             actor: "agent",
             payload: {
@@ -140,11 +140,11 @@ describe("agent context envelope", () => {
       }
 
       const historicalTypes =
-        second.requests[0]?.kind === "cognitive_work"
-          ? second.requests[0].work.envelope.historical_context.map((artifact) => artifact.type)
+        second.requests[0]?.kind === "agent_act"
+          ? second.requests[0].invocation.envelope.historical_context.map((artifact) => artifact.type)
           : [];
       expect(historicalTypes).toEqual(["objective_brief", "diagnosis_report", "change_plan", "spec_document"]);
-      expect(second.requests[0]?.kind === "cognitive_work" ? second.requests[0].work.envelope.allowed_tools : []).toEqual([
+      expect(second.requests[0]?.kind === "agent_act" ? second.requests[0].invocation.envelope.allowed_tools : []).toEqual([
         "fs.read",
         "git.status",
         "shell.exec",
@@ -161,7 +161,7 @@ describe("agent context envelope", () => {
 
     const completionCaller: Caller = {
       resolve: async (request) => {
-        if (request.kind === "cognitive_work" && request.id === "agent_step.evolve-plan.output") {
+        if (request.kind === "agent_act" && request.id === "agent_step.evolve-plan.output") {
           return {
             actor: "agent",
             payload: {
@@ -213,8 +213,8 @@ describe("agent context envelope", () => {
       if (second.status !== "needs_resolution") {
         return;
       }
-      const historical = second.requests[0]?.kind === "cognitive_work"
-        ? second.requests[0].work.envelope.historical_context
+      const historical = second.requests[0]?.kind === "agent_act"
+        ? second.requests[0].invocation.envelope.historical_context
         : [];
       expect(historical).toEqual([]);
     } finally {

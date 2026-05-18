@@ -53,7 +53,7 @@ describe("sourcey preflight", () => {
       requests: Array<{
         id: string;
         kind: string;
-        work?: {
+        invocation?: {
           envelope: {
             skill: string;
             allowed_tools: string[];
@@ -63,9 +63,9 @@ describe("sourcey preflight", () => {
     };
     expect(report.status).toBe("needs_resolution");
     expect(report.requests[0]?.id).toBe("agent_step.sourcey-discover.output");
-    expect(report.requests[0]?.kind).toBe("cognitive_work");
-    expect(report.requests[0]?.work?.envelope.skill).toBe("sourcey.discover");
-    expect(report.requests[0]?.work?.envelope.allowed_tools).toEqual([
+    expect(report.requests[0]?.kind).toBe("agent_act");
+    expect(report.requests[0]?.invocation?.envelope.skill).toBe("sourcey.discover");
+    expect(report.requests[0]?.invocation?.envelope.allowed_tools).toEqual([
       "fs.read",
       "git.status",
       "git.current_branch",
@@ -209,10 +209,10 @@ function createSourceyCaller(overrides: { brandName: string; homepageUrl: string
       if (request.kind === "approval") {
         return request.gate.id === "sourcey.discovery.approval" ? { actor: "human", payload: true } : undefined;
       }
-      if (request.kind !== "cognitive_work") {
+      if (request.kind !== "agent_act") {
         return undefined;
       }
-      if (request.work.envelope.skill === "sourcey.discover") {
+      if (request.invocation.envelope.skill === "sourcey.discover") {
         return {
           actor: "agent",
           payload: {
@@ -231,7 +231,7 @@ function createSourceyCaller(overrides: { brandName: string; homepageUrl: string
           },
         };
       }
-      if (request.work.envelope.skill === "sourcey.author") {
+      if (request.invocation.envelope.skill === "sourcey.author") {
         return {
           actor: "agent",
           payload: {
@@ -242,8 +242,8 @@ function createSourceyCaller(overrides: { brandName: string; homepageUrl: string
           },
         };
       }
-      if (request.work.envelope.skill === "sourcey.critique") {
-        const buildReportArtifact = request.work.envelope.current_context.find(
+      if (request.invocation.envelope.skill === "sourcey.critique") {
+        const buildReportArtifact = request.invocation.envelope.current_context.find(
           (artifact) => artifact.type === "sourcey_build_report",
         )?.data;
         const buildReport = unwrapPacketData(buildReportArtifact);
@@ -266,7 +266,7 @@ function createSourceyCaller(overrides: { brandName: string; homepageUrl: string
           },
         };
       }
-      if (request.work.envelope.skill === "sourcey.revise") {
+      if (request.invocation.envelope.skill === "sourcey.revise") {
         return {
           actor: "agent",
           payload: {
@@ -277,7 +277,7 @@ function createSourceyCaller(overrides: { brandName: string; homepageUrl: string
           },
         };
       }
-      throw new Error(`Unexpected agent task ${request.work.envelope.skill}`);
+      throw new Error(`Unexpected agent task ${request.invocation.envelope.skill}`);
     },
     report: () => undefined,
   };

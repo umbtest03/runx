@@ -1,0 +1,41 @@
+{
+  "$schema": "../schema/policy.schema.json",
+  "expected": {
+    "kind": "output",
+    "value": {
+      "reasons": [
+        "local admission allowed"
+      ],
+      "status": "allow"
+    }
+  },
+  "input": {
+    "kind": "policy.admitLocalSkill",
+    "options": {
+      "connectedGrants": [
+        {
+          "grant_id": "grant_wildcard",
+          "provider": "github",
+          "scopes": [
+            "repo:*"
+          ],
+          "status": "active"
+        }
+      ]
+    },
+    "skill": {
+      "auth": {
+        "provider": "github",
+        "scopes": [
+          "repo:read"
+        ],
+        "type": "nango"
+      },
+      "name": "connected",
+      "source": {
+        "type": "cli-tool"
+      }
+    }
+  },
+  "name": "local-admission-allows-connected-wildcard-grant"
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "../schema/state-machine.schema.json",
+  "expected": {
+    "kind": "output",
+    "value": {
+      "graphId": "gx_fixture",
+      "status": "pending",
+      "steps": [
+        {
+          "attempts": 0,
+          "status": "pending",
+          "stepId": "first"
+        },
+        {
+          "attempts": 0,
+          "status": "pending",
+          "stepId": "second"
+        }
+      ]
+    }
+  },
+  "input": {
+    "graphId": "gx_fixture",
+    "kind": "state-machine.createSequentialGraphState",
+    "steps": [
+      {
+        "id": "first"
+      },
+      {
+        "contextFrom": [
+          "first"
+        ],
+        "id": "second"
+      }
+    ]
+  },
+  "name": "sequential-create-graph"
+}

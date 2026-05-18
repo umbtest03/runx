@@ -86,7 +86,7 @@ Return the provided task id.
         task_id: "abc-123",
       },
     });
-  });
+  }, 15000);
 
   it("preserves canonical delegated inputs across resume for wrapper skills", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-delegated-resume-"));

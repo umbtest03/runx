@@ -1,0 +1,32 @@
+[package]
+name = "runx-core"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+description = "Pure Rust parity kernel for runx state-machine and policy decisions."
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+keywords = ["runx", "kernel", "policy", "agents", "workflow"]
+categories = ["development-tools"]
+include = ["Cargo.toml", "README.md", "src/**/*.rs"]
+
+[lints]
+workspace = true
+
+[dependencies]
+runx-contracts.workspace = true
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+
+[features]
+default = ["std"]
+std = []
+
+[lib]
+name = "runx_core"
+path = "src/lib.rs"
+
+[dev-dependencies]
+proptest = { version = "1.11.0", default-features = false, features = ["std"] }

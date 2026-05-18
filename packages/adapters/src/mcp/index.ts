@@ -1,4 +1,4 @@
-import type { AdapterInvokeRequest, AdapterInvokeResult, SkillAdapter } from "@runxhq/core/executor";
+import type { AdapterActInvocation, ActReceiptEnvelope, SkillAdapter } from "@runxhq/core/executor";
 import {
   createMcpExecutionMetadata,
   invokeMcpToolWithMetadata,
@@ -20,7 +20,7 @@ export function createMcpAdapter(): McpAdapter {
   };
 }
 
-export async function invokeMcp(request: AdapterInvokeRequest): Promise<AdapterInvokeResult> {
+export async function invokeMcp(request: AdapterActInvocation): Promise<ActReceiptEnvelope> {
   const started = performance.now();
   const source = request.source;
   const server = source.server;
@@ -62,7 +62,7 @@ function failure(
   message: string,
   started: number,
   metadata?: Readonly<Record<string, unknown>>,
-): AdapterInvokeResult {
+): ActReceiptEnvelope {
   return {
     status: "failure",
     stdout: "",

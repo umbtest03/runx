@@ -6,7 +6,7 @@ repo-specific triage policy.
 
 The lane exists to make the engineering story reviewable:
 
-1. Intake source: the original issue, chat thread, alert, or local work item.
+1. Intake source: the original issue, chat thread, alert, or local harness_context.
 2. Triage decision: why a PR is justified, or why the lane should stop.
 3. scafld spec: the code-change contract and declared validation.
 4. Build evidence: what changed and which checks ran.
@@ -41,7 +41,7 @@ Consuming repos own product policy:
 
 That split keeps `issue-to-pr` reusable. A service repo can normalize Slack or
 Sentry into a `runx.thread.v1` source and a redacted
-`runx.evidence_bundle.v1`, but runx core should not know that Nitrosend uses a
+artifact refs and verification evidence, but runx core should not know that Nitrosend uses a
 particular channel, label, Sentry project, or owner map.
 
 ## Reviewer Context
@@ -92,21 +92,21 @@ control surface.
 ## PR Review And Fix-Up Lanes
 
 `issue-to-pr` creates or refreshes the draft PR and publishes the merge-gate
-story. Adjacent PR work should stay as separate lanes over the same work item
+story. Adjacent PR work should stay as separate lanes over the same harness_context
 instead of being hidden inside merge authority:
 
 - `pr-review` reads the source thread, evidence bundle, scafld state, PR diff,
   checks, and human review comments, then publishes one concise review packet.
 - `pr-fix-up` may apply bounded changes only when the review packet names
-  actionable findings and the source work item remains inside the approved
+  actionable findings and the source harness_context remains inside the approved
   scope.
 - `merge-assist` observes merge readiness, checks, deployment, and verification
   contracts, then posts a final recommendation or outcome. It does not click
   merge.
 
-Those lanes share the same thread/outbox/work-item contracts:
+Those lanes share the same thread/outbox/harness_context contracts:
 
-- input: `runx.thread.v1`, optional `runx.evidence_bundle.v1`, the draft PR
+- input: `runx.thread.v1`, optional artifact refs and verification evidence, the draft PR
   outbox entry, and current provider observations
 - output: updated story milestone, review or fix-up receipt, and an idempotent
   source-thread or PR comment
@@ -193,7 +193,7 @@ human-gate statement. If the PR is still open, it returns
 Use the checked-in thread fixtures when building repo-local wrappers:
 
 - `fixtures/threads/issue-to-pr-file-thread.json` shows a local file-backed
-  work item for deterministic tests.
+  harness_context for deterministic tests.
 - `fixtures/threads/issue-to-pr-github-thread.json` shows the normalized shape
   a GitHub issue adapter should produce.
 - `fixtures/issue-to-pr/dogfood-answers.json` is an empty caller-answer file
@@ -211,7 +211,7 @@ Mapping:
 - Aster `fix-pr` and `docs-pr` prepare repo-local policy: target repo, branch,
   authoring model, labels, and publication gate.
 - The normalized source issue becomes the `thread` input for `issue-to-pr`.
-- Hydrated provider context becomes the `evidence_bundle` input and should
+- Hydrated provider context becomes artifact refs and verification evidence and should
   already be redacted by the adapter.
 - `issue-to-pr` owns scafld lifecycle, draft PR packaging, receipts, and generic
   GitHub thread updates.

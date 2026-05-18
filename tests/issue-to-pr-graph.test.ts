@@ -48,11 +48,11 @@ describe("issue-to-PR composite skill", () => {
       "scafld-complete",
       "scafld-final-status",
       "scafld-handoff",
-      "capture-work-item",
+      "capture-harness-context",
       "package-pull-request",
       "push-pull-request",
-      "package-thread-story",
-      "push-thread-story",
+      "package-feed-entry",
+      "push-feed-entry",
     ]);
     expect(graph.steps.map((step) => step.inputs.command).filter(Boolean)).toEqual([
       "plan",
@@ -79,10 +79,12 @@ describe("issue-to-PR composite skill", () => {
     expect(graph.steps.find((step) => step.id === "normalize-spec")).toMatchObject({
       tool: "spec.normalize_scafld_frontmatter",
     });
-    expect(graph.steps.find((step) => step.id === "capture-work-item")).toMatchObject({
-      tool: "control.capture_work_item",
+    expect(graph.steps.find((step) => step.id === "capture-harness-context")).toMatchObject({
+      tool: "control.capture_harness_context",
       inputs: {
-        work_item: "$input.work_item",
+        harness: "$input.harness",
+        signal: "$input.signal",
+        decision: "$input.decision",
       },
     });
     expect(graph.steps.find((step) => step.id === "read-declared-files")).toMatchObject({
@@ -98,7 +100,7 @@ describe("issue-to-PR composite skill", () => {
       label: "package reviewer PR story",
       tool: "outbox.build_pull_request",
       context: {
-        work_item: "capture-work-item.work_item",
+        harness_context: "capture-harness-context.harness_context",
         handoff_markdown: "scafld-handoff.stdout",
         build_result: "scafld-build.result",
         review_result: "scafld-review.result",
@@ -108,11 +110,11 @@ describe("issue-to-PR composite skill", () => {
         fix_bundle: "author-fix.fix_bundle.data",
       },
     });
-    expect(graph.steps.find((step) => step.id === "package-thread-story")).toMatchObject({
-      label: "package source-thread story",
-      tool: "outbox.build_work_item_story",
+    expect(graph.steps.find((step) => step.id === "package-feed-entry")).toMatchObject({
+      label: "package feed entry",
+      tool: "outbox.build_feed_entry",
       context: {
-        work_item: "capture-work-item.work_item",
+        harness_context: "capture-harness-context.harness_context",
         build_result: "scafld-build.result",
         review_result: "scafld-review.result",
         completion_result: "scafld-complete.result",
@@ -133,7 +135,7 @@ describe("issue-to-PR composite skill", () => {
     const taskId = "issue-to-pr-skill-fixture";
     const caller: Caller = {
       resolve: async (request) =>
-        request.kind === "cognitive_work"
+        request.kind === "agent_act"
           ? {
               actor: "agent",
               payload: answerForIssueToPrStep(taskId, request),
@@ -152,7 +154,7 @@ describe("issue-to-PR composite skill", () => {
           type: "file",
           adapter_ref: threadPath,
         },
-        thread_kind: "work_item",
+        thread_kind: "signal",
         thread_locator: "local://fixtures/repo/issues/123",
         title: "Fixture thread-driven change",
         entries: [],
@@ -161,34 +163,44 @@ describe("issue-to-PR composite skill", () => {
         source_refs: [],
       };
       await writeFile(threadPath, `${JSON.stringify(thread, null, 2)}\n`);
-      const workItem = {
-        schema: "runx.work_item.v1",
-        work_item_id: "wi_fixture_issue_to_pr",
-        state: "build_ready",
-        source_events: [
-          {
-            provider: "file",
-            source_locator: "local://fixtures/repo/issues/123",
-            thread_locator: "local://fixtures/repo/issues/123",
-            title: "Fixture thread-driven change",
-          },
-        ],
-        dedupe: {
+      const harness = {
+        schema: "runx.harness.v1",
+        harness_id: "harness_fixture_issue_to_pr",
+        state: "running",
+      };
+      const signal = {
+        schema: "runx.signal.v1",
+        signal_id: "sig_fixture_issue_to_pr",
+        signal_type: "operator_note",
+        title: "Fixture thread-driven change",
+        source_ref: {
+          type: "external_url",
+          uri: "local://fixtures/repo/issues/123",
+        },
+        thread_ref: {
+          type: "external_url",
+          uri: "local://fixtures/repo/issues/123",
+        },
+        fingerprint: {
           algorithm: "sha256",
-          source_locator: "local://fixtures/repo/issues/123",
-          fingerprint: "sha256:fixture-issue-to-pr",
+          canonicalization: "fixture",
+          value: "sha256:fixture-issue-to-pr",
+          derived_from: [
+            {
+              type: "external_url",
+              uri: "local://fixtures/repo/issues/123",
+            },
+          ],
         },
-        triage: {
-          category: "bug",
-          severity: "medium",
-          confidence: 0.9,
-          action: "issue-to-pr",
-          needs_human: false,
-          rationale: "Fixture is bounded.",
+      };
+      const decision = {
+        schema: "runx.decision.v1",
+        decision_id: "dec_fixture_issue_to_pr",
+        choice: "open",
+        selected_act_id: "act_fixture_issue_to_pr",
+        justification: {
+          summary: "Fixture is bounded.",
         },
-        status_summary: "Build is ready.",
-        created_at: "2026-05-15T00:00:00Z",
-        updated_at: "2026-05-15T00:01:00Z",
       };
 
       const result = await runLocalSkill({
@@ -200,7 +212,9 @@ describe("issue-to-PR composite skill", () => {
           thread_body: "Apply a bounded fixture docs update.",
           thread_locator: "local://fixtures/repo/issues/123",
           thread,
-          work_item: workItem,
+          harness,
+          signal,
+          decision,
           target_repo: "fixtures/repo",
           size: "micro",
           risk: "low",
@@ -245,9 +259,9 @@ describe("issue-to-PR composite skill", () => {
             branch: taskId,
             base: "main",
           },
-          work_item: {
-            work_item_id: "wi_fixture_issue_to_pr",
-            state: "build_ready",
+          harness_context: {
+            harness_id: "harness_fixture_issue_to_pr",
+            state: "running",
           },
           pull_request: {
             title: "Fixture thread-driven change",
@@ -284,7 +298,7 @@ describe("issue-to-PR composite skill", () => {
       ]);
       await expect(readFile(threadPath, "utf8")).resolves.toContain(`pull_request:${taskId}`);
       await expect(readFile(threadPath, "utf8")).resolves.toContain(`message:${taskId}:merge_gate`);
-      await expect(readFile(threadPath, "utf8")).resolves.toContain("wi_fixture_issue_to_pr");
+      await expect(readFile(threadPath, "utf8")).resolves.toContain("harness_fixture_issue_to_pr");
       expect(result.receipt.steps.map((step) => [step.step_id, step.status])).toEqual([
         ["scafld-plan", "success"],
         ["author-spec", "success"],
@@ -304,11 +318,11 @@ describe("issue-to-PR composite skill", () => {
         ["scafld-complete", "success"],
         ["scafld-final-status", "success"],
         ["scafld-handoff", "success"],
-        ["capture-work-item", "success"],
+        ["capture-harness-context", "success"],
         ["package-pull-request", "success"],
         ["push-pull-request", "success"],
-        ["package-thread-story", "success"],
-        ["push-thread-story", "success"],
+        ["package-feed-entry", "success"],
+        ["push-feed-entry", "success"],
       ]);
       await expect(readFile(path.join(tempDir, "app.txt"), "utf8")).resolves.toBe("fixed\n");
       await expect(readFile(path.join(tempDir, "notes.md"), "utf8")).resolves.toBe("governed\n");
@@ -324,7 +338,7 @@ describe("issue-to-PR composite skill", () => {
     const taskId = "issue-to-pr-blocked-fixture";
     const blockedCaller: Caller = {
       resolve: async (request) =>
-        request.kind === "cognitive_work"
+        request.kind === "agent_act"
           ? {
               actor: "agent",
               payload:

@@ -62,15 +62,15 @@ export async function reportGraphStepWaitingResolution(
       resolutionSkills: Array.from(
         new Set(
           requests
-            .filter((request): request is Extract<ResolutionRequest, { kind: "cognitive_work" }> => request.kind === "cognitive_work")
-            .map((request) => request.work.envelope.skill),
+            .filter((request): request is Extract<ResolutionRequest, { kind: "agent_act" }> => request.kind === "agent_act")
+            .map((request) => request.invocation.envelope.skill),
         ),
       ),
       expectedOutputs: Array.from(
         new Set(
           requests
-            .filter((request): request is Extract<ResolutionRequest, { kind: "cognitive_work" }> => request.kind === "cognitive_work")
-            .flatMap((request) => Object.keys(request.work.envelope.expected_outputs ?? {})),
+            .filter((request): request is Extract<ResolutionRequest, { kind: "agent_act" }> => request.kind === "agent_act")
+            .flatMap((request) => Object.keys(request.invocation.envelope.output ?? {})),
         ),
       ),
     },

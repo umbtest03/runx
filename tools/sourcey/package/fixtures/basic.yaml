@@ -36,7 +36,7 @@ inputs:
     data:
       files: []
       summary: No revisions needed.
-  sourcey_verification_report:
+  sourcey_verification_proof:
     schema: runx.sourcey.verification.v1
     data:
       verified: true

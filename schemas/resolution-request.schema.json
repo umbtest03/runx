@@ -110,7 +110,7 @@
       "required": [
         "id",
         "kind",
-        "work"
+        "invocation"
       ],
       "properties": {
         "id": {
@@ -118,12 +118,12 @@
           "type": "string"
         },
         "kind": {
-          "const": "cognitive_work",
+          "const": "agent_act",
           "type": "string"
         },
-        "work": {
+        "invocation": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
-          "$id": "https://runx.ai/spec/agent-work-request.schema.json",
+          "$id": "https://runx.ai/spec/agent-act-invocation.schema.json",
           "additionalProperties": false,
           "type": "object",
           "required": [
@@ -617,9 +617,9 @@
                     }
                   }
                 },
-                "expected_outputs": {
+                "output": {
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
-                  "$id": "https://runx.ai/spec/output-contract.schema.json",
+                  "$id": "https://runx.ai/spec/output.schema.json",
                   "type": "object",
                   "patternProperties": {
                     "^(.*)$": {

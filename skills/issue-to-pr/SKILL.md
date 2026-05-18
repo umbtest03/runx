@@ -41,8 +41,8 @@ the task is review-ready, and `scafld review` is the native review boundary.
 The lane should leave one coherent source-thread story, not a stream of every
 internal event. The durable milestones are:
 
-- intake source and the bounded request
-- triage or caller decision that a PR is justified
+- source signal and the bounded request
+- accountable decision that a PR is justified
 - scafld spec approval and declared scope
 - build and validation result
 - adversarial review result
@@ -67,8 +67,8 @@ such as spec authoring, fix authoring, review, and human merge gate.
 - Evidence bar: every spec objective, file impact, validation command, and PR
   claim must trace to the thread, repo snapshot, scafld state, or actual
   working-tree change.
-- Story bar: public source-thread and PR surfaces should show the intake,
-  triage decision, scoped change, validation, review verdict, PR link, human
+- Story bar: public source-thread and PR surfaces should show the signal,
+  decision, scoped change, validation, review verdict, PR link, human
   merge gate, and final provider outcome when observed without becoming a raw
   execution log.
 - Stop conditions: return `needs_resolution` when authoring evidence is
@@ -112,7 +112,7 @@ Documentation and process requests still need a concrete repo file. Prefer
 existing docs surfaces supplied by `repo_snapshot.existing_files` or
 `repo_context`, and declare at least one non-governance repo file for an
 approved `issue-to-pr` lane. Do not leave the repo-change scope empty after the
-triage layer has approved a PR.
+decision layer has approved a PR.
 
 Validation commands must run against the current workspace state after the fix
 bundle is written. Do not depend on git history ranges such as `HEAD~1` or
@@ -157,16 +157,15 @@ empty file bundle is a terminal policy denial before `write-fix`.
 - `thread_title`: canonical title and default spec title.
 - `thread_body`: full thread body or request text when available.
 - `thread_locator`: canonical locator for the bounded thread.
-- `thread`: portable thread for the current work item.
+- `thread`: portable thread for the current signal surface.
 - `outbox_entry`: existing pull-request outbox entry when refreshing a draft.
-- `work_item`: optional `runx.work_item.v1` packet. Preserve source event,
-  dedupe, triage, linked issue/PR, merge gate, and outcome fields as stateful
-  context instead of reparsing source-thread prose.
-- `evidence_bundle`: optional `runx.evidence_bundle.v1` packet. Treat
-  `hydration.status=complete` evidence as source context for spec and fix
-  authoring. Treat `hydration.status=needed` as a blocker for mutation unless
-  the caller supplies a separate reviewed decision that explains why the
-  remaining evidence is sufficient.
+- `harness`: optional `runx.harness.v1` packet for the governed run boundary.
+- `signal`: optional `runx.signal.v1` packet. Preserve source references,
+  fingerprint, authenticity, and evidence references as stateful context
+  instead of reparsing source-thread prose.
+- `decision`: optional `runx.decision.v1` packet. Preserve the accountable
+  selection rationale, selected act, and closure when the caller already made
+  the lane decision.
 - `target_repo`: intended repository slug for PR packaging.
 - `repo_snapshot`: compact structured snapshot of the target repo.
 - `repo_snapshot_path`: optional path to a fuller repo snapshot artifact.

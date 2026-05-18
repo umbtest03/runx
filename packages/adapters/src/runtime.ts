@@ -68,7 +68,7 @@ export function createRuntimeBackedCaller(options: RuntimeBackedCallerOptions = 
       if (answered !== undefined) {
         return answered;
       }
-      if (request.kind !== "cognitive_work") {
+      if (request.kind !== "agent_act") {
         return undefined;
       }
       agentConfigPromise ??= loadManagedAgentConfig(env);

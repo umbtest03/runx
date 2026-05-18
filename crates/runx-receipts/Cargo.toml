@@ -1,0 +1,23 @@
+[package]
+name = "runx-receipts"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+description = "Pure Rust receipt model, canonicalization, and verification parity for runx."
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+keywords = ["runx", "receipts", "provenance", "agents", "verify"]
+categories = ["development-tools"]
+include = ["Cargo.toml", "README.md", "src/**/*.rs"]
+
+[lints]
+workspace = true
+
+[dependencies]
+runx-contracts.workspace = true
+
+[lib]
+name = "runx_receipts"
+path = "src/lib.rs"

@@ -8,7 +8,7 @@ import { writeLocalReceipt } from "../receipts/index.js";
 
 import {
   createFileKnowledgeStore,
-  buildWorkItemStoryOutboxEntry,
+  buildFeedStoryOutboxEntry,
   fetchThreadViaAdapter,
   findLatestControlOutboxEntry,
   findLatestOutboxEntry,
@@ -23,7 +23,7 @@ import {
   pushOutboxEntryViaAdapter,
   reduceHandoffState,
   renderIssueToPrReviewerMarkdown,
-  renderWorkItemStoryMarkdown,
+  renderFeedStoryMarkdown,
   readOutboxEntryControl,
   sanitizePublicMarkdown,
   summarizePublicHandoffMarkdown,
@@ -34,7 +34,7 @@ import {
   validateHandoffState,
   validateSuppressionRecord,
   validateThread,
-  validateWorkItemStory,
+  validateFeedStory,
 } from "./index.js";
 
 describe("thread contract", () => {
@@ -47,7 +47,7 @@ describe("thread contract", () => {
         surface: "issue_thread",
         cursor: "comment:4286817434",
       },
-      thread_kind: "work_item",
+      thread_kind: "signal",
       thread_locator: "runxhq/aster#issue/110",
       title: "[skill] Add a collaboration issue distillation skill",
       canonical_uri: "https://github.com/runxhq/aster/issues/110",
@@ -89,7 +89,7 @@ describe("thread contract", () => {
       generated_at: "2026-04-21T08:05:00Z",
     });
 
-    expect(state.thread_kind).toBe("work_item");
+    expect(state.thread_kind).toBe("signal");
     expect(state.thread_locator).toBe("runxhq/aster#issue/110");
     expect(state.adapter.type).toBe("github");
     expect(threadAllowsGate(state, "skill-lab.publish")).toBe(true);
@@ -102,7 +102,7 @@ describe("thread contract", () => {
       adapter: {
         type: "local-conversation",
       },
-      thread_kind: "work_item",
+      thread_kind: "signal",
       thread_locator: "local://conversation/42",
       entries: [],
       decisions: [
@@ -135,7 +135,7 @@ describe("thread contract", () => {
         provider: "linear",
         surface: "ticket_thread",
       },
-      thread_kind: "work_item",
+      thread_kind: "signal",
       thread_locator: "linear://issue/ENG-42",
       entries: [
         {
@@ -161,7 +161,7 @@ describe("thread contract", () => {
     });
 
     expect(summarizeThread(state)).toBe(
-      "work_item:linear://issue/ENG-42 via ticketing | entries=2 decisions=0 outbox=draft_change",
+      "signal:linear://issue/ENG-42 via ticketing | entries=2 decisions=0 outbox=draft_change",
     );
   });
 
@@ -171,7 +171,7 @@ describe("thread contract", () => {
       adapter: {
         type: "github",
       },
-      thread_kind: "work_item",
+      thread_kind: "signal",
       thread_locator: "github://example/repo/issues/123",
       entries: [],
       decisions: [],
@@ -317,14 +317,14 @@ describe("thread contract", () => {
     )).toBe("Status: material_ref=[secret]");
   });
 
-  it("renders stable work-item story markdown and message outbox entries", () => {
-    const story = validateWorkItemStory({
+  it("renders stable feed entry markdown and message outbox entries", () => {
+    const story = validateFeedStory({
       thread_locator: "github://example/repo/issues/123",
       title: "Checkout fails",
       next_action: "Human reviewer merges the draft PR after checks pass.",
       milestones: [
         {
-          kind: "triage",
+          kind: "decision",
           status: "passed",
           summary: "Bug is reproducible and bounded to checkout validation.",
           details: [
@@ -339,14 +339,14 @@ describe("thread contract", () => {
       ],
     });
 
-    expect(renderWorkItemStoryMarkdown(story)).toBe(
+    expect(renderFeedStoryMarkdown(story)).toBe(
       [
         "## Checkout fails",
         "",
         "Source thread: `github://example/repo/issues/123`",
         "",
         "### Gate Summary",
-        "- Triage (passed): Bug is reproducible and bounded to checkout validation.",
+        "- Decision (passed): Bug is reproducible and bounded to checkout validation.",
         "  - Validation command uses repo-local tests, not [local-path].",
         "- Human merge gate (ready): Draft PR is ready for human review; runx will not merge it.",
         "",
@@ -355,7 +355,7 @@ describe("thread contract", () => {
       ].join("\n"),
     );
 
-    expect(buildWorkItemStoryOutboxEntry({
+    expect(buildFeedStoryOutboxEntry({
       taskId: "Checkout Fix",
       threadLocator: "github://example/repo/issues/123",
       title: "Review gate",
@@ -372,10 +372,10 @@ describe("thread contract", () => {
       status: "proposed",
       thread_locator: "github://example/repo/issues/123",
       metadata: {
-        schema_version: "runx.outbox-entry.work-item-story.v1",
+        schema_version: "runx.outbox-entry.feed-entry.v1",
         workflow: "issue-to-pr",
         milestone_kind: "review",
-        outbox_receipt_id: expect.stringMatching(/^story:issue-to-pr:checkout-fix:review:[a-f0-9]{20}$/),
+        outbox_receipt_id: expect.stringMatching(/^feed:issue-to-pr:checkout-fix:review:[a-f0-9]{20}$/),
         updated_at: "2026-05-14T12:00:00Z",
         control: {
           workflow: "issue-to-pr",
@@ -384,17 +384,17 @@ describe("thread contract", () => {
       },
     });
 
-    const localStory = validateWorkItemStory({
+    const localStory = validateFeedStory({
       thread_locator: "/tmp/runx/thread.json",
       milestones: [
         {
-          kind: "intake",
-          summary: "Local fixture intake.",
+          kind: "signal",
+          summary: "Local fixture signal.",
         },
       ],
     });
-    expect(renderWorkItemStoryMarkdown(localStory)).not.toContain("/tmp/runx");
-    expect(renderWorkItemStoryMarkdown(localStory)).toContain("Source thread: `[local-path]`");
+    expect(renderFeedStoryMarkdown(localStory)).not.toContain("/tmp/runx");
+    expect(renderFeedStoryMarkdown(localStory)).toContain("Source thread: `[local-path]`");
   });
 
   it("renders sanitized issue-to-PR reviewer markdown from shared knowledge helpers", () => {
@@ -473,7 +473,7 @@ describe("thread contract", () => {
           adapter: {
             type: "github",
           },
-          thread_kind: "work_item",
+          thread_kind: "signal",
           title: "missing locator",
           entries: [],
           decisions: [],
@@ -492,7 +492,7 @@ describe("thread contract", () => {
             type: "github",
           },
           subject: {
-            thread_kind: "work_item",
+            thread_kind: "signal",
             thread_locator: "github://example/repo/issues/123",
           },
           entries: [],
@@ -512,7 +512,7 @@ describe("thread contract", () => {
         type: "file",
         adapter_ref: statePath,
       },
-      thread_kind: "work_item",
+      thread_kind: "signal",
       thread_locator: "local://provider/issues/123",
       canonical_uri: "https://example.test/issues/123",
       entries: [],
@@ -559,7 +559,7 @@ describe("thread contract", () => {
       });
 
       const fetched = await fetchThreadViaAdapter(result.thread.adapter, {
-        thread_kind: "work_item",
+        thread_kind: "signal",
         thread_locator: "local://provider/issues/123",
         include_outbox: true,
       });
@@ -580,7 +580,7 @@ describe("thread contract", () => {
       adapter: {
         type: "github",
       },
-      thread_kind: "work_item",
+      thread_kind: "signal",
       thread_locator: "github://example/repo/issues/123",
       entries: [],
       decisions: [],

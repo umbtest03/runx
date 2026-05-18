@@ -1,0 +1,40 @@
+{
+  "schema": "runx.tool.manifest.v1",
+  "name": "control.capture_harness_context",
+  "description": "Capture the current harness context as explicit graph context values.",
+  "source": {
+    "type": "cli-tool",
+    "command": "node",
+    "args": [
+      "./run.mjs"
+    ]
+  },
+  "inputs": {
+    "harness": {
+      "type": "json",
+      "required": false,
+      "description": "Optional runx.harness.v1 packet for the current governed run."
+    },
+    "signal": {
+      "type": "json",
+      "required": false,
+      "description": "Optional runx.signal.v1 packet that opened or informed the harness."
+    },
+    "decision": {
+      "type": "json",
+      "required": false,
+      "description": "Optional runx.decision.v1 packet that selected the next harness action."
+    }
+  },
+  "output": {},
+  "scopes": [
+    "runx:control:read"
+  ],
+  "runtime": {
+    "command": "node",
+    "args": [
+      "./run.mjs"
+    ]
+  },
+  "toolkit_version": "0.1.4"
+}

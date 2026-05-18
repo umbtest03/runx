@@ -1,4 +1,4 @@
-import type { CognitiveResolutionRequest } from "@runxhq/core/executor";
+import type { AgentActResolutionRequest } from "@runxhq/core/executor";
 
 import {
   FINAL_RESULT_TOOL_NAME,
@@ -21,16 +21,16 @@ import {
   isToolErrorResult,
 } from "./helpers.js";
 import {
-  outputContractToJsonSchema,
+  outputToJsonSchema,
   validateFinalPayload,
 } from "./json-schema.js";
 import { executeManagedToolCall } from "./runtime-tools.js";
-import { buildManagedRuntimeInstructions } from "./work-request.js";
+import { buildManagedRuntimeInstructions } from "./agent-act-invocation.js";
 import type { ManagedAgentConfig } from "./index.js";
 
 export async function resolveWithAnthropic(
   config: ManagedAgentConfig,
-  request: CognitiveResolutionRequest,
+  request: AgentActResolutionRequest,
   runtimeTools: readonly ManagedRuntimeTool[],
   signal: AbortSignal | undefined,
   allowPauseOnNestedResolution: boolean,
@@ -53,7 +53,7 @@ export async function resolveWithAnthropic(
 
     if (toolUses.length === 0) {
       const assistantText = extractAnthropicAssistantText(assistantContent);
-      if (!request.work.envelope.expected_outputs) {
+      if (!request.invocation.envelope.output) {
         if (!assistantText.trim()) {
           throw new Error(`Managed agent resolution for ${request.id} returned no assistant text.`);
         }
@@ -132,7 +132,7 @@ export async function resolveWithAnthropic(
 }
 
 function buildAnthropicTools(
-  request: CognitiveResolutionRequest,
+  request: AgentActResolutionRequest,
   runtimeTools: readonly ManagedRuntimeTool[],
 ): readonly AnthropicToolDefinition[] {
   const tools = runtimeTools.map((tool) => ({
@@ -140,33 +140,33 @@ function buildAnthropicTools(
     description: tool.description,
     input_schema: tool.parameters,
   }));
-  if (!request.work.envelope.expected_outputs) {
+  if (!request.invocation.envelope.output) {
     return tools;
   }
   return [
     ...tools,
     {
       name: FINAL_RESULT_TOOL_NAME,
-      description: "Submit the final structured payload for this runx cognitive_work request.",
-      input_schema: outputContractToJsonSchema(request.work.envelope.expected_outputs),
+      description: "Submit the final structured payload for this runx agent_act request.",
+      input_schema: outputToJsonSchema(request.invocation.envelope.output),
     },
   ];
 }
 
-function buildAnthropicInitialRequestMessage(request: CognitiveResolutionRequest): AnthropicMessage {
+function buildAnthropicInitialRequestMessage(request: AgentActResolutionRequest): AnthropicMessage {
   return {
     role: "user",
     content: [
       {
         type: "text",
         text: [
-          "Resolve this runx cognitive_work request.",
+          "Resolve this runx agent_act request.",
           JSON.stringify({
             request_id: request.id,
-            source_type: request.work.source_type,
-            agent: request.work.agent,
-            task: request.work.task,
-            envelope: request.work.envelope,
+            source_type: request.invocation.source_type,
+            agent: request.invocation.agent,
+            task: request.invocation.task,
+            envelope: request.invocation.envelope,
           }, null, 2),
         ].join("\n\n"),
       },
@@ -176,7 +176,7 @@ function buildAnthropicInitialRequestMessage(request: CognitiveResolutionRequest
 
 function completeAnthropicFinalResult(
   toolUse: AnthropicToolUseBlock,
-  request: CognitiveResolutionRequest,
+  request: AgentActResolutionRequest,
   round: number,
   toolCalls: number,
   runtimeTools: readonly ManagedRuntimeTool[],
@@ -189,7 +189,7 @@ function completeAnthropicFinalResult(
       error: `${FINAL_RESULT_TOOL_NAME}.input must be a JSON object.`,
     };
   }
-  const validationError = validateFinalPayload(submittedPayload, request.work.envelope.expected_outputs);
+  const validationError = validateFinalPayload(submittedPayload, request.invocation.envelope.output);
   if (validationError) {
     return {
       ok: false,

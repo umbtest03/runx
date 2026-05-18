@@ -1,0 +1,27 @@
+[package]
+name = "runx-contracts"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+description = "Shared Rust contract types for runx JSON and host protocol boundaries."
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+keywords = ["runx", "contracts", "agents", "receipts", "sdk"]
+categories = ["development-tools"]
+include = ["Cargo.toml", "README.md", "src/**/*.rs"]
+
+[lints]
+workspace = true
+
+[lib]
+name = "runx_contracts"
+path = "src/lib.rs"
+
+[dependencies]
+serde.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

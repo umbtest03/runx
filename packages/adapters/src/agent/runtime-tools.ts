@@ -1,5 +1,5 @@
 import {
-  type AdapterInvokeRequest,
+  type AdapterActInvocation,
   type NestedSkillInvoker,
   type SkillAdapter,
 } from "@runxhq/core/executor";
@@ -34,7 +34,7 @@ export async function resolveManagedRuntimeTools(
   signal: AbortSignal | undefined,
   toolRoots: readonly string[] | undefined,
   nestedSkillInvoker: NestedSkillInvoker | undefined,
-  toolCatalogAdapters: AdapterInvokeRequest["toolCatalogAdapters"],
+  toolCatalogAdapters: AdapterActInvocation["toolCatalogAdapters"],
 ): Promise<readonly ManagedRuntimeTool[]> {
   const tools: ManagedRuntimeTool[] = [];
   const seenRunxNames = new Set<string>();
@@ -88,7 +88,7 @@ async function invokeManagedRuntimeTool(
   env: NodeJS.ProcessEnv,
   signal: AbortSignal | undefined,
   nestedSkillInvoker: NestedSkillInvoker | undefined,
-  toolCatalogAdapters: AdapterInvokeRequest["toolCatalogAdapters"],
+  toolCatalogAdapters: AdapterActInvocation["toolCatalogAdapters"],
 ): Promise<ManagedToolCallResult> {
   const inputs = asRecord(argumentsValue);
   if (!inputs) {
@@ -220,7 +220,7 @@ async function invokeManagedRuntimeToolDirect(options: {
   readonly requestedSkillPath: string;
   readonly inputs: Readonly<Record<string, unknown>>;
   readonly env: NodeJS.ProcessEnv;
-  readonly toolCatalogAdapters: AdapterInvokeRequest["toolCatalogAdapters"];
+  readonly toolCatalogAdapters: AdapterActInvocation["toolCatalogAdapters"];
 }) {
   const result = await runValidatedSkill({
     skill: options.skill,

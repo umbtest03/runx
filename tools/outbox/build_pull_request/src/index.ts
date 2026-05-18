@@ -18,10 +18,10 @@ export default defineTool({
   inputs: {
     task_id: stringInput({ description: "scafld task id that produced the completed engineering state." }),
     thread_title: stringInput({ optional: true, description: "Canonical thread title when the caller already has one." }),
-    thread_locator: stringInput({ optional: true, description: "Canonical thread locator for the bounded work item." }),
+    thread_locator: stringInput({ optional: true, description: "Canonical thread locator for the bounded harness." }),
     thread: recordInput({ optional: true, description: "Optional hydrated thread that may already carry a pull_request outbox entry." }),
     outbox_entry: recordInput({ optional: true, description: "Optional current pull_request outbox entry when refreshing an existing draft." }),
-    work_item: recordInput({ optional: true, description: "Optional runx.work_item.v1 packet from the issue control plane." }),
+    harness_context: recordInput({ optional: true, description: "Optional captured harness context containing signal and decision state." }),
     target_repo: stringInput({ optional: true, description: "Intended repository slug when the caller already knows it." }),
     branch: stringInput({ optional: true, description: "Explicit head branch for provider publication." }),
     fix_bundle: recordInput({ optional: true, description: "Bounded fix bundle used to derive the governed file list for provider publication." }),
@@ -60,7 +60,7 @@ function runBuildPullRequest({ inputs }) {
   const statusSnapshot = unwrapRecord(inputs.status_snapshot);
   const currentBranch = unwrapRecord(inputs.current_branch);
   const thread = optionalRecord(inputs.thread);
-  const workItem = optionalRecord(inputs.work_item);
+  const harnessContext = optionalRecord(inputs.harness_context);
   const explicitOutboxEntry = optionalRecord(inputs.outbox_entry);
   const fixBundle = unwrapRecord(inputs.fix_bundle);
 
@@ -130,7 +130,7 @@ function runBuildPullRequest({ inputs }) {
       base,
       remote: "origin",
     }),
-    work_item: summarizeWorkItem(workItem),
+    harness_context: summarizeHarnessContext(harnessContext),
     pull_request: {
       title,
       body_markdown: buildReviewerPullRequestBody({
@@ -188,7 +188,7 @@ function runBuildPullRequest({ inputs }) {
       repo: draftPullRequest.target?.repo,
       branch: draftPullRequest.target?.branch,
       base: draftPullRequest.target?.base,
-      work_item: summarizeWorkItem(workItem),
+      harness_context: summarizeHarnessContext(harnessContext),
       title,
       review_verdict: reviewVerdict,
       check_status: checkStatus,
@@ -198,8 +198,8 @@ function runBuildPullRequest({ inputs }) {
       human_merge_gate: "required",
       post_merge_observation: "provider_state_update",
       story_milestones: [
-        "intake",
-        "triage",
+        "signal",
+        "decision",
         "spec",
         "build",
         "review",
@@ -216,29 +216,29 @@ function runBuildPullRequest({ inputs }) {
   };
 }
 
-function summarizeWorkItem(workItem) {
-  if (!workItem) {
+function summarizeHarnessContext(harnessContext) {
+  if (!harnessContext) {
     return undefined;
   }
-  const triage = optionalRecord(workItem.triage);
-  const dedupe = optionalRecord(workItem.dedupe);
+  const harness = optionalRecord(harnessContext.harness);
+  const signal = optionalRecord(harnessContext.signal);
+  const decision = optionalRecord(harnessContext.decision);
+  const fingerprint = optionalRecord(signal?.fingerprint);
   return prune({
-    schema: firstNonEmptyString(workItem.schema),
-    work_item_id: firstNonEmptyString(workItem.work_item_id),
-    state: firstNonEmptyString(workItem.state),
-    status_summary: firstNonEmptyString(workItem.status_summary),
-    dedupe: dedupe
+    harness_id: firstNonEmptyString(harness?.harness_id),
+    state: firstNonEmptyString(harness?.state),
+    signal: signal
       ? prune({
-          fingerprint: firstNonEmptyString(dedupe.fingerprint),
-          duplicate_of: firstNonEmptyString(dedupe.duplicate_of),
+          signal_id: firstNonEmptyString(signal.signal_id),
+          signal_type: firstNonEmptyString(signal.signal_type),
+          fingerprint: firstNonEmptyString(fingerprint?.value),
         })
       : undefined,
-    triage: triage
+    decision: decision
       ? prune({
-          category: firstNonEmptyString(triage.category),
-          severity: firstNonEmptyString(triage.severity),
-          action: firstNonEmptyString(triage.action),
-          confidence: typeof triage.confidence === "number" ? triage.confidence : undefined,
+          decision_id: firstNonEmptyString(decision.decision_id),
+          choice: firstNonEmptyString(decision.choice),
+          selected_act_id: firstNonEmptyString(decision.selected_act_id),
         })
       : undefined,
   });

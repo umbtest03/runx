@@ -65,23 +65,23 @@ describe("resolveOutputPath", () => {
 describe("materializeStepInputs", () => {
   it("resolves explicit graph input references in step inputs", () => {
     expect(materializeStepInputs({
-      work_item: "$input.work_item",
+      harness: "$input.harness",
       nested: {
-        state: "$input.work_item.state",
+        state: "$input.harness.state",
       },
       literal: "not an input ref",
     }, {
-      work_item: {
-        work_item_id: "wi_123",
-        state: "build_ready",
+      harness: {
+        harness_id: "harness_123",
+        state: "running",
       },
     })).toEqual({
-      work_item: {
-        work_item_id: "wi_123",
-        state: "build_ready",
+      harness: {
+        harness_id: "harness_123",
+        state: "running",
       },
       nested: {
-        state: "build_ready",
+        state: "running",
       },
       literal: "not an input ref",
     });

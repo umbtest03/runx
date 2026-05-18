@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import type { AdapterInvokeRequest, SkillAdapter } from "@runxhq/core/executor";
+import type { AdapterActInvocation, SkillAdapter } from "@runxhq/core/executor";
 import { hashString } from "@runxhq/core/receipts";
 
 import { runLocalSkill } from "./index.js";
@@ -16,7 +16,7 @@ describe("voice profile injection", () => {
     const runxHome = path.join(tempDir, "home");
     const voiceProfilePath = path.join(tempDir, "VOICE.md");
     const voiceProfileContent = "# Test Voice\n\nWrite like the repo means it.\n";
-    let capturedRequest: AdapterInvokeRequest | undefined;
+    let capturedRequest: AdapterActInvocation | undefined;
 
     const adapter: SkillAdapter = {
       type: "agent-step",

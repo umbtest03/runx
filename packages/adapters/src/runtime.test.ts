@@ -21,8 +21,8 @@ describe("createRuntimeBackedCaller", () => {
     });
     const request = {
       id: "agent_step.docs-build.output",
-      kind: "cognitive_work",
-      work: {
+      kind: "agent_act",
+      invocation: {
         id: "agent_step.docs-build.output",
         source_type: "agent-step",
         envelope: {
@@ -35,7 +35,7 @@ describe("createRuntimeBackedCaller", () => {
           current_context: [],
           historical_context: [],
           provenance: [],
-          expected_outputs: {
+          output: {
             project_brief: "object",
           },
           trust_boundary: "local-test",
@@ -57,8 +57,8 @@ describe("createRuntimeBackedCaller", () => {
     const caller = createRuntimeBackedCaller();
     const request = {
       id: "agent_step.docs-build.output",
-      kind: "cognitive_work",
-      work: {
+      kind: "agent_act",
+      invocation: {
         id: "agent_step.docs-build.output",
         source_type: "agent-step",
         envelope: {
@@ -71,7 +71,7 @@ describe("createRuntimeBackedCaller", () => {
           current_context: [],
           historical_context: [],
           provenance: [],
-          expected_outputs: {
+          output: {
             project_brief: "object",
           },
           trust_boundary: "local-test",

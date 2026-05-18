@@ -65,39 +65,39 @@ describe("recognizable work lanes", () => {
                     "Public docs point to issue-to-pr as the canonical command.",
                   ],
                 },
-                work_item: {
-                  schema: "runx.work_item.v1",
-                  work_item_id: "wi_docs_work_101",
-                  state: "build_ready",
-                  source_events: [
-                    {
-                      provider: "github",
-                      source_locator: "github://example/repo/issues/101",
-                      thread_locator: "github://example/repo/issues/101",
-                      title: "README should point users to issue-to-pr",
-                      body_preview: "The public docs should present issue-to-pr as the canonical command.",
-                    },
-                  ],
-                  dedupe: {
+                signal: {
+                  schema: "runx.signal.v1",
+                  signal_id: "sig_docs_work_101",
+                  signal_type: "issue_opened",
+                  title: "README should point users to issue-to-pr",
+                  body_preview: "The public docs should present issue-to-pr as the canonical command.",
+                  source_ref: {
+                    type: "github_issue",
+                    uri: "github://example/repo/issues/101",
+                  },
+                  thread_ref: {
+                    type: "github_issue",
+                    uri: "github://example/repo/issues/101",
+                  },
+                  fingerprint: {
                     algorithm: "sha256",
-                    source_locator: "github://example/repo/issues/101",
-                    fingerprint: "sha256:docs-issue-to-pr-command",
+                    canonicalization: "fixture",
+                    value: "sha256:docs-issue-to-pr-command",
+                    derived_from: [
+                      {
+                        type: "github_issue",
+                        uri: "github://example/repo/issues/101",
+                      },
+                    ],
                   },
-                  triage: {
-                    category: "docs",
-                    severity: "low",
-                    confidence: 0.95,
-                    action: "issue-to-pr",
-                    recommended_lane: "issue-to-pr",
-                    needs_human: false,
-                    rationale: "The request is a bounded docs-only fix in one repo.",
+                },
+                decision: {
+                  schema: "runx.decision.v1",
+                  decision_id: "dec_docs_work_101",
+                  choice: "open",
+                  justification: {
+                    summary: "The request is a bounded docs-only fix in one repo.",
                   },
-                  change_set: {
-                    change_set_id: "change_set_docs_work_101",
-                  },
-                  status_summary: "Bounded docs fix is ready for issue-to-pr.",
-                  created_at: "2026-05-15T00:00:00Z",
-                  updated_at: "2026-05-15T00:00:00Z",
                 },
               },
             },
@@ -145,7 +145,7 @@ describe("recognizable work lanes", () => {
           status: "success",
         },
       });
-      expect(JSON.parse(stdout.contents()).execution.stdout).toContain("\"work_item\"");
+      expect(JSON.parse(stdout.contents()).execution.stdout).toContain("\"signal\"");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

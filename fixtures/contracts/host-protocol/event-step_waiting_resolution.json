@@ -1,0 +1,1 @@
+{"description":"Host protocol event fixture generated from the TypeScript serializable wire subset.","expected":{"data":{"fixture":"step_waiting_resolution"},"message":"event step_waiting_resolution","type":"step_waiting_resolution"},"fixture_kind":"event","name":"event-step_waiting_resolution","scope":"host-protocol"}

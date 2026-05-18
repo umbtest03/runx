@@ -1,0 +1,106 @@
+{
+  "schema": "runx.tool.manifest.v1",
+  "name": "outbox.build_feed_entry",
+  "description": "Build a concise feed entry message from harness, scafld, and outbox surfaces.",
+  "source": {
+    "type": "cli-tool",
+    "command": "node",
+    "args": [
+      "./run.mjs"
+    ]
+  },
+  "inputs": {
+    "task_id": {
+      "type": "string",
+      "required": true,
+      "description": "scafld task id that produced the lifecycle state."
+    },
+    "thread_title": {
+      "type": "string",
+      "required": false,
+      "description": "Canonical source thread title."
+    },
+    "thread_locator": {
+      "type": "string",
+      "required": false,
+      "description": "Canonical source thread locator."
+    },
+    "thread": {
+      "type": "json",
+      "required": false,
+      "description": "Optional hydrated source thread."
+    },
+    "harness_context": {
+      "type": "json",
+      "required": false,
+      "description": "Optional captured harness context containing runx.harness.v1, runx.signal.v1, and runx.decision.v1 packets."
+    },
+    "build_result": {
+      "type": "json",
+      "required": false,
+      "description": "Native scafld build result payload."
+    },
+    "review_result": {
+      "type": "json",
+      "required": false,
+      "description": "Native scafld review result payload."
+    },
+    "completion_result": {
+      "type": "json",
+      "required": false,
+      "description": "Native scafld completion payload."
+    },
+    "status_snapshot": {
+      "type": "json",
+      "required": false,
+      "description": "Native scafld status payload."
+    },
+    "draft_pull_request": {
+      "type": "json",
+      "required": false,
+      "description": "Draft pull-request packet from outbox.build_pull_request."
+    },
+    "pull_request_outbox_entry": {
+      "type": "json",
+      "required": false,
+      "description": "Published or refreshed pull-request outbox entry."
+    },
+    "push_result": {
+      "type": "json",
+      "required": false,
+      "description": "Provider push result from thread.push_outbox."
+    }
+  },
+  "output": {
+    "named_emits": {
+      "feed_entry": "feed_entry",
+      "outbox_entry": "outbox_entry"
+    },
+    "outputs": {
+      "feed_entry": {
+        "packet": "runx.feed_entry.v1"
+      },
+      "outbox_entry": {
+        "packet": "runx.outbox.entry.v1"
+      }
+    }
+  },
+  "scopes": [
+    "runx:repo:package"
+  ],
+  "runx": {
+    "artifacts": {
+      "named_emits": {
+        "feed_entry": "feed_entry",
+        "outbox_entry": "outbox_entry"
+      }
+    }
+  },
+  "runtime": {
+    "command": "node",
+    "args": [
+      "./run.mjs"
+    ]
+  },
+  "toolkit_version": "0.1.4"
+}

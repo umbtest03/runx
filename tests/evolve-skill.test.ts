@@ -36,7 +36,7 @@ describe("evolve skill", () => {
         requests: Array<{
           id: string;
           kind: string;
-          work?: {
+          invocation?: {
             envelope: {
               inputs: {
                 repo_profile: {
@@ -49,9 +49,9 @@ describe("evolve skill", () => {
       };
       expect(firstReport).toMatchObject({
         status: "needs_resolution",
-        requests: [{ id: "agent_step.evolve-introspect.output", kind: "cognitive_work" }],
+        requests: [{ id: "agent_step.evolve-introspect.output", kind: "agent_act" }],
       });
-      expect(firstReport.requests[0]?.work?.envelope.inputs.repo_profile.root).toBe(process.cwd());
+      expect(firstReport.requests[0]?.invocation?.envelope.inputs.repo_profile.root).toBe(process.cwd());
       stdout.clear();
 
       await writeFile(
@@ -166,7 +166,7 @@ describe("evolve skill", () => {
       };
       expect(firstReport).toMatchObject({
         status: "needs_resolution",
-        requests: [{ id: "agent_step.evolve-plan.output", kind: "cognitive_work" }],
+        requests: [{ id: "agent_step.evolve-plan.output", kind: "agent_act" }],
       });
       stdout.clear();
 

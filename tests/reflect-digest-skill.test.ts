@@ -34,11 +34,11 @@ describe("reflect-digest skill", () => {
     });
     const caller: Caller = {
       resolve: async (request) => {
-        if (request.kind !== "cognitive_work" || request.id !== "agent_step.reflect-digest.output") {
+        if (request.kind !== "agent_act" || request.id !== "agent_step.reflect-digest.output") {
           return undefined;
         }
-        const groupedReflections = Array.isArray(request.work.envelope.inputs.grouped_reflections)
-          ? request.work.envelope.inputs.grouped_reflections
+        const groupedReflections = Array.isArray(request.invocation.envelope.inputs.grouped_reflections)
+          ? request.invocation.envelope.inputs.grouped_reflections
           : [];
         return {
           actor: "agent",

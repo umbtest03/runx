@@ -1,0 +1,79 @@
+use serde::Deserialize;
+
+use runx_contracts::{
+    ExecutionEvent, HostRunResult, HostRunState, ResolutionRequest, ResolutionResponse,
+};
+
+const FIXTURES: &[&str] = &[
+    include_str!("../../../fixtures/contracts/host-protocol/event-admitted.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/event-auth_resolved.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/event-completed.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/event-executing.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/event-inputs_resolved.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/event-resolution_requested.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/event-resolution_resolved.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/event-skill_loaded.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/event-step_completed.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/event-step_started.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/event-step_waiting_resolution.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/event-warning.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/inspect-host-state-completed.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/inspect-host-state-denied.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/inspect-host-state-escalated.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/inspect-host-state-failed.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/inspect-host-state-paused.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/resolution-approval-request.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/resolution-agent-act-request.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/resolution-input-request.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/resolution-response.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/result-host-run-completed.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/result-host-run-denied.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/result-host-run-escalated.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/result-host-run-failed.json"),
+    include_str!("../../../fixtures/contracts/host-protocol/result-host-run-paused.json"),
+];
+
+#[derive(Debug, Deserialize)]
+struct Fixture {
+    fixture_kind: FixtureKind,
+    expected: serde_json::Value,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum FixtureKind {
+    Event,
+    ResolutionRequest,
+    ResolutionResponse,
+    RunResult,
+    RunState,
+}
+
+#[test]
+fn host_protocol_fixtures_match_typescript_wire_shapes() -> Result<(), serde_json::Error> {
+    for fixture_json in FIXTURES {
+        let fixture: Fixture = serde_json::from_str(fixture_json)?;
+        assert_roundtrip(fixture)?;
+    }
+    Ok(())
+}
+
+fn assert_roundtrip(fixture: Fixture) -> Result<(), serde_json::Error> {
+    match fixture.fixture_kind {
+        FixtureKind::Event => roundtrip::<ExecutionEvent>(fixture.expected),
+        FixtureKind::ResolutionRequest => roundtrip::<ResolutionRequest>(fixture.expected),
+        FixtureKind::ResolutionResponse => roundtrip::<ResolutionResponse>(fixture.expected),
+        FixtureKind::RunResult => roundtrip::<HostRunResult>(fixture.expected),
+        FixtureKind::RunState => roundtrip::<HostRunState>(fixture.expected),
+    }
+}
+
+fn roundtrip<T>(expected: serde_json::Value) -> Result<(), serde_json::Error>
+where
+    T: serde::de::DeserializeOwned + serde::Serialize,
+{
+    let parsed: T = serde_json::from_value(expected.clone())?;
+    let actual = serde_json::to_value(parsed)?;
+    assert_eq!(actual, expected);
+    Ok(())
+}

@@ -20,7 +20,7 @@ export default defineTool({
     sourcey_build_report: artifact({ description: "Sourcey build report emitted by sourcey.build." }),
     evaluation_report: artifact({ description: "Evaluation report emitted by the critique step." }),
     revision_bundle: artifact({ description: "Revision bundle emitted by the revise step." }),
-    sourcey_verification_report: artifact({ description: "Verification report emitted by sourcey.verify." }),
+    sourcey_verification_proof: artifact({ description: "Verification proof emitted by sourcey.verify." }),
   },
   run({ inputs }) {
     const {
@@ -30,7 +30,7 @@ export default defineTool({
       sourcey_build_report: buildReport,
       evaluation_report: evaluationReport,
       revision_bundle: revisionBundle,
-      sourcey_verification_report: verificationReport,
+      sourcey_verification_proof: verificationReport,
     } = inputs;
 
     return {
@@ -43,7 +43,7 @@ export default defineTool({
       build_report: buildReport,
       evaluation_report: evaluationReport,
       revision_bundle: revisionBundle,
-      verification_report: verificationReport,
+      verification_proof: verificationReport,
     };
   },
 });

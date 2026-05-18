@@ -60,6 +60,12 @@ for (const entry of packages) {
     lines.push(asAscii(entry.manifest.description));
     lines.push("");
   }
+  if (entry.manifest.name === "@runxhq/core") {
+    lines.push(
+      "Kernel parity fixtures under `fixtures/kernel/` provide conformance evidence for the stable `@runxhq/core/state-machine` and `@runxhq/core/policy` exports during the Rust port.",
+    );
+    lines.push("");
+  }
   lines.push(`Version: \`${entry.manifest.version ?? "unknown"}\``);
   lines.push("");
   lines.push("| Import | Types | Runtime |");

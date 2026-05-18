@@ -1,0 +1,148 @@
+use super::{
+    AdmissionDecision, LocalAdmissionOptions, LocalAdmissionSkill, SandboxAdmissionOptions,
+    connected_auth::{connected_auth_requirement, find_matching_grant},
+    interpreter::detect_inline_interpreter,
+    sandbox::admit_sandbox,
+};
+
+const DEFAULT_ALLOWED_SOURCE_TYPES: [&str; 8] = [
+    "agent",
+    "agent-step",
+    "approval",
+    "cli-tool",
+    "mcp",
+    "a2a",
+    "catalog",
+    "graph",
+];
+
+const DEFAULT_MAX_TIMEOUT_SECONDS: i64 = 300;
+
+#[must_use]
+pub fn admit_local_skill(
+    skill: &LocalAdmissionSkill,
+    options: &LocalAdmissionOptions,
+) -> AdmissionDecision {
+    let mut reasons = Vec::new();
+
+    collect_source_type_reason(skill, options, &mut reasons);
+    collect_timeout_reasons(skill, options, &mut reasons);
+    collect_local_source_reasons(skill, options, &mut reasons);
+    collect_connected_auth_reasons(skill, options, &mut reasons);
+
+    if reasons.is_empty() {
+        AdmissionDecision::Allow {
+            reasons: vec!["local admission allowed".to_owned()],
+        }
+    } else {
+        AdmissionDecision::Deny { reasons }
+    }
+}
+
+fn collect_source_type_reason(
+    skill: &LocalAdmissionSkill,
+    options: &LocalAdmissionOptions,
+    reasons: &mut Vec<String>,
+) {
+    if !allowed_source_types(options).contains(&skill.source.source_type.as_str()) {
+        reasons.push(format!(
+            "source type '{}' is not allowed for local execution",
+            skill.source.source_type
+        ));
+    }
+}
+
+fn collect_timeout_reasons(
+    skill: &LocalAdmissionSkill,
+    options: &LocalAdmissionOptions,
+    reasons: &mut Vec<String>,
+) {
+    let Some(timeout_seconds) = skill.source.timeout_seconds else {
+        return;
+    };
+    let max_timeout_seconds = options
+        .max_timeout_seconds
+        .unwrap_or(DEFAULT_MAX_TIMEOUT_SECONDS);
+
+    if timeout_seconds <= 0 {
+        reasons.push("source timeout must be greater than zero seconds".to_owned());
+    }
+    if timeout_seconds > max_timeout_seconds {
+        reasons.push(format!(
+            "source timeout exceeds local maximum of {max_timeout_seconds} seconds"
+        ));
+    }
+}
+
+fn collect_local_source_reasons(
+    skill: &LocalAdmissionSkill,
+    options: &LocalAdmissionOptions,
+    reasons: &mut Vec<String>,
+) {
+    if !matches!(skill.source.source_type.as_str(), "cli-tool" | "mcp") {
+        return;
+    }
+
+    let sandbox_options = SandboxAdmissionOptions {
+        approved_escalation: options.approved_sandbox_escalation,
+        skip_escalation: options.skip_sandbox_escalation,
+    };
+    match admit_sandbox(skill.source.sandbox.as_ref(), &sandbox_options) {
+        super::SandboxAdmissionDecision::Allow { .. } => {}
+        super::SandboxAdmissionDecision::ApprovalRequired {
+            reasons: sandbox_reasons,
+        }
+        | super::SandboxAdmissionDecision::Deny {
+            reasons: sandbox_reasons,
+        } => {
+            reasons.extend(sandbox_reasons);
+        }
+    }
+
+    if options
+        .execution_policy
+        .as_ref()
+        .and_then(|policy| policy.strict_cli_tool_inline_code)
+        .unwrap_or(false)
+    {
+        collect_inline_code_reason(skill, reasons);
+    }
+}
+
+fn collect_inline_code_reason(skill: &LocalAdmissionSkill, reasons: &mut Vec<String>) {
+    let args = skill.source.args.as_deref().unwrap_or_default();
+    if let Some(interpreter) = detect_inline_interpreter(skill.source.command.as_deref(), args) {
+        reasons.push(format!(
+            "cli-tool source '{}' uses inline code via '{}', which is rejected by strict workspace policy; move the program into a checked-in script and invoke that file instead",
+            interpreter.command, interpreter.trigger
+        ));
+    }
+}
+
+fn collect_connected_auth_reasons(
+    skill: &LocalAdmissionSkill,
+    options: &LocalAdmissionOptions,
+    reasons: &mut Vec<String>,
+) {
+    if options.skip_connected_auth.unwrap_or(false) {
+        return;
+    }
+    let Some(requirement) = connected_auth_requirement(skill.auth.as_ref()) else {
+        return;
+    };
+    let grants = options.connected_grants.as_deref().unwrap_or_default();
+
+    if find_matching_grant(&requirement, grants).is_none() {
+        reasons.push(format!(
+            "connected auth grant required for provider '{}'",
+            requirement.provider
+        ));
+    }
+}
+
+fn allowed_source_types(options: &LocalAdmissionOptions) -> Vec<&str> {
+    options.allowed_source_types.as_ref().map_or_else(
+        || DEFAULT_ALLOWED_SOURCE_TYPES.to_vec(),
+        |source_types| source_types.iter().map(String::as_str).collect(),
+    )
+}

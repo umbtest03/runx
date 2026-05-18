@@ -1,0 +1,36 @@
+//! Pure Rust parser parity crate for runx skills, graphs, and tools.
+
+pub mod error;
+pub mod graph;
+pub mod install;
+pub mod runner;
+pub mod skill;
+pub mod tool;
+pub mod yaml;
+
+pub use error::{ParseError, ParseErrorKind, ValidationError, ValidationErrorKind};
+pub use graph::{
+    ExecutionGraph, FanoutBranchFailurePolicy, FanoutConflictAction, FanoutConflictGate,
+    FanoutGroupPolicy, FanoutSyncStrategy, FanoutThresholdAction, FanoutThresholdGate,
+    GraphContextEdge, GraphPolicy, GraphRetryPolicy, GraphStep, GraphTransitionGate, RawGraphIr,
+    parse_graph_yaml, validate_graph, validate_graph_document,
+};
+pub use install::{
+    SkillInstallError, SkillInstallOrigin, ValidatedSkillInstall, validate_skill_install,
+};
+pub use runner::{
+    RawRunnerManifestIr, SkillRunnerManifest, parse_runner_manifest_yaml, validate_runner_manifest,
+};
+pub use skill::{
+    CatalogMetadata, HarnessCallerFixture, HarnessExpectation, HarnessReceiptExpectation,
+    RawSkillIr, RunnerHarnessCase, RunnerHarnessManifest, SkillArtifactContract,
+    SkillIdempotencyPolicy, SkillInput, SkillMcpServer, SkillQualityProfile, SkillRetryPolicy,
+    SkillRunnerDefinition, SkillSandbox, SkillSource, ValidateSkillMode, ValidateSkillOptions,
+    ValidatedSkill, extract_skill_quality_profile, parse_skill_markdown, validate_skill,
+    validate_skill_artifact_contract, validate_skill_source, validate_skill_with_options,
+};
+pub use tool::{
+    RawToolManifestIr, ValidatedTool, parse_tool_manifest_json, parse_tool_manifest_yaml,
+    validate_tool_manifest,
+};
+pub use yaml::{assert_yaml_scalar_subset, parse_yaml_document, yaml_scalar_subset_allows};

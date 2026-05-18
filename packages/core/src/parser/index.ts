@@ -1,6 +1,7 @@
 import { parseDocument } from "yaml";
 
 import { validateGraphDocument, type ExecutionGraph } from "./graph.js";
+import { normalizeSandboxDeclaration } from "../policy/sandbox.js";
 import { GOVERNED_DISPOSITIONS, type ExecutionSemantics } from "../receipts/index.js";
 import { errorMessage, isRecord } from "../util/types.js";
 
@@ -585,13 +586,21 @@ function validateSandbox(value: unknown): SkillSandbox | undefined {
   }
   const record = requiredRecord(value, "sandbox");
   const profile = requiredSandboxProfile(record.profile, "sandbox.profile");
-  return {
+  const declaration = normalizeSandboxDeclaration({
     profile,
     cwdPolicy: optionalCwdPolicy(record.cwd_policy),
     envAllowlist: optionalStringArray(record.env_allowlist, "sandbox.env_allowlist"),
     network: optionalBoolean(record.network, "sandbox.network"),
-    writablePaths: optionalStringArray(record.writable_paths, "sandbox.writable_paths") ?? [],
+    writablePaths: optionalStringArray(record.writable_paths, "sandbox.writable_paths"),
     requireEnforcement: optionalBoolean(record.require_enforcement, "sandbox.require_enforcement"),
+  });
+  return {
+    profile: declaration.profile,
+    cwdPolicy: declaration.cwdPolicy,
+    envAllowlist: declaration.envAllowlist,
+    network: declaration.network,
+    writablePaths: declaration.writablePaths,
+    requireEnforcement: declaration.requireEnforcement,
     raw: record,
   };
 }

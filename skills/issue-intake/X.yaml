@@ -20,9 +20,9 @@ harness:
           locator: https://github.com/example/repo/issues/101
           status: published
           thread_locator: github://example/repo/issues/101
-        evidence_bundle:
-          schema: runx.evidence_bundle.v1
-          evidence_bundle_id: eb_docs_work_101
+        artifact:
+          schema: runx.artifact.v1
+          artifact_id: eb_docs_work_101
           subject_locator: github://example/repo/issues/101
           hydration:
             status: complete
@@ -96,9 +96,9 @@ harness:
               success_criteria:
                 - Public docs point to issue-to-pr as the canonical command.
                 - The change remains bounded to one repo-scoped remediation lane.
-            work_item:
-              schema: runx.work_item.v1
-              work_item_id: wi_docs_work_101
+            signal:
+              schema: runx.signal.v1
+              signal_id: sig_docs_work_101
               state: build_ready
               source_events:
                 - provider: github
@@ -120,9 +120,9 @@ harness:
                 rationale: The report is a bounded one-repo documentation fix with low risk.
               change_set:
                 change_set_id: change_set_docs_work_101
-              evidence_bundle:
-                schema: runx.evidence_bundle.v1
-                evidence_bundle_id: eb_docs_work_101
+              artifact:
+                schema: runx.artifact.v1
+                artifact_id: eb_docs_work_101
                 subject_locator: github://example/repo/issues/101
                 hydration:
                   status: complete
@@ -225,9 +225,9 @@ harness:
               success_criteria:
                 - A phased workspace change plan is authored before repo mutation.
                 - Child workers preserve one shared abandoned-cart objective.
-            work_item:
-              schema: runx.work_item.v1
-              work_item_id: wi_abandoned_cart_982
+            signal:
+              schema: runx.signal.v1
+              signal_id: sig_abandoned_cart_982
               state: planning_ready
               source_events:
                 - provider: other
@@ -297,9 +297,9 @@ harness:
                 - Do not open a mutation lane for guidance-only requests.
               success_criteria:
                 - The operator sends or adapts the documented API key rotation guidance.
-            work_item:
-              schema: runx.work_item.v1
-              work_item_id: wi_support_983
+            signal:
+              schema: runx.signal.v1
+              signal_id: sig_support_983
               state: outcome_closed
               source_events:
                 - provider: other
@@ -387,9 +387,9 @@ harness:
                 - Do not guess the target repo from incomplete issue text.
               success_criteria:
                 - The maintainer confirms the target surface before any planner or worker starts.
-            work_item:
-              schema: runx.work_item.v1
-              work_item_id: wi_support_984
+            signal:
+              schema: runx.signal.v1
+              signal_id: sig_support_984
               state: blocked
               source_events:
                 - provider: github
@@ -431,7 +431,8 @@ runners:
     outputs:
       intake_report: object
       change_set: object
-      work_item: object
+      signal: object
+      decision: object
     artifacts:
       wrap_as: issue_intake_packet
       packet: runx.issue.intake.v1
@@ -456,6 +457,10 @@ runners:
         type: json
         required: false
         description: "Current outbox entry for replies, status, or refreshes."
+      signal:
+        type: json
+        required: false
+        description: "Optional runx.signal.v1 observation supplied by the source adapter."
       product_context:
         type: string
         required: false
@@ -467,7 +472,7 @@ runners:
       source_event:
         type: json
         required: false
-        description: "Optional admitted source event used to seed the portable work-item packet."
+        description: "Optional admitted source event used to seed the portable signal packet."
       source_policy:
         type: json
         required: false

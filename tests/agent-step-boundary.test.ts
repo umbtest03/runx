@@ -29,8 +29,8 @@ describe("agent-step and harness-hook boundary", () => {
     expect(result.requests).toMatchObject([
       {
         id: "agent_step.review-boundary.output",
-        kind: "cognitive_work",
-        work: {
+        kind: "agent_act",
+        invocation: {
           source_type: "agent-step",
           task: "review-boundary",
         },
@@ -42,7 +42,7 @@ describe("agent-step and harness-hook boundary", () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-agent-step-"));
     const caller: Caller = {
       resolve: async (request) =>
-        request.kind === "cognitive_work" && request.id === "agent_step.review-boundary.output"
+        request.kind === "agent_act" && request.id === "agent_step.review-boundary.output"
           ? {
               actor: "agent",
               payload: {

@@ -11,7 +11,7 @@ import { installLocalSkill, runLocalSkill, type Caller } from "@runxhq/runtime-l
 
 const caller: Caller = {
   resolve: async (request) =>
-    request.kind === "cognitive_work"
+    request.kind === "agent_act"
       ? {
           actor: "agent",
           payload: { status: "agent", id: request.id },

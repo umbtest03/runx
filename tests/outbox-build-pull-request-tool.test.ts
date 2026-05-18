@@ -12,19 +12,24 @@ describe("outbox.build_pull_request tool", () => {
       thread_title: "Fix fixture behavior",
       thread_locator: "github://example/repo/issues/123",
       target_repo: "example/repo",
-      work_item: {
-        schema: "runx.work_item.v1",
-        work_item_id: "wi_fixture_123",
-        state: "merge_gate",
-        status_summary: "PR is ready for human merge gate.",
-        dedupe: {
-          fingerprint: "sha256:fixture-123",
+      harness_context: {
+        harness: {
+          schema: "runx.harness.v1",
+          harness_id: "harness_fixture_123",
+          state: "running",
         },
-        triage: {
-          category: "bug",
-          severity: "medium",
-          action: "issue-to-pr",
-          confidence: 0.9,
+        signal: {
+          schema: "runx.signal.v1",
+          signal_id: "sig_fixture_123",
+          signal_type: "operator_note",
+          fingerprint: {
+            value: "sha256:fixture-123",
+          },
+        },
+        decision: {
+          schema: "runx.decision.v1",
+          decision_id: "dec_fixture_123",
+          choice: "open",
         },
       },
       handoff_markdown: "# Handoff: Fix fixture behavior\n\nStatus: completed\nNext: none\n",
@@ -78,9 +83,9 @@ describe("outbox.build_pull_request tool", () => {
         repo: "example/repo",
         branch: "fixture-task",
         base: "main",
-        work_item: {
-          work_item_id: "wi_fixture_123",
-          state: "merge_gate",
+        harness_context: {
+          harness_id: "harness_fixture_123",
+          state: "running",
         },
         review_verdict: "pass_with_issues",
         check_status: "success",
@@ -98,11 +103,11 @@ describe("outbox.build_pull_request tool", () => {
         branch: "fixture-task",
         base: "main",
       },
-      work_item: {
-        work_item_id: "wi_fixture_123",
-        state: "merge_gate",
-        triage: {
-          action: "issue-to-pr",
+      harness_context: {
+        harness_id: "harness_fixture_123",
+        state: "running",
+        decision: {
+          choice: "open",
         },
       },
       pull_request: {
@@ -159,7 +164,7 @@ describe("outbox.build_pull_request tool", () => {
         adapter: {
           type: "github",
         },
-        thread_kind: "work_item",
+        thread_kind: "signal",
         thread_locator: "github://example/repo/issues/123",
         canonical_uri: "https://github.com/example/repo/issues/123",
         entries: [],

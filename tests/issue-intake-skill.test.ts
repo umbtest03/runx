@@ -22,13 +22,15 @@ describe("issue-intake official skill", () => {
     expect(runner.source.outputs).toEqual({
       intake_report: "object",
       change_set: "object",
-      work_item: "object",
+      signal: "object",
+      decision: "object",
     });
     expect(runner.inputs.thread_title?.type).toBe("string");
     expect(runner.inputs.thread_body?.type).toBe("string");
     expect(runner.inputs.thread_locator?.type).toBe("string");
     expect(runner.inputs.thread?.type).toBe("json");
     expect(runner.inputs.outbox_entry?.type).toBe("json");
+    expect(runner.inputs.signal?.type).toBe("json");
     expect(runner.inputs.product_context?.type).toBe("string");
     expect(runner.inputs.operator_context?.type).toBe("string");
     expect(runner.inputs.source_event?.type).toBe("json");

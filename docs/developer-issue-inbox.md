@@ -1,8 +1,8 @@
 # Developer Issue Inbox
 
-The runx developer inbox is a work-item queue, not another chat stream. Slack,
+The runx developer inbox is a harness context queue, not another chat stream. Slack,
 Sentry, GitHub, file, and API adapters may submit source events, but every
-accepted event must become one `runx.work_item.v1` packet with an explicit
+accepted event must become one `runx.harness_receipt.v1` packet with an explicit
 state, dedupe fingerprint, triage action, and source-thread locator.
 
 ## Admission Policy
@@ -30,11 +30,11 @@ Non-trigger cases:
 - Sentry alerts below configured frequency or severity thresholds
 - reports missing a stable source locator or dedupe fingerprint
 - ambiguous requests that need a human target decision
-- duplicate events already attached to an open work item
+- duplicate events already attached to an open harness
 
 ## Queue States
 
-Developer views should group by `work_item_id` and show the next useful gate:
+Developer views should group by `harness_id` and show the next useful gate:
 
 - needs triage: `intake_received`, `dedupe_pending`, `triage_pending`
 - needs evidence: `blocked`
@@ -62,5 +62,5 @@ names. Consuming repos own those policies.
 - `work-plan`: bigger change, planning first
 - `issue-to-pr`: bounded fix, governed PR lane
 
-`issue-to-pr` must preserve the same `work_item` packet through PR packaging
+`issue-to-pr` must preserve the same `harness_context` packet through PR packaging
 and source-thread story updates. It must stop at the human merge gate.

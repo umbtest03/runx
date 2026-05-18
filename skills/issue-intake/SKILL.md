@@ -87,26 +87,27 @@ When present, these fields mean:
 
 Always emit `change_set` alongside `intake_report`.
 
-Also emit `work_item` when a source event is admitted. `work_item` must follow
-`runx.work_item.v1` and carry the source event, dedupe fingerprint, triage
-decision, current lifecycle state, and status summary. This packet is the
-portable control-plane state that `work-plan`, `issue-to-pr`, hosted queues,
-and source-thread projections preserve.
+Also emit `signal` when a source event is admitted. `signal` must follow
+`runx.signal.v1` and carry the source reference, authenticity or trust level,
+dedupe fingerprint, evidence references, and source-thread preview. This packet
+is the portable world-before-action state that `work-plan`, `issue-to-pr`,
+hosted queues, and source-thread projections preserve.
 
-When an adapter has provider evidence beyond the visible thread text, emit
-`evidence_bundle` and attach it to `work_item.evidence_bundle`. The bundle must
-follow `runx.evidence_bundle.v1` and summarize hydrated provider context such
-as Slack thread text, Sentry event detail, GitHub issue comments, logs, or
-deployment observations. Source adapters own provider-specific fetching and
-redaction before calling this skill; this skill only reasons over the supplied,
-reviewer-safe bundle.
+Also emit `decision` when a next lane is selected. `decision` must follow
+`runx.decision.v1` and carry the accountable open, defer, decline, or monitor
+choice, the proposed intent, and the justification for the next harness action.
 
-Hydration is a gate, not a best-effort decoration. If the supplied
-`evidence_bundle.hydration.status` is `needed`, do not select
+When an adapter has provider context beyond the visible thread text, attach it
+to `signal.evidence_refs` or a referenced artifact. Source adapters own
+provider-specific fetching and redaction before calling this skill; this skill
+only reasons over the supplied, reviewer-safe signal and artifacts.
+
+Hydration is a gate, not a best-effort decoration. If supplied signal or
+artifact metadata says provider context is still needed, do not select
 `action_decision=proceed_to_build`. Use `manual-review` or `request_review` and
-explain the missing adapter evidence in `operator_notes`. If hydration is
-`unavailable`, use the remaining evidence only when it is still concrete enough
-for a bounded reply, plan, or PR; otherwise stop for human review.
+explain the missing adapter context in `operator_notes`. If provider context is
+unavailable, use the remaining signal only when it is still concrete enough for
+a bounded reply, plan, or PR; otherwise stop for human review.
 
 The `change_set` is the parent artifact for any later planning or worker
 fanout. It is what keeps multiple repo-scoped lanes aligned to one shared
@@ -182,8 +183,8 @@ Prefer conservative routing:
   thread
 - `outbox_entry` (optional): current outbox entry for replies, draft changes,
   or refreshes
-- `evidence_bundle` (optional): provider-neutral `runx.evidence_bundle.v1`
-  evidence gathered by the source adapter before triage
+- `signal` (optional): provider-neutral `runx.signal.v1` observation gathered
+  by the source adapter before decision
 - `product_context` (optional): product-specific constraints or routing hints
 - `operator_context` (optional): maintainer or support posture guidance
 - `source_event` (optional): admitted Slack, Sentry, GitHub, file, API, or

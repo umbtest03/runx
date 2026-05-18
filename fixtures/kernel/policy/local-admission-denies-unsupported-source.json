@@ -1,0 +1,22 @@
+{
+  "$schema": "../schema/policy.schema.json",
+  "expected": {
+    "kind": "output",
+    "value": {
+      "reasons": [
+        "source type 'unsupported' is not allowed for local execution"
+      ],
+      "status": "deny"
+    }
+  },
+  "input": {
+    "kind": "policy.admitLocalSkill",
+    "skill": {
+      "name": "unsupported",
+      "source": {
+        "type": "unsupported"
+      }
+    }
+  },
+  "name": "local-admission-denies-unsupported-source"
+}

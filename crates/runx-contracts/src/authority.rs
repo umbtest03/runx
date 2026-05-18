@@ -1,0 +1,191 @@
+use serde::{Deserialize, Serialize};
+
+use crate::{JsonNumber, JsonObject, Reference};
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthorityResourceFamily {
+    GithubRepo,
+    Workspace,
+    Filesystem,
+    Network,
+    Deployment,
+    Credential,
+    Artifact,
+    Harness,
+    Publication,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthorityVerb {
+    Read,
+    Write,
+    Comment,
+    Review,
+    Approve,
+    Merge,
+    Create,
+    Update,
+    Delete,
+    Execute,
+    Verify,
+    Publish,
+    SpawnChild,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthorityCapability {
+    FilesystemRead,
+    FilesystemWrite,
+    NetworkEgress,
+    SecretRead,
+    ProcessSpawn,
+    ProviderMutation,
+    PublicPublication,
+    ChildHarnessSpawn,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorityBounds {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub repo_path_globs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub branch_patterns: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub filesystem_roots: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub network_destinations: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub deployment_environments: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub token_audiences: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_spend_usd: Option<JsonNumber>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_runtime_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_fanout: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_child_depth: Option<u32>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthorityConditionPredicate {
+    SignalVerified,
+    DecisionSelected,
+    HostPostureValid,
+    ApprovalPresent,
+    WithinTimeWindow,
+    WithinBudget,
+    SandboxEnforced,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorityCondition {
+    pub condition_id: String,
+    pub predicate: AuthorityConditionPredicate,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub refs: Vec<Reference>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<JsonObject>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorityApproval {
+    pub approval_ref: Reference,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approved_by_ref: Option<Reference>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approved_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub criterion_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorityTerm {
+    pub term_id: String,
+    pub principal_ref: Reference,
+    pub resource_ref: Reference,
+    pub resource_family: AuthorityResourceFamily,
+    pub verbs: Vec<AuthorityVerb>,
+    pub bounds: AuthorityBounds,
+    #[serde(default)]
+    pub conditions: Vec<AuthorityCondition>,
+    #[serde(default)]
+    pub approvals: Vec<AuthorityApproval>,
+    #[serde(default)]
+    pub capabilities: Vec<AuthorityCapability>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
+    pub issued_by_ref: Reference,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credential_ref: Option<Reference>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthoritySubsetRelation {
+    Equal,
+    Subset,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoritySubsetComparison {
+    pub child_term_id: String,
+    pub parent_term_id: String,
+    pub relation: AuthoritySubsetRelation,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AuthoritySubsetResult {
+    #[serde(rename = "subset")]
+    Subset,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoritySubsetProof {
+    pub parent_authority_ref: Reference,
+    pub comparison_algorithm: String,
+    pub result: AuthoritySubsetResult,
+    pub compared_terms: Vec<AuthoritySubsetComparison>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_ref: Option<Reference>,
+    pub checked_at: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorityAttenuation {
+    pub parent_authority_ref: Option<Reference>,
+    pub subset_proof: Option<AuthoritySubsetProof>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Authority {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema: Option<String>,
+    pub actor_ref: Reference,
+    #[serde(default)]
+    pub authority_proof_refs: Vec<Reference>,
+    #[serde(default)]
+    pub grant_refs: Vec<Reference>,
+    #[serde(default)]
+    pub scope_refs: Vec<Reference>,
+    #[serde(default)]
+    pub policy_refs: Vec<Reference>,
+    #[serde(default)]
+    pub terms: Vec<AuthorityTerm>,
+    pub attenuation: AuthorityAttenuation,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mandate_ref: Option<Reference>,
+}

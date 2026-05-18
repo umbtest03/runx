@@ -148,7 +148,7 @@ task:
   notes: >
     Canonical nomenclature:
 
-    - `thread`: hydrated provider conversation or work-item surface.
+    - `thread`: hydrated provider conversation or engagement surface.
     - `outbox_entry`: outbound artifact proposed or published through that surface.
     - `boundary_state`: pre-send or handoff-semantics object describing who acts
       next at the boundary and what acknowledgement is expected.

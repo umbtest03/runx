@@ -1,0 +1,23 @@
+{
+  "$schema": "../schema/state-machine.schema.json",
+  "description": "Invalid status/event pairs return the current state.",
+  "expected": {
+    "kind": "output",
+    "value": {
+      "status": "pending",
+      "stepId": "lint"
+    }
+  },
+  "input": {
+    "event": {
+      "at": "2026-04-10T00:00:01.000Z",
+      "type": "succeed"
+    },
+    "kind": "state-machine.transitionSingleStep",
+    "state": {
+      "status": "pending",
+      "stepId": "lint"
+    }
+  },
+  "name": "single-step-transition-ignores-invalid-event"
+}

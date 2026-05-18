@@ -1,0 +1,34 @@
+[package]
+name = "runx-runtime"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+description = "Native Rust runtime placeholder for runx execution, adapters, and sandboxing."
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+keywords = ["runx", "runtime", "agents", "sandbox", "mcp"]
+categories = ["development-tools"]
+include = ["Cargo.toml", "README.md", "src/**/*.rs"]
+
+[lints]
+workspace = true
+
+[features]
+default = []
+cli-tool = []
+mcp = []
+a2a = []
+agent = []
+catalog = []
+
+[dependencies]
+runx-contracts.workspace = true
+runx-core.workspace = true
+runx-parser.workspace = true
+runx-receipts.workspace = true
+
+[lib]
+name = "runx_runtime"
+path = "src/lib.rs"

@@ -7,7 +7,7 @@ import {
   validateContractSchema,
 } from "../internal.js";
 import { artifactEnvelopeSchema } from "./artifact.js";
-import { outputContractSchema } from "./output.js";
+import { outputSchema } from "./output.js";
 
 export const agentContextProvenanceSchema = Type.Object(
   {
@@ -80,7 +80,7 @@ export const agentContextEnvelopeSchema = Type.Object(
     voice_profile: Type.Optional(contextDocumentSchema),
     quality_profile: Type.Optional(qualityProfileContextSchema),
     execution_location: Type.Optional(executionLocationSchema),
-    expected_outputs: Type.Optional(outputContractSchema),
+    output: Type.Optional(outputSchema),
     trust_boundary: Type.String({ minLength: 1 }),
   },
   {

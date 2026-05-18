@@ -266,7 +266,7 @@ function normalizeHostReply(
 }
 
 function defaultActorForRequest(request: ResolutionRequest): "agent" | "human" {
-  return request.kind === "cognitive_work" ? "agent" : "human";
+  return request.kind === "agent_act" ? "agent" : "human";
 }
 
 function isResolutionResponse(value: unknown): value is ResolutionResponse {

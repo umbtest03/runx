@@ -153,7 +153,7 @@ const harnessScenarios: readonly HarnessProvingGroundScenario[] = [
   {
     skillName: "work-plan",
     expectation: {
-      requestId: "agent_step.work-plan.output",
+      requestId: "agent_step.invocation-plan.output",
       inputKeys: ["objective", "project_context", "change_set"],
       sourceType: "agent-step",
     },
@@ -161,7 +161,7 @@ const harnessScenarios: readonly HarnessProvingGroundScenario[] = [
   {
     skillName: "design-skill",
     expectation: {
-      requestId: "agent_step.work-plan.output",
+      requestId: "agent_step.invocation-plan.output",
       inputKeys: ["objective", "project_context"],
       sourceType: "agent-step",
     },
@@ -169,7 +169,7 @@ const harnessScenarios: readonly HarnessProvingGroundScenario[] = [
   {
     skillName: "skill-lab",
     expectation: {
-      requestId: "agent_step.work-plan.output",
+      requestId: "agent_step.invocation-plan.output",
       inputKeys: ["objective", "project_context", "thread_locator", "thread"],
       sourceType: "agent-step",
     },
@@ -362,26 +362,26 @@ async function assertFreshBoundary(options: {
 
   const request = result.requests[0];
   expect(request?.id).toBe(options.expectation.requestId);
-  expect(request?.kind).toBe("cognitive_work");
-  if (!request || request.kind !== "cognitive_work") {
+  expect(request?.kind).toBe("agent_act");
+  if (!request || request.kind !== "agent_act") {
     return;
   }
 
-  expect(request.work.source_type).toBe(options.expectation.sourceType ?? "agent-step");
-  expect(request.work.envelope.instructions.trim().length).toBeGreaterThanOrEqual(
+  expect(request.invocation.source_type).toBe(options.expectation.sourceType ?? "agent-step");
+  expect(request.invocation.envelope.instructions.trim().length).toBeGreaterThanOrEqual(
     options.expectation.minimumInstructionChars ?? 80,
   );
 
   for (const key of options.expectation.inputKeys) {
-    expect(request.work.envelope.inputs).toHaveProperty(key);
+    expect(request.invocation.envelope.inputs).toHaveProperty(key);
   }
 
   if (options.expectation.allowedTools) {
-    expect(request.work.envelope.allowed_tools).toEqual(options.expectation.allowedTools);
+    expect(request.invocation.envelope.allowed_tools).toEqual(options.expectation.allowedTools);
   }
 
   if (options.expectation.currentContextTypes) {
-    expect(request.work.envelope.current_context.map((artifact) => artifact.type)).toEqual(
+    expect(request.invocation.envelope.current_context.map((artifact) => artifact.type)).toEqual(
       options.expectation.currentContextTypes,
     );
   }

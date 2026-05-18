@@ -1,4 +1,4 @@
-import type { CognitiveResolutionRequest } from "@runxhq/core/executor";
+import type { AgentActResolutionRequest } from "@runxhq/core/executor";
 import { errorMessage } from "@runxhq/core/util";
 
 import {
@@ -21,16 +21,16 @@ import {
   parseJsonValue,
 } from "./helpers.js";
 import {
-  outputContractToJsonSchema,
+  outputToJsonSchema,
   validateFinalPayload,
 } from "./json-schema.js";
 import { executeManagedToolCall } from "./runtime-tools.js";
-import { buildManagedRuntimeInstructions } from "./work-request.js";
+import { buildManagedRuntimeInstructions } from "./agent-act-invocation.js";
 import type { ManagedAgentConfig } from "./index.js";
 
 export async function resolveWithOpenAi(
   config: ManagedAgentConfig,
-  request: CognitiveResolutionRequest,
+  request: AgentActResolutionRequest,
   runtimeTools: readonly ManagedRuntimeTool[],
   signal: AbortSignal | undefined,
   allowPauseOnNestedResolution: boolean,
@@ -52,7 +52,7 @@ export async function resolveWithOpenAi(
 
     if (functionCalls.length === 0) {
       const assistantText = extractOpenAiAssistantText(response);
-      if (!request.work.envelope.expected_outputs) {
+      if (!request.invocation.envelope.output) {
         if (!assistantText.trim()) {
           throw new Error(`Managed agent resolution for ${request.id} returned no assistant text.`);
         }
@@ -82,7 +82,7 @@ export async function resolveWithOpenAi(
       if (call.name === FINAL_RESULT_TOOL_NAME) {
         try {
           const submittedPayload = parseJsonObject(call.arguments, `${call.name}.arguments`);
-          const validationError = validateFinalPayload(submittedPayload, request.work.envelope.expected_outputs);
+          const validationError = validateFinalPayload(submittedPayload, request.invocation.envelope.output);
           if (!validationError) {
             return {
               response: { actor: "agent", payload: submittedPayload },
@@ -146,7 +146,7 @@ export async function resolveWithOpenAi(
 }
 
 function buildOpenAiTools(
-  request: CognitiveResolutionRequest,
+  request: AgentActResolutionRequest,
   runtimeTools: readonly ManagedRuntimeTool[],
 ): readonly OpenAiToolDefinition[] {
   const tools = runtimeTools.map((tool) => ({
@@ -156,7 +156,7 @@ function buildOpenAiTools(
     parameters: tool.parameters,
     strict: false,
   }));
-  if (!request.work.envelope.expected_outputs) {
+  if (!request.invocation.envelope.output) {
     return tools;
   }
   return [
@@ -164,27 +164,27 @@ function buildOpenAiTools(
     {
       type: "function",
       name: FINAL_RESULT_TOOL_NAME,
-      description: "Submit the final structured payload for this runx cognitive_work request.",
+      description: "Submit the final structured payload for this runx agent_act request.",
       strict: false,
-      parameters: outputContractToJsonSchema(request.work.envelope.expected_outputs),
+      parameters: outputToJsonSchema(request.invocation.envelope.output),
     },
   ];
 }
 
-function buildOpenAiInitialRequestMessage(request: CognitiveResolutionRequest): Readonly<Record<string, unknown>> {
+function buildOpenAiInitialRequestMessage(request: AgentActResolutionRequest): Readonly<Record<string, unknown>> {
   return {
     role: "user",
     content: [
       {
         type: "input_text",
         text: [
-          "Resolve this runx cognitive_work request.",
+          "Resolve this runx agent_act request.",
           JSON.stringify({
             request_id: request.id,
-            source_type: request.work.source_type,
-            agent: request.work.agent,
-            task: request.work.task,
-            envelope: request.work.envelope,
+            source_type: request.invocation.source_type,
+            agent: request.invocation.agent,
+            task: request.invocation.task,
+            envelope: request.invocation.envelope,
           }, null, 2),
         ].join("\n\n"),
       },

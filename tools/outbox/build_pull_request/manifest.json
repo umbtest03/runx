@@ -23,7 +23,7 @@
     "thread_locator": {
       "type": "string",
       "required": false,
-      "description": "Canonical thread locator for the bounded work item."
+      "description": "Canonical thread locator for the bounded harness."
     },
     "thread": {
       "type": "json",
@@ -35,10 +35,10 @@
       "required": false,
       "description": "Optional current pull_request outbox entry when refreshing an existing draft."
     },
-    "work_item": {
+    "harness_context": {
       "type": "json",
       "required": false,
-      "description": "Optional runx.work_item.v1 packet from the issue control plane."
+      "description": "Optional captured harness context containing signal and decision state."
     },
     "target_repo": {
       "type": "string",
@@ -122,7 +122,7 @@
       "./run.mjs"
     ]
   },
-  "source_hash": "sha256:e7783c2d7ef97033bbec1dadf26c7f4deceeccead85a5bc16deea822154ff386",
-  "schema_hash": "sha256:5a2e3b4d1539900aff46ca95c51c8e54e0f1ab3afa9d2af031cb1b5e3abc4631",
+  "source_hash": "sha256:31600a46e4909eb32d8be564d2745d661971ec2abb7a5cee548ff4793400b472",
+  "schema_hash": "sha256:33e090465d87df465a8957aa9ce04ea691b77d426854b5c063d5231351876b1c",
   "toolkit_version": "0.1.4"
 }

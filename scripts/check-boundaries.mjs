@@ -19,6 +19,8 @@ const forbiddenPureNodeImports = new Set([
   "fs/promises",
   "node:fs",
   "node:fs/promises",
+  "path",
+  "node:path",
   "child_process",
   "node:child_process",
   "http",
@@ -81,7 +83,7 @@ const forbiddenPackageImports = {
     reason: "@runxhq/langchain must not depend on adapters, CLI, or host packages.",
   },
 };
-const pureCoreDomains = ["policy", "state-machine"];
+const pureCoreDomains = ["parser", "policy", "state-machine"];
 const relativeRuntimeDomainPattern = /(^|\/)(runner-local|harness|sdk|mcp)(\/|$)/;
 const staticSpecifierPattern =
   /\b(?:import|export)\s+(?:type\s+)?(?:[^'";]*?\s+from\s+)?["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)/g;

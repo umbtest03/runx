@@ -324,7 +324,7 @@ function normalizeStringArray(value: unknown): readonly string[] {
 
 function normalizeResolutionKinds(value: unknown): readonly ResolutionRequest["kind"][] {
   return normalizeStringArray(value).filter(
-    (entry): entry is ResolutionRequest["kind"] => entry === "input" || entry === "approval" || entry === "cognitive_work",
+    (entry): entry is ResolutionRequest["kind"] => entry === "input" || entry === "approval" || entry === "agent_act",
   );
 }
 

@@ -8,10 +8,10 @@ import {
   unknownRecordSchema,
   validateContractSchema,
 } from "../internal.js";
-import { agentWorkRequestSchema, approvalGateSchema, questionSchema } from "./agent-work.js";
+import { agentActInvocationSchema, approvalGateSchema, questionSchema } from "./agent-act.js";
 
 const resolutionResponseActors = ["human", "agent"] as const;
-const adapterInvokeTerminalStatuses = ["success", "failure"] as const;
+const actReceiptTerminalStatuses = ["success", "failure"] as const;
 const nodeSignalNames = [
   "SIGABRT",
   "SIGALRM",
@@ -74,22 +74,22 @@ export const approvalResolutionRequestSchema = Type.Object(
 
 export type ApprovalResolutionRequestContract = DeepReadonly<Static<typeof approvalResolutionRequestSchema>>;
 
-export const cognitiveResolutionRequestSchema = Type.Object(
+export const agentActResolutionRequestSchema = Type.Object(
   {
     id: Type.String({ minLength: 1 }),
-    kind: Type.Literal("cognitive_work"),
-    work: agentWorkRequestSchema,
+    kind: Type.Literal("agent_act"),
+    invocation: agentActInvocationSchema,
   },
   { additionalProperties: false },
 );
 
-export type CognitiveResolutionRequestContract = DeepReadonly<Static<typeof cognitiveResolutionRequestSchema>>;
+export type AgentActResolutionRequestContract = DeepReadonly<Static<typeof agentActResolutionRequestSchema>>;
 
 export const resolutionRequestSchema = Type.Union(
   [
     inputResolutionRequestSchema,
     approvalResolutionRequestSchema,
-    cognitiveResolutionRequestSchema,
+    agentActResolutionRequestSchema,
   ],
   {
     $schema: JSON_SCHEMA_DRAFT_2020_12,
@@ -113,9 +113,9 @@ export const resolutionResponseSchema = Type.Object(
 
 export type ResolutionResponseContract = DeepReadonly<Static<typeof resolutionResponseSchema>>;
 
-export const adapterInvokeTerminalResultSchema = Type.Object(
+export const actReceiptTerminalEnvelopeSchema = Type.Object(
   {
-    status: stringEnum(adapterInvokeTerminalStatuses),
+    status: stringEnum(actReceiptTerminalStatuses),
     stdout: Type.String(),
     stderr: Type.String(),
     exitCode: Type.Union([Type.Integer(), Type.Null()]),
@@ -127,7 +127,7 @@ export const adapterInvokeTerminalResultSchema = Type.Object(
   { additionalProperties: false },
 );
 
-export const adapterInvokeNeedsResolutionResultSchema = Type.Object(
+export const actReceiptNeedsResolutionEnvelopeSchema = Type.Object(
   {
     status: Type.Literal("needs_resolution"),
     stdout: Type.String(),
@@ -142,7 +142,7 @@ export const adapterInvokeNeedsResolutionResultSchema = Type.Object(
   { additionalProperties: false },
 );
 
-const adapterInvokeNeedsResolutionResultEnvelopeSchema = Type.Object(
+const actReceiptNeedsResolutionUnknownRequestSchema = Type.Object(
   {
     status: Type.Literal("needs_resolution"),
     stdout: Type.String(),
@@ -157,18 +157,18 @@ const adapterInvokeNeedsResolutionResultEnvelopeSchema = Type.Object(
   { additionalProperties: false },
 );
 
-export const adapterInvokeResultSchema = Type.Union(
+export const actReceiptEnvelopeSchema = Type.Union(
   [
-    adapterInvokeTerminalResultSchema,
-    adapterInvokeNeedsResolutionResultSchema,
+    actReceiptTerminalEnvelopeSchema,
+    actReceiptNeedsResolutionEnvelopeSchema,
   ],
   {
     $schema: JSON_SCHEMA_DRAFT_2020_12,
-    $id: RUNX_CONTROL_SCHEMA_REFS.adapter_invoke_result,
+    $id: RUNX_CONTROL_SCHEMA_REFS.act_receipt,
   },
 );
 
-export type AdapterInvokeResultContract = DeepReadonly<Static<typeof adapterInvokeResultSchema>>;
+export type ActReceiptEnvelopeContract = DeepReadonly<Static<typeof actReceiptEnvelopeSchema>>;
 
 export function validateResolutionRequestContract(
   value: unknown,
@@ -181,8 +181,8 @@ export function validateResolutionRequestContract(
   if (record?.kind === "approval") {
     return validateContractSchema(approvalResolutionRequestSchema, value, label) as ResolutionRequestContract;
   }
-  if (record?.kind === "cognitive_work") {
-    return validateContractSchema(cognitiveResolutionRequestSchema, value, label) as ResolutionRequestContract;
+  if (record?.kind === "agent_act") {
+    return validateContractSchema(agentActResolutionRequestSchema, value, label) as ResolutionRequestContract;
   }
   return validateContractSchema(resolutionRequestSchema, value, label);
 }
@@ -194,20 +194,20 @@ export function validateResolutionResponseContract(
   return validateContractSchema(resolutionResponseSchema, value, label);
 }
 
-export function validateAdapterInvokeResultContract(
+export function validateActReceiptEnvelopeContract(
   value: unknown,
-  label = "adapter_invoke_result",
-): AdapterInvokeResultContract {
+  label = "act_receipt",
+): ActReceiptEnvelopeContract {
   const record = asUnknownRecord(value);
   if (record?.status === "success" || record?.status === "failure") {
-    return validateContractSchema(adapterInvokeTerminalResultSchema, value, label) as AdapterInvokeResultContract;
+    return validateContractSchema(actReceiptTerminalEnvelopeSchema, value, label) as ActReceiptEnvelopeContract;
   }
   if (record?.status === "needs_resolution") {
-    const result = validateContractSchema(adapterInvokeNeedsResolutionResultEnvelopeSchema, value, label);
+    const result = validateContractSchema(actReceiptNeedsResolutionUnknownRequestSchema, value, label);
     return {
       ...result,
       request: validateResolutionRequestContract(result.request, `${label}.request`),
-    } as AdapterInvokeResultContract;
+    } as ActReceiptEnvelopeContract;
   }
-  return validateContractSchema(adapterInvokeResultSchema, value, label);
+  return validateContractSchema(actReceiptEnvelopeSchema, value, label);
 }

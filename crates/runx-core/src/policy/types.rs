@@ -1,0 +1,322 @@
+use runx_contracts::JsonValue;
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalAdmissionSkill {
+    pub name: String,
+    pub source: LocalAdmissionSource,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth: Option<JsonValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<JsonValue>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalAdmissionSource {
+    #[serde(rename = "type")]
+    pub source_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub args: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout_seconds: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sandbox: Option<SandboxDeclaration>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalAdmissionOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allowed_source_types: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_timeout_seconds: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connected_grants: Option<Vec<LocalAdmissionGrant>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_connected_auth: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approved_sandbox_escalation: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_sandbox_escalation: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub execution_policy: Option<LocalExecutionPolicy>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalExecutionPolicy {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub strict_cli_tool_inline_code: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct LocalAdmissionGrant {
+    pub grant_id: String,
+    pub provider: String,
+    pub scopes: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<LocalAdmissionGrantStatus>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_family: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authority_kind: Option<AuthorityKind>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_repo: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_locator: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LocalAdmissionGrantStatus {
+    Active,
+    Revoked,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthorityKind {
+    ReadOnly,
+    Constructive,
+    Destructive,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RetryAdmissionRequest {
+    pub step_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry: Option<RetryPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mutating: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub idempotency_key: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RetryPolicy {
+    pub max_attempts: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct GraphScopeGrant {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grant_id: Option<String>,
+    pub scopes: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphScopeAdmissionRequest {
+    pub step_id: String,
+    pub requested_scopes: Vec<String>,
+    pub grant: GraphScopeGrant,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "status",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase"
+)]
+pub enum AdmissionDecision {
+    Allow { reasons: Vec<String> },
+    Deny { reasons: Vec<String> },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "status",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase"
+)]
+pub enum GraphScopeAdmissionDecision {
+    Allow {
+        reasons: Vec<String>,
+        step_id: String,
+        requested_scopes: Vec<String>,
+        granted_scopes: Vec<String>,
+        #[serde(rename = "grantId", skip_serializing_if = "Option::is_none")]
+        grant_id: Option<String>,
+    },
+    Deny {
+        reasons: Vec<String>,
+        step_id: String,
+        requested_scopes: Vec<String>,
+        granted_scopes: Vec<String>,
+        #[serde(rename = "grantId", skip_serializing_if = "Option::is_none")]
+        grant_id: Option<String>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SandboxProfile {
+    Readonly,
+    WorkspaceWrite,
+    Network,
+    UnrestrictedLocalDev,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CwdPolicy {
+    SkillDirectory,
+    Workspace,
+    Custom,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SandboxDeclaration {
+    pub profile: SandboxProfile,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cwd_policy: Option<CwdPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env_allowlist: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub network: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub writable_paths: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub require_enforcement: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequiredSandboxDeclaration {
+    pub profile: SandboxProfile,
+    pub cwd_policy: CwdPolicy,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env_allowlist: Option<Vec<String>>,
+    pub network: bool,
+    pub writable_paths: Vec<String>,
+    pub require_enforcement: bool,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SandboxAdmissionOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approved_escalation: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_escalation: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "status",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase"
+)]
+pub enum SandboxAdmissionDecision {
+    Allow {
+        reasons: Vec<String>,
+    },
+    #[serde(rename = "approval_required")]
+    ApprovalRequired {
+        reasons: Vec<String>,
+    },
+    Deny {
+        reasons: Vec<String>,
+    },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        AdmissionDecision, AuthorityKind, GraphScopeAdmissionDecision, LocalAdmissionGrant,
+        LocalAdmissionGrantStatus, SandboxAdmissionDecision,
+    };
+
+    #[test]
+    fn admission_decision_round_trips_allow() -> Result<(), serde_json::Error> {
+        let decision = AdmissionDecision::Allow {
+            reasons: vec!["retry policy allowed".to_owned()],
+        };
+
+        let json = serde_json::to_string(&decision)?;
+        let decoded: AdmissionDecision = serde_json::from_str(&json)?;
+
+        assert_eq!(
+            json,
+            r#"{"status":"allow","reasons":["retry policy allowed"]}"#
+        );
+        assert_eq!(decoded, decision);
+        Ok(())
+    }
+
+    #[test]
+    fn admission_decision_round_trips_deny() -> Result<(), serde_json::Error> {
+        let decision = AdmissionDecision::Deny {
+            reasons: vec!["source type 'custom' is not allowed for local execution".to_owned()],
+        };
+
+        let json = serde_json::to_string(&decision)?;
+        let decoded: AdmissionDecision = serde_json::from_str(&json)?;
+
+        assert_eq!(
+            json,
+            r#"{"status":"deny","reasons":["source type 'custom' is not allowed for local execution"]}"#,
+        );
+        assert_eq!(decoded, decision);
+        Ok(())
+    }
+
+    #[test]
+    fn grant_deserializes_snake_case_targeting_fields() -> Result<(), serde_json::Error> {
+        let json = r#"{"grant_id":"grant_1","provider":"github","scopes":["issues:write"],"status":"active","scope_family":"github","authority_kind":"constructive","target_repo":"runxhq/runx","target_locator":"issue/1"}"#;
+
+        let grant: LocalAdmissionGrant = serde_json::from_str(json)?;
+
+        assert_eq!(grant.grant_id, "grant_1");
+        assert_eq!(grant.scopes, vec!["issues:write"]);
+        assert_eq!(grant.status, Some(LocalAdmissionGrantStatus::Active));
+        assert_eq!(grant.authority_kind, Some(AuthorityKind::Constructive));
+        Ok(())
+    }
+
+    #[test]
+    fn graph_scope_decision_serializes_camel_case_and_empty_arrays() -> Result<(), serde_json::Error>
+    {
+        let decision = GraphScopeAdmissionDecision::Allow {
+            reasons: vec!["graph step requested no scopes".to_owned()],
+            step_id: "deploy".to_owned(),
+            requested_scopes: Vec::new(),
+            granted_scopes: Vec::new(),
+            grant_id: Some("grant_1".to_owned()),
+        };
+
+        let json = serde_json::to_string(&decision)?;
+
+        assert_eq!(
+            json,
+            r#"{"status":"allow","reasons":["graph step requested no scopes"],"stepId":"deploy","requestedScopes":[],"grantedScopes":[],"grantId":"grant_1"}"#,
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn sandbox_approval_required_uses_snake_case_status() -> Result<(), serde_json::Error> {
+        let decision = SandboxAdmissionDecision::ApprovalRequired {
+            reasons: vec![
+                "unrestricted-local-dev sandbox requires explicit caller approval".to_owned(),
+            ],
+        };
+
+        let json = serde_json::to_string(&decision)?;
+
+        assert_eq!(
+            json,
+            r#"{"status":"approval_required","reasons":["unrestricted-local-dev sandbox requires explicit caller approval"]}"#,
+        );
+        Ok(())
+    }
+}

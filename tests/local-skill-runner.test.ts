@@ -62,7 +62,7 @@ describe("local skill runner", () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-standard-skill-"));
     const caller: Caller = {
       resolve: async (request) =>
-        request.kind === "cognitive_work" && request.id === "agent.portable.output"
+        request.kind === "agent_act" && request.id === "agent.portable.output"
           ? {
               actor: "agent",
               payload: {

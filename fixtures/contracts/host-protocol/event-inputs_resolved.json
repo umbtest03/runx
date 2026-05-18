@@ -1,0 +1,1 @@
+{"description":"Host protocol event fixture generated from the TypeScript serializable wire subset.","expected":{"data":{"fixture":"inputs_resolved"},"message":"event inputs_resolved","type":"inputs_resolved"},"fixture_kind":"event","name":"event-inputs_resolved","scope":"host-protocol"}

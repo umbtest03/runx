@@ -4,10 +4,10 @@ import { renderHistory } from "./history.js";
 import type { LocalReceiptSummary } from "@runxhq/runtime-local";
 
 describe("renderHistory", () => {
-  it("surfaces compact work-item status summaries", () => {
+  it("surfaces compact harness status summaries", () => {
     const output = renderHistory([
       {
-        id: "rx_history_work_item",
+        id: "rx_history_harness",
         name: "issue-intake",
         kind: "skill_execution",
         status: "success",
@@ -19,19 +19,19 @@ describe("renderHistory", () => {
         ledgerVerification: {
           status: "valid",
           reason: "ok",
-          runId: "run_history_work_item",
+          runId: "run_history_harness",
           ledgerPath: "/tmp/runx-history-fixture/ledger.jsonl",
           entryCount: 1,
           headHash: "sha256:fixture",
         },
-        workItemId: "wi_fixture_123",
-        workItemState: "merge_gate",
-        workItemStatusSummary: "PR is ready for human merge gate.",
+        harnessId: "harness_fixture_123",
+        harnessState: "sealed",
+        harnessSealSummary: "PR is ready for human merge gate.",
       } as LocalReceiptSummary,
     ], { NO_COLOR: "1" } as NodeJS.ProcessEnv);
 
-    expect(output).toContain("work item wi_fixture_123");
-    expect(output).toContain("merge_gate");
+    expect(output).toContain("harness harness_fixture_123");
+    expect(output).toContain("sealed");
     expect(output).toContain("PR is ready for human merge gate.");
   });
 });

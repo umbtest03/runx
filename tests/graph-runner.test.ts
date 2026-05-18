@@ -231,7 +231,7 @@ steps:
     const project = path.join(tempDir, "project");
     const caller: Caller = {
       resolve: async (request) => {
-        if (request.kind !== "cognitive_work") {
+        if (request.kind !== "agent_act") {
           return undefined;
         }
         if (request.id === "agent_step.reflectable-auto.output") {

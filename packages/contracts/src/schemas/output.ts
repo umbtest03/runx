@@ -7,7 +7,7 @@ import {
   validateContractSchema,
 } from "../internal.js";
 
-const outputContractScalarKinds = [
+const outputScalarKinds = [
   "string",
   "number",
   "integer",
@@ -17,13 +17,13 @@ const outputContractScalarKinds = [
   "null",
 ] as const;
 
-export const outputContractScalarSchema = stringEnum(outputContractScalarKinds);
+export const outputScalarSchema = stringEnum(outputScalarKinds);
 
-export type OutputContractScalarContract = DeepReadonly<Static<typeof outputContractScalarSchema>>;
+export type OutputScalarContract = DeepReadonly<Static<typeof outputScalarSchema>>;
 
-export const outputContractObjectEntrySchema = Type.Object(
+export const outputObjectEntrySchema = Type.Object(
   {
-    type: Type.Optional(outputContractScalarSchema),
+    type: Type.Optional(outputScalarSchema),
     description: Type.Optional(Type.String()),
     required: Type.Optional(Type.Boolean()),
     wrap_as: Type.Optional(Type.String({ minLength: 1 })),
@@ -35,29 +35,29 @@ export const outputContractObjectEntrySchema = Type.Object(
   },
 );
 
-export type OutputContractObjectEntryContract = DeepReadonly<Static<typeof outputContractObjectEntrySchema>>;
+export type OutputObjectEntryContract = DeepReadonly<Static<typeof outputObjectEntrySchema>>;
 
-export const outputContractEntrySchema = Type.Union([
-  outputContractScalarSchema,
-  outputContractObjectEntrySchema,
+export const outputEntrySchema = Type.Union([
+  outputScalarSchema,
+  outputObjectEntrySchema,
 ]);
 
-export type OutputContractEntryContract = DeepReadonly<Static<typeof outputContractEntrySchema>>;
+export type OutputEntryContract = DeepReadonly<Static<typeof outputEntrySchema>>;
 
-export const outputContractSchema = Type.Record(
+export const outputSchema = Type.Record(
   Type.String(),
-  outputContractEntrySchema,
+  outputEntrySchema,
   {
     $schema: JSON_SCHEMA_DRAFT_2020_12,
-    $id: RUNX_CONTROL_SCHEMA_REFS.output_contract,
+    $id: RUNX_CONTROL_SCHEMA_REFS.output,
   },
 );
 
-export type OutputContractContract = DeepReadonly<Static<typeof outputContractSchema>>;
+export type OutputContract = DeepReadonly<Static<typeof outputSchema>>;
 
-export function validateOutputContractContract(
+export function validateOutputContract(
   value: unknown,
-  label = "output_contract",
-): OutputContractContract {
-  return validateContractSchema(outputContractSchema, value, label);
+  label = "output",
+): OutputContract {
+  return validateContractSchema(outputSchema, value, label);
 }

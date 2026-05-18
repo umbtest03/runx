@@ -10,7 +10,7 @@ Bump the version in the same commit as the change.
 - **Patch (`0.1.X`):** SKILL.md prompt tweaks, harness-case additions,
   harness-fixture tightening, doc-only edits.
 - **Minor (`0.X.0`):** new runner, new input field, new output field,
-  new harness-case shape, backward-compatible output-contract
+  new harness-case shape, backward-compatible output
   extension.
 - **Major (`X.0.0`):** graph redefinition, runner renaming, input or
   output removal, any change that would break an existing caller's

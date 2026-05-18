@@ -1,0 +1,17 @@
+{
+  "$schema": "../schema/policy.schema.json",
+  "expected": {
+    "kind": "output",
+    "value": {
+      "cwdPolicy": "skill-directory",
+      "network": false,
+      "profile": "readonly",
+      "requireEnforcement": false,
+      "writablePaths": []
+    }
+  },
+  "input": {
+    "kind": "policy.normalizeSandboxDeclaration"
+  },
+  "name": "sandbox-normalize-defaults"
+}

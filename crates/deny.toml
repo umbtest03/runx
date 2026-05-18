@@ -1,0 +1,24 @@
+[bans]
+multiple-versions = "allow"
+deny = [
+  { name = "async-std" },
+  { name = "axum" },
+  { name = "clap" },
+  { name = "hyper" },
+  { name = "reqwest" },
+  { name = "rmcp" },
+  { name = "tokio" },
+  { name = "ureq" },
+]
+
+[licenses]
+allow = [
+  "Apache-2.0",
+  "MIT",
+  "Unicode-3.0",
+]
+confidence-threshold = 0.8
+
+[sources]
+unknown-git = "deny"
+unknown-registry = "deny"

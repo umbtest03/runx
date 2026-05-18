@@ -7,35 +7,43 @@ import {
   RUNX_LOGICAL_SCHEMAS,
   buildHostedOpenApiSchemas,
   agentContextEnvelopeSchema,
-  adapterInvokeResultSchema,
+  actReceiptEnvelopeSchema,
   authorityProofSchema,
-  outputContractSchema,
+  outputSchema,
   credentialEnvelopeSchema,
   registryBindingSchema,
   reviewReceiptOutputSchema,
   runxContractSchemas,
   runxAuxiliarySchemas,
   runxGeneratedSchemaArtifacts,
-  validateAdapterInvokeResultContract,
+  validateActReceiptEnvelopeContract,
+  validateActContract,
   validateAgentContextEnvelopeContract,
   validateAuthorityProofContract,
-  validateOutputContractContract,
+  validateOutputContract,
   validateResolutionRequestContract,
   validateCredentialEnvelopeContract,
-  validateCapabilityExecutionContract,
+  validateActAssignmentContract,
   validateDevReportContract,
   validateDoctorReportContract,
-  validateEvidenceBundleContract,
   validateHandoffSignalContract,
   validateHandoffStateContract,
+  validateHarnessReceiptContract,
+  validateTargetContract,
+  validateOpportunityContract,
+  validateThesisAssessmentContract,
+  validateSelectionContract,
+  validateSkillBindingContract,
+  validateTargetTransitionEntryContract,
+  validateSelectionCycleContract,
+  validateReflectionEntryContract,
+  validateFeedEntryContract,
   validateRegistryBindingContract,
   validateRunxListReportContract,
   validateReviewReceiptOutputContract,
   validateScopeAdmissionContract,
   validateSuppressionRecordContract,
-  validateWorkItemContract,
-  canTransitionWorkItemState,
-  nextWorkItemStates,
+  validateSignalContract,
 } from "./index.js";
 
 describe("@runxhq/contracts", () => {
@@ -137,14 +145,14 @@ describe("@runxhq/contracts", () => {
   });
 
   it("owns executor control protocol schemas and runtime validation", () => {
-    expect(outputContractSchema.$id).toBe(RUNX_CONTROL_SCHEMA_REFS.output_contract);
+    expect(outputSchema.$id).toBe(RUNX_CONTROL_SCHEMA_REFS.output);
     expect(agentContextEnvelopeSchema.$id).toBe(RUNX_CONTROL_SCHEMA_REFS.agent_context_envelope);
-    expect(adapterInvokeResultSchema.$id).toBe(RUNX_CONTROL_SCHEMA_REFS.adapter_invoke_result);
-    expect(runxGeneratedSchemaArtifacts["output-contract.schema.json"]).toBe(outputContractSchema);
+    expect(actReceiptEnvelopeSchema.$id).toBe(RUNX_CONTROL_SCHEMA_REFS.act_receipt);
+    expect(runxGeneratedSchemaArtifacts["output.schema.json"]).toBe(outputSchema);
     expect(runxGeneratedSchemaArtifacts["agent-context-envelope.schema.json"]).toBe(agentContextEnvelopeSchema);
-    expect(runxGeneratedSchemaArtifacts["adapter-invoke-result.schema.json"]).toBe(adapterInvokeResultSchema);
+    expect(runxGeneratedSchemaArtifacts["act-receipt.schema.json"]).toBe(actReceiptEnvelopeSchema);
 
-    expect(validateOutputContractContract({
+    expect(validateOutputContract({
       summary: "string",
       verdict: {
         type: "string",
@@ -164,13 +172,13 @@ describe("@runxhq/contracts", () => {
       current_context: [],
       historical_context: [],
       provenance: [],
-      expected_outputs: {
+      output: {
         summary: "string",
       },
       trust_boundary: "test",
     })).toMatchObject({
       run_id: "rx_contract",
-      expected_outputs: {
+      output: {
         summary: "string",
       },
     });
@@ -199,7 +207,7 @@ describe("@runxhq/contracts", () => {
       },
     });
 
-    expect(validateAdapterInvokeResultContract({
+    expect(validateActReceiptEnvelopeContract({
       status: "needs_resolution",
       stdout: "",
       stderr: "",
@@ -220,217 +228,276 @@ describe("@runxhq/contracts", () => {
     expect(reviewReceiptOutputSchema.$id).toBe(RUNX_AUXILIARY_SCHEMA_IDS.reviewReceiptOutput);
     expect(runxAuxiliarySchemas.reviewReceiptOutput).toBe(reviewReceiptOutputSchema);
     expect(runxGeneratedSchemaArtifacts["doctor.schema.json"]).toBe(runxContractSchemas.doctor);
-    expect(runxGeneratedSchemaArtifacts["capability-execution.schema.json"]).toBe(runxContractSchemas.capabilityExecution);
-    expect(runxGeneratedSchemaArtifacts["work-item.schema.json"]).toBe(runxContractSchemas.workItem);
-    expect(runxGeneratedSchemaArtifacts["evidence-bundle.schema.json"]).toBe(runxContractSchemas.evidenceBundle);
+    expect(runxGeneratedSchemaArtifacts["act-assignment.schema.json"]).toBe(runxContractSchemas.actAssignment);
+    expect(runxGeneratedSchemaArtifacts["harness-receipt.schema.json"]).toBe(runxContractSchemas.harnessReceipt);
+    const retiredCentralArtifact = `${"engage"}ment.schema.json` as keyof typeof runxGeneratedSchemaArtifacts;
+    const retiredEvidenceArtifact = `${"evidence"}-bundle.schema.json` as keyof typeof runxGeneratedSchemaArtifacts;
+    expect(runxGeneratedSchemaArtifacts[retiredCentralArtifact]).toBeUndefined();
+    expect(runxGeneratedSchemaArtifacts[retiredEvidenceArtifact])
+      .toBeUndefined();
     expect(runxGeneratedSchemaArtifacts["handoff-signal.schema.json"]).toBe(runxContractSchemas.handoffSignal);
     expect(runxGeneratedSchemaArtifacts["handoff-state.schema.json"]).toBe(runxContractSchemas.handoffState);
     expect(runxGeneratedSchemaArtifacts["suppression-record.schema.json"]).toBe(runxContractSchemas.suppressionRecord);
     expect(runxGeneratedSchemaArtifacts["review-receipt-output.schema.json"]).toBe(reviewReceiptOutputSchema);
   });
 
-  it("owns hydrated issue evidence bundles", () => {
-    expect(RUNX_LOGICAL_SCHEMAS.evidenceBundle).toBe("runx.evidence_bundle.v1");
-    expect(RUNX_CONTRACT_IDS.evidenceBundle).toBe("https://schemas.runx.dev/runx/evidence-bundle/v1.json");
-    expect(validateEvidenceBundleContract({
-      schema: "runx.evidence_bundle.v1",
-      evidence_bundle_id: "eb_checkout_retry",
-      subject_locator: "github://runxhq/example/issues/101",
-      hydration: {
-        status: "complete",
-        summary: "Slack thread and Sentry issue event were hydrated before triage.",
-        requested_at: "2026-05-15T00:00:00Z",
-        completed_at: "2026-05-15T00:00:05Z",
-      },
-      sources: [
-        {
-          provider: "slack",
-          kind: "source_thread",
-          locator: "slack://T1/C1/171000.0001",
-          thread_locator: "slack://T1/C1/171000.0001",
-          title: "Checkout fails on discount retry",
-          body_preview: "Customer report plus support reproduction notes.",
-          hydration_status: "complete",
-          observed_at: "2026-05-15T00:00:00Z",
-        },
-        {
-          provider: "sentry",
-          kind: "stacktrace",
-          locator: "sentry://issues/987/events/latest",
-          url: "https://example.sentry.io/issues/987",
-          title: "DiscountRetryError",
-          body_preview: "Stacktrace and release metadata redacted before publication.",
-          hydration_status: "complete",
-          observed_at: "2026-05-15T00:00:03Z",
-          data: {
-            release: "api@abc123",
-            environment: "production",
-          },
-        },
-      ],
-      redaction: {
-        status: "applied",
-        summary: "Secrets and direct identifiers were redacted by the source adapter.",
-        secret_material: "omitted",
-        pii: "redacted",
-      },
-      summary: "Checkout retry failure has enough hydrated evidence for triage.",
-      created_at: "2026-05-15T00:00:00Z",
-      updated_at: "2026-05-15T00:00:05Z",
-    })).toMatchObject({
-      schema: "runx.evidence_bundle.v1",
-      hydration: {
-        status: "complete",
-      },
-      sources: [
-        {
-          provider: "slack",
-        },
-        {
-          provider: "sentry",
-        },
-      ],
-    });
+  it("owns the runx harness spine and retires retired central artifacts", () => {
+    expect(RUNX_LOGICAL_SCHEMAS.harnessReceipt).toBe("runx.harness_receipt.v1");
+    expect(RUNX_CONTRACT_IDS.harnessReceipt).toBe("https://schemas.runx.dev/runx/harness-receipt/v1.json");
+    const retiredCentralKey = `${"engage"}ment`;
+    expect(retiredCentralKey in RUNX_LOGICAL_SCHEMAS).toBe(false);
+    expect("evidenceBundle" in RUNX_LOGICAL_SCHEMAS).toBe(false);
+    expect(retiredCentralKey in RUNX_CONTRACT_IDS).toBe(false);
+    expect("evidenceBundle" in RUNX_CONTRACT_IDS).toBe(false);
 
-    expect(() => validateEvidenceBundleContract({
-      schema: "runx.evidence_bundle.v1",
-      evidence_bundle_id: "eb_thin_alert",
-      subject_locator: "sentry://issues/987",
-      hydration: {
-        status: "needed",
-        summary: "The Slack alert card is not sufficient for build triage.",
+    const issueRef = {
+      type: "github_issue",
+      uri: "github://runxhq/example/issues/101",
+      provider: "github",
+      locator: "runxhq/example#101",
+      observed_at: "2026-05-18T00:00:00Z",
+    };
+    const principalRef = { type: "principal", uri: "runx:principal:agent_1" };
+    const criterion = {
+      criterion_id: "crit_revision_reviewable",
+      statement: "Revision is available for review.",
+      required: true,
+    };
+    const intent = {
+      purpose: "Prepare a bounded revision for checkout retry behavior.",
+      legitimacy: "The authenticated issue requests a fix in the target repository.",
+      success_criteria: [criterion],
+      constraints: ["Stay inside the checkout surface."],
+      derived_from: [issueRef],
+    };
+    const verification = {
+      status: "passed",
+      checks: [{
+        check_id: "check_pr_open",
+        criterion_ids: ["crit_revision_reviewable"],
+        status: "passed",
+        evidence_refs: [{ type: "github_pull_request", uri: "github://runxhq/example/pulls/102" }],
+      }],
+      verified_at: "2026-05-18T00:02:00Z",
+      evidence_refs: [{ type: "github_pull_request", uri: "github://runxhq/example/pulls/102" }],
+    };
+    const seal = {
+      disposition: "closed",
+      reason_code: "revision_ready",
+      summary: "Revision act completed and reviewable PR was observed.",
+      closed_at: "2026-05-18T00:03:00Z",
+      last_observed_at: "2026-05-18T00:03:00Z",
+      canonicalization: "runx.harness-receipt.c14n.v1",
+      digest: "sha256:receipt",
+      criteria: [{
+        criterion_id: "crit_revision_reviewable",
+        status: "verified",
+        act_id: "act_revision",
+        verification_refs: [{ type: "verification", uri: "runx:verification:check_pr_open" }],
+        evidence_refs: [{ type: "github_pull_request", uri: "github://runxhq/example/pulls/102" }],
+      }],
+      verification_summary: {
+        signature_valid: true,
+        hash_commitments_valid: true,
+        authority_attenuation_valid: true,
+        criteria_bound: true,
+        redaction_valid: true,
+        external_attestations_present: true,
       },
-      sources: [],
-      summary: "No usable source evidence yet.",
-      created_at: "2026-05-15T00:00:00Z",
-      updated_at: "2026-05-15T00:00:00Z",
-    })).toThrow(/evidence-bundle\/v1\.json/);
-  });
-
-  it("owns the portable work-item lifecycle contract", () => {
-    expect(RUNX_LOGICAL_SCHEMAS.workItem).toBe("runx.work_item.v1");
-    expect(RUNX_CONTRACT_IDS.workItem).toBe("https://schemas.runx.dev/runx/work-item/v1.json");
-    expect(nextWorkItemStates("build_ready")).toEqual(["review_ready", "outcome_closed", "outcome_rejected", "blocked"]);
-    expect(nextWorkItemStates("intake_received")).toContain("planning_ready");
-    expect(nextWorkItemStates("intake_received")).toContain("build_ready");
-    expect(canTransitionWorkItemState("build_ready", "review_ready")).toBe(true);
-    expect(canTransitionWorkItemState("intake_received", "build_ready")).toBe(true);
-    expect(canTransitionWorkItemState("build_ready", "merge_gate")).toBe(false);
-    expect(canTransitionWorkItemState("merge_gate", "build_ready")).toBe(false);
-    expect(validateWorkItemContract({
-      schema: "runx.work_item.v1",
-      work_item_id: "wi_101",
-      state: "merge_gate",
-      source_events: [
-        {
-          provider: "slack",
-          source_locator: "slack://T1/C1/171000.0001",
-          event_kind: "message",
-          thread_locator: "slack://T1/C1/171000.0001",
-          provider_event_id: "171000.0001",
-          title: "Checkout fails on discount retry",
-          body_preview: "Sentry and support both show checkout retry failures.",
-          occurred_at: "2026-05-15T00:00:00Z",
-        },
-      ],
-      dedupe: {
+      redaction_refs: [{ type: "redaction_policy", uri: "runx:redaction_policy:public_safe" }],
+      artifact_refs: [{ type: "artifact", uri: "runx:artifact:summary_1" }],
+      hash_commitments: [{
         algorithm: "sha256",
-        source_locator: "slack://T1/C1/171000.0001",
-        fingerprint: "sha256:checkout-discount-retry",
-        provider_event_id: "171000.0001",
-        candidate_work_item_ids: ["wi_099"],
+        value: "sha256:private-transcript",
+        canonicalization: "runx.artifact-hash.v1",
+      }],
+    };
+
+    expect(validateSignalContract({
+      schema: "runx.signal.v1",
+      signal_id: "sig_101",
+      source_ref: issueRef,
+      authenticity: {
+        host_ref: { type: "webhook_delivery", uri: "github://delivery/abc" },
+        principal_ref: { type: "principal", uri: "github:user:octocat" },
+        verified_by_ref: principalRef,
+        trust_level: "verified_signature",
+        verified_at: "2026-05-18T00:00:01Z",
       },
-      triage: {
-        category: "bug",
-        severity: "high",
-        confidence: 0.91,
-        action: "issue-to-pr",
-        recommended_lane: "issue-to-pr",
-        needs_human: false,
-        rationale: "The report is reproducible and bounded to checkout retry behavior.",
+      signal_type: "issue_opened",
+      title: "Checkout retry failure",
+      body_preview: "Retry fails when the discount service flakes.",
+      observed_at: "2026-05-18T00:00:00Z",
+      evidence_refs: [issueRef],
+    })).toMatchObject({ schema: "runx.signal.v1", signal_type: "issue_opened" });
+
+    expect(validateHarnessReceiptContract({
+      schema: "runx.harness_receipt.v1",
+      id: "hrn_rcpt_123",
+      created_at: "2026-05-18T00:03:01Z",
+      issuer: {
+        type: "local",
+        kid: "key_1",
+        public_key_sha256: "sha256:key",
       },
-      change_set: {
-        change_set_id: "change_set_checkout_retry",
+      signature: {
+        alg: "Ed25519",
+        value: "sig_123",
       },
-      owner_suggestion: {
-        owner: "payments-team",
-        confidence: 0.8,
-        rationale: "Checkout retry behavior is owned by the payments surface.",
-      },
-      target_repo_suggestion: {
-        repo: "runxhq/example",
-        confidence: 0.86,
-        rationale: "The source event points at the example checkout repo.",
-      },
-      evidence_bundle: {
-        schema: "runx.evidence_bundle.v1",
-        evidence_bundle_id: "eb_checkout_retry",
-        subject_locator: "github://runxhq/example/issues/101",
-        hydration: {
-          status: "complete",
-          summary: "Slack and Sentry evidence were hydrated before build triage.",
-        },
-        sources: [
-          {
-            provider: "slack",
-            kind: "source_thread",
-            locator: "slack://T1/C1/171000.0001",
-            thread_locator: "slack://T1/C1/171000.0001",
-            title: "Checkout fails on discount retry",
-            body_preview: "Sentry and support both show checkout retry failures.",
+      harness: {
+        harness_id: "hrn_123",
+        parent_harness_ref: null,
+        state: "sealed",
+        host_ref: { type: "host", uri: "runx:host:cli" },
+        harness_ref: { type: "harness", uri: "runx:harness:local-cli" },
+        authority: {
+          actor_ref: principalRef,
+          authority_proof_refs: [{ type: "authority_proof", uri: "runx:authority_proof:proof_1" }],
+          grant_refs: [{ type: "grant", uri: "runx:grant:repo_write" }],
+          scope_refs: [{ type: "scope_admission", uri: "runx:scope_admission:repo_write" }],
+          policy_refs: [{ type: "redaction_policy", uri: "runx:redaction_policy:public_safe" }],
+          terms: [{
+            term_id: "term_repo_write",
+            principal_ref: principalRef,
+            resource_ref: { type: "github_repo", uri: "github://runxhq/example" },
+            resource_family: "github_repo",
+            verbs: ["read", "write", "create"],
+            bounds: {
+              repo_path_globs: ["app/checkout/**"],
+              branch_patterns: ["runx/**"],
+              max_child_depth: 1,
+            },
+            conditions: [{
+              condition_id: "cond_signal_verified",
+              predicate: "signal_verified",
+              refs: [{ type: "signal", uri: "runx:signal:sig_101" }],
+            }],
+            approvals: [],
+            capabilities: ["filesystem_read", "filesystem_write", "provider_mutation"],
+            issued_by_ref: principalRef,
+            credential_ref: { type: "credential", uri: "runx:credential:github_installation" },
+          }],
+          attenuation: {
+            parent_authority_ref: null,
+            subset_proof: null,
           },
-          {
-            provider: "sentry",
-            kind: "stacktrace",
-            locator: "sentry://issues/987/events/latest",
-            hydration_status: "complete",
-          },
-        ],
-        redaction: {
-          status: "applied",
-          summary: "Adapter removed secret-like values before publication.",
         },
-        summary: "Hydrated evidence is ready for issue-to-pr.",
-        created_at: "2026-05-15T00:00:00Z",
-        updated_at: "2026-05-15T00:00:05Z",
+        enforcement: {
+          version: "2026-05-18",
+          enforcement_profile_hash: "sha256:profile",
+          sandbox: {
+            profile: "workspace-write",
+            cwd_policy: "workspace",
+            network: "none",
+            filesystem: "workspace_read_artifact_write",
+          },
+          redaction_refs: [{ type: "redaction_policy", uri: "runx:redaction_policy:public_safe" }],
+        },
+        idempotency: {
+          intent_key: "checkout-retry",
+          trigger_fingerprint: "sha256:trigger",
+          content_hash: "sha256:content",
+        },
+        revision: {
+          sequence: 1,
+          previous_ref: null,
+        },
+        signal_refs: [{ type: "signal", uri: "runx:signal:sig_101" }],
+        decisions: [{
+          decision_id: "dec_open",
+          choice: "open",
+          inputs: {
+            signal_refs: [{ type: "signal", uri: "runx:signal:sig_101" }],
+            target_ref: null,
+            opportunity_refs: [],
+            selection_ref: null,
+          },
+          proposed_intent: intent,
+          selected_act_id: "act_revision",
+          selected_harness_ref: null,
+          justification: {
+            summary: "Authenticated issue fits a bounded revision.",
+            evidence_refs: [issueRef],
+          },
+          closure: null,
+          artifact_refs: [],
+        }],
+        acts: [{
+          act_id: "act_revision",
+          form: "revision",
+          intent,
+          summary: "Prepared a reviewable checkout retry revision.",
+          closure: {
+            disposition: "closed",
+            reason_code: "revision_prepared",
+            summary: "Reviewable revision is ready.",
+            closed_at: "2026-05-18T00:03:00Z",
+          },
+          source_refs: [{ type: "signal", uri: "runx:signal:sig_101" }],
+          target_refs: [{ type: "github_repo", uri: "github://runxhq/example" }],
+          surface_refs: [{
+            type: "surface",
+            uri: "repo://runxhq/example/app/checkout/retry.ts",
+          }],
+          artifact_refs: [{ type: "artifact", uri: "runx:artifact:summary_1" }],
+          verification_refs: [{ type: "verification", uri: "runx:verification:check_pr_open" }],
+          harness_refs: [],
+          revision: {
+            change_request: {
+              request_id: "change_checkout_retry",
+              summary: "Fix checkout retry failure.",
+              target_surfaces: [{
+                surface_ref: { type: "surface", uri: "repo://runxhq/example/app/checkout/retry.ts" },
+                mutating: true,
+              }],
+              success_criteria: [criterion],
+            },
+            change_plan: {
+              plan_id: "plan_checkout_retry",
+              summary: "Patch retry guard and add regression coverage.",
+              steps: ["Update retry guard.", "Add regression coverage."],
+            },
+            target_surfaces: [{
+              surface_ref: { type: "surface", uri: "repo://runxhq/example/app/checkout/retry.ts" },
+              mutating: true,
+            }],
+            invariants: ["Do not alter billing side effects."],
+            verification,
+            handoff_refs: [],
+            revision_refs: [{ type: "github_pull_request", uri: "github://runxhq/example/pulls/102" }],
+          },
+          criterion_bindings: [{
+            criterion_id: "crit_revision_reviewable",
+            status: "verified",
+            evidence_refs: [{ type: "github_pull_request", uri: "github://runxhq/example/pulls/102" }],
+            verification_refs: [{ type: "verification", uri: "runx:verification:check_pr_open" }],
+          }],
+          performed_at: "2026-05-18T00:02:00Z",
+        }],
+        child_harness_receipt_refs: [],
+        artifact_refs: [{ type: "artifact", uri: "runx:artifact:summary_1" }],
+        seal,
       },
-      issue: {
-        provider: "github",
-        locator: "github://runxhq/example/issues/101",
-        url: "https://github.com/runxhq/example/issues/101",
-        status: "open",
-      },
-      pull_request: {
-        provider: "github",
-        locator: "github://runxhq/example/pulls/102",
-        url: "https://github.com/runxhq/example/pull/102",
-        status: "open",
-      },
-      merge_gate: {
-        required: true,
-        summary: "Human reviewer must merge or close the generated PR.",
-      },
-      status_summary: "PR is ready; waiting at the human merge gate.",
-      created_at: "2026-05-15T00:00:00Z",
-      updated_at: "2026-05-15T00:10:00Z",
+      seal,
     })).toMatchObject({
-      schema: "runx.work_item.v1",
-      state: "merge_gate",
-      owner_suggestion: {
-        owner: "payments-team",
-      },
-      target_repo_suggestion: {
-        repo: "runxhq/example",
-      },
-      evidence_bundle: {
-        hydration: {
-          status: "complete",
-        },
-      },
-      triage: {
-        action: "issue-to-pr",
+      schema: "runx.harness_receipt.v1",
+      harness: {
+        acts: [expect.objectContaining({ act_id: "act_revision" })],
       },
     });
+
+    expect(() => validateHarnessReceiptContract({
+      schema: "runx.harness_receipt.v1",
+      schema_version: "runx.harness_receipt.v1",
+    })).toThrow(/harness-receipt\/v1\.json/);
+    expect(() => validateSignalContract({
+      schema: "runx.signal.v1",
+      signal_id: "sig_bad",
+      source_ref: { type: `${"evidence"}_bundle`, uri: `runx:${"evidence"}_bundle:old` },
+      signal_type: "issue_opened",
+      title: "Old evidence bundle ref",
+      observed_at: "2026-05-18T00:00:00Z",
+    })).toThrow(/signal\/v1\.json/);
   });
 
   it("owns hosted OpenAPI components for cloud consumers", () => {
@@ -600,17 +667,17 @@ describe("@runxhq/contracts", () => {
     });
   });
 
-  it("owns a generic capability execution envelope contract for transport-neutral invocation", () => {
-    expect(RUNX_CONTRACT_IDS.capabilityExecution).toBe("https://schemas.runx.dev/runx/capability-execution/v1.json");
-    expect(runxContractSchemas.capabilityExecution.$id).toBe(RUNX_CONTRACT_IDS.capabilityExecution);
+  it("owns a generic act assignment envelope contract for host-neutral invocation", () => {
+    expect(RUNX_CONTRACT_IDS.actAssignment).toBe("https://schemas.runx.dev/runx/act-assignment/v1.json");
+    expect(runxContractSchemas.actAssignment.$id).toBe(RUNX_CONTRACT_IDS.actAssignment);
 
-    expect(validateCapabilityExecutionContract({
-      schema: "runx.capability_execution.v1",
-      capability_ref: "outreach",
+    expect(validateActAssignmentContract({
+      schema: "runx.act_assignment.v1",
+      skill_ref: "outreach",
       runner: "rerun",
-      thread_ref: "github://sourcey/sourcey.com/issues/3",
+      source_ref: "github://sourcey/sourcey.com/issues/3",
       requested_at: "2026-04-25T13:45:00Z",
-      transport: {
+      host: {
         kind: "github_issue_comment",
         trigger_ref: "https://github.com/sourcey/sourcey.com/issues/3#issuecomment-1",
         scope_set: ["docs.write", "thread:push"],
@@ -631,9 +698,9 @@ describe("@runxhq/contracts", () => {
         content_hash: "sha256:content",
       },
     })).toMatchObject({
-      capability_ref: "outreach",
+      skill_ref: "outreach",
       runner: "rerun",
-      transport: {
+      host: {
         kind: "github_issue_comment",
       },
       idempotency: {
@@ -718,5 +785,220 @@ describe("@runxhq/contracts", () => {
       status: "success",
       receipt_id: "rx_123",
     });
+  });
+
+  it("Aster feed entry proof bindings", () => {
+    const targetRef = { type: "target", uri: "runx:target:aster-site" };
+    const opportunityRef = { type: "opportunity", uri: "runx:opportunity:docs-gap" };
+    const thesisRef = { type: "external_url", uri: "https://aster.runx.ai/thesis" };
+    const selectionCycleRef = { type: "selection_cycle", uri: "runx:selection_cycle:cycle_1" };
+    const selectionRef = { type: "selection", uri: "runx:selection:sel_1" };
+    const decisionRef = { type: "decision", uri: "runx:decision:dec_1" };
+    const harnessReceiptRef = { type: "harness_receipt", uri: "runx:harness_receipt:hrn_1" };
+    const verificationRef = { type: "verification", uri: "runx:verification:ver_1" };
+    const evidenceRef = { type: "artifact", uri: "runx:artifact:evidence_1" };
+    const redactionPolicyRef = { type: "redaction_policy", uri: "runx:redaction_policy:public" };
+    const sourceRef = { type: "signal", uri: "runx:signal:sig_1" };
+    const fingerprint = {
+      algorithm: "sha256",
+      canonicalization: "runx.fingerprint.c14n.v1",
+      value: "sha256:target",
+      derived_from: [sourceRef],
+    };
+    const closure = {
+      disposition: "closed",
+      reason_code: "published",
+      summary: "Public projection was published with proof bindings.",
+      closed_at: "2026-05-18T00:05:00Z",
+    };
+    const actRef = {
+      harness_receipt_ref: harnessReceiptRef,
+      act_id: "act_publish_feed",
+    };
+
+    expect(validateTargetContract({
+      schema: "runx.target.v1",
+      target_id: "target_1",
+      target_ref: targetRef,
+      title: "Aster public proof surface",
+      lifecycle_state: "active",
+      authority_refs: [{ type: "grant", uri: "runx:grant:aster_publication" }],
+      fingerprint,
+      cooldown: { state: "none" },
+      verification_recipe_refs: [{ type: "verification", uri: "runx:verification_recipe:public_feed" }],
+      created_at: "2026-05-18T00:00:00Z",
+      updated_at: "2026-05-18T00:01:00Z",
+    })).toMatchObject({ schema: "runx.target.v1", lifecycle_state: "active" });
+
+    expect(validateOpportunityContract({
+      schema: "runx.opportunity.v1",
+      opportunity_id: "opp_1",
+      target_ref: targetRef,
+      summary: "Publish a clearer proof entry for the selected public surface.",
+      proposed_form: "observation",
+      value_score: 86,
+      risk_score: 12,
+      freshness_expires_at: "2026-05-19T00:00:00Z",
+      fingerprint,
+      source_refs: [sourceRef],
+      evidence_refs: [evidenceRef],
+      discovered_at: "2026-05-18T00:01:00Z",
+    })).toMatchObject({ schema: "runx.opportunity.v1", proposed_form: "observation" });
+
+    expect(validateThesisAssessmentContract({
+      schema: "runx.thesis_assessment.v1",
+      assessment_id: "assess_1",
+      target_ref: targetRef,
+      opportunity_ref: opportunityRef,
+      thesis_ref: thesisRef,
+      score: 91,
+      rubric_refs: [thesisRef],
+      proof_strength: "strong",
+      authority_cost: "low",
+      rationale: "The entry improves public proof without broadening authority.",
+      evidence_refs: [evidenceRef],
+      assessed_at: "2026-05-18T00:02:00Z",
+    })).toMatchObject({ schema: "runx.thesis_assessment.v1", score: 91 });
+
+    expect(validateSelectionContract({
+      schema: "runx.selection.v1",
+      selection_id: "sel_1",
+      cycle_ref: selectionCycleRef,
+      opportunity_ref: opportunityRef,
+      candidate_refs: [opportunityRef],
+      rank: 1,
+      score: 91,
+      selected: true,
+      reason: "Highest value public proof candidate inside current authority.",
+      decision_ref: decisionRef,
+      evidence_refs: [evidenceRef],
+      selected_at: "2026-05-18T00:03:00Z",
+    })).toMatchObject({ schema: "runx.selection.v1", selected: true });
+
+    expect(validateSkillBindingContract({
+      schema: "runx.skill_binding.v1",
+      binding_id: "binding_1",
+      skill_ref: { type: "artifact", uri: "runx:skill:project-feed-entry" },
+      scope_family: "publication",
+      allowed_act_forms: ["observation"],
+      authority_refs: [{ type: "grant", uri: "runx:grant:aster_publication" }],
+      policy_refs: [redactionPolicyRef],
+      harness_template_ref: { type: "harness", uri: "runx:harness_template:public_feed" },
+      active: true,
+      created_at: "2026-05-18T00:00:00Z",
+      updated_at: "2026-05-18T00:01:00Z",
+    })).toMatchObject({ schema: "runx.skill_binding.v1", allowed_act_forms: ["observation"] });
+
+    expect(validateTargetTransitionEntryContract({
+      schema: "runx.target_transition_entry.v1",
+      entry_id: "tte_1",
+      target_ref: targetRef,
+      from_state: "eligible",
+      to_state: "active",
+      reason_code: "selected",
+      summary: "Target entered the active selector set.",
+      source_refs: [sourceRef],
+      decision_ref: decisionRef,
+      harness_receipt_ref: harnessReceiptRef,
+      recorded_at: "2026-05-18T00:03:30Z",
+    })).toMatchObject({ schema: "runx.target_transition_entry.v1", to_state: "active" });
+
+    expect(validateSelectionCycleContract({
+      schema: "runx.selection_cycle.v1",
+      cycle_id: "cycle_1",
+      state: "closed",
+      started_at: "2026-05-18T00:00:00Z",
+      closed_at: "2026-05-18T00:04:00Z",
+      input_refs: [sourceRef],
+      target_refs: [targetRef],
+      opportunity_refs: [opportunityRef],
+      ranked_selection_refs: [selectionRef],
+      chosen_selection_ref: selectionRef,
+      decision_ref: decisionRef,
+      harness_receipt_ref: harnessReceiptRef,
+      no_action_closure: null,
+      fingerprint,
+    })).toMatchObject({ schema: "runx.selection_cycle.v1", state: "closed" });
+
+    expect(validateActContract({
+      act_id: "act_publish_feed",
+      form: "observation",
+      intent: {
+        purpose: "Publish a public-safe proof projection.",
+        legitimacy: "Aster selected the opportunity under publication authority.",
+        success_criteria: [{
+          criterion_id: "crit_public_proof",
+          statement: "The feed entry cites proof, verification, and redaction policy.",
+          required: true,
+        }],
+        constraints: ["Do not publish private evidence."],
+        derived_from: [selectionRef],
+      },
+      summary: "Projected a public proof entry.",
+      closure,
+      criterion_bindings: [{
+        criterion_id: "crit_public_proof",
+        status: "verified",
+        evidence_refs: [evidenceRef],
+        verification_refs: [verificationRef],
+      }],
+      source_refs: [selectionRef],
+      target_refs: [targetRef],
+      surface_refs: [],
+      artifact_refs: [evidenceRef],
+      verification_refs: [verificationRef],
+      harness_refs: [{ type: "harness", uri: "runx:harness:hrn_1" }],
+      performed_at: "2026-05-18T00:04:00Z",
+    })).toMatchObject({ form: "observation", closure });
+
+    expect(validateReflectionEntryContract({
+      schema: "runx.reflection_entry.v1",
+      reflection_id: "reflect_1",
+      target_ref: targetRef,
+      opportunity_ref: opportunityRef,
+      selection_ref: selectionRef,
+      decision_ref: decisionRef,
+      harness_receipt_refs: [harnessReceiptRef],
+      act_refs: [actRef],
+      summary: "Public proof entry was useful and low-risk.",
+      lessons: ["Keep feed projections tied to sealed harness receipts."],
+      follow_up_refs: [],
+      evidence_refs: [evidenceRef],
+      recorded_at: "2026-05-18T00:06:00Z",
+    })).toMatchObject({ schema: "runx.reflection_entry.v1" });
+
+    const feedEntry = validateFeedEntryContract({
+      schema: "runx.feed_entry.v1",
+      feed_entry_id: "feed_1",
+      public_at: "2026-05-18T00:07:00Z",
+      title: "Aster published a proof-bound entry",
+      summary: "The public entry cites a sealed harness receipt, contained act, decision, verification, and redaction policy.",
+      target_ref: targetRef,
+      opportunity_ref: opportunityRef,
+      selection_ref: selectionRef,
+      decision_refs: [decisionRef],
+      harness_receipt_refs: [harnessReceiptRef],
+      act_refs: [actRef],
+      verification_refs: [verificationRef],
+      evidence_refs: [evidenceRef],
+      artifact_refs: [evidenceRef],
+      redaction_policy_ref: redactionPolicyRef,
+      redaction_refs: [{ type: "redaction_policy", uri: "runx:redaction:redaction_1" }],
+    });
+
+    expect(runxContractSchemas.feedEntry.$id).toBe(RUNX_CONTRACT_IDS.feedEntry);
+    expect(runxGeneratedSchemaArtifacts["feed-entry.schema.json"]).toBe(runxContractSchemas.feedEntry);
+    expect(feedEntry).toMatchObject({
+      schema: "runx.feed_entry.v1",
+      decision_refs: [decisionRef],
+      harness_receipt_refs: [harnessReceiptRef],
+      act_refs: [actRef],
+      verification_refs: [verificationRef],
+      redaction_policy_ref: redactionPolicyRef,
+    });
+    expect(() => validateFeedEntryContract({
+      ...feedEntry,
+      harness_receipt_refs: [],
+    })).toThrow(/feed-entry\/v1\.json/);
   });
 });

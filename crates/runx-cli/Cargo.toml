@@ -1,0 +1,20 @@
+[package]
+name = "runx-cli"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+description = "Cargo-installed launcher for the runx governed agent workflow CLI."
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+keywords = ["runx", "cli", "agents", "workflow", "receipts"]
+categories = ["command-line-utilities", "development-tools"]
+include = ["Cargo.toml", "README.md", "src/**/*.rs"]
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "runx"
+path = "src/main.rs"

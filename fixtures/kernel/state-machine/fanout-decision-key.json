@@ -1,0 +1,15 @@
+{
+  "$schema": "../schema/state-machine.schema.json",
+  "expected": {
+    "kind": "output",
+    "value": "advisors:conflict.report"
+  },
+  "input": {
+    "decision": {
+      "groupId": "advisors",
+      "ruleFired": "conflict.report"
+    },
+    "kind": "state-machine.fanoutSyncDecisionKey"
+  },
+  "name": "fanout-decision-key"
+}

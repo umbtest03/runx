@@ -43,14 +43,14 @@ Produce a bounded artifact.
       let profileHash: string | undefined;
       const caller: Caller = {
         resolve: async (request) => {
-          if (request.kind !== "cognitive_work") {
+          if (request.kind !== "agent_act") {
             return undefined;
           }
-          expect(request.work.envelope.quality_profile).toMatchObject({
+          expect(request.invocation.envelope.quality_profile).toMatchObject({
             source: "SKILL.md#quality-profile",
             content: expect.stringContaining("maintainer-grade artifact"),
           });
-          profileHash = request.work.envelope.quality_profile?.sha256;
+          profileHash = request.invocation.envelope.quality_profile?.sha256;
           expect(profileHash).toMatch(/^[a-f0-9]{64}$/);
           return {
             actor: "agent",

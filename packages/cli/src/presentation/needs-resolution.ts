@@ -69,9 +69,9 @@ export function renderNeedsResolution(
     }
   } else {
     const work = result.requests
-      .filter((request): request is Extract<ResolutionRequest, { kind: "cognitive_work" }> => request.kind === "cognitive_work")
+      .filter((request): request is Extract<ResolutionRequest, { kind: "agent_act" }> => request.kind === "agent_act")
       .map((request) => {
-        const task = request.work.task ?? request.work.envelope.step_id ?? request.work.envelope.skill;
+        const task = request.invocation.task ?? request.invocation.envelope.step_id ?? request.invocation.envelope.skill;
         const prefix = `${result.skill.name}-`;
         return task.startsWith(prefix) ? task.slice(prefix.length) : task;
       });
@@ -90,10 +90,10 @@ export function renderNeedsResolution(
       }
     }
   }
-  if (kinds.includes("cognitive_work") && localAgents.length > 0) {
+  if (kinds.includes("agent_act") && localAgents.length > 0) {
     lines.push(`  ${t.dim}Detected here:${t.reset} ${localAgents.map((agent) => agent.label).join(", ")}`);
     lines.push(`  ${t.dim}Best path:${t.reset} open this repo in ${localAgents.map((agent) => agent.label).join(" or ")} and run ${t.cyan}runx resume ${result.runId}${t.reset}${t.dim} there.${t.reset}`);
-  } else if (kinds.includes("cognitive_work")) {
+  } else if (kinds.includes("agent_act")) {
     lines.push(`  ${t.dim}Best path:${t.reset} run ${t.cyan}runx resume ${result.runId}${t.reset}${t.dim} from Codex or Claude Code, or script the step with ${t.cyan}--answers${t.reset}${t.dim}.${t.reset}`);
   } else if (kinds.includes("approval")) {
     lines.push(`  ${t.dim}Best path:${t.reset} run ${t.cyan}runx resume ${result.runId}${t.reset}${t.dim} to approve, or pass ${t.cyan}--answers${t.reset}${t.dim} with approval decisions.${t.reset}`);
@@ -136,8 +136,8 @@ function expectedOutputLabels(requests: readonly ResolutionRequest[]): readonly 
   return Array.from(
     new Set(
       requests
-        .filter((request): request is Extract<ResolutionRequest, { kind: "cognitive_work" }> => request.kind === "cognitive_work")
-        .flatMap((request) => Object.keys(request.work.envelope.expected_outputs ?? {}))
+        .filter((request): request is Extract<ResolutionRequest, { kind: "agent_act" }> => request.kind === "agent_act")
+        .flatMap((request) => Object.keys(request.invocation.envelope.output ?? {}))
         .map((value) => humanizeExpectedOutput(value)),
     ),
   );
@@ -167,8 +167,8 @@ export function humanizeExpectedOutput(value: string): string {
 }
 
 function firstCognitiveSkill(requests: readonly ResolutionRequest[]): string | undefined {
-  return requests.find((request): request is Extract<ResolutionRequest, { kind: "cognitive_work" }> => request.kind === "cognitive_work")
-    ?.work.envelope.skill;
+  return requests.find((request): request is Extract<ResolutionRequest, { kind: "agent_act" }> => request.kind === "agent_act")
+    ?.invocation.envelope.skill;
 }
 
 function sourceyPauseCopy(
@@ -217,9 +217,9 @@ function cognitiveNeedPhrase(requests: readonly ResolutionRequest[], skillName: 
   const tasks = Array.from(
     new Set(
       requests
-        .filter((request): request is Extract<ResolutionRequest, { kind: "cognitive_work" }> => request.kind === "cognitive_work")
+        .filter((request): request is Extract<ResolutionRequest, { kind: "agent_act" }> => request.kind === "agent_act")
         .map((request) => {
-          const task = request.work.task ?? request.work.envelope.step_id ?? request.work.envelope.skill;
+          const task = request.invocation.task ?? request.invocation.envelope.step_id ?? request.invocation.envelope.skill;
           const prefix = `${skillName}-`;
           return task.startsWith(prefix) ? task.slice(prefix.length) : task;
         })

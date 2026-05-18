@@ -1,4 +1,4 @@
-import type { AdapterInvokeRequest, AdapterInvokeResult, SkillAdapter } from "@runxhq/core/executor";
+import type { AdapterActInvocation, ActReceiptEnvelope, SkillAdapter } from "@runxhq/core/executor";
 import { hashStable, hashString } from "@runxhq/core/util";
 
 export const a2aAdapterPackage = "@runxhq/adapters/a2a";
@@ -47,9 +47,9 @@ export function createA2aAdapter(options: CreateA2aAdapterOptions = {}): A2aAdap
 }
 
 export async function invokeA2a(
-  request: AdapterInvokeRequest,
+  request: AdapterActInvocation,
   options: CreateA2aAdapterOptions = {},
-): Promise<AdapterInvokeResult> {
+): Promise<ActReceiptEnvelope> {
   const started = performance.now();
   const source = request.source;
   const agentCardUrl = source.agentCardUrl;
@@ -199,7 +199,7 @@ function stringifyA2aOutput(output: unknown): string {
 }
 
 function metadataFor(
-  source: AdapterInvokeRequest["source"],
+  source: AdapterActInvocation["source"],
   task?: A2aTask,
   message?: Readonly<Record<string, unknown>>,
   cancelError?: string,
@@ -222,7 +222,7 @@ function failure(
   message: string,
   started: number,
   metadata?: Readonly<Record<string, unknown>>,
-): AdapterInvokeResult {
+): ActReceiptEnvelope {
   return {
     status: "failure",
     stdout: "",

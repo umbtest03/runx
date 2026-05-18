@@ -147,7 +147,7 @@ describe("builder skill improve-skill", () => {
 function createBuilderCaller(): Caller {
   return {
     resolve: async (request) =>
-      request.kind === "cognitive_work"
+      request.kind === "agent_act"
         ? {
             actor: "agent",
             payload: answerForAgentStep(request.id),

@@ -1,4 +1,4 @@
-import type { AdapterInvokeRequest, AdapterInvokeResult, SkillAdapter } from "@runxhq/core/executor";
+import type { AdapterActInvocation, ActReceiptEnvelope, SkillAdapter } from "@runxhq/core/executor";
 
 export interface HarnessHookHandlerResult {
   readonly status?: "success" | "failure";
@@ -7,7 +7,7 @@ export interface HarnessHookHandlerResult {
   readonly metadata?: Readonly<Record<string, unknown>>;
 }
 
-export type HarnessHookHandler = (request: AdapterInvokeRequest) => HarnessHookHandlerResult | Promise<HarnessHookHandlerResult>;
+export type HarnessHookHandler = (request: AdapterActInvocation) => HarnessHookHandlerResult | Promise<HarnessHookHandlerResult>;
 
 export interface HarnessHookAdapterOptions {
   readonly handlers?: Readonly<Record<string, HarnessHookHandler>>;
@@ -50,7 +50,7 @@ export function createHarnessHookAdapter(options: HarnessHookAdapterOptions = {}
   };
 }
 
-function defaultHandler(request: AdapterInvokeRequest): HarnessHookHandlerResult {
+function defaultHandler(request: AdapterActInvocation): HarnessHookHandlerResult {
   return {
     output: {
       hook: request.source.hook,
@@ -59,7 +59,7 @@ function defaultHandler(request: AdapterInvokeRequest): HarnessHookHandlerResult
   };
 }
 
-function failure(errorMessage: string): AdapterInvokeResult {
+function failure(errorMessage: string): ActReceiptEnvelope {
   return {
     status: "failure",
     stdout: "",

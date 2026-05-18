@@ -40,7 +40,7 @@ import {
   type Context,
   type ContextDocument,
   executeSkill,
-  type AdapterInvokeResult,
+  type ActReceiptEnvelope,
   type ApprovalGate,
   type CredentialEnvelope,
   type NestedSkillInvocation,
@@ -302,7 +302,7 @@ export type RunLocalSkillResult =
       readonly status: "success" | "failure";
       readonly skill: ValidatedSkill;
       readonly inputs: Readonly<Record<string, unknown>>;
-      readonly execution: AdapterInvokeResult;
+      readonly execution: ActReceiptEnvelope;
       readonly state: SingleStepState;
       readonly receipt: LocalReceipt;
     };

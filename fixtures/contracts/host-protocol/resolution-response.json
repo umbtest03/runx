@@ -1,0 +1,1 @@
+{"description":"Host protocol resolution_response fixture generated from the TypeScript serializable wire subset.","expected":{"actor":"human","payload":{"answer":"Proceed"}},"fixture_kind":"resolution_response","name":"resolution-response","scope":"host-protocol"}

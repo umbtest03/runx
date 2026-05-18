@@ -9,9 +9,9 @@ import {
 } from "@runxhq/core/config";
 import { errorMessage } from "@runxhq/core/util";
 import {
-  type AdapterInvokeRequest,
-  type AdapterInvokeResult,
-  type CognitiveResolutionRequest,
+  type AdapterActInvocation,
+  type ActReceiptEnvelope,
+  type AgentActResolutionRequest,
   type NestedSkillInvoker,
   type ResolutionResponse,
   type SkillAdapter,
@@ -20,7 +20,7 @@ import {
 import { resolveWithAnthropic } from "./anthropic.js";
 import { resolveWithOpenAi } from "./openai.js";
 import { resolveManagedRuntimeTools } from "./runtime-tools.js";
-import { buildManagedAgentWorkRequest, nativeAgentMetadata } from "./work-request.js";
+import { buildManagedAgentActInvocation, nativeAgentMetadata } from "./agent-act-invocation.js";
 
 export type ManagedAgentProvider = "openai" | "anthropic";
 
@@ -86,7 +86,7 @@ export function createManagedAgentStepAdapter(config: ManagedAgentConfig): Skill
 
 export async function executeManagedAgentResolution(
   config: ManagedAgentConfig,
-  request: CognitiveResolutionRequest,
+  request: AgentActResolutionRequest,
   options: {
     readonly env?: NodeJS.ProcessEnv;
     readonly signal?: AbortSignal;
@@ -105,20 +105,20 @@ export async function executeManagedAgentResolution(
 
 async function invokeManagedAgentAdapter(
   config: ManagedAgentConfig,
-  request: AdapterInvokeRequest,
+  request: AdapterActInvocation,
   sourceType: "agent" | "agent-step",
-): Promise<AdapterInvokeResult> {
+): Promise<ActReceiptEnvelope> {
   const started = performance.now();
   const env = request.env ?? process.env;
-  const work = buildManagedAgentWorkRequest(request, sourceType);
+  const invocation = buildManagedAgentActInvocation(request, sourceType);
 
   try {
     const execution = await executeManagedAgentRequest(
       config,
       {
-        id: work.id,
-        kind: "cognitive_work",
-        work,
+        id: invocation.id,
+        kind: "agent_act",
+        invocation,
       },
       {
         env,
@@ -170,29 +170,29 @@ async function invokeManagedAgentAdapter(
 
 async function executeManagedAgentRequest(
   config: ManagedAgentConfig,
-  request: CognitiveResolutionRequest,
+  request: AgentActResolutionRequest,
   options: {
     readonly env?: NodeJS.ProcessEnv;
     readonly signal?: AbortSignal;
     readonly searchFromDirectory?: string;
     readonly nestedSkillInvoker?: NestedSkillInvoker;
     readonly allowPauseOnNestedResolution?: boolean;
-    readonly toolCatalogAdapters?: AdapterInvokeRequest["toolCatalogAdapters"];
+    readonly toolCatalogAdapters?: AdapterActInvocation["toolCatalogAdapters"];
   } = {},
 ) {
   const env = options.env ?? process.env;
   const searchFromDirectory = path.resolve(
     options.searchFromDirectory
-      ?? request.work.envelope.execution_location?.skill_directory
+      ?? request.invocation.envelope.execution_location?.skill_directory
       ?? env.RUNX_CWD
       ?? process.cwd(),
   );
   const runtimeTools = await resolveManagedRuntimeTools(
-    request.work.envelope.allowed_tools,
+    request.invocation.envelope.allowed_tools,
     searchFromDirectory,
     env,
     options.signal,
-    request.work.envelope.execution_location?.tool_roots,
+    request.invocation.envelope.execution_location?.tool_roots,
     options.nestedSkillInvoker,
     options.toolCatalogAdapters,
   );

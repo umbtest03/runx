@@ -1,0 +1,14 @@
+{
+  "$schema": "../schema/policy.schema.json",
+  "expected": {
+    "kind": "output",
+    "value": true
+  },
+  "input": {
+    "kind": "policy.sandboxRequiresApproval",
+    "sandbox": {
+      "profile": "unrestricted-local-dev"
+    }
+  },
+  "name": "sandbox-requires-approval-boolean"
+}

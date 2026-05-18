@@ -18,6 +18,8 @@ coverage/
 .sourcey/
 .turbo/
 *.tsbuildinfo
+target/
+**/target/
 __pycache__/
 *.py[cod]
 build/
@@ -36,8 +38,8 @@ packages/cli/tools/
 # local runx state
 .runx/
 /knowledge/
-runx-receipts/
-runx-output/
+/runx-receipts/
+/runx-output/
 runx-answers.json
 
 # scafld runtime state

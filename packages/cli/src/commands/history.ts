@@ -169,9 +169,9 @@ export function renderHistory(
     lines.push(
       `  ${icon}  ${t.bold}${name}${t.reset}  ${t.dim}${source.padEnd(16)}${t.reset}  ${t.dim}${verification.padEnd(16)}${t.reset}  ${t.dim}${when.padEnd(10)}${t.reset}  ${t.dim}${id}${t.reset}`,
     );
-    const workItemStatus = formatWorkItemHistoryStatus(receipt);
-    if (workItemStatus) {
-      lines.push(`     ${t.dim}${workItemStatus}${t.reset}`);
+    const harnessStatus = formatHarnessHistoryStatus(receipt);
+    if (harnessStatus) {
+      lines.push(`     ${t.dim}${harnessStatus}${t.reset}`);
     }
   }
   lines.push("");
@@ -184,14 +184,14 @@ export function renderHistory(
   return lines.join("\n");
 }
 
-function formatWorkItemHistoryStatus(receipt: LocalReceiptSummary): string | undefined {
-  if (!receipt.workItemState && !receipt.workItemStatusSummary && !receipt.workItemId) {
+function formatHarnessHistoryStatus(receipt: LocalReceiptSummary): string | undefined {
+  if (!receipt.harnessState && !receipt.harnessSealSummary && !receipt.harnessId) {
     return undefined;
   }
   const parts = [
-    receipt.workItemId ? `work item ${receipt.workItemId}` : "work item",
-    receipt.workItemState,
-    receipt.workItemStatusSummary,
+    receipt.harnessId ? `harness ${receipt.harnessId}` : "harness",
+    receipt.harnessState,
+    receipt.harnessSealSummary,
   ].filter((value): value is string => Boolean(value));
   return parts.join(" · ");
 }

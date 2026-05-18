@@ -29,7 +29,7 @@ const writePausedLedger = async (receiptDir: string, runId: string, skillName: s
         status: "waiting",
         detail: {
           request_ids: ["agent_step.test-step.output"],
-          resolution_kinds: ["cognitive_work"],
+          resolution_kinds: ["agent_act"],
           step_ids: ["discover"],
           step_labels: ["inspect repo"],
           inputs: {},

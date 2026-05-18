@@ -37,10 +37,10 @@ describe("sourcey skill", () => {
           if (request.kind === "approval") {
             return request.gate.id === "sourcey.discovery.approval" ? { actor: "human", payload: true } : undefined;
           }
-          if (request.kind !== "cognitive_work") {
+          if (request.kind !== "agent_act") {
             return undefined;
           }
-          if (request.work.envelope.skill === "sourcey.discover") {
+          if (request.invocation.envelope.skill === "sourcey.discover") {
             return {
               actor: "agent",
               payload: {
@@ -59,7 +59,7 @@ describe("sourcey skill", () => {
               },
             };
           }
-          if (request.work.envelope.skill === "sourcey.author") {
+          if (request.invocation.envelope.skill === "sourcey.author") {
             return {
               actor: "agent",
               payload: {
@@ -70,7 +70,7 @@ describe("sourcey skill", () => {
               },
             };
           }
-          if (request.work.envelope.skill === "sourcey.critique") {
+          if (request.invocation.envelope.skill === "sourcey.critique") {
             return {
               actor: "agent",
               payload: {
@@ -84,7 +84,7 @@ describe("sourcey skill", () => {
               },
             };
           }
-          if (request.work.envelope.skill === "sourcey.revise") {
+          if (request.invocation.envelope.skill === "sourcey.revise") {
             return {
               actor: "agent",
               payload: {
@@ -95,7 +95,7 @@ describe("sourcey skill", () => {
               },
             };
           }
-          throw new Error(`Unexpected agent task ${request.work.envelope.skill}`);
+          throw new Error(`Unexpected agent task ${request.invocation.envelope.skill}`);
         },
         report: () => undefined,
       };
@@ -126,7 +126,7 @@ describe("sourcey skill", () => {
           output_dir: string;
           contains_doctype: boolean;
           discovery_report: { discovered: { brand_name: string; docs_inputs: { mode: string; config: string } } };
-          verification_report: { verified: boolean };
+          verification_proof: { verified: boolean };
         };
       };
       const output = packet.data;
@@ -144,7 +144,7 @@ describe("sourcey skill", () => {
             },
           },
         },
-        verification_report: {
+        verification_proof: {
           verified: true,
         },
       });
@@ -200,18 +200,18 @@ describe("sourcey skill", () => {
         if (request.kind === "approval") {
           return request.gate.id === "sourcey.discovery.approval" ? { actor: "human", payload: true } : undefined;
         }
-        if (request.kind !== "cognitive_work") {
+        if (request.kind !== "agent_act") {
           return undefined;
         }
-        if (request.work.envelope.skill === "sourcey.discover") {
-          expect(request.work.envelope.allowed_tools).toEqual([
+        if (request.invocation.envelope.skill === "sourcey.discover") {
+          expect(request.invocation.envelope.allowed_tools).toEqual([
             "fs.read",
             "git.status",
             "git.current_branch",
             "git.diff_name_only",
             "cli.capture_help",
           ]);
-          expect(request.work.envelope.inputs.project_brief).toMatchObject(projectBrief);
+          expect(request.invocation.envelope.inputs.project_brief).toMatchObject(projectBrief);
           return {
             actor: "agent",
             payload: {
@@ -230,8 +230,8 @@ describe("sourcey skill", () => {
             },
           };
         }
-        if (request.work.envelope.skill === "sourcey.author") {
-          expect(request.work.envelope.allowed_tools).toEqual(["fs.read", "cli.capture_help"]);
+        if (request.invocation.envelope.skill === "sourcey.author") {
+          expect(request.invocation.envelope.allowed_tools).toEqual(["fs.read", "cli.capture_help"]);
           return {
             actor: "agent",
             payload: {
@@ -286,8 +286,8 @@ describe("sourcey skill", () => {
             },
           };
         }
-        if (request.work.envelope.skill === "sourcey.critique") {
-          expect(request.work.envelope.allowed_tools).toEqual(["fs.read"]);
+        if (request.invocation.envelope.skill === "sourcey.critique") {
+          expect(request.invocation.envelope.allowed_tools).toEqual(["fs.read"]);
           return {
             actor: "agent",
             payload: {
@@ -301,8 +301,8 @@ describe("sourcey skill", () => {
             },
           };
         }
-        if (request.work.envelope.skill === "sourcey.revise") {
-          expect(request.work.envelope.allowed_tools).toEqual(["fs.read"]);
+        if (request.invocation.envelope.skill === "sourcey.revise") {
+          expect(request.invocation.envelope.allowed_tools).toEqual(["fs.read"]);
           return {
             actor: "agent",
             payload: {
@@ -338,7 +338,7 @@ describe("sourcey skill", () => {
             },
           };
         }
-        throw new Error(`Unexpected agent task ${request.work.envelope.skill}`);
+        throw new Error(`Unexpected agent task ${request.invocation.envelope.skill}`);
       },
       report: () => undefined,
     };

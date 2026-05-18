@@ -46,11 +46,11 @@
       "artifact": true,
       "description": "Revision bundle emitted by the revise step."
     },
-    "sourcey_verification_report": {
+    "sourcey_verification_proof": {
       "type": "json",
       "required": true,
       "artifact": true,
-      "description": "Verification report emitted by sourcey.verify."
+      "description": "Verification proof emitted by sourcey.verify."
     }
   },
   "output": {
@@ -71,7 +71,7 @@
       "./run.mjs"
     ]
   },
-  "source_hash": "sha256:28e847f89a492d1faf2961ed33fc572c1f0714eb967e2dd7af4f655d58c7addc",
-  "schema_hash": "sha256:513c043cce178e985c7af86690bb058301057ddbd4f3dbc3af06463ec922e8f1",
+  "source_hash": "sha256:2d02ac5a646a9fa4253ec987fe4837e7d622cef5e05e92554c4f28324110cd5e",
+  "schema_hash": "sha256:975669ce4f792acc392b93ec9cc6010cb95a9dacff5dbdcc420e9b64448d8dd4",
   "toolkit_version": "0.1.4"
 }

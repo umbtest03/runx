@@ -321,7 +321,7 @@ runners:
             sourcey_build_report: rebuild.sourcey_build_report.data.data
             evaluation_report: critique.evaluation_report.data
             revision_bundle: revise.revision_bundle.data
-            sourcey_verification_report: verify.sourcey_verification_report.data.data
+            sourcey_verification_proof: verify.sourcey_verification_proof.data.data
       policy:
         transitions:
           - to: author

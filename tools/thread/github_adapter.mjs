@@ -476,7 +476,7 @@ export function hydrateGitHubIssueThread({ adapterRef, issue, pullRequests }) {
       adapter_ref: issueRef.adapter_ref,
       cursor: buildGitHubIssueCursor(issueRecord, comments, normalizedPullRequests),
     },
-    thread_kind: "work_item",
+    thread_kind: "signal",
     thread_locator: issueRef.thread_locator,
     title: firstNonEmptyString(issueRecord.title),
     canonical_uri: issueRef.issue_url,

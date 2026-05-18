@@ -48,3 +48,16 @@ jobs:
 
       - name: Verify
         run: pnpm verify:fast
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Rust checks
+        working-directory: crates
+        run: |
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
+          cargo package -p runx-cli

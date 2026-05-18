@@ -27,7 +27,7 @@ Common fixes:
 
 ## Exit Code 2: Needs Resolution
 
-The run paused because it needs input, approval, or cognitive work before it
+The run paused because it needs input, approval, or agent act before it
 can continue. In production mode (`RUNX_PRODUCTION=1`), unresolved cognitive
 work is treated as a non-resumable failure but keeps exit code 2 so automation
 can distinguish it from ordinary command failure.

@@ -1,11 +1,10 @@
-export const policyPackage = "@runxhq/core/policy";
-
-import path from "node:path";
-
 import { unique } from "../util/array.js";
 
 import { admitSandbox } from "./sandbox.js";
 import { connectedAuthRequirement } from "./authority-proof.js";
+import { posixBasename } from "./posix-basename.js";
+
+export const policyPackage = "@runxhq/core/policy";
 
 export interface LocalAdmissionSkill {
   readonly name: string;
@@ -278,7 +277,7 @@ function normalizeExecutableName(command: string | undefined): string {
   if (!command) {
     return "";
   }
-  return path.basename(command).toLowerCase().replace(/\.(exe|cmd|bat)$/u, "");
+  return posixBasename(command).toLowerCase().replace(/\.(exe|cmd|bat)$/u, "");
 }
 
 function unwrapEnvCommand(args: readonly string[]): { readonly command: string; readonly args: readonly string[] } | undefined {

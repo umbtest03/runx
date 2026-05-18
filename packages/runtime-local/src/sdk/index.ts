@@ -1,7 +1,7 @@
 export const sdkJsPackage = "@runxhq/runtime-local/sdk";
 
 export * from "./caller.js";
-export * from "./capability-execution.js";
+export * from "./act-assignment.js";
 export * from "./host-protocol.js";
 export * from "./trusted-host-outcome.js";
 

@@ -2,30 +2,30 @@ export const executorPackage = "@runxhq/core/executor";
 
 import {
   RUNX_CONTROL_SCHEMA_REFS,
-  validateAdapterInvokeResultContract,
+  validateActReceiptEnvelopeContract,
   validateAgentContextEnvelopeContract,
-  validateAgentWorkRequestContract,
+  validateAgentActInvocationContract,
   validateApprovalGateContract,
   validateCredentialEnvelopeContract,
-  validateOutputContractContract,
+  validateOutputContract,
   validateQuestionContract,
   validateResolutionRequestContract,
   validateResolutionResponseContract,
-  type AdapterInvokeResultContract,
+  type ActReceiptEnvelopeContract,
   type AgentContextEnvelopeContract,
   type AgentContextProvenanceContract,
-  type AgentWorkRequestContract,
+  type AgentActInvocationContract,
   type ArtifactEnvelopeContract,
   type ApprovalGateContract,
   type ApprovalResolutionRequestContract,
-  type CognitiveResolutionRequestContract,
+  type AgentActResolutionRequestContract,
   type ContextContract,
   type ContextDocumentContract,
   type CredentialEnvelopeContract,
   type ExecutionLocationContract,
   type InputResolutionRequestContract,
-  type OutputContractContract,
-  type OutputContractEntryContract,
+  type OutputContract,
+  type OutputEntryContract,
   type QualityProfileContextContract,
   type QuestionContract,
   type ResolutionRequestContract,
@@ -35,31 +35,31 @@ import type { SkillInput, ValidatedSkill, ValidatedTool } from "../parser/index.
 import { asRecord } from "../util/types.js";
 
 export const CONTROL_SCHEMA_REFS = {
-  output_contract: RUNX_CONTROL_SCHEMA_REFS.output_contract,
+  output: RUNX_CONTROL_SCHEMA_REFS.output,
   agent_context_envelope: RUNX_CONTROL_SCHEMA_REFS.agent_context_envelope,
-  agent_work_request: RUNX_CONTROL_SCHEMA_REFS.agent_work_request,
+  agent_act_invocation: RUNX_CONTROL_SCHEMA_REFS.agent_act_invocation,
   question: RUNX_CONTROL_SCHEMA_REFS.question,
   approval_gate: RUNX_CONTROL_SCHEMA_REFS.approval_gate,
   resolution_request: RUNX_CONTROL_SCHEMA_REFS.resolution_request,
   resolution_response: RUNX_CONTROL_SCHEMA_REFS.resolution_response,
-  adapter_invoke_result: RUNX_CONTROL_SCHEMA_REFS.adapter_invoke_result,
+  act_receipt: RUNX_CONTROL_SCHEMA_REFS.act_receipt,
   credential_envelope: RUNX_CONTROL_SCHEMA_REFS.credential_envelope,
 } as const;
 
-export type OutputContractEntry = OutputContractEntryContract;
-export type OutputContract = OutputContractContract;
+export type OutputEntry = OutputEntryContract;
+export type Output = OutputContract;
 export type AgentContextProvenance = AgentContextProvenanceContract;
 export type ContextDocument = ContextDocumentContract;
 export type Context = ContextContract;
 export type QualityProfileContext = QualityProfileContextContract;
 export type ExecutionLocation = ExecutionLocationContract;
 export type AgentContextEnvelope = AgentContextEnvelopeContract;
-export type AgentWorkRequest = AgentWorkRequestContract;
+export type AgentActInvocation = AgentActInvocationContract;
 export type Question = QuestionContract;
 export type ApprovalGate = ApprovalGateContract;
 export type InputResolutionRequest = InputResolutionRequestContract;
 export type ApprovalResolutionRequest = ApprovalResolutionRequestContract;
-export type CognitiveResolutionRequest = CognitiveResolutionRequestContract;
+export type AgentActResolutionRequest = AgentActResolutionRequestContract;
 export type ResolutionRequest = ResolutionRequestContract;
 export type ResolutionResponse = ResolutionResponseContract;
 
@@ -158,7 +158,7 @@ export interface ToolCatalogAdapter {
   ) => Promise<ToolCatalogResolvedTool | undefined>;
 }
 
-export interface AdapterInvokeRequest {
+export interface AdapterActInvocation {
   readonly skillName?: string;
   readonly skillBody?: string;
   readonly allowedTools?: readonly string[];
@@ -216,14 +216,14 @@ export type NestedSkillInvoker = (
   options: NestedSkillInvocation,
 ) => Promise<NestedSkillInvocationResult>;
 
-export type AdapterInvokeResult = AdapterInvokeResultContract;
+export type ActReceiptEnvelope = ActReceiptEnvelopeContract;
 
 export interface SkillAdapter {
   // Execution adapters do work for one source type. They do not own
   // approvals, receipts, or host interaction; the kernel mediates those
   // boundaries and surfaces resolve them.
   readonly type: string;
-  readonly invoke: (request: AdapterInvokeRequest) => Promise<AdapterInvokeResult>;
+  readonly invoke: (request: AdapterActInvocation) => Promise<ActReceiptEnvelope>;
 }
 
 export type CredentialEnvelope = CredentialEnvelopeContract;
@@ -250,7 +250,7 @@ export interface ExecuteSkillOptions {
   readonly toolCatalogAdapters?: readonly ToolCatalogAdapter[];
 }
 
-export async function executeSkill(options: ExecuteSkillOptions): Promise<AdapterInvokeResult> {
+export async function executeSkill(options: ExecuteSkillOptions): Promise<ActReceiptEnvelope> {
   const adapter = options.adapters.find((candidate) => candidate.type === options.skill.source.type);
 
   if (!adapter) {
@@ -289,11 +289,11 @@ export async function executeSkill(options: ExecuteSkillOptions): Promise<Adapte
   });
 }
 
-export function validateOutputContract(value: unknown, label = "output_contract"): OutputContract | undefined {
+export function validateOutput(value: unknown, label = "output"): Output | undefined {
   if (value === undefined) {
     return undefined;
   }
-  return validateOutputContractContract(value, label);
+  return validateOutputContract(value, label);
 }
 
 export function validateAgentContextEnvelope(
@@ -303,8 +303,8 @@ export function validateAgentContextEnvelope(
   return validateAgentContextEnvelopeContract(value, label);
 }
 
-export function validateAgentWorkRequest(value: unknown, label = "agent_work_request"): AgentWorkRequest {
-  return validateAgentWorkRequestContract(value, label);
+export function validateAgentActInvocation(value: unknown, label = "agent_act_invocation"): AgentActInvocation {
+  return validateAgentActInvocationContract(value, label);
 }
 
 export function validateQuestion(value: unknown, label = "question"): Question {
@@ -344,20 +344,20 @@ export function validateResolutionResponse(
       payload: answers,
     };
   }
-  if (request?.kind === "cognitive_work") {
+  if (request?.kind === "agent_act") {
     if (payload === undefined || payload === null || payload === "") {
-      throw new Error(`${label}.payload is required for cognitive_work requests.`);
+      throw new Error(`${label}.payload is required for agent_act requests.`);
     }
   }
 
   return response;
 }
 
-export function validateAdapterInvokeResult(
+export function validateActReceiptEnvelope(
   value: unknown,
-  label = "adapter_invoke_result",
-): AdapterInvokeResult {
-  return validateAdapterInvokeResultContract(value, label);
+  label = "act_receipt",
+): ActReceiptEnvelope {
+  return validateActReceiptEnvelopeContract(value, label);
 }
 
 export function validateCredentialEnvelope(

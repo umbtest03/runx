@@ -45,12 +45,12 @@ steps:
 
     const caller: Caller = {
       resolve: async (request) => {
-        if (request.kind !== "cognitive_work") {
+        if (request.kind !== "agent_act") {
           return undefined;
         }
-        expect(request.work.envelope.allowed_tools).toEqual(["fs.read", "git.status"]);
-        expect(request.work.envelope.current_context.map((artifact) => artifact.type)).toEqual(["file_read"]);
-        expect(request.work.envelope.provenance).toEqual([
+        expect(request.invocation.envelope.allowed_tools).toEqual(["fs.read", "git.status"]);
+        expect(request.invocation.envelope.current_context.map((artifact) => artifact.type)).toEqual(["file_read"]);
+        expect(request.invocation.envelope.provenance).toEqual([
           expect.objectContaining({
             input: "note",
             from_step: "read_note",
@@ -62,7 +62,7 @@ steps:
           payload: {
             summary: {
               verdict: "read",
-              observed: request.work.envelope.inputs.note,
+              observed: request.invocation.envelope.inputs.note,
             },
           },
         };

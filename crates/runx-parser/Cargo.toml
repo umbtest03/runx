@@ -1,0 +1,33 @@
+[package]
+name = "runx-parser"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+description = "Pure Rust parser parity crate for runx skills, graphs, and tool manifests."
+publish = false
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+keywords = ["runx", "parser", "yaml", "agents", "workflow"]
+categories = ["parser-implementations", "development-tools"]
+include = ["Cargo.toml", "README.md", "src/**/*.rs"]
+
+[lints]
+workspace = true
+
+[dependencies]
+runx-contracts.workspace = true
+runx-core.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yml.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lib]
+name = "runx_parser"
+path = "src/lib.rs"

@@ -843,7 +843,7 @@ async function createAnswersCaller(answersPath) {
   const answers = isRecord(answersDocument?.answers) ? answersDocument.answers : {};
   return {
     resolve: async (request) => {
-      if (request.kind !== "cognitive_work") {
+      if (request.kind !== "agent_act") {
         return undefined;
       }
       const payload = answers[request.id];

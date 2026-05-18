@@ -1,0 +1,23 @@
+{
+  "$schema": "../schema/policy.schema.json",
+  "expected": {
+    "kind": "output",
+    "value": {
+      "reasons": [
+        "local admission allowed"
+      ],
+      "status": "allow"
+    }
+  },
+  "input": {
+    "kind": "policy.admitLocalSkill",
+    "skill": {
+      "name": "echo",
+      "source": {
+        "timeoutSeconds": 10,
+        "type": "cli-tool"
+      }
+    }
+  },
+  "name": "local-admission-allows-cli-tool"
+}

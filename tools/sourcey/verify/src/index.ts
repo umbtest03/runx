@@ -13,7 +13,7 @@ export default defineTool({
   },
   output: {
     packet: "runx.sourcey.verification.v1",
-    wrap_as: "sourcey_verification_report",
+    wrap_as: "sourcey_verification_proof",
   },
   scopes: ["sourcey.verify"],
   run({ inputs, env }) {

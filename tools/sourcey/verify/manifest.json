@@ -29,14 +29,14 @@
   },
   "output": {
     "packet": "runx.sourcey.verification.v1",
-    "wrap_as": "sourcey_verification_report"
+    "wrap_as": "sourcey_verification_proof"
   },
   "scopes": [
     "sourcey.verify"
   ],
   "runx": {
     "artifacts": {
-      "wrap_as": "sourcey_verification_report"
+      "wrap_as": "sourcey_verification_proof"
     }
   },
   "runtime": {
@@ -45,7 +45,7 @@
       "./run.mjs"
     ]
   },
-  "source_hash": "sha256:35c504d5875896680132d6ab920aee5ada9036367646207d8f4c38db482d8095",
-  "schema_hash": "sha256:5379c6e1509ab9c6c8a6340564b142d808ecc360e66842a004d93468a45805da",
+  "source_hash": "sha256:8f8ee91392dd01f66ab1d734ec4d78547016f37681e26d4a9283e73e6c429673",
+  "schema_hash": "sha256:2a5ee7012cb4ce1eb5b071c9d5d0ee5dd92733291deff97e8ca475459388c29c",
   "toolkit_version": "0.1.4"
 }

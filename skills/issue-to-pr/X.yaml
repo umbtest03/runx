@@ -235,14 +235,18 @@ runners:
         type: json
         required: false
         description: "Current outbox entry when the lane is refreshing an adapter-owned target."
-      work_item:
+      harness:
         type: json
         required: false
-        description: "Optional runx.work_item.v1 packet tying intake, dedupe, triage, issue, PR, merge gate, and outcome together."
-      evidence_bundle:
+        description: "Optional runx.harness.v1 packet for the governed run boundary."
+      signal:
         type: json
         required: false
-        description: "Optional runx.evidence_bundle.v1 packet with hydrated provider evidence gathered before mutation."
+        description: "Optional runx.signal.v1 packet with source references, authenticity, fingerprint, and evidence references."
+      decision:
+        type: json
+        required: false
+        description: "Optional runx.decision.v1 packet with the accountable lane selection rationale."
       target_repo:
         type: string
         required: false
@@ -314,7 +318,7 @@ runners:
           mutations. Native scafld plan, validate, approve, build, review,
           complete, status, and handoff surfaces stay visible instead of being
           re-created by translation projection steps. The public story is the
-          source-thread lifecycle: intake, triage decision, spec, build, review,
+          source-thread lifecycle: signal, decision, spec, build, review,
           draft PR, human merge gate, and final provider outcome when observed.
       steps:
         - id: scafld-plan
@@ -546,20 +550,22 @@ runners:
             - scafld:handoff:read
           inputs:
             command: handoff
-        - id: capture-work-item
-          label: capture work item context
-          tool: control.capture_work_item
+        - id: capture-harness-context
+          label: capture harness context
+          tool: control.capture_harness_context
           scopes:
             - runx:control:read
           inputs:
-            work_item: $input.work_item
+            harness: $input.harness
+            signal: $input.signal
+            decision: $input.decision
         - id: package-pull-request
           label: package reviewer PR story
           tool: outbox.build_pull_request
           scopes:
             - runx:repo:package
           context:
-            work_item: capture-work-item.work_item
+            harness_context: capture-harness-context.harness_context
             handoff_markdown: scafld-handoff.stdout
             build_result: scafld-build.result
             review_result: scafld-review.result
@@ -577,13 +583,13 @@ runners:
             draft_pull_request: package-pull-request.draft_pull_request.data
           inputs:
             next_status: draft
-        - id: package-thread-story
-          label: package source-thread story
-          tool: outbox.build_work_item_story
+        - id: package-feed-entry
+          label: package feed entry
+          tool: outbox.build_feed_entry
           scopes:
             - runx:repo:package
           context:
-            work_item: capture-work-item.work_item
+            harness_context: capture-harness-context.harness_context
             build_result: scafld-build.result
             review_result: scafld-review.result
             completion_result: scafld-complete.result
@@ -591,13 +597,13 @@ runners:
             draft_pull_request: package-pull-request.draft_pull_request.data
             pull_request_outbox_entry: push-pull-request.outbox_entry
             push_result: push-pull-request.push
-        - id: push-thread-story
-          label: update source thread story
+        - id: push-feed-entry
+          label: update source thread feed
           tool: thread.push_outbox
           scopes:
             - thread:push
           context:
-            outbox_entry: package-thread-story.outbox_entry.data
+            outbox_entry: package-feed-entry.outbox_entry.data
             draft_pull_request: package-pull-request.draft_pull_request.data
           inputs:
             next_status: published

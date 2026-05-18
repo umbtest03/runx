@@ -89,7 +89,7 @@ describe("GitHub thread helper", () => {
         type: "github",
         adapter_ref: "example/repo#issue/123",
       },
-      thread_kind: "work_item",
+      thread_kind: "signal",
       thread_locator: "github://example/repo/issues/123",
       title: "Fix fixture behavior",
       canonical_uri: "https://github.com/example/repo/issues/123",

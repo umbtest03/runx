@@ -6,11 +6,11 @@ import {
 } from "@runxhq/adapters/agent";
 import type { ResolutionRequest, ResolutionResponse } from "@runxhq/core/executor";
 
-type CognitiveResolutionRequest = Extract<ResolutionRequest, { readonly kind: "cognitive_work" }>;
+type AgentActResolutionRequest = Extract<ResolutionRequest, { readonly kind: "agent_act" }>;
 
 export interface CliAgentRuntime {
   readonly label: string;
-  readonly resolve: (request: CognitiveResolutionRequest) => Promise<ResolutionResponse>;
+  readonly resolve: (request: AgentActResolutionRequest) => Promise<ResolutionResponse>;
 }
 
 export async function loadCliAgentRuntime(

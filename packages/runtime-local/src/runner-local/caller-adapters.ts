@@ -1,13 +1,13 @@
 import path from "node:path";
 
 import type {
-  AgentWorkRequest,
+  AgentActInvocation,
   ApprovalGate,
   ResolutionRequest,
   ResolutionResponse,
   SkillAdapter,
 } from "@runxhq/core/executor";
-import { validateOutputContract } from "@runxhq/core/executor";
+import { validateOutput } from "@runxhq/core/executor";
 import { isPlainRecord } from "@runxhq/core/util";
 
 import type { Caller } from "./index.js";
@@ -27,8 +27,8 @@ export function createCallerAgentStepAdapter(caller: Caller): SkillAdapter {
       const mediationRequest = buildAgentStepRequest(request);
       const resolutionRequest: ResolutionRequest = {
         id: mediationRequest.id,
-        kind: "cognitive_work",
-        work: mediationRequest,
+        kind: "agent_act",
+        invocation: mediationRequest,
       };
       await caller.report({
         type: "resolution_requested",
@@ -93,8 +93,8 @@ export function createCallerAgentAdapter(caller: Caller): SkillAdapter {
       const mediationRequest = buildAgentRunnerRequest(request);
       const resolutionRequest: ResolutionRequest = {
         id: mediationRequest.id,
-        kind: "cognitive_work",
-        work: mediationRequest,
+        kind: "agent_act",
+        invocation: mediationRequest,
       };
       await caller.report({
         type: "resolution_requested",
@@ -221,9 +221,9 @@ function normalizeQuestionId(value: string): string {
   return value.replace(/[^a-zA-Z0-9_.-]+/g, "_");
 }
 
-function buildAgentStepRequest(request: Parameters<SkillAdapter["invoke"]>[0]): AgentWorkRequest {
+function buildAgentStepRequest(request: Parameters<SkillAdapter["invoke"]>[0]): AgentActInvocation {
   const skillName = request.skillName ?? "agent-step";
-  const expectedOutputs = validateOutputContract(request.source.outputs, "source.outputs");
+  const expectedOutputs = validateOutput(request.source.outputs, "source.outputs");
   return {
     id: `agent_step.${normalizeQuestionId(request.source.task ?? skillName)}.output`,
     source_type: "agent-step",
@@ -243,13 +243,13 @@ function buildAgentStepRequest(request: Parameters<SkillAdapter["invoke"]>[0]): 
       voice_profile: request.voiceProfile,
       quality_profile: request.qualityProfile,
       execution_location: buildExecutionLocation(request),
-      ...(expectedOutputs ? { expected_outputs: expectedOutputs } : {}),
+      ...(expectedOutputs ? { output: expectedOutputs } : {}),
       trust_boundary: "agent-mediated: runx yields skill context and receipts the supplied result on completion",
     },
   };
 }
 
-function buildAgentRunnerRequest(request: Parameters<SkillAdapter["invoke"]>[0]): AgentWorkRequest {
+function buildAgentRunnerRequest(request: Parameters<SkillAdapter["invoke"]>[0]): AgentActInvocation {
   const skillName = request.skillName ?? "skill";
   return {
     id: `agent.${normalizeQuestionId(skillName)}.output`,

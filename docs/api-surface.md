@@ -9,7 +9,7 @@ The package manifests are authoritative; regenerate this page with `pnpm docs:ap
 
 Runx concrete runtime adapters.
 
-Version: `0.1.4`
+Version: `0.1.5`
 
 | Import | Types | Runtime |
 | --- | --- | --- |
@@ -25,7 +25,7 @@ Version: `0.1.4`
 
 Runx authoring SDK - defineTool, definePacket, typed input parsers, harness runtime.
 
-Version: `0.1.3`
+Version: `0.1.4`
 
 | Import | Types | Runtime |
 | --- | --- | --- |
@@ -35,7 +35,7 @@ Version: `0.1.3`
 
 Runx CLI - governed runtime for agent skills, tools, graphs, and packets.
 
-Version: `0.5.20`
+Version: `0.5.22`
 
 | Import | Types | Runtime |
 | --- | --- | --- |
@@ -46,7 +46,7 @@ Version: `0.5.20`
 
 Runx machine-facing JSON contracts: doctor, dev, list, receipt, fixture, tool manifest, packet index.
 
-Version: `0.2.3`
+Version: `0.2.5`
 
 | Import | Types | Runtime |
 | --- | --- | --- |
@@ -56,7 +56,9 @@ Version: `0.2.3`
 
 Runx trusted kernel domains: parser, state machine, policy, executor contracts, receipts, registry, knowledge, config, and artifacts.
 
-Version: `0.1.4`
+Kernel parity fixtures under `fixtures/kernel/` provide conformance evidence for the stable `@runxhq/core/state-machine` and `@runxhq/core/policy` exports during the Rust port.
+
+Version: `0.1.6`
 
 | Import | Types | Runtime |
 | --- | --- | --- |
@@ -77,7 +79,7 @@ Version: `0.1.4`
 
 Cold-start scaffolder for runx standalone skill packages.
 
-Version: `0.1.2`
+Version: `0.1.3`
 
 | Import | Types | Runtime |
 | --- | --- | --- |
@@ -87,7 +89,7 @@ Version: `0.1.2`
 
 Thin host response adapters over the runx host protocol.
 
-Version: `0.1.0`
+Version: `0.1.1`
 
 | Import | Types | Runtime |
 | --- | --- | --- |
@@ -97,7 +99,7 @@ Version: `0.1.0`
 
 Optional LangChain bridge for runx tool catalogs and governed workflow tools.
 
-Version: `0.1.1`
+Version: `0.1.2`
 
 | Import | Types | Runtime |
 | --- | --- | --- |
@@ -107,7 +109,7 @@ Version: `0.1.1`
 
 Runx local runtime: orchestration, harness execution, SDK host bridge, local receipts, and local process sandboxing.
 
-Version: `0.1.0`
+Version: `0.1.2`
 
 | Import | Types | Runtime |
 | --- | --- | --- |

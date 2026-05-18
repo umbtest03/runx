@@ -1,4 +1,4 @@
-import type { AdapterInvokeRequest, AdapterInvokeResult, SkillAdapter } from "@runxhq/core/executor";
+import type { AdapterActInvocation, ActReceiptEnvelope, SkillAdapter } from "@runxhq/core/executor";
 import { errorMessage } from "@runxhq/core/util";
 import { resolveCatalogTool } from "@runxhq/runtime-local/tool-catalogs";
 
@@ -15,7 +15,7 @@ export function createCatalogAdapter(): CatalogAdapter {
   };
 }
 
-export async function invokeCatalog(request: AdapterInvokeRequest): Promise<AdapterInvokeResult> {
+export async function invokeCatalog(request: AdapterActInvocation): Promise<ActReceiptEnvelope> {
   const started = performance.now();
   const catalogRef = request.source.catalogRef;
 
@@ -56,7 +56,7 @@ export async function invokeCatalog(request: AdapterInvokeRequest): Promise<Adap
   }
 }
 
-function failure(message: string, started: number): AdapterInvokeResult {
+function failure(message: string, started: number): ActReceiptEnvelope {
   return {
     status: "failure",
     stdout: "",

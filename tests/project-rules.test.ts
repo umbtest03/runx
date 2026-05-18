@@ -47,8 +47,8 @@ describe("project rules", () => {
       }
 
       const envelope =
-        result.requests[0]?.kind === "cognitive_work"
-          ? result.requests[0].work.envelope
+        result.requests[0]?.kind === "agent_act"
+          ? result.requests[0].invocation.envelope
           : undefined;
 
       expect(envelope?.context?.memory).toEqual({
@@ -130,17 +130,17 @@ steps:
 
       const caller: Caller = {
         resolve: async (request) => {
-          if (request.kind !== "cognitive_work") {
+          if (request.kind !== "agent_act") {
             return undefined;
           }
           seenEnvelope = {
-            context: request.work.envelope.context,
+            context: request.invocation.envelope.context,
           };
           return {
             actor: "agent",
             payload: {
               status: "ok",
-              prior: request.work.envelope.inputs.prior,
+              prior: request.invocation.envelope.inputs.prior,
             },
           };
         },
