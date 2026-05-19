@@ -310,6 +310,10 @@ name = "runx-receipts"
 version = "0.0.1"
 dependencies = [
  "runx-contracts",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
 ]
 
 [[package]]

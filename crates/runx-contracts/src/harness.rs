@@ -144,7 +144,7 @@ pub enum ReceiptIssuerType {
     Local,
     Hosted,
     Ci,
-    Verification,
+    Verifier,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

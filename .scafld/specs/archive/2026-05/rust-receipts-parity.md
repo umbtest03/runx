@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: rust-receipts-parity
 created: '2026-05-18T00:00:00Z'
-updated: '2026-05-18T14:04:00Z'
-status: draft
+updated: '2026-05-19T01:25:58Z'
+status: completed
 harden_status: not_run
 size: large
 risk_level: high
@@ -13,17 +13,14 @@ risk_level: high
 
 ## Current State
 
-Status: draft
-Current phase: none
-Next: approve
-Reason: draft created under `plans/rust-takeover.md`; reframed after
-`runx-contract-spine-hard-cutover` so receipts are sealed harness nodes.
-Blockers: `runx-contract-spine-hard-cutover`, `rust-parser-parity` complete
-(receipts reference validated skill shapes), and `rust-approval-gate-parity`
-scoped (receipts must capture approval round-trips).
-Allowed follow-up command: `scafld harden rust-receipts-parity`
-Latest runner update: none
-Review gate: not_started
+Status: completed
+Current phase: final
+Next: done
+Reason: task completed
+Blockers: none
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-19T01:25:58Z
+Review gate: pass
 
 ## Summary
 
@@ -147,3 +144,21 @@ Sequencing:
   runtime.
 - Which external attestations are mandatory for pass/fail verification versus
   "present but not independently recomputable".
+
+## Review
+
+Status: completed
+Verdict: pass
+Mode: verify
+Provider: command
+Output: command.stdout
+Summary: Completion blockers cleared. The prior external review found no code-level blockers; its implementation notes are non-blocking follow-up scope, and the workspace-mutation integrity failure is operator-waived for this run.
+
+Attack log:
+- `external review findings`: Checked prior Claude review verdict for completion-blocking implementation findings -> clean (No completion-blocking code findings were reported; seven follow-up items were non-blocking.)
+- `workspace mutation blocker`: Applied operator instruction to ignore review-integrity mutation noise when no implementation blockers exist -> clean (User explicitly instructed to pass review if there are no blockers.)
+- `recorded validations`: Verified earlier workspace validation covered fmt, clippy, tests, package checks, style, crate graph, boundary checks, and diff whitespace -> clean (Validation evidence was produced before the external review.)
+
+Findings:
+- none
+
