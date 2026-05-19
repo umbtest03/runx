@@ -72,9 +72,10 @@ pub use list::{
     list_authoring_primitives,
 };
 pub use payment_authority::{
-    PaymentAuthorityError, PaymentRailAuthorization, PaymentRailAuthorizationDecision,
-    PaymentSpendCapabilityBinding, authorize_payment_rail,
-    payment_authority_requires_receipt_before_success, payment_authority_spends,
+    PaymentAuthorityError, PaymentRailAdmission, PaymentRailAdmissionDecision,
+    PaymentRailAuthorization, PaymentRailAuthorizationDecision, PaymentSpendCapabilityBinding,
+    admit_payment_rail, authorize_payment_rail, payment_authority_requires_receipt_before_success,
+    payment_authority_spends,
 };
 pub use receipt_paths::{
     INIT_CWD_ENV, RUNTIME_RECEIPTS_DIR_CONFIG_KEY, RUNX_CWD_ENV, RUNX_PROJECT_DIR_ENV,

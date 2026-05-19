@@ -13,6 +13,7 @@ use runx_runtime::{
     Caller, InvocationStatus, Runtime, RuntimeError, RuntimeOptions, SkillAdapter, SkillInvocation,
     SkillOutput,
 };
+use serde_json::{Value, json};
 use tempfile::TempDir;
 
 #[test]
@@ -178,6 +179,21 @@ fn payment_spend_missing_idempotency_key_blocks_before_adapter_invocation()
         FulfillAdmission::MissingIdempotencyKey,
         "idempotency.key",
     )
+}
+
+#[test]
+fn payment_spend_missing_subset_proof_blocks_before_adapter_invocation()
+-> Result<(), Box<dyn std::error::Error>> {
+    assert_payment_admission_denied_before_adapter(
+        FulfillAdmission::MissingSubsetProof,
+        "subset proof",
+    )
+}
+
+#[test]
+fn payment_spend_amount_widening_blocks_before_adapter_invocation()
+-> Result<(), Box<dyn std::error::Error>> {
+    assert_payment_admission_denied_before_adapter(FulfillAdmission::AmountWidening, "not a subset")
 }
 
 #[test]
@@ -354,7 +370,7 @@ Fulfill the approved payment.
 "#,
         )?;
         let graph_path = temp.path().join("graph.yaml");
-        fs::write(&graph_path, graph_yaml(admission, scope))?;
+        fs::write(&graph_path, graph_yaml(admission, scope)?)?;
         Ok(Self {
             _temp: temp,
             graph_path,
@@ -372,6 +388,8 @@ enum FulfillAdmission {
     MissingReservedPaymentAuthority,
     MissingSpendCapabilityRef,
     MissingIdempotencyKey,
+    MissingSubsetProof,
+    AmountWidening,
     MissingAll,
 }
 
@@ -381,79 +399,170 @@ enum FulfillScope {
     None,
 }
 
-fn graph_yaml(admission: FulfillAdmission, scope: FulfillScope) -> String {
-    format!(
-        r#"
-name: payment-execution
-steps:
-  - id: approve-spend
-    run:
-      type: approval
-    inputs:
-      gate_id: spend-approval
-      gate_type: payment
-      reason: Approve payment before fulfillment.
-      amount_minor: 125
-      currency: USD
-    artifacts:
-      wrap_as: payment_approval
-  - id: fulfill
-    skill: ./fulfill
-{scope_yaml}{inputs_yaml}
-policy:
-  transitions:
-    - to: fulfill
-      field: approve-spend.payment_approval.data.approved
-      equals: true
-"#,
-        scope_yaml = fulfill_scope_yaml(scope),
-        inputs_yaml = fulfill_inputs_yaml(admission),
-    )
-}
-
-fn fulfill_scope_yaml(scope: FulfillScope) -> &'static str {
-    match scope {
-        FulfillScope::PaymentSpend => "    scopes:\n      - payment:spend\n",
-        FulfillScope::None => "",
+fn graph_yaml(
+    admission: FulfillAdmission,
+    scope: FulfillScope,
+) -> Result<String, serde_json::Error> {
+    let mut fulfill = json!({
+        "id": "fulfill",
+        "skill": "./fulfill",
+    });
+    if matches!(scope, FulfillScope::PaymentSpend) {
+        fulfill["scopes"] = json!(["payment:spend"]);
     }
+    if let Some(inputs) = fulfill_inputs(admission) {
+        fulfill["inputs"] = inputs;
+    }
+    serde_json::to_string_pretty(&json!({
+        "name": "payment-execution",
+        "steps": [
+            {
+                "id": "approve-spend",
+                "run": { "type": "approval" },
+                "inputs": {
+                    "gate_id": "spend-approval",
+                    "gate_type": "payment",
+                    "reason": "Approve payment before fulfillment.",
+                    "amount_minor": 125,
+                    "currency": "USD"
+                },
+                "artifacts": { "wrap_as": "payment_approval" }
+            },
+            fulfill
+        ],
+        "policy": {
+            "transitions": [
+                {
+                    "to": "fulfill",
+                    "field": "approve-spend.payment_approval.data.approved",
+                    "equals": true
+                }
+            ]
+        }
+    }))
 }
 
-fn fulfill_inputs_yaml(admission: FulfillAdmission) -> &'static str {
+fn fulfill_inputs(admission: FulfillAdmission) -> Option<Value> {
     match admission {
-        FulfillAdmission::Valid => {
-            r#"    inputs:
-      reserved_payment_authority:
-        authority_ref: payment-authority:payment-execution-001
-      spend_capability_ref: spend-capability:payment-execution-001
-      idempotency:
-        key: payment:payment-execution-001
-"#
-        }
-        FulfillAdmission::MissingReservedPaymentAuthority => {
-            r#"    inputs:
-      spend_capability_ref: spend-capability:payment-execution-001
-      idempotency:
-        key: payment:payment-execution-001
-"#
-        }
-        FulfillAdmission::MissingSpendCapabilityRef => {
-            r#"    inputs:
-      reserved_payment_authority:
-        authority_ref: payment-authority:payment-execution-001
-      idempotency:
-        key: payment:payment-execution-001
-"#
-        }
-        FulfillAdmission::MissingIdempotencyKey => {
-            r#"    inputs:
-      reserved_payment_authority:
-        authority_ref: payment-authority:payment-execution-001
-      spend_capability_ref: spend-capability:payment-execution-001
-      idempotency: {}
-"#
-        }
-        FulfillAdmission::MissingAll => "",
+        FulfillAdmission::Valid => Some(valid_payment_inputs(2_500, true)),
+        FulfillAdmission::MissingReservedPaymentAuthority => Some(json!({
+            "spend_capability_ref": spend_capability_ref(),
+            "idempotency": { "key": "payment:payment-execution-001" }
+        })),
+        FulfillAdmission::MissingSpendCapabilityRef => Some(json!({
+            "reserved_payment_authority": reserved_payment_authority(2_500, true),
+            "idempotency": { "key": "payment:payment-execution-001" }
+        })),
+        FulfillAdmission::MissingIdempotencyKey => Some(json!({
+            "reserved_payment_authority": reserved_payment_authority(2_500, true),
+            "spend_capability_ref": spend_capability_ref(),
+            "idempotency": {}
+        })),
+        FulfillAdmission::MissingSubsetProof => Some(valid_payment_inputs(2_500, false)),
+        FulfillAdmission::AmountWidening => Some(valid_payment_inputs(20_000, true)),
+        FulfillAdmission::MissingAll => None,
     }
+}
+
+fn valid_payment_inputs(child_max_per_call_minor: u64, subset_proof_present: bool) -> Value {
+    json!({
+        "reserved_payment_authority": reserved_payment_authority(child_max_per_call_minor, subset_proof_present),
+        "spend_capability_ref": spend_capability_ref(),
+        "idempotency": { "key": "payment:payment-execution-001" }
+    })
+}
+
+fn reserved_payment_authority(child_max_per_call_minor: u64, subset_proof_present: bool) -> Value {
+    json!({
+        "parent_authority": payment_term("parent", ["quote", "reserve", "spend", "verify"], 10_000),
+        "child_authority": payment_term("child", ["reserve", "spend"], child_max_per_call_minor),
+        "reservation_decision": reservation_decision(),
+        "subset_proof_present": subset_proof_present,
+        "child_harness_ref": child_harness_ref(),
+        "spend_capability_binding": {
+            "child_harness_ref": child_harness_ref(),
+            "act_id": "act_fulfill",
+            "reservation_decision_id": "decision_payment_reservation",
+            "idempotency_key": "payment:payment-execution-001",
+            "amount_minor": 125,
+            "currency": "USD",
+            "counterparty": "merchant-123",
+            "rail": "mock"
+        },
+        "consumed_spend_capability_refs": []
+    })
+}
+
+fn payment_term<const N: usize>(term_id: &str, verbs: [&str; N], max_per_call_minor: u64) -> Value {
+    let verbs = verbs.as_slice();
+    json!({
+        "term_id": term_id,
+        "principal_ref": reference("principal", "runx:principal:merchant-agent"),
+        "resource_ref": reference("grant", "runx:payment-grant:checkout"),
+        "resource_family": "payment",
+        "verbs": verbs,
+        "bounds": {
+            "payment": {
+                "currency": "USD",
+                "max_per_call_minor": max_per_call_minor,
+                "max_per_run_minor": 25_000,
+                "rails": ["mock", "card"],
+                "counterparty": "merchant-123",
+                "operation": "checkout",
+                "credential_form": "single_use_spend_capability",
+                "quote_required": true,
+                "reservation_required": true,
+                "idempotency_required": true,
+                "recovery_required": true,
+                "receipt_before_success": true,
+                "single_use_spend": true
+            }
+        },
+        "capabilities": ["payment_single_use_spend"],
+        "expires_at": "2026-05-21T00:00:00Z",
+        "issued_by_ref": reference("grant", "runx:grant:issuer"),
+        "credential_ref": reference("credential", "runx:credential:payment-session")
+    })
+}
+
+fn reservation_decision() -> Value {
+    json!({
+        "decision_id": "decision_payment_reservation",
+        "choice": "continue",
+        "inputs": {
+            "signal_refs": [],
+            "target_ref": null,
+            "opportunity_refs": [],
+            "selection_ref": null
+        },
+        "proposed_intent": {
+            "purpose": "complete a bounded checkout payment",
+            "legitimacy": "authorized by selected reservation decision",
+            "success_criteria": [],
+            "constraints": [],
+            "derived_from": []
+        },
+        "selected_act_id": "act_fulfill",
+        "selected_harness_ref": null,
+        "justification": {
+            "summary": "reservation selected a bounded spend act",
+            "evidence_refs": []
+        },
+        "closure": null,
+        "artifact_refs": []
+    })
+}
+
+fn child_harness_ref() -> Value {
+    reference("harness", "runx:harness:payment-execution_fulfill")
+}
+
+fn spend_capability_ref() -> Value {
+    reference("credential", "runx:payment-capability:spend-1")
+}
+
+fn reference(reference_type: &str, uri: &str) -> Value {
+    json!({ "type": reference_type, "uri": uri })
 }
 
 fn step_ids(steps: &[runx_runtime::StepRun]) -> Vec<&str> {

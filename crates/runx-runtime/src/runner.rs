@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use runx_contracts::{
-    ApprovalGate, ExecutionEvent, FanoutReceiptDecision, FanoutReceiptStrategy,
-    FanoutReceiptSyncPoint, JsonObject, JsonValue, ResolutionResponseActor,
+    ApprovalGate, AuthorityTerm, Decision, ExecutionEvent, FanoutReceiptDecision,
+    FanoutReceiptStrategy, FanoutReceiptSyncPoint, JsonObject, JsonValue, ResolutionResponseActor,
 };
 use runx_core::state_machine::{
     FanoutBranchResult, FanoutGroupPolicy, FanoutSyncDecision, FanoutSyncOutcome,
@@ -23,6 +23,9 @@ use crate::caller::{Caller, NoopCaller};
 use crate::fanout::fanout_policies;
 use crate::graph::{find_step, load_graph, load_skill, output_object, resolve_inputs, skill_dir};
 use crate::journal::ExecutionJournal;
+use crate::payment_authority::{
+    PaymentRailAdmission, PaymentSpendCapabilityBinding, admit_payment_rail,
+};
 use crate::receipts::{graph_receipt, step_receipt};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -791,14 +794,98 @@ fn enforce_payment_rail_admission_inputs(
     step: &GraphStep,
     inputs: &JsonObject,
 ) -> Result<(), RuntimeError> {
-    if !payment_spend_step(step) {
+    let Some(input) = payment_rail_admission_inputs(step, inputs)? else {
         return Ok(());
-    }
-    require_object_input(step, inputs, "reserved_payment_authority")?;
-    require_non_empty_string_input(step, inputs, "spend_capability_ref")?;
-    let idempotency = require_object_input(step, inputs, "idempotency")?;
-    require_non_empty_string_field(step, idempotency, "idempotency.key")?;
+    };
+    let binding = input
+        .spend_capability_binding
+        .as_ref()
+        .map(OwnedPaymentSpendCapabilityBinding::as_borrowed);
+    let act_id = format!("act_{}", step.id);
+    admit_payment_rail(PaymentRailAdmission {
+        parent_authority: &input.parent_authority,
+        child_authority: &input.child_authority,
+        reservation_decision: input.reservation_decision.as_ref(),
+        subset_proof_present: input.subset_proof_present,
+        child_harness_ref: &input.child_harness_ref,
+        act_id: &act_id,
+        idempotency_key: Some(&input.idempotency_key),
+        spend_capability_binding: binding,
+        consumed_spend_capability_refs: &input.consumed_spend_capability_refs,
+        spend_capability_ref: Some(&input.spend_capability_ref),
+    })
+    .map_err(|source| payment_authority_denied(step, source.to_string()))?;
     Ok(())
+}
+
+fn payment_rail_admission_inputs(
+    step: &GraphStep,
+    inputs: &JsonObject,
+) -> Result<Option<OwnedPaymentRailAdmission>, RuntimeError> {
+    if !payment_spend_step(step) {
+        return Ok(None);
+    }
+    let reserved = require_object_input(step, inputs, "reserved_payment_authority")?;
+    let idempotency = require_object_input(step, inputs, "idempotency")?;
+    let reserved = parse_reserved_payment_authority(step, reserved)?;
+    Ok(Some(OwnedPaymentRailAdmission {
+        spend_capability_ref: require_reference_input(step, inputs, "spend_capability_ref")?,
+        idempotency_key: require_non_empty_string_field(step, idempotency, "idempotency.key")?,
+        parent_authority: reserved.parent_authority,
+        child_authority: reserved.child_authority,
+        reservation_decision: reserved.reservation_decision,
+        subset_proof_present: reserved.subset_proof_present,
+        child_harness_ref: reserved.child_harness_ref,
+        spend_capability_binding: reserved.spend_capability_binding,
+        consumed_spend_capability_refs: reserved.consumed_spend_capability_refs,
+    }))
+}
+
+fn parse_reserved_payment_authority(
+    step: &GraphStep,
+    object: &JsonObject,
+) -> Result<OwnedReservedPaymentAuthority, RuntimeError> {
+    Ok(OwnedReservedPaymentAuthority {
+        parent_authority: required_typed_input(
+            step,
+            object,
+            "reserved_payment_authority.parent_authority",
+            "parent_authority",
+        )?,
+        child_authority: required_typed_input(
+            step,
+            object,
+            "reserved_payment_authority.child_authority",
+            "child_authority",
+        )?,
+        reservation_decision: optional_typed_input(
+            step,
+            object,
+            "reserved_payment_authority.reservation_decision",
+            "reservation_decision",
+        )?,
+        subset_proof_present: optional_bool_field(step, object, "subset_proof_present")?
+            .unwrap_or(false),
+        child_harness_ref: required_typed_input(
+            step,
+            object,
+            "reserved_payment_authority.child_harness_ref",
+            "child_harness_ref",
+        )?,
+        spend_capability_binding: optional_typed_input(
+            step,
+            object,
+            "reserved_payment_authority.spend_capability_binding",
+            "spend_capability_binding",
+        )?,
+        consumed_spend_capability_refs: optional_typed_vec_input(
+            step,
+            object,
+            "reserved_payment_authority.consumed_spend_capability_refs",
+            "consumed_spend_capability_refs",
+        )?
+        .unwrap_or_default(),
+    })
 }
 
 fn require_object_input<'a>(
@@ -819,25 +906,11 @@ fn require_object_input<'a>(
     }
 }
 
-fn require_non_empty_string_input(
-    step: &GraphStep,
-    inputs: &JsonObject,
-    field: &str,
-) -> Result<(), RuntimeError> {
-    let Some(value) = inputs.get(field) else {
-        return Err(payment_authority_denied(
-            step,
-            format!("{field} is required before payment rail execution"),
-        ));
-    };
-    require_non_empty_string_value(step, value, field)
-}
-
 fn require_non_empty_string_field(
     step: &GraphStep,
     object: &JsonObject,
     field_path: &str,
-) -> Result<(), RuntimeError> {
+) -> Result<String, RuntimeError> {
     let Some((_, field)) = field_path.rsplit_once('.') else {
         return Err(payment_authority_denied(
             step,
@@ -857,7 +930,7 @@ fn require_non_empty_string_value(
     step: &GraphStep,
     value: &JsonValue,
     field_path: &str,
-) -> Result<(), RuntimeError> {
+) -> Result<String, RuntimeError> {
     let JsonValue::String(value) = value else {
         return Err(payment_authority_denied(
             step,
@@ -870,13 +943,153 @@ fn require_non_empty_string_value(
             format!("{field_path} must not be empty before payment rail execution"),
         ));
     }
-    Ok(())
+    Ok(value.to_owned())
+}
+
+fn require_reference_input(
+    step: &GraphStep,
+    inputs: &JsonObject,
+    field: &str,
+) -> Result<runx_contracts::Reference, RuntimeError> {
+    match inputs.get(field) {
+        Some(JsonValue::Object(_)) => required_typed_value(step, inputs.get(field), field),
+        Some(_) => Err(payment_authority_denied(
+            step,
+            format!("{field} must be a Reference before payment rail execution"),
+        )),
+        None => Err(payment_authority_denied(
+            step,
+            format!("{field} is required before payment rail execution"),
+        )),
+    }
+}
+
+fn optional_bool_field(
+    step: &GraphStep,
+    object: &JsonObject,
+    field: &str,
+) -> Result<Option<bool>, RuntimeError> {
+    match object.get(field) {
+        Some(JsonValue::Bool(value)) => Ok(Some(*value)),
+        Some(_) => Err(payment_authority_denied(
+            step,
+            format!(
+                "reserved_payment_authority.{field} must be a bool before payment rail execution"
+            ),
+        )),
+        None => Ok(None),
+    }
+}
+
+fn optional_typed_input<T: serde::de::DeserializeOwned>(
+    step: &GraphStep,
+    object: &JsonObject,
+    field_path: &str,
+    field: &str,
+) -> Result<Option<T>, RuntimeError> {
+    let Some(value) = object.get(field) else {
+        return Ok(None);
+    };
+    required_typed_value(step, Some(value), field_path).map(Some)
+}
+
+fn required_typed_input<T: serde::de::DeserializeOwned>(
+    step: &GraphStep,
+    object: &JsonObject,
+    field_path: &str,
+    field: &str,
+) -> Result<T, RuntimeError> {
+    required_typed_value(step, object.get(field), field_path)
+}
+
+fn optional_typed_vec_input<T: serde::de::DeserializeOwned>(
+    step: &GraphStep,
+    object: &JsonObject,
+    field_path: &str,
+    field: &str,
+) -> Result<Option<Vec<T>>, RuntimeError> {
+    optional_typed_input(step, object, field_path, field)
+}
+
+fn required_typed_value<T: serde::de::DeserializeOwned>(
+    step: &GraphStep,
+    value: Option<&JsonValue>,
+    field_path: &str,
+) -> Result<T, RuntimeError> {
+    let Some(value) = value else {
+        return Err(payment_authority_denied(
+            step,
+            format!("{field_path} is required before payment rail execution"),
+        ));
+    };
+    serde_json::from_value::<T>(
+        serde_json::to_value(value)
+            .map_err(|source| RuntimeError::json(format!("serializing {field_path}"), source))?,
+    )
+    .map_err(|source| {
+        payment_authority_denied(
+            step,
+            format!("{field_path} is not valid typed payment authority: {source}"),
+        )
+    })
 }
 
 fn payment_authority_denied(step: &GraphStep, reason: String) -> RuntimeError {
     RuntimeError::PaymentAuthorityDenied {
         step_id: step.id.clone(),
         reason,
+    }
+}
+
+#[derive(Clone, Debug)]
+struct OwnedPaymentRailAdmission {
+    parent_authority: AuthorityTerm,
+    child_authority: AuthorityTerm,
+    reservation_decision: Option<Decision>,
+    subset_proof_present: bool,
+    child_harness_ref: runx_contracts::Reference,
+    spend_capability_binding: Option<OwnedPaymentSpendCapabilityBinding>,
+    consumed_spend_capability_refs: Vec<runx_contracts::Reference>,
+    spend_capability_ref: runx_contracts::Reference,
+    idempotency_key: String,
+}
+
+#[derive(Clone, Debug)]
+struct OwnedReservedPaymentAuthority {
+    parent_authority: AuthorityTerm,
+    child_authority: AuthorityTerm,
+    reservation_decision: Option<Decision>,
+    subset_proof_present: bool,
+    child_harness_ref: runx_contracts::Reference,
+    spend_capability_binding: Option<OwnedPaymentSpendCapabilityBinding>,
+    consumed_spend_capability_refs: Vec<runx_contracts::Reference>,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OwnedPaymentSpendCapabilityBinding {
+    child_harness_ref: runx_contracts::Reference,
+    act_id: String,
+    reservation_decision_id: String,
+    idempotency_key: String,
+    amount_minor: u64,
+    currency: String,
+    counterparty: String,
+    rail: String,
+}
+
+impl OwnedPaymentSpendCapabilityBinding {
+    fn as_borrowed(&self) -> PaymentSpendCapabilityBinding<'_> {
+        PaymentSpendCapabilityBinding {
+            child_harness_ref: &self.child_harness_ref,
+            act_id: &self.act_id,
+            reservation_decision_id: &self.reservation_decision_id,
+            idempotency_key: &self.idempotency_key,
+            amount_minor: self.amount_minor,
+            currency: &self.currency,
+            counterparty: &self.counterparty,
+            rail: &self.rail,
+        }
     }
 }
 

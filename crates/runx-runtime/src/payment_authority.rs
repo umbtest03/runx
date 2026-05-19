@@ -20,6 +20,20 @@ pub struct PaymentRailAuthorization<'a> {
     pub spend_capability_ref: Option<&'a Reference>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct PaymentRailAdmission<'a> {
+    pub parent_authority: &'a AuthorityTerm,
+    pub child_authority: &'a AuthorityTerm,
+    pub reservation_decision: Option<&'a Decision>,
+    pub subset_proof_present: bool,
+    pub child_harness_ref: &'a Reference,
+    pub act_id: &'a str,
+    pub idempotency_key: Option<&'a str>,
+    pub spend_capability_binding: Option<PaymentSpendCapabilityBinding<'a>>,
+    pub consumed_spend_capability_refs: &'a [Reference],
+    pub spend_capability_ref: Option<&'a Reference>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PaymentSpendCapabilityBinding<'a> {
     pub child_harness_ref: &'a Reference,
@@ -39,6 +53,14 @@ pub struct PaymentRailAuthorizationDecision<'a> {
     pub idempotency_key: Option<&'a str>,
     pub spend_capability_ref: Option<&'a Reference>,
     pub rail_proof_refs: &'a [Reference],
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PaymentRailAdmissionDecision<'a> {
+    pub parent_term_id: &'a str,
+    pub child_term_id: &'a str,
+    pub idempotency_key: Option<&'a str>,
+    pub spend_capability_ref: Option<&'a Reference>,
 }
 
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
@@ -86,6 +108,42 @@ pub fn authorize_payment_rail(
     input: PaymentRailAuthorization<'_>,
 ) -> Result<PaymentRailAuthorizationDecision<'_>, PaymentAuthorityError> {
     let spends = payment_authority_spends(input.child_authority);
+    let admission = admit_payment_rail(PaymentRailAdmission {
+        parent_authority: input.parent_authority,
+        child_authority: input.child_authority,
+        reservation_decision: input.reservation_decision,
+        subset_proof_present: input.subset_proof_present,
+        child_harness_ref: input.child_harness_ref,
+        act_id: input.act_id,
+        idempotency_key: input.idempotency_key,
+        spend_capability_binding: input.spend_capability_binding,
+        consumed_spend_capability_refs: input.consumed_spend_capability_refs,
+        spend_capability_ref: input.spend_capability_ref,
+    })?;
+
+    if requires_receipt_before_success(input.parent_authority, input.child_authority)
+        && input.rail_proof_refs.is_empty()
+    {
+        return Err(PaymentAuthorityError::MissingReceiptBeforeSuccess);
+    }
+
+    if spends && input.rail_proof_refs.is_empty() {
+        return Err(PaymentAuthorityError::MissingRailProof);
+    }
+
+    Ok(PaymentRailAuthorizationDecision {
+        parent_term_id: admission.parent_term_id,
+        child_term_id: admission.child_term_id,
+        idempotency_key: admission.idempotency_key,
+        spend_capability_ref: admission.spend_capability_ref,
+        rail_proof_refs: input.rail_proof_refs,
+    })
+}
+
+pub fn admit_payment_rail(
+    input: PaymentRailAdmission<'_>,
+) -> Result<PaymentRailAdmissionDecision<'_>, PaymentAuthorityError> {
+    let spends = payment_authority_spends(input.child_authority);
 
     if spends {
         let Some(decision) = input.reservation_decision else {
@@ -107,22 +165,11 @@ pub fn authorize_payment_rail(
         return Err(PaymentAuthorityError::AuthorityNotSubset);
     }
 
-    if requires_receipt_before_success(input.parent_authority, input.child_authority)
-        && input.rail_proof_refs.is_empty()
-    {
-        return Err(PaymentAuthorityError::MissingReceiptBeforeSuccess);
-    }
-
-    if spends && input.rail_proof_refs.is_empty() {
-        return Err(PaymentAuthorityError::MissingRailProof);
-    }
-
-    Ok(PaymentRailAuthorizationDecision {
+    Ok(PaymentRailAdmissionDecision {
         parent_term_id: &input.parent_authority.term_id,
         child_term_id: &input.child_authority.term_id,
         idempotency_key: input.idempotency_key,
         spend_capability_ref: input.spend_capability_ref,
-        rail_proof_refs: input.rail_proof_refs,
     })
 }
 
@@ -137,7 +184,7 @@ fn decision_selects_payment_execution(decision: &Decision) -> bool {
 }
 
 fn ensure_single_use_spend_capability(
-    input: &PaymentRailAuthorization<'_>,
+    input: &PaymentRailAdmission<'_>,
 ) -> Result<(), PaymentAuthorityError> {
     let Some(payment) = input.child_authority.bounds.payment.as_ref() else {
         return Err(PaymentAuthorityError::SpendRequiresSingleUseCapability);
@@ -179,9 +226,7 @@ fn ensure_single_use_spend_capability(
     Ok(())
 }
 
-fn ensure_idempotency_key(
-    input: &PaymentRailAuthorization<'_>,
-) -> Result<(), PaymentAuthorityError> {
+fn ensure_idempotency_key(input: &PaymentRailAdmission<'_>) -> Result<(), PaymentAuthorityError> {
     let idempotency_required = input
         .child_authority
         .bounds
@@ -211,7 +256,7 @@ fn ensure_bounded_spend_counterparty(term: &AuthorityTerm) -> Result<(), Payment
 }
 
 fn spend_capability_binding_matches(
-    input: &PaymentRailAuthorization<'_>,
+    input: &PaymentRailAdmission<'_>,
     decision: &Decision,
     payment: &PaymentAuthorityBounds,
     binding: &PaymentSpendCapabilityBinding<'_>,
