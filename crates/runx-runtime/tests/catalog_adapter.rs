@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::fs;
 use std::path::PathBuf;
 
 use runx_contracts::{JsonObject, JsonValue};
@@ -92,7 +93,40 @@ fn catalog_adapter_keeps_fixture_catalog_opt_in() -> Result<(), RuntimeError> {
     Ok(())
 }
 
+#[test]
+fn catalog_adapter_prefers_local_manifest_before_fixture_catalog()
+-> Result<(), Box<dyn std::error::Error>> {
+    let case_dir = repo_root()?.join("fixtures/runtime/adapters/catalog/local-precedence");
+    let mut inputs = JsonObject::new();
+    inputs.insert(
+        "message".to_owned(),
+        JsonValue::String("catalog fixture collision".to_owned()),
+    );
+
+    let output = CatalogAdapter::fixture_catalog().invoke(invocation_in_directory(
+        Some("fixture.echo"),
+        inputs,
+        case_dir,
+        process_env(),
+    ))?;
+
+    assert_eq!(output.status, InvocationStatus::Success);
+    assert_eq!(output.stdout, oracle_text("local-precedence", "stdout")?);
+    assert_eq!(output.stderr, oracle_text("local-precedence", "stderr")?);
+    assert_eq!(oracle_text("local-precedence", "status")?, "success\n");
+    Ok(())
+}
+
 fn invocation(catalog_ref: Option<&str>, inputs: JsonObject) -> SkillInvocation {
+    invocation_in_directory(catalog_ref, inputs, PathBuf::from("."), BTreeMap::new())
+}
+
+fn invocation_in_directory(
+    catalog_ref: Option<&str>,
+    inputs: JsonObject,
+    skill_directory: PathBuf,
+    env: BTreeMap<String, String>,
+) -> SkillInvocation {
     SkillInvocation {
         skill_name: "fixture.catalog".to_owned(),
         source: SkillSource {
@@ -117,8 +151,8 @@ fn invocation(catalog_ref: Option<&str>, inputs: JsonObject) -> SkillInvocation 
             raw: JsonObject::new(),
         },
         inputs,
-        skill_directory: PathBuf::from("."),
-        env: BTreeMap::new(),
+        skill_directory,
+        env,
     }
 }
 
@@ -138,4 +172,34 @@ fn expected_mcp_metadata(tool_name: &str) -> JsonObject {
         ),
     );
     mcp
+}
+
+fn repo_root() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    Ok(PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()?)
+}
+
+fn oracle_text(case_name: &str, extension: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let path = repo_root()?.join(format!(
+        "fixtures/runtime/adapters/catalog/oracles/{case_name}.{extension}"
+    ));
+    Ok(fs::read_to_string(path)?)
+}
+
+fn process_env() -> BTreeMap<String, String> {
+    [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "WINDIR",
+        "COMSPEC",
+        "PATHEXT",
+    ]
+    .into_iter()
+    .filter_map(|key| std::env::var(key).ok().map(|value| (key.to_owned(), value)))
+    .collect()
 }

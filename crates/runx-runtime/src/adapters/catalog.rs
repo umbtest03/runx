@@ -1,11 +1,15 @@
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use runx_contracts::{JsonNumber, JsonObject, JsonValue};
+use runx_parser::SkillSource;
 use sha2::{Digest, Sha256};
 
 use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
+use crate::adapters::cli_tool::CliToolAdapter;
 use crate::tool_catalogs::search::{FixtureTool, fixture_tool};
+use crate::tool_catalogs::{ToolCatalogError, ToolInspectOptions, resolve_local_tool};
 
 const MISSING_CATALOG_REF: &str = "Catalog source requires source.catalog_ref metadata.";
 
@@ -43,6 +47,9 @@ impl SkillAdapter for CatalogAdapter {
             return Ok(failure(MISSING_CATALOG_REF, started));
         }
 
+        if let Some(output) = invoke_local_tool(catalog_ref, &request, started)? {
+            return Ok(output);
+        }
         if !self.fixture_catalog_enabled {
             return Ok(missing_imported_tool(catalog_ref, started));
         }
@@ -51,6 +58,77 @@ impl SkillAdapter for CatalogAdapter {
         };
 
         Ok(invoke_fixture_tool(&tool, &request.inputs, started))
+    }
+}
+
+fn invoke_local_tool(
+    catalog_ref: &str,
+    request: &SkillInvocation,
+    started: Instant,
+) -> Result<Option<SkillOutput>, RuntimeError> {
+    let resolution = match resolve_local_tool(&ToolInspectOptions {
+        root: request.skill_directory.clone(),
+        tool_ref: catalog_ref.to_owned(),
+        source: None,
+        search_from_directory: request.skill_directory.clone(),
+        tool_roots: Vec::new(),
+        fixture_catalog_enabled: false,
+    }) {
+        Ok(resolution) => resolution,
+        Err(error) if local_lookup_miss(&error) => return Ok(None),
+        Err(error) => return Err(catalog_error(&request.skill_name, error)),
+    };
+
+    if resolution.tool.source.source_type != "cli-tool" {
+        return Ok(Some(failure(
+            format!(
+                "Resolved catalog tool '{}' uses unsupported Rust adapter '{}'.",
+                resolution.tool.name, resolution.tool.source.source_type
+            ),
+            started,
+        )));
+    }
+
+    let mut source = resolution.tool.source;
+    let skill_directory = manifest_directory(&resolution.manifest_path, &request.skill_directory);
+    normalize_local_cli_source(&mut source, &skill_directory);
+    let invocation = SkillInvocation {
+        skill_name: resolution.tool.name,
+        source,
+        inputs: request.inputs.clone(),
+        skill_directory,
+        env: request.env.clone(),
+    };
+    Ok(Some(CliToolAdapter.invoke(invocation)?))
+}
+
+fn local_lookup_miss(error: &ToolCatalogError) -> bool {
+    match error {
+        ToolCatalogError::NotFound(_) => true,
+        ToolCatalogError::InvalidRequest(message) => message.contains("must include a namespace"),
+        ToolCatalogError::Io { .. }
+        | ToolCatalogError::Json { .. }
+        | ToolCatalogError::InvalidManifest { .. } => false,
+    }
+}
+
+fn catalog_error(skill_name: &str, error: ToolCatalogError) -> RuntimeError {
+    RuntimeError::SkillFailed {
+        skill_name: skill_name.to_owned(),
+        message: error.to_string(),
+    }
+}
+
+fn manifest_directory(manifest_path: &Path, fallback: &Path) -> PathBuf {
+    manifest_path
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| fallback.to_path_buf())
+}
+
+fn normalize_local_cli_source(source: &mut SkillSource, skill_directory: &Path) {
+    if source.cwd.is_none() {
+        source.cwd = Some(skill_directory.to_string_lossy().into_owned());
     }
 }
 

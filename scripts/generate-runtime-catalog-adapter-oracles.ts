@@ -132,7 +132,7 @@ const cases: readonly OracleCase[] = [
           command: "node",
           args: ["./run.mjs"],
           sandbox: {
-            profile: "unrestricted-local-dev",
+            profile: "workspace-write",
           },
         },
         inputs: {
