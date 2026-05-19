@@ -1,6 +1,7 @@
 use runx_cli::config::{ConfigAction, ConfigPlan};
 use runx_cli::connect::{ConnectAction, ConnectAuthorityKind, ConnectPlan};
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use runx_cli::launcher::{
     CommandPlan, DEFAULT_NPM_PACKAGE, DoctorPlan, HarnessPlan, HistoryPlan, InitPlan,
@@ -31,6 +32,57 @@ fn plan_with_rust_cli_and_js(args: Vec<std::ffi::OsString>) -> LauncherAction {
             rust_harness: None,
         },
     )
+}
+
+fn plan_with_rust_cli_signal_and_js(signal: &str, args: Vec<std::ffi::OsString>) -> LauncherAction {
+    plan_launcher_with_native_options(
+        args,
+        Some("@runxhq/cli@0.5.22".into()),
+        Some("/repo/oss/packages/cli/bin/runx.js".into()),
+        NativeLauncherOptions {
+            rust_cli: Some(signal.into()),
+            rust_harness: None,
+        },
+    )
+}
+
+fn assert_delegates_to_js_bin_without_native_signals(args: Vec<std::ffi::OsString>) {
+    let js_bin = std::ffi::OsString::from("/repo/oss/packages/cli/bin/runx.js");
+    let mut expected_args = vec![js_bin.clone()];
+    expected_args.extend(args.clone());
+
+    assert_eq!(
+        plan_launcher(
+            args,
+            Some("@runxhq/cli@0.5.22".into()),
+            Some(js_bin.clone()),
+        ),
+        LauncherAction::Delegate(CommandPlan {
+            program: node_command().into(),
+            args: expected_args,
+        })
+    );
+}
+
+#[test]
+fn pre_cutover_candidate_commands_delegate_without_native_signals() {
+    for args in [
+        vec!["connect".into(), "list".into(), "--json".into()],
+        vec!["config".into(), "list".into(), "--json".into()],
+        vec!["doctor".into(), "--json".into()],
+        vec!["list".into(), "tools".into(), "--json".into()],
+        vec!["new".into(), "docs-demo".into(), "--json".into()],
+        vec!["init".into(), "--json".into()],
+        vec!["history".into(), "sourcey".into(), "--json".into()],
+        vec![
+            "tool".into(),
+            "search".into(),
+            "echo".into(),
+            "--json".into(),
+        ],
+    ] {
+        assert_delegates_to_js_bin_without_native_signals(args);
+    }
 }
 
 #[test]
@@ -164,6 +216,72 @@ fn connect_delegates_without_rust_cli_signal_even_with_js_fallback_configured() 
                 "/repo/oss/packages/cli/bin/runx.js".into(),
                 "connect".into(),
                 "list".into(),
+                "--json".into(),
+            ],
+        })
+    );
+}
+
+#[test]
+fn rust_cli_zero_signal_still_delegates_to_js() {
+    let action = plan_with_rust_cli_signal_and_js(
+        "0",
+        vec!["connect".into(), "list".into(), "--json".into()],
+    );
+
+    assert_eq!(
+        action,
+        LauncherAction::Delegate(CommandPlan {
+            program: node_command().into(),
+            args: vec![
+                "/repo/oss/packages/cli/bin/runx.js".into(),
+                "connect".into(),
+                "list".into(),
+                "--json".into(),
+            ],
+        })
+    );
+}
+
+#[test]
+fn rust_cli_empty_signal_still_delegates_to_js() {
+    let action = plan_with_rust_cli_signal_and_js(
+        "",
+        vec!["connect".into(), "list".into(), "--json".into()],
+    );
+
+    assert_eq!(
+        action,
+        LauncherAction::Delegate(CommandPlan {
+            program: node_command().into(),
+            args: vec![
+                "/repo/oss/packages/cli/bin/runx.js".into(),
+                "connect".into(),
+                "list".into(),
+                "--json".into(),
+            ],
+        })
+    );
+}
+
+#[test]
+fn rust_cli_signal_leaves_unknown_commands_delegated() {
+    let action = plan_with_rust_cli_and_js(vec![
+        "skill".into(),
+        "run".into(),
+        "sourcey".into(),
+        "--json".into(),
+    ]);
+
+    assert_eq!(
+        action,
+        LauncherAction::Delegate(CommandPlan {
+            program: node_command().into(),
+            args: vec![
+                "/repo/oss/packages/cli/bin/runx.js".into(),
+                "skill".into(),
+                "run".into(),
+                "sourcey".into(),
                 "--json".into(),
             ],
         })
@@ -589,5 +707,33 @@ fn rust_harness_signal_rejects_unsupported_argument_shape() {
             "runx harness requires exactly one fixture path when RUNX_RUST_HARNESS is set"
                 .to_owned(),
         )
+    );
+}
+
+#[test]
+fn packaged_node_cli_does_not_enable_rust_candidate_dispatch()
+-> Result<(), Box<dyn std::error::Error>> {
+    let package_json = fs::read_to_string(repo_root()?.join("packages/cli/package.json"))?;
+    let node_bin = fs::read_to_string(repo_root()?.join("packages/cli/bin/runx.js"))?;
+
+    assert_not_contains(&package_json, "RUNX_RUST_CLI");
+    assert_not_contains(&package_json, "RUNX_RUST_HARNESS");
+    assert_not_contains(&package_json, "crates/runx-cli");
+    assert_not_contains(&node_bin, "RUNX_RUST_CLI");
+    assert_not_contains(&node_bin, "RUNX_RUST_HARNESS");
+    assert_not_contains(&node_bin, "CARGO_BIN_EXE_runx");
+    Ok(())
+}
+
+fn repo_root() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    Ok(Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()?)
+}
+
+fn assert_not_contains(contents: &str, needle: &str) {
+    assert!(
+        !contents.contains(needle),
+        "packaged CLI must not contain {needle}"
     );
 }
