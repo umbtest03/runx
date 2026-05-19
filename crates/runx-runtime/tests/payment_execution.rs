@@ -110,9 +110,74 @@ fn payment_approval_step_is_recorded_with_receipt() -> Result<(), Box<dyn std::e
     Ok(())
 }
 
-#[derive(Default)]
+#[test]
+fn payment_spend_success_without_rail_proof_is_denied_before_graph_success()
+-> Result<(), Box<dyn std::error::Error>> {
+    let fixture = GraphFixture::new()?;
+    let runtime = Runtime::new(
+        RecordingAdapter::without_rail_proof(),
+        RuntimeOptions::default(),
+    );
+    let mut caller = ApprovalCaller::approved(true);
+
+    let result = runtime.run_graph_file_with_caller(fixture.graph_path(), &mut caller);
+
+    match result {
+        Err(RuntimeError::PaymentAuthorityDenied { step_id, reason }) => {
+            assert_eq!(step_id, "fulfill");
+            assert!(
+                reason.contains("rail proof"),
+                "payment authority denial should identify the missing rail proof"
+            );
+        }
+        Ok(run) => {
+            assert_ne!(run.state.status, GraphStatus::Succeeded);
+            return Err(std::io::Error::other(
+                "payment spend step without rail proof must not succeed the graph",
+            )
+            .into());
+        }
+        Err(error) => {
+            return Err(std::io::Error::other(format!("unexpected runtime error: {error}")).into());
+        }
+    }
+    assert!(
+        !caller
+            .events
+            .borrow()
+            .iter()
+            .any(|event| matches!(event, ExecutionEvent::Completed { .. })),
+        "graph completion must not be reported after missing rail proof"
+    );
+    Ok(())
+}
+
 struct RecordingAdapter {
     invocations: RefCell<Vec<String>>,
+    stdout: String,
+}
+
+impl Default for RecordingAdapter {
+    fn default() -> Self {
+        Self::with_stdout(
+            r#"{"payment_rail_packet":{"data":{"rail_result":{"status":"fulfilled","rail":"mock","amount_minor":125,"currency":"USD"},"rail_proof":{"proof_ref":"receipt-proof:mock:payment-execution-001","idempotency_key":"payment:payment-execution-001"},"credential_envelope":{"form":"paid_tool_credential","credential_ref":"credential:mock:payment-execution-001"}}}}"#,
+        )
+    }
+}
+
+impl RecordingAdapter {
+    fn without_rail_proof() -> Self {
+        Self::with_stdout(
+            r#"{"payment_rail_packet":{"data":{"rail_result":{"status":"fulfilled","rail":"mock","amount_minor":125,"currency":"USD"},"credential_envelope":{"form":"paid_tool_credential","credential_ref":"credential:mock:payment-execution-001"}}}}"#,
+        )
+    }
+
+    fn with_stdout(stdout: &str) -> Self {
+        Self {
+            invocations: RefCell::new(Vec::new()),
+            stdout: stdout.to_owned(),
+        }
+    }
 }
 
 impl SkillAdapter for RecordingAdapter {
@@ -124,7 +189,7 @@ impl SkillAdapter for RecordingAdapter {
         self.invocations.borrow_mut().push(request.skill_name);
         Ok(SkillOutput {
             status: InvocationStatus::Success,
-            stdout: r#"{"fulfilled":true}"#.to_owned(),
+            stdout: self.stdout.clone(),
             stderr: String::new(),
             exit_code: Some(0),
             duration_ms: 1,
@@ -134,6 +199,7 @@ impl SkillAdapter for RecordingAdapter {
 }
 
 struct ApprovalCaller {
+    events: RefCell<Vec<ExecutionEvent>>,
     requests: RefCell<Vec<ResolutionRequest>>,
     responses: RefCell<VecDeque<Option<ResolutionResponse>>>,
 }
@@ -141,6 +207,7 @@ struct ApprovalCaller {
 impl ApprovalCaller {
     fn approved(approved: bool) -> Self {
         Self {
+            events: RefCell::new(Vec::new()),
             requests: RefCell::new(Vec::new()),
             responses: RefCell::new(VecDeque::from([Some(ResolutionResponse {
                 actor: ResolutionResponseActor::Human,
@@ -151,7 +218,8 @@ impl ApprovalCaller {
 }
 
 impl Caller for ApprovalCaller {
-    fn report(&mut self, _event: ExecutionEvent) -> Result<(), RuntimeError> {
+    fn report(&mut self, event: ExecutionEvent) -> Result<(), RuntimeError> {
+        self.events.borrow_mut().push(event);
         Ok(())
     }
 
@@ -217,6 +285,8 @@ steps:
       wrap_as: payment_approval
   - id: fulfill
     skill: ./fulfill
+    scopes:
+      - payment:spend
 policy:
   transitions:
     - to: fulfill

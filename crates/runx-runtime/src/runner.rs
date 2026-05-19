@@ -756,6 +756,37 @@ fn display_json(value: &JsonValue) -> String {
     serde_json::to_string(value).unwrap_or_else(|_| "<unprintable>".to_owned())
 }
 
+fn enforce_payment_receipt_before_success(
+    step: &GraphStep,
+    output: &SkillOutput,
+    receipt: &runx_contracts::HarnessReceipt,
+) -> Result<(), RuntimeError> {
+    if !output.succeeded() || !payment_spend_step(step) {
+        return Ok(());
+    }
+    let proof_present = receipt
+        .harness
+        .acts
+        .iter()
+        .any(|act| act.verification_refs.iter().any(is_payment_rail_proof_ref));
+    if proof_present {
+        return Ok(());
+    }
+    Err(RuntimeError::PaymentAuthorityDenied {
+        step_id: step.id.clone(),
+        reason: "payment:spend success requires a sealed rail proof reference".to_owned(),
+    })
+}
+
+fn payment_spend_step(step: &GraphStep) -> bool {
+    step.scopes.iter().any(|scope| scope == "payment:spend")
+}
+
+fn is_payment_rail_proof_ref(reference: &runx_contracts::Reference) -> bool {
+    reference.reference_type == runx_contracts::ReferenceType::Verification
+        && reference.label.as_deref() == Some("payment rail proof")
+}
+
 fn output_error(run: &StepRun) -> String {
     if run.output.stderr.is_empty() {
         "cli-tool failed without stderr".to_owned()
@@ -800,6 +831,7 @@ where
         &output,
         &runtime.options.created_at,
     )?;
+    enforce_payment_receipt_before_success(step, &output, &receipt)?;
     Ok(StepRun {
         step_id: step.id.clone(),
         attempt,

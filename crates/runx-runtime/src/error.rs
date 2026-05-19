@@ -31,6 +31,8 @@ pub enum RuntimeError {
     UnsupportedRunStep { step_id: String, run_type: String },
     #[error("graph step '{step_id}' is blocked: {reason}")]
     GraphBlocked { step_id: String, reason: String },
+    #[error("payment authority denied graph step '{step_id}': {reason}")]
+    PaymentAuthorityDenied { step_id: String, reason: String },
     #[error("graph step '{step_id}' failed planning: {reason}")]
     GraphPlanningFailed { step_id: String, reason: String },
     #[error("graph step '{step_id}' paused: {reason}")]
