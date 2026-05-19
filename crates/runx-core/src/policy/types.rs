@@ -1,3 +1,4 @@
+// rust-style-allow: large-file - policy parity wire types stay colocated so serde surface changes are reviewed together.
 use runx_contracts::JsonValue;
 use serde::{Deserialize, Serialize};
 
@@ -84,6 +85,359 @@ pub enum AuthorityKind {
     ReadOnly,
     Constructive,
     Destructive,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalScopeAdmissionOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub denied_before_grant_resolution: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScopeAdmissionStatus {
+    Allow,
+    Deny,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ScopeAdmission {
+    pub status: ScopeAdmissionStatus,
+    pub requested_scopes: Vec<String>,
+    pub granted_scopes: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grant_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasons: Option<Vec<String>>,
+    pub decision_summary: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct CredentialGrantReference {
+    pub grant_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_family: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authority_kind: Option<AuthorityKind>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_repo: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_locator: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct CredentialEnvelope {
+    pub kind: String,
+    pub grant_id: String,
+    pub provider: String,
+    pub connection_id: String,
+    pub scopes: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grant_reference: Option<CredentialGrantReference>,
+    pub material_ref: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    rename_all = "kebab-case",
+    tag = "status",
+    rename_all_fields = "camelCase"
+)]
+pub enum CredentialBindingDecision {
+    Allow { reasons: Vec<String> },
+    Deny { reasons: Vec<String> },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthorityProofSandboxDeclaration {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile: Option<String>,
+    #[serde(alias = "cwd_policy", skip_serializing_if = "Option::is_none")]
+    pub cwd_policy: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub network: Option<bool>,
+    #[serde(alias = "require_enforcement", skip_serializing_if = "Option::is_none")]
+    pub require_enforcement: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthorityProofApprovalGate {
+    pub id: String,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub gate_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthorityProofApproval {
+    pub gate: AuthorityProofApprovalGate,
+    pub approved: bool,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildAuthorityProofOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    pub skill_name: String,
+    pub source_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth: Option<JsonValue>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub grants: Vec<LocalAdmissionGrant>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_admission: Option<ScopeAdmission>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credential: Option<CredentialEnvelope>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sandbox_declaration: Option<AuthorityProofSandboxDeclaration>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sandbox_metadata: Option<JsonValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval: Option<AuthorityProofApproval>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mutating: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CredentialBindingRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth: Option<JsonValue>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub grants: Vec<LocalAdmissionGrant>,
+    pub scope_admission: ScopeAdmission,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credential: Option<CredentialEnvelope>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AuthorityProofMetadata {
+    pub authority_proof: AuthorityProof,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AuthorityProof {
+    pub schema_version: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    pub skill_name: String,
+    pub source_type: String,
+    pub requested: AuthorityProofRequested,
+    pub scope_admission: ScopeAdmission,
+    pub credential_material: AuthorityProofCredentialMaterial,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sandbox: Option<AuthorityProofSandbox>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval_gate: Option<AuthorityProofApprovalDecision>,
+    pub redaction: AuthorityProofRedaction,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AuthorityProofRequested {
+    pub connected_auth: bool,
+    pub scopes: Vec<String>,
+    pub mutating: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_family: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authority_kind: Option<AuthorityKind>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_repo: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_locator: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sandbox_profile: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AuthorityProofCredentialMaterial {
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grant_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connection_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scopes: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_family: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authority_kind: Option<AuthorityKind>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_repo: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_locator: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grant_reference: Option<CredentialGrantReference>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub material_ref_hash: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AuthorityProofSandbox {
+    pub profile: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cwd_policy: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub require_enforcement: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub network: Option<AuthorityProofSandboxNetwork>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub filesystem: Option<AuthorityProofSandboxFilesystem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<AuthorityProofSandboxRuntime>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval_required: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval_approved: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AuthorityProofSandboxNetwork {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub declared: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enforcement: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AuthorityProofSandboxFilesystem {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enforcement: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub readonly_paths: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub writable_paths_enforced: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_tmp: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AuthorityProofSandboxRuntime {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enforcer: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AuthorityProofApprovalDecision {
+    pub gate_id: String,
+    pub gate_type: String,
+    pub decision: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AuthorityProofRedaction {
+    pub status: String,
+    pub secret_material: String,
+    pub stdout: String,
+    pub stderr: String,
+    pub metadata_secret_keys: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct PublicWorkPolicy {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blocked_author_patterns: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blocked_head_ref_prefixes: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blocked_exact_labels: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blocked_label_prefixes: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trust_recovery_statuses: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub require_welcome_signal_for_pull_request_comments: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct RequiredPublicWorkPolicy {
+    pub blocked_author_patterns: Vec<String>,
+    pub blocked_head_ref_prefixes: Vec<String>,
+    pub blocked_exact_labels: Vec<String>,
+    pub blocked_label_prefixes: Vec<String>,
+    pub trust_recovery_statuses: Vec<String>,
+    pub require_welcome_signal_for_pull_request_comments: bool,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicPullRequestCandidateRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author_login: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub labels: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub head_ref_name: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicCommentOpportunityRequest {
+    #[serde(flatten)]
+    pub pull_request: PublicPullRequestCandidateRequest,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lane: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author_association: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comments_count: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub review_comments_count: Option<f64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub recent_outcomes: Vec<PublicRecentOutcome>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicRecentOutcome {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct PublicPolicyDecision {
+    pub blocked: bool,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct PublicCommentPolicyDecision {
+    pub blocked: bool,
+    pub reasons: Vec<String>,
+    pub welcome_signal: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

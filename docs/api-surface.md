@@ -5,6 +5,16 @@
 This page lists the public package entry points from each `@runxhq/*` package `exports` map.
 The package manifests are authoritative; regenerate this page with `pnpm docs:api`.
 
+## Rust SDK
+
+The Rust `runx-sdk` crate is a CLI-backed v0 SDK over an installed `runx`
+binary and documented `runx --json` output. It exposes typed helpers for skill
+search, skill run, resume, connect list, host protocol decoding, and
+act-assignment construction through `runx-contracts`.
+
+`runx-sdk` does not replace the TypeScript runtime. The later `native-runtime`
+path is a separate cutover track.
+
 ## @runxhq/adapters
 
 Runx concrete runtime adapters.

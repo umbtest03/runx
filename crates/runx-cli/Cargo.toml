@@ -15,6 +15,12 @@ include = ["Cargo.toml", "README.md", "src/**/*.rs"]
 [lints]
 workspace = true
 
+[dependencies]
+runx-contracts.workspace = true
+runx-runtime = { workspace = true, features = ["cli-tool"] }
+serde.workspace = true
+serde_json.workspace = true
+
 [[bin]]
 name = "runx"
 path = "src/main.rs"

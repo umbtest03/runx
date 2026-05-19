@@ -1,0 +1,182 @@
+{
+  "$schema": "../schema/policy.schema.json",
+  "expected": {
+    "kind": "output",
+    "value": {
+      "authority_proof": {
+        "approval_gate": {
+          "decision": "approved",
+          "gate_id": "approval_1",
+          "gate_type": "human",
+          "reason": "mutating github action"
+        },
+        "credential_material": {
+          "connection_id": "conn_1",
+          "grant_id": "grant_expected",
+          "grant_reference": {
+            "authority_kind": "read_only",
+            "grant_id": "grant_expected",
+            "scope_family": "github_repo",
+            "target_locator": "runxhq/aster#issue/4",
+            "target_repo": "runxhq/aster"
+          },
+          "material_ref_hash": "bb21189cc7d0dec571b333e26f2f5b70a63637ae142f464a5f0bb1e5c0316ce4",
+          "provider": "github",
+          "scopes": [
+            "repo:read"
+          ],
+          "status": "resolved"
+        },
+        "redaction": {
+          "metadata_secret_keys": [
+            "token-like metadata keys",
+            "api-key-like metadata keys",
+            "password-like metadata keys",
+            "client-secret-like metadata keys",
+            "raw-secret-like metadata keys"
+          ],
+          "secret_material": "omitted",
+          "status": "applied",
+          "stderr": "hashed",
+          "stdout": "hashed"
+        },
+        "requested": {
+          "authority_kind": "read_only",
+          "connected_auth": true,
+          "mutating": true,
+          "sandbox_profile": "workspace-write",
+          "scope_family": "github_repo",
+          "scopes": [
+            "repo:read"
+          ],
+          "target_locator": "runxhq/aster#issue/4",
+          "target_repo": "runxhq/aster"
+        },
+        "run_id": "run_policy_fixture",
+        "sandbox": {
+          "approval_approved": true,
+          "approval_required": false,
+          "cwd_policy": "workspace",
+          "filesystem": {
+            "enforcement": "bubblewrap-mount-namespace",
+            "private_tmp": true,
+            "readonly_paths": false,
+            "writable_paths_enforced": true
+          },
+          "network": {
+            "declared": false,
+            "enforcement": "isolated-namespace"
+          },
+          "profile": "workspace-write",
+          "require_enforcement": true,
+          "runtime": {
+            "enforcer": "bubblewrap",
+            "reason": "fixture"
+          }
+        },
+        "schema_version": "runx.authority-proof.v1",
+        "scope_admission": {
+          "decision_summary": "matching active grant admitted",
+          "grant_id": "grant_expected",
+          "granted_scopes": [
+            "repo:read",
+            "user:read"
+          ],
+          "requested_scopes": [
+            "repo:read"
+          ],
+          "status": "allow"
+        },
+        "skill_name": "issue-intake",
+        "source_type": "agent-step"
+      }
+    }
+  },
+  "input": {
+    "kind": "policy.buildAuthorityProofMetadata",
+    "options": {
+      "approval": {
+        "approved": true,
+        "gate": {
+          "id": "approval_1",
+          "reason": "mutating github action",
+          "type": "human"
+        }
+      },
+      "auth": {
+        "authority_kind": "read_only",
+        "provider": "github",
+        "scope_family": "github_repo",
+        "scopes": [
+          "repo:read",
+          "repo:read"
+        ],
+        "target_locator": "runxhq/aster#issue/4",
+        "target_repo": "runxhq/aster",
+        "type": "nango"
+      },
+      "credential": {
+        "connection_id": "conn_1",
+        "grant_id": "grant_expected",
+        "grant_reference": {
+          "authority_kind": "read_only",
+          "grant_id": "grant_expected",
+          "scope_family": "github_repo",
+          "target_locator": "runxhq/aster#issue/4",
+          "target_repo": "runxhq/aster"
+        },
+        "kind": "runx.credential-envelope.v1",
+        "material_ref": "nango:github:conn_1",
+        "provider": "github",
+        "scopes": [
+          "repo:read"
+        ]
+      },
+      "grants": [
+        {
+          "authority_kind": "read_only",
+          "grant_id": "grant_expected",
+          "provider": "github",
+          "scope_family": "github_repo",
+          "scopes": [
+            "repo:read",
+            "user:read"
+          ],
+          "status": "active",
+          "target_locator": "runxhq/aster#issue/4",
+          "target_repo": "runxhq/aster"
+        }
+      ],
+      "mutating": true,
+      "runId": "run_policy_fixture",
+      "sandboxDeclaration": {
+        "cwdPolicy": "workspace",
+        "network": false,
+        "profile": "workspace-write",
+        "requireEnforcement": true
+      },
+      "sandboxMetadata": {
+        "cwd_policy": "workspace",
+        "filesystem": {
+          "enforcement": "bubblewrap-mount-namespace",
+          "private_tmp": true,
+          "readonly_paths": false,
+          "writable_paths_enforced": true
+        },
+        "network": {
+          "declared": false,
+          "enforcement": "isolated-namespace"
+        },
+        "profile": "workspace-write",
+        "require_enforcement": true,
+        "runtime": {
+          "enforcer": "bubblewrap",
+          "reason": "fixture"
+        }
+      },
+      "skillName": "issue-intake",
+      "sourceType": "agent-step"
+    }
+  },
+  "name": "authority-proof-metadata-full"
+}

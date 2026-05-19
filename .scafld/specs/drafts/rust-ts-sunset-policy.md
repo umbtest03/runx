@@ -28,6 +28,9 @@ Review gate: not_started
 Delete `packages/core/src/policy/`. By the time this spec runs, the Rust
 runtime owns policy evaluation and no live TS consumer reads from
 `@runxhq/core/policy`. Mirrors the `rust-ts-sunset-state-machine` template.
+This does not delete contract schemas such as `runx.operational_policy.v1`;
+those remain in `@runxhq/contracts` until the contract package itself has a
+separate Rust ownership/sunset path.
 
 ## Context
 
@@ -51,6 +54,8 @@ Files impacted:
 Invariants:
 - No policy decision regressions: cross-validated through receipt parity
   before and after.
+- Operational policy fixtures and `runx policy inspect|lint` keep validating
+  against the same schema/readback shape after the implementation moves.
 - The authority-proof helpers in `packages/core/src/policy/authority-proof.ts`
   have a Rust replacement (`rust-policy-authority-proof-parity` provides it).
 

@@ -1,0 +1,547 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.runx.dev/runx/operational-policy/v1.json",
+  "x-runx-schema": "runx.operational_policy.v1",
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "policy_id",
+    "sources",
+    "runners",
+    "owner_routes",
+    "targets",
+    "dedupe",
+    "outcomes",
+    "permissions"
+  ],
+  "properties": {
+    "schema": {
+      "const": "runx.operational_policy.v1",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "runx.operational_policy.v1",
+      "type": "string"
+    },
+    "policy_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.:-]+$",
+      "type": "string"
+    },
+    "created_at": {
+      "minLength": 1,
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "type": "string"
+    },
+    "sources": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_id",
+          "provider",
+          "allowed_locators",
+          "allowed_actions",
+          "source_thread"
+        ],
+        "properties": {
+          "source_id": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "const": "slack",
+                "type": "string"
+              },
+              {
+                "const": "sentry",
+                "type": "string"
+              },
+              {
+                "const": "github",
+                "type": "string"
+              },
+              {
+                "const": "file",
+                "type": "string"
+              },
+              {
+                "const": "api",
+                "type": "string"
+              },
+              {
+                "const": "other",
+                "type": "string"
+              }
+            ]
+          },
+          "allowed_locators": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "allowed_actions": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "const": "reply-only",
+                  "type": "string"
+                },
+                {
+                  "const": "issue-intake",
+                  "type": "string"
+                },
+                {
+                  "const": "work-plan",
+                  "type": "string"
+                },
+                {
+                  "const": "issue-to-pr",
+                  "type": "string"
+                },
+                {
+                  "const": "manual-review",
+                  "type": "string"
+                },
+                {
+                  "const": "pr-review",
+                  "type": "string"
+                },
+                {
+                  "const": "pr-fix-up",
+                  "type": "string"
+                },
+                {
+                  "const": "merge-assist",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "source_thread": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "required",
+              "publish_mode",
+              "missing_behavior"
+            ],
+            "properties": {
+              "required": {
+                "type": "boolean"
+              },
+              "publish_mode": {
+                "anyOf": [
+                  {
+                    "const": "reply",
+                    "type": "string"
+                  },
+                  {
+                    "const": "comment",
+                    "type": "string"
+                  },
+                  {
+                    "const": "none",
+                    "type": "string"
+                  }
+                ]
+              },
+              "missing_behavior": {
+                "const": "fail_closed",
+                "type": "string"
+              }
+            }
+          },
+          "minimum_confidence": {
+            "minimum": 0,
+            "maximum": 1,
+            "type": "number"
+          },
+          "sentry": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "production_only",
+              "unresolved_only"
+            ],
+            "properties": {
+              "production_only": {
+                "type": "boolean"
+              },
+              "unresolved_only": {
+                "type": "boolean"
+              },
+              "regressed_only": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "runners": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "runner_id",
+          "kind",
+          "state",
+          "allowed_actions",
+          "target_repos",
+          "scafld_required"
+        ],
+        "properties": {
+          "runner_id": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "const": "local",
+                "type": "string"
+              },
+              {
+                "const": "github-actions",
+                "type": "string"
+              },
+              {
+                "const": "aster",
+                "type": "string"
+              },
+              {
+                "const": "other",
+                "type": "string"
+              }
+            ]
+          },
+          "state": {
+            "anyOf": [
+              {
+                "const": "available",
+                "type": "string"
+              },
+              {
+                "const": "disabled",
+                "type": "string"
+              },
+              {
+                "const": "maintenance",
+                "type": "string"
+              }
+            ]
+          },
+          "allowed_actions": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "const": "reply-only",
+                  "type": "string"
+                },
+                {
+                  "const": "issue-intake",
+                  "type": "string"
+                },
+                {
+                  "const": "work-plan",
+                  "type": "string"
+                },
+                {
+                  "const": "issue-to-pr",
+                  "type": "string"
+                },
+                {
+                  "const": "manual-review",
+                  "type": "string"
+                },
+                {
+                  "const": "pr-review",
+                  "type": "string"
+                },
+                {
+                  "const": "pr-fix-up",
+                  "type": "string"
+                },
+                {
+                  "const": "merge-assist",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "target_repos": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "minLength": 3,
+              "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+              "type": "string"
+            }
+          },
+          "scafld_required": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "owner_routes": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "route_id",
+          "owners",
+          "target_repos"
+        ],
+        "properties": {
+          "route_id": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "owners": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "target_repos": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "minLength": 3,
+              "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+              "type": "string"
+            }
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "project": {
+            "minLength": 1,
+            "type": "string"
+          }
+        }
+      }
+    },
+    "targets": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "repo",
+          "runner_ids",
+          "allowed_actions",
+          "default_owner_route",
+          "scafld_required"
+        ],
+        "properties": {
+          "repo": {
+            "minLength": 3,
+            "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+            "type": "string"
+          },
+          "runner_ids": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.:-]+$",
+              "type": "string"
+            }
+          },
+          "allowed_actions": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "const": "reply-only",
+                  "type": "string"
+                },
+                {
+                  "const": "issue-intake",
+                  "type": "string"
+                },
+                {
+                  "const": "work-plan",
+                  "type": "string"
+                },
+                {
+                  "const": "issue-to-pr",
+                  "type": "string"
+                },
+                {
+                  "const": "manual-review",
+                  "type": "string"
+                },
+                {
+                  "const": "pr-review",
+                  "type": "string"
+                },
+                {
+                  "const": "pr-fix-up",
+                  "type": "string"
+                },
+                {
+                  "const": "merge-assist",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "default_owner_route": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "type": "string"
+          },
+          "scafld_required": {
+            "type": "boolean"
+          },
+          "base_branch": {
+            "minLength": 1,
+            "type": "string"
+          }
+        }
+      }
+    },
+    "dedupe": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "strategy",
+        "key_fields",
+        "on_duplicate"
+      ],
+      "properties": {
+        "strategy": {
+          "anyOf": [
+            {
+              "const": "source_fingerprint",
+              "type": "string"
+            },
+            {
+              "const": "provider_search",
+              "type": "string"
+            },
+            {
+              "const": "branch",
+              "type": "string"
+            }
+          ]
+        },
+        "key_fields": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "on_duplicate": {
+          "anyOf": [
+            {
+              "const": "reuse",
+              "type": "string"
+            },
+            {
+              "const": "comment",
+              "type": "string"
+            },
+            {
+              "const": "block",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "outcomes": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "observe_provider",
+        "verification_required",
+        "close_source_issue",
+        "publish_final_source_thread_update"
+      ],
+      "properties": {
+        "observe_provider": {
+          "type": "boolean"
+        },
+        "verification_required": {
+          "type": "boolean"
+        },
+        "close_source_issue": {
+          "anyOf": [
+            {
+              "const": "never",
+              "type": "string"
+            },
+            {
+              "const": "when_verified",
+              "type": "string"
+            },
+            {
+              "const": "when_terminal",
+              "type": "string"
+            }
+          ]
+        },
+        "publish_final_source_thread_update": {
+          "type": "boolean"
+        }
+      }
+    },
+    "permissions": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "auto_merge",
+        "mutate_target_repo",
+        "require_human_merge_gate"
+      ],
+      "properties": {
+        "auto_merge": {
+          "const": false,
+          "type": "boolean"
+        },
+        "mutate_target_repo": {
+          "type": "boolean"
+        },
+        "require_human_merge_gate": {
+          "const": true,
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

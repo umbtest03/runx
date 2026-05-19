@@ -167,6 +167,11 @@ empty file bundle is a terminal policy denial before `write-fix`.
   selection rationale, selected act, and closure when the caller already made
   the lane decision.
 - `target_repo`: intended repository slug for PR packaging.
+- `operational_policy`: optional `runx.operational_policy.v1` packet used to
+  admit the source, target repo, runner, and source-thread route before PR
+  packaging.
+- `source_id`: optional operational policy source id.
+- `runner_id`: optional operational policy runner id.
 - `repo_snapshot`: compact structured snapshot of the target repo.
 - `repo_snapshot_path`: optional path to a fuller repo snapshot artifact.
 - `repo_context`: textual summary of repo shape and validation hooks.

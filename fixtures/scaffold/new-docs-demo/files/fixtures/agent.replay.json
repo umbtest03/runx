@@ -1,0 +1,22 @@
+{
+  "schema": "runx.replay.v1",
+  "fixture": "echo-agent-replay",
+  "prompt_fingerprint": "sha256:7267b8c6601a849b2564112b293c552e97b950ce33c98bfce1f6f90a82e864ed",
+  "recorded_at": "1970-01-01T00:00:00.000Z",
+  "target": {
+    "kind": "skill",
+    "ref": "."
+  },
+  "status": "success",
+  "outputs": {
+    "echo_packet": {
+      "schema": "docs.demo.echo.v1",
+      "data": {
+        "message": "hello"
+      }
+    }
+  },
+  "usage": {
+    "mode": "scaffold"
+  }
+}

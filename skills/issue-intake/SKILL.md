@@ -192,3 +192,6 @@ Prefer conservative routing:
   this skill.
 - `source_policy` (optional): source admission and routing policy. Do not
   hardcode channel names, Sentry projects, or owners in this skill.
+- `operational_policy` (optional): `runx.operational_policy.v1` packet used by
+  downstream repo-changing lanes for source, target, runner, and source-thread
+  admission.

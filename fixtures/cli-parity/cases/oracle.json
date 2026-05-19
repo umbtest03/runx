@@ -1,0 +1,361 @@
+{
+  "schema": "runx.cli_parity_oracle_cases.v1",
+  "cases": [
+    {
+      "id": "help.top-level",
+      "commandId": "cli.help",
+      "mode": "execute",
+      "argv": [
+        "--help"
+      ],
+      "expectedExitCode": 0,
+      "expectJson": false,
+      "stdoutIncludes": [
+        "Usage:",
+        "runx skill",
+        "runx harness"
+      ],
+      "stderrIncludes": [],
+      "proves": [
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "usage.unsupported",
+      "commandId": "cli.help",
+      "mode": "execute",
+      "argv": [
+        "not-a-command"
+      ],
+      "expectedExitCode": 64,
+      "expectJson": false,
+      "stdoutIncludes": [],
+      "stderrIncludes": [
+        "Usage:"
+      ],
+      "proves": [
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "config.list.execute",
+      "commandId": "config.list",
+      "mode": "execute",
+      "argv": [
+        "config",
+        "list",
+        "--json"
+      ],
+      "expectedExitCode": 0,
+      "expectJson": true,
+      "stdoutIncludes": [],
+      "stderrIncludes": [],
+      "proves": [
+        "config",
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "harness.execute",
+      "commandId": "harness",
+      "mode": "execute",
+      "argv": [
+        "harness",
+        "fixtures/harness/echo-skill.yaml",
+        "--json"
+      ],
+      "expectedExitCode": 0,
+      "expectJson": true,
+      "stdoutIncludes": [],
+      "stderrIncludes": [],
+      "proves": [
+        "harness",
+        "receipts",
+        "sandbox"
+      ]
+    },
+    {
+      "id": "list.tools.execute",
+      "commandId": "list",
+      "mode": "execute",
+      "argv": [
+        "list",
+        "tools",
+        "--json"
+      ],
+      "expectedExitCode": 0,
+      "expectJson": true,
+      "stdoutIncludes": [],
+      "stderrIncludes": [],
+      "proves": [
+        "list",
+        "tool-catalog"
+      ]
+    },
+    {
+      "id": "skill.run.validate",
+      "commandId": "skill.run",
+      "mode": "validate",
+      "proves": [
+        "skill-resolution",
+        "graph-runtime",
+        "receipts",
+        "sandbox",
+        "adapter-cli-tool",
+        "adapter-a2a",
+        "adapter-agent"
+      ]
+    },
+    {
+      "id": "skill.search.validate",
+      "commandId": "skill.search",
+      "mode": "validate",
+      "proves": [
+        "registry",
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "skill.add.validate",
+      "commandId": "skill.add",
+      "mode": "validate",
+      "proves": [
+        "registry",
+        "skill-resolution"
+      ]
+    },
+    {
+      "id": "skill.publish.validate",
+      "commandId": "skill.publish",
+      "mode": "validate",
+      "proves": [
+        "registry",
+        "receipts"
+      ]
+    },
+    {
+      "id": "skill.inspect.validate",
+      "commandId": "skill.inspect",
+      "mode": "validate",
+      "proves": [
+        "receipts",
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "evolve.validate",
+      "commandId": "evolve",
+      "mode": "validate",
+      "proves": [
+        "graph-runtime",
+        "receipts",
+        "artifacts"
+      ]
+    },
+    {
+      "id": "resume.validate",
+      "commandId": "resume",
+      "mode": "validate",
+      "proves": [
+        "resume-replay",
+        "ledger",
+        "receipts",
+        "caller-mediated-resolution"
+      ]
+    },
+    {
+      "id": "replay.validate",
+      "commandId": "replay",
+      "mode": "validate",
+      "proves": [
+        "resume-replay",
+        "ledger",
+        "receipts"
+      ]
+    },
+    {
+      "id": "diff.validate",
+      "commandId": "diff",
+      "mode": "validate",
+      "proves": [
+        "receipts",
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "history.validate",
+      "commandId": "history",
+      "mode": "validate",
+      "proves": [
+        "history",
+        "receipts"
+      ]
+    },
+    {
+      "id": "history.execute",
+      "commandId": "history",
+      "mode": "execute",
+      "argv": [
+        "history",
+        "--receipt-dir",
+        "$FIXTURE_RECEIPTS",
+        "--json"
+      ],
+      "expectedExitCode": 0,
+      "expectJson": true,
+      "expect": {
+        "pendingRuns": 1,
+        "firstPendingRunId": "gx_paused_oracle",
+        "firstPendingRunStatus": "paused"
+      },
+      "stdoutIncludes": [
+        "\"pendingRuns\"",
+        "\"gx_paused_oracle\"",
+        "\"selectedRunner\": \"agent-step\""
+      ],
+      "stderrIncludes": [],
+      "proves": [
+        "history",
+        "ledger",
+        "receipts",
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "export-receipts.trainable.validate",
+      "commandId": "export-receipts.trainable",
+      "mode": "validate",
+      "proves": [
+        "trainable-export",
+        "receipts"
+      ]
+    },
+    {
+      "id": "knowledge.show.validate",
+      "commandId": "knowledge.show",
+      "mode": "validate",
+      "proves": [
+        "knowledge",
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "connect.list.validate",
+      "commandId": "connect.list",
+      "mode": "validate",
+      "proves": [
+        "connect",
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "connect.revoke.validate",
+      "commandId": "connect.revoke",
+      "mode": "validate",
+      "proves": [
+        "connect",
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "connect.preprovision.validate",
+      "commandId": "connect.preprovision",
+      "mode": "validate",
+      "proves": [
+        "connect",
+        "authority"
+      ]
+    },
+    {
+      "id": "config.set.validate",
+      "commandId": "config.set",
+      "mode": "validate",
+      "proves": [
+        "config",
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "config.get.validate",
+      "commandId": "config.get",
+      "mode": "validate",
+      "proves": [
+        "config",
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "new.validate",
+      "commandId": "new",
+      "mode": "validate",
+      "proves": [
+        "scaffold",
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "init.validate",
+      "commandId": "init",
+      "mode": "validate",
+      "proves": [
+        "scaffold",
+        "official-skills"
+      ]
+    },
+    {
+      "id": "doctor.validate",
+      "commandId": "doctor",
+      "mode": "validate",
+      "proves": [
+        "doctor",
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "dev.validate",
+      "commandId": "dev",
+      "mode": "validate",
+      "proves": [
+        "dev",
+        "harness",
+        "receipts"
+      ]
+    },
+    {
+      "id": "mcp.serve.validate",
+      "commandId": "mcp.serve",
+      "mode": "validate",
+      "proves": [
+        "mcp",
+        "adapter-mcp"
+      ]
+    },
+    {
+      "id": "tool.search.validate",
+      "commandId": "tool.search",
+      "mode": "validate",
+      "proves": [
+        "tool-catalog",
+        "adapter-catalog"
+      ]
+    },
+    {
+      "id": "tool.inspect.validate",
+      "commandId": "tool.inspect",
+      "mode": "validate",
+      "proves": [
+        "tool-catalog",
+        "adapter-catalog"
+      ]
+    },
+    {
+      "id": "tool.build.validate",
+      "commandId": "tool.build",
+      "mode": "validate",
+      "proves": [
+        "tool-catalog",
+        "authoring"
+      ]
+    }
+  ]
+}

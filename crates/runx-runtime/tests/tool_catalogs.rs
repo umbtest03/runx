@@ -1,0 +1,189 @@
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use runx_contracts::tools::{ToolBuildStatus, ToolInspectOrigin};
+use runx_runtime::{
+    ToolBuildOptions, ToolInspectOptions, ToolSearchOptions, build_tool_catalogs, inspect_tool,
+    search_tools,
+};
+
+#[test]
+fn tool_catalogs_build_scaffold_manifest() -> Result<(), Box<dyn std::error::Error>> {
+    let temp_root = copy_scaffold_fixture("build_scaffold_manifest")?;
+    let tool_dir = temp_root.join("tools/docs/echo");
+
+    let report = build_tool_catalogs(&ToolBuildOptions {
+        root: temp_root.clone(),
+        tool_path: Some(tool_dir),
+        all: false,
+        toolkit_version: "0.1.4".to_owned(),
+    })?;
+
+    assert_eq!(report.status, ToolBuildStatus::Success);
+    assert_eq!(report.built.len(), 1);
+    assert!(report.errors.is_empty());
+
+    let manifest = fs::read_to_string(temp_root.join("tools/docs/echo/manifest.json"))?;
+    assert!(manifest.contains(r#""schema": "runx.tool.manifest.v1""#));
+    assert!(manifest.contains(r#""toolkit_version": "0.1.4""#));
+    assert!(manifest.contains(r#""source_hash": "sha256:43323caad0616b9c0bf771663ac556a6aea2971d65c4e23a59d440d9b0b61229""#));
+    assert!(manifest.contains(r#""schema_hash": "sha256:d5c0e413e7484e04bec267def5ecfe1f63fafb94d8cd96c7fab17d2608b0631a""#));
+    Ok(())
+}
+
+#[test]
+fn tool_catalogs_search_fixture_mcp_requires_enablement() {
+    let disabled = search_tools(&ToolSearchOptions {
+        query: "echo".to_owned(),
+        source: None,
+        limit: 20,
+        fixture_catalog_enabled: false,
+    });
+    assert!(disabled.results.is_empty());
+
+    let enabled = search_tools(&ToolSearchOptions {
+        query: "echo".to_owned(),
+        source: Some("fixture-mcp".to_owned()),
+        limit: 20,
+        fixture_catalog_enabled: true,
+    });
+    assert_eq!(enabled.status, ToolBuildStatus::Success);
+    assert_eq!(enabled.results.len(), 1);
+    assert_eq!(enabled.results[0].tool_id, "fixture-mcp/fixture.echo");
+    assert_eq!(enabled.results[0].source_label, "Fixture MCP Catalog");
+}
+
+#[test]
+fn tool_catalogs_inspect_fixture_mcp_echo() -> Result<(), Box<dyn std::error::Error>> {
+    let root = repo_root()?;
+    let report = inspect_tool(&ToolInspectOptions {
+        root: root.clone(),
+        tool_ref: "fixture.echo".to_owned(),
+        source: Some("fixture-mcp".to_owned()),
+        search_from_directory: root,
+        tool_roots: Vec::new(),
+        fixture_catalog_enabled: true,
+    })?;
+
+    assert_eq!(report.status, ToolBuildStatus::Success);
+    assert_eq!(report.tool.provenance.origin, ToolInspectOrigin::Imported);
+    assert_eq!(report.tool.name, "fixture.echo");
+    assert_eq!(report.tool.execution_source_type, "catalog");
+    assert!(report.tool.inputs["message"].required);
+    Ok(())
+}
+
+#[test]
+fn tool_catalogs_inspect_local_manifest() -> Result<(), Box<dyn std::error::Error>> {
+    let temp_root = copy_scaffold_fixture("inspect_local_manifest")?;
+    let report = inspect_tool(&ToolInspectOptions {
+        root: temp_root.clone(),
+        tool_ref: "docs.echo".to_owned(),
+        source: None,
+        search_from_directory: temp_root.clone(),
+        tool_roots: Vec::new(),
+        fixture_catalog_enabled: false,
+    })?;
+
+    assert_eq!(report.status, ToolBuildStatus::Success);
+    assert_eq!(report.tool.provenance.origin, ToolInspectOrigin::Local);
+    assert_eq!(report.tool.name, "docs.echo");
+    assert_eq!(report.tool.execution_source_type, "cli-tool");
+    assert_eq!(
+        report.tool.reference_path,
+        display(&temp_root.join("tools/docs/echo/manifest.json"))
+    );
+    Ok(())
+}
+
+#[test]
+fn tool_catalogs_inspect_prefers_local_manifest_over_fixture_catalog()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp_root = copy_scaffold_fixture("inspect_local_precedence")?;
+    let tool_dir = temp_root.join("tools/fixture/echo");
+    fs::create_dir_all(&tool_dir)?;
+    fs::write(
+        tool_dir.join("manifest.json"),
+        r#"{
+  "schema": "runx.tool.manifest.v1",
+  "name": "fixture.echo",
+  "description": "Local collision fixture.",
+  "source": {
+    "type": "cli-tool",
+    "command": "node",
+    "args": [
+      "./run.mjs"
+    ]
+  },
+  "inputs": {},
+  "scopes": [
+    "fixture.local"
+  ],
+  "runtime": {
+    "command": "node",
+    "args": [
+      "./run.mjs"
+    ]
+  },
+  "output": {},
+  "source_hash": "sha256:local",
+  "schema_hash": "sha256:local",
+  "toolkit_version": "0.1.4"
+}
+"#,
+    )?;
+
+    let report = inspect_tool(&ToolInspectOptions {
+        root: temp_root.clone(),
+        tool_ref: "fixture.echo".to_owned(),
+        source: Some("fixture-mcp".to_owned()),
+        search_from_directory: temp_root,
+        tool_roots: Vec::new(),
+        fixture_catalog_enabled: true,
+    })?;
+
+    assert_eq!(report.tool.provenance.origin, ToolInspectOrigin::Local);
+    assert_eq!(
+        report.tool.description.as_deref(),
+        Some("Local collision fixture.")
+    );
+    assert_eq!(report.tool.scopes, ["fixture.local"]);
+    Ok(())
+}
+
+fn copy_scaffold_fixture(name: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let source = repo_root()?.join("fixtures/scaffold/new-docs-demo/files");
+    let target = std::env::temp_dir()
+        .join("runx-tool-catalogs-tests")
+        .join(format!("{name}-{}", std::process::id()));
+    if target.exists() {
+        fs::remove_dir_all(&target)?;
+    }
+    copy_dir(&source, &target)?;
+    Ok(target)
+}
+
+fn copy_dir(source: &Path, target: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    fs::create_dir_all(target)?;
+    for entry in fs::read_dir(source)? {
+        let entry = entry?;
+        let path = entry.path();
+        let target_path = target.join(entry.file_name());
+        if path.is_dir() {
+            copy_dir(&path, &target_path)?;
+        } else {
+            fs::copy(&path, &target_path)?;
+        }
+    }
+    Ok(())
+}
+
+fn repo_root() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    Ok(Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()?)
+}
+
+fn display(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}

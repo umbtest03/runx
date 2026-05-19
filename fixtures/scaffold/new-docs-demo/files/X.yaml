@@ -1,0 +1,18 @@
+skill: docs-demo
+
+runners:
+  default:
+    default: true
+    type: graph
+    inputs:
+      message:
+        type: string
+        required: false
+        default: hello
+    graph:
+      name: docs-demo
+      steps:
+        - id: echo
+          tool: docs.echo
+          inputs:
+            message: inputs.message

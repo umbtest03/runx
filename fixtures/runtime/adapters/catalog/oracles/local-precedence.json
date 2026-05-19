@@ -1,0 +1,49 @@
+{
+  "status": "success",
+  "stdout": "local:catalog fixture collision",
+  "stderr": "",
+  "exitCode": 0,
+  "signal": null,
+  "durationMs": 0,
+  "metadata": {
+    "sandbox": {
+      "profile": "unrestricted-local-dev",
+      "cwd": "<repo>/fixtures/runtime/adapters/catalog/local-precedence/tools/fixture/echo",
+      "workspace_root": "<repo>/fixtures/runtime/adapters/catalog/local-precedence",
+      "cwd_policy": "skill-directory",
+      "env": {
+        "mode": "default-allowlist",
+        "allowlist": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP",
+          "SystemRoot",
+          "WINDIR",
+          "COMSPEC",
+          "PATHEXT"
+        ]
+      },
+      "network": {
+        "declared": false,
+        "enforcement": "host-ambient"
+      },
+      "writable_paths": [],
+      "require_enforcement": false,
+      "filesystem": {
+        "enforcement": "host-ambient",
+        "readonly_paths": false,
+        "writable_paths_enforced": false,
+        "private_tmp": false
+      },
+      "approval": {
+        "required": true,
+        "approved": false
+      },
+      "runtime": {
+        "enforcer": "direct"
+      }
+    }
+  }
+}

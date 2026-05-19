@@ -1,0 +1,1145 @@
+{
+  "schema": "runx.receipt_tree_oracle.v1",
+  "receipts": {
+    "child_a": {
+      "schema": "runx.harness_receipt.v1",
+      "id": "hrn_rcpt_child_a",
+      "created_at": "2026-05-18T00:00:00Z",
+      "issuer": {
+        "type": "local",
+        "kid": "receipt-tree-fixture",
+        "public_key_sha256": "sha256:receipt-tree-fixture-public"
+      },
+      "signature": {
+        "alg": "Ed25519",
+        "value": "base64:receipt-tree-fixture"
+      },
+      "harness": {
+        "harness_id": "hrn_child_a",
+        "parent_harness_ref": null,
+        "state": "sealed",
+        "host_ref": {
+          "type": "host",
+          "uri": "runx:host:receipt-tree-fixture"
+        },
+        "harness_ref": {
+          "type": "harness",
+          "uri": "runx:harness:child-a"
+        },
+        "authority": {
+          "actor_ref": {
+            "type": "principal",
+            "uri": "runx:principal:receipt-tree-fixture"
+          },
+          "attenuation": {
+            "parent_authority_ref": null,
+            "subset_proof": null
+          }
+        },
+        "enforcement": {
+          "version": "receipt-tree-fixture",
+          "enforcement_profile_hash": "sha256:receipt-tree-enforcement",
+          "sandbox": {
+            "profile": "process-boundary",
+            "cwd_policy": "workspace",
+            "network": "none",
+            "filesystem": "workspace_read"
+          }
+        },
+        "idempotency": {
+          "intent_key": "sha256:child-a-intent",
+          "trigger_fingerprint": "sha256:child-a-trigger",
+          "content_hash": "sha256:child-a-content"
+        },
+        "revision": {
+          "sequence": 1,
+          "previous_ref": null
+        },
+        "child_harness_receipt_refs": [],
+        "seal": {
+          "disposition": "closed",
+          "reason_code": "fixture_closed",
+          "summary": "receipt tree fixture closed",
+          "closed_at": "2026-05-18T00:00:00Z",
+          "last_observed_at": "2026-05-18T00:00:00Z",
+          "canonicalization": "runx.harness-receipt.c14n.v1",
+          "digest": "sha256:receipt-tree-fixture",
+          "criteria": []
+        }
+      },
+      "seal": {
+        "disposition": "closed",
+        "reason_code": "fixture_closed",
+        "summary": "receipt tree fixture closed",
+        "closed_at": "2026-05-18T00:00:00Z",
+        "last_observed_at": "2026-05-18T00:00:00Z",
+        "canonicalization": "runx.harness-receipt.c14n.v1",
+        "digest": "sha256:receipt-tree-fixture",
+        "criteria": []
+      }
+    },
+    "child_a_duplicate": {
+      "schema": "runx.harness_receipt.v1",
+      "id": "hrn_rcpt_child_a",
+      "created_at": "2026-05-18T00:00:00Z",
+      "issuer": {
+        "type": "local",
+        "kid": "receipt-tree-fixture",
+        "public_key_sha256": "sha256:receipt-tree-fixture-public"
+      },
+      "signature": {
+        "alg": "Ed25519",
+        "value": "base64:receipt-tree-fixture"
+      },
+      "harness": {
+        "harness_id": "hrn_child_a_duplicate",
+        "parent_harness_ref": null,
+        "state": "sealed",
+        "host_ref": {
+          "type": "host",
+          "uri": "runx:host:receipt-tree-fixture"
+        },
+        "harness_ref": {
+          "type": "harness",
+          "uri": "runx:harness:child-a-duplicate"
+        },
+        "authority": {
+          "actor_ref": {
+            "type": "principal",
+            "uri": "runx:principal:receipt-tree-fixture"
+          },
+          "attenuation": {
+            "parent_authority_ref": null,
+            "subset_proof": null
+          }
+        },
+        "enforcement": {
+          "version": "receipt-tree-fixture",
+          "enforcement_profile_hash": "sha256:receipt-tree-enforcement",
+          "sandbox": {
+            "profile": "process-boundary",
+            "cwd_policy": "workspace",
+            "network": "none",
+            "filesystem": "workspace_read"
+          }
+        },
+        "idempotency": {
+          "intent_key": "sha256:child-a-duplicate-intent",
+          "trigger_fingerprint": "sha256:child-a-duplicate-trigger",
+          "content_hash": "sha256:child-a-duplicate-content"
+        },
+        "revision": {
+          "sequence": 1,
+          "previous_ref": null
+        },
+        "child_harness_receipt_refs": [],
+        "seal": {
+          "disposition": "closed",
+          "reason_code": "fixture_closed",
+          "summary": "receipt tree fixture closed",
+          "closed_at": "2026-05-18T00:00:00Z",
+          "last_observed_at": "2026-05-18T00:00:00Z",
+          "canonicalization": "runx.harness-receipt.c14n.v1",
+          "digest": "sha256:receipt-tree-fixture",
+          "criteria": []
+        }
+      },
+      "seal": {
+        "disposition": "closed",
+        "reason_code": "fixture_closed",
+        "summary": "receipt tree fixture closed",
+        "closed_at": "2026-05-18T00:00:00Z",
+        "last_observed_at": "2026-05-18T00:00:00Z",
+        "canonicalization": "runx.harness-receipt.c14n.v1",
+        "digest": "sha256:receipt-tree-fixture",
+        "criteria": []
+      }
+    },
+    "child_a_self_cycle": {
+      "schema": "runx.harness_receipt.v1",
+      "id": "hrn_rcpt_child_a",
+      "created_at": "2026-05-18T00:00:00Z",
+      "issuer": {
+        "type": "local",
+        "kid": "receipt-tree-fixture",
+        "public_key_sha256": "sha256:receipt-tree-fixture-public"
+      },
+      "signature": {
+        "alg": "Ed25519",
+        "value": "base64:receipt-tree-fixture"
+      },
+      "harness": {
+        "harness_id": "hrn_child_a_self_cycle",
+        "parent_harness_ref": null,
+        "state": "sealed",
+        "host_ref": {
+          "type": "host",
+          "uri": "runx:host:receipt-tree-fixture"
+        },
+        "harness_ref": {
+          "type": "harness",
+          "uri": "runx:harness:child-a-self-cycle"
+        },
+        "authority": {
+          "actor_ref": {
+            "type": "principal",
+            "uri": "runx:principal:receipt-tree-fixture"
+          },
+          "attenuation": {
+            "parent_authority_ref": null,
+            "subset_proof": null
+          }
+        },
+        "enforcement": {
+          "version": "receipt-tree-fixture",
+          "enforcement_profile_hash": "sha256:receipt-tree-enforcement",
+          "sandbox": {
+            "profile": "process-boundary",
+            "cwd_policy": "workspace",
+            "network": "none",
+            "filesystem": "workspace_read"
+          }
+        },
+        "idempotency": {
+          "intent_key": "sha256:child-a-self-cycle-intent",
+          "trigger_fingerprint": "sha256:child-a-self-cycle-trigger",
+          "content_hash": "sha256:child-a-self-cycle-content"
+        },
+        "revision": {
+          "sequence": 1,
+          "previous_ref": null
+        },
+        "child_harness_receipt_refs": [
+          {
+            "type": "harness_receipt",
+            "uri": "runx:harness_receipt:hrn_rcpt_child_a"
+          }
+        ],
+        "seal": {
+          "disposition": "closed",
+          "reason_code": "fixture_closed",
+          "summary": "receipt tree fixture closed",
+          "closed_at": "2026-05-18T00:00:00Z",
+          "last_observed_at": "2026-05-18T00:00:00Z",
+          "canonicalization": "runx.harness-receipt.c14n.v1",
+          "digest": "sha256:receipt-tree-fixture",
+          "criteria": []
+        }
+      },
+      "seal": {
+        "disposition": "closed",
+        "reason_code": "fixture_closed",
+        "summary": "receipt tree fixture closed",
+        "closed_at": "2026-05-18T00:00:00Z",
+        "last_observed_at": "2026-05-18T00:00:00Z",
+        "canonicalization": "runx.harness-receipt.c14n.v1",
+        "digest": "sha256:receipt-tree-fixture",
+        "criteria": []
+      }
+    },
+    "child_a_to_b": {
+      "schema": "runx.harness_receipt.v1",
+      "id": "hrn_rcpt_child_a",
+      "created_at": "2026-05-18T00:00:00Z",
+      "issuer": {
+        "type": "local",
+        "kid": "receipt-tree-fixture",
+        "public_key_sha256": "sha256:receipt-tree-fixture-public"
+      },
+      "signature": {
+        "alg": "Ed25519",
+        "value": "base64:receipt-tree-fixture"
+      },
+      "harness": {
+        "harness_id": "hrn_child_a_to_b",
+        "parent_harness_ref": null,
+        "state": "sealed",
+        "host_ref": {
+          "type": "host",
+          "uri": "runx:host:receipt-tree-fixture"
+        },
+        "harness_ref": {
+          "type": "harness",
+          "uri": "runx:harness:child-a-to-b"
+        },
+        "authority": {
+          "actor_ref": {
+            "type": "principal",
+            "uri": "runx:principal:receipt-tree-fixture"
+          },
+          "attenuation": {
+            "parent_authority_ref": null,
+            "subset_proof": null
+          }
+        },
+        "enforcement": {
+          "version": "receipt-tree-fixture",
+          "enforcement_profile_hash": "sha256:receipt-tree-enforcement",
+          "sandbox": {
+            "profile": "process-boundary",
+            "cwd_policy": "workspace",
+            "network": "none",
+            "filesystem": "workspace_read"
+          }
+        },
+        "idempotency": {
+          "intent_key": "sha256:child-a-to-b-intent",
+          "trigger_fingerprint": "sha256:child-a-to-b-trigger",
+          "content_hash": "sha256:child-a-to-b-content"
+        },
+        "revision": {
+          "sequence": 1,
+          "previous_ref": null
+        },
+        "child_harness_receipt_refs": [
+          {
+            "type": "harness_receipt",
+            "uri": "runx:harness_receipt:hrn_rcpt_child_b"
+          }
+        ],
+        "seal": {
+          "disposition": "closed",
+          "reason_code": "fixture_closed",
+          "summary": "receipt tree fixture closed",
+          "closed_at": "2026-05-18T00:00:00Z",
+          "last_observed_at": "2026-05-18T00:00:00Z",
+          "canonicalization": "runx.harness-receipt.c14n.v1",
+          "digest": "sha256:receipt-tree-fixture",
+          "criteria": []
+        }
+      },
+      "seal": {
+        "disposition": "closed",
+        "reason_code": "fixture_closed",
+        "summary": "receipt tree fixture closed",
+        "closed_at": "2026-05-18T00:00:00Z",
+        "last_observed_at": "2026-05-18T00:00:00Z",
+        "canonicalization": "runx.harness-receipt.c14n.v1",
+        "digest": "sha256:receipt-tree-fixture",
+        "criteria": []
+      }
+    },
+    "child_a_wrong_parent": {
+      "schema": "runx.harness_receipt.v1",
+      "id": "hrn_rcpt_child_a",
+      "created_at": "2026-05-18T00:00:00Z",
+      "issuer": {
+        "type": "local",
+        "kid": "receipt-tree-fixture",
+        "public_key_sha256": "sha256:receipt-tree-fixture-public"
+      },
+      "signature": {
+        "alg": "Ed25519",
+        "value": "base64:receipt-tree-fixture"
+      },
+      "harness": {
+        "harness_id": "hrn_child_a_wrong_parent",
+        "parent_harness_ref": {
+          "type": "harness",
+          "uri": "runx:harness:wrong-parent"
+        },
+        "state": "sealed",
+        "host_ref": {
+          "type": "host",
+          "uri": "runx:host:receipt-tree-fixture"
+        },
+        "harness_ref": {
+          "type": "harness",
+          "uri": "runx:harness:child-a-wrong-parent"
+        },
+        "authority": {
+          "actor_ref": {
+            "type": "principal",
+            "uri": "runx:principal:receipt-tree-fixture"
+          },
+          "attenuation": {
+            "parent_authority_ref": null,
+            "subset_proof": null
+          }
+        },
+        "enforcement": {
+          "version": "receipt-tree-fixture",
+          "enforcement_profile_hash": "sha256:receipt-tree-enforcement",
+          "sandbox": {
+            "profile": "process-boundary",
+            "cwd_policy": "workspace",
+            "network": "none",
+            "filesystem": "workspace_read"
+          }
+        },
+        "idempotency": {
+          "intent_key": "sha256:child-a-wrong-parent-intent",
+          "trigger_fingerprint": "sha256:child-a-wrong-parent-trigger",
+          "content_hash": "sha256:child-a-wrong-parent-content"
+        },
+        "revision": {
+          "sequence": 1,
+          "previous_ref": null
+        },
+        "child_harness_receipt_refs": [],
+        "seal": {
+          "disposition": "closed",
+          "reason_code": "fixture_closed",
+          "summary": "receipt tree fixture closed",
+          "closed_at": "2026-05-18T00:00:00Z",
+          "last_observed_at": "2026-05-18T00:00:00Z",
+          "canonicalization": "runx.harness-receipt.c14n.v1",
+          "digest": "sha256:receipt-tree-fixture",
+          "criteria": []
+        }
+      },
+      "seal": {
+        "disposition": "closed",
+        "reason_code": "fixture_closed",
+        "summary": "receipt tree fixture closed",
+        "closed_at": "2026-05-18T00:00:00Z",
+        "last_observed_at": "2026-05-18T00:00:00Z",
+        "canonicalization": "runx.harness-receipt.c14n.v1",
+        "digest": "sha256:receipt-tree-fixture",
+        "criteria": []
+      }
+    },
+    "child_b": {
+      "schema": "runx.harness_receipt.v1",
+      "id": "hrn_rcpt_child_b",
+      "created_at": "2026-05-18T00:00:00Z",
+      "issuer": {
+        "type": "local",
+        "kid": "receipt-tree-fixture",
+        "public_key_sha256": "sha256:receipt-tree-fixture-public"
+      },
+      "signature": {
+        "alg": "Ed25519",
+        "value": "base64:receipt-tree-fixture"
+      },
+      "harness": {
+        "harness_id": "hrn_child_b",
+        "parent_harness_ref": null,
+        "state": "sealed",
+        "host_ref": {
+          "type": "host",
+          "uri": "runx:host:receipt-tree-fixture"
+        },
+        "harness_ref": {
+          "type": "harness",
+          "uri": "runx:harness:child-b"
+        },
+        "authority": {
+          "actor_ref": {
+            "type": "principal",
+            "uri": "runx:principal:receipt-tree-fixture"
+          },
+          "attenuation": {
+            "parent_authority_ref": null,
+            "subset_proof": null
+          }
+        },
+        "enforcement": {
+          "version": "receipt-tree-fixture",
+          "enforcement_profile_hash": "sha256:receipt-tree-enforcement",
+          "sandbox": {
+            "profile": "process-boundary",
+            "cwd_policy": "workspace",
+            "network": "none",
+            "filesystem": "workspace_read"
+          }
+        },
+        "idempotency": {
+          "intent_key": "sha256:child-b-intent",
+          "trigger_fingerprint": "sha256:child-b-trigger",
+          "content_hash": "sha256:child-b-content"
+        },
+        "revision": {
+          "sequence": 1,
+          "previous_ref": null
+        },
+        "child_harness_receipt_refs": [],
+        "seal": {
+          "disposition": "closed",
+          "reason_code": "fixture_closed",
+          "summary": "receipt tree fixture closed",
+          "closed_at": "2026-05-18T00:00:00Z",
+          "last_observed_at": "2026-05-18T00:00:00Z",
+          "canonicalization": "runx.harness-receipt.c14n.v1",
+          "digest": "sha256:receipt-tree-fixture",
+          "criteria": []
+        }
+      },
+      "seal": {
+        "disposition": "closed",
+        "reason_code": "fixture_closed",
+        "summary": "receipt tree fixture closed",
+        "closed_at": "2026-05-18T00:00:00Z",
+        "last_observed_at": "2026-05-18T00:00:00Z",
+        "canonicalization": "runx.harness-receipt.c14n.v1",
+        "digest": "sha256:receipt-tree-fixture",
+        "criteria": []
+      }
+    },
+    "root_empty": {
+      "schema": "runx.harness_receipt.v1",
+      "id": "hrn_rcpt_root_empty",
+      "created_at": "2026-05-18T00:00:00Z",
+      "issuer": {
+        "type": "local",
+        "kid": "receipt-tree-fixture",
+        "public_key_sha256": "sha256:receipt-tree-fixture-public"
+      },
+      "signature": {
+        "alg": "Ed25519",
+        "value": "base64:receipt-tree-fixture"
+      },
+      "harness": {
+        "harness_id": "hrn_root_empty",
+        "parent_harness_ref": null,
+        "state": "sealed",
+        "host_ref": {
+          "type": "host",
+          "uri": "runx:host:receipt-tree-fixture"
+        },
+        "harness_ref": {
+          "type": "harness",
+          "uri": "runx:harness:root-empty"
+        },
+        "authority": {
+          "actor_ref": {
+            "type": "principal",
+            "uri": "runx:principal:receipt-tree-fixture"
+          },
+          "attenuation": {
+            "parent_authority_ref": null,
+            "subset_proof": null
+          }
+        },
+        "enforcement": {
+          "version": "receipt-tree-fixture",
+          "enforcement_profile_hash": "sha256:receipt-tree-enforcement",
+          "sandbox": {
+            "profile": "process-boundary",
+            "cwd_policy": "workspace",
+            "network": "none",
+            "filesystem": "workspace_read"
+          }
+        },
+        "idempotency": {
+          "intent_key": "sha256:root-empty-intent",
+          "trigger_fingerprint": "sha256:root-empty-trigger",
+          "content_hash": "sha256:root-empty-content"
+        },
+        "revision": {
+          "sequence": 1,
+          "previous_ref": null
+        },
+        "child_harness_receipt_refs": [],
+        "seal": {
+          "disposition": "closed",
+          "reason_code": "fixture_closed",
+          "summary": "receipt tree fixture closed",
+          "closed_at": "2026-05-18T00:00:00Z",
+          "last_observed_at": "2026-05-18T00:00:00Z",
+          "canonicalization": "runx.harness-receipt.c14n.v1",
+          "digest": "sha256:receipt-tree-fixture",
+          "criteria": []
+        }
+      },
+      "seal": {
+        "disposition": "closed",
+        "reason_code": "fixture_closed",
+        "summary": "receipt tree fixture closed",
+        "closed_at": "2026-05-18T00:00:00Z",
+        "last_observed_at": "2026-05-18T00:00:00Z",
+        "canonicalization": "runx.harness-receipt.c14n.v1",
+        "digest": "sha256:receipt-tree-fixture",
+        "criteria": []
+      }
+    },
+    "root_malformed_uri": {
+      "schema": "runx.harness_receipt.v1",
+      "id": "hrn_rcpt_root_malformed_uri",
+      "created_at": "2026-05-18T00:00:00Z",
+      "issuer": {
+        "type": "local",
+        "kid": "receipt-tree-fixture",
+        "public_key_sha256": "sha256:receipt-tree-fixture-public"
+      },
+      "signature": {
+        "alg": "Ed25519",
+        "value": "base64:receipt-tree-fixture"
+      },
+      "harness": {
+        "harness_id": "hrn_root_malformed_uri",
+        "parent_harness_ref": null,
+        "state": "sealed",
+        "host_ref": {
+          "type": "host",
+          "uri": "runx:host:receipt-tree-fixture"
+        },
+        "harness_ref": {
+          "type": "harness",
+          "uri": "runx:harness:root-malformed-uri"
+        },
+        "authority": {
+          "actor_ref": {
+            "type": "principal",
+            "uri": "runx:principal:receipt-tree-fixture"
+          },
+          "attenuation": {
+            "parent_authority_ref": null,
+            "subset_proof": null
+          }
+        },
+        "enforcement": {
+          "version": "receipt-tree-fixture",
+          "enforcement_profile_hash": "sha256:receipt-tree-enforcement",
+          "sandbox": {
+            "profile": "process-boundary",
+            "cwd_policy": "workspace",
+            "network": "none",
+            "filesystem": "workspace_read"
+          }
+        },
+        "idempotency": {
+          "intent_key": "sha256:root-malformed-uri-intent",
+          "trigger_fingerprint": "sha256:root-malformed-uri-trigger",
+          "content_hash": "sha256:root-malformed-uri-content"
+        },
+        "revision": {
+          "sequence": 1,
+          "previous_ref": null
+        },
+        "child_harness_receipt_refs": [
+          {
+            "type": "harness_receipt",
+            "uri": "runx:harness_receipt:"
+          }
+        ],
+        "seal": {
+          "disposition": "closed",
+          "reason_code": "fixture_closed",
+          "summary": "receipt tree fixture closed",
+          "closed_at": "2026-05-18T00:00:00Z",
+          "last_observed_at": "2026-05-18T00:00:00Z",
+          "canonicalization": "runx.harness-receipt.c14n.v1",
+          "digest": "sha256:receipt-tree-fixture",
+          "criteria": []
+        }
+      },
+      "seal": {
+        "disposition": "closed",
+        "reason_code": "fixture_closed",
+        "summary": "receipt tree fixture closed",
+        "closed_at": "2026-05-18T00:00:00Z",
+        "last_observed_at": "2026-05-18T00:00:00Z",
+        "canonicalization": "runx.harness-receipt.c14n.v1",
+        "digest": "sha256:receipt-tree-fixture",
+        "criteria": []
+      }
+    },
+    "root_to_a": {
+      "schema": "runx.harness_receipt.v1",
+      "id": "hrn_rcpt_root_to_a",
+      "created_at": "2026-05-18T00:00:00Z",
+      "issuer": {
+        "type": "local",
+        "kid": "receipt-tree-fixture",
+        "public_key_sha256": "sha256:receipt-tree-fixture-public"
+      },
+      "signature": {
+        "alg": "Ed25519",
+        "value": "base64:receipt-tree-fixture"
+      },
+      "harness": {
+        "harness_id": "hrn_root_to_a",
+        "parent_harness_ref": null,
+        "state": "sealed",
+        "host_ref": {
+          "type": "host",
+          "uri": "runx:host:receipt-tree-fixture"
+        },
+        "harness_ref": {
+          "type": "harness",
+          "uri": "runx:harness:root-to-a"
+        },
+        "authority": {
+          "actor_ref": {
+            "type": "principal",
+            "uri": "runx:principal:receipt-tree-fixture"
+          },
+          "attenuation": {
+            "parent_authority_ref": null,
+            "subset_proof": null
+          }
+        },
+        "enforcement": {
+          "version": "receipt-tree-fixture",
+          "enforcement_profile_hash": "sha256:receipt-tree-enforcement",
+          "sandbox": {
+            "profile": "process-boundary",
+            "cwd_policy": "workspace",
+            "network": "none",
+            "filesystem": "workspace_read"
+          }
+        },
+        "idempotency": {
+          "intent_key": "sha256:root-to-a-intent",
+          "trigger_fingerprint": "sha256:root-to-a-trigger",
+          "content_hash": "sha256:root-to-a-content"
+        },
+        "revision": {
+          "sequence": 1,
+          "previous_ref": null
+        },
+        "child_harness_receipt_refs": [
+          {
+            "type": "harness_receipt",
+            "uri": "runx:harness_receipt:hrn_rcpt_child_a"
+          }
+        ],
+        "seal": {
+          "disposition": "closed",
+          "reason_code": "fixture_closed",
+          "summary": "receipt tree fixture closed",
+          "closed_at": "2026-05-18T00:00:00Z",
+          "last_observed_at": "2026-05-18T00:00:00Z",
+          "canonicalization": "runx.harness-receipt.c14n.v1",
+          "digest": "sha256:receipt-tree-fixture",
+          "criteria": []
+        }
+      },
+      "seal": {
+        "disposition": "closed",
+        "reason_code": "fixture_closed",
+        "summary": "receipt tree fixture closed",
+        "closed_at": "2026-05-18T00:00:00Z",
+        "last_observed_at": "2026-05-18T00:00:00Z",
+        "canonicalization": "runx.harness-receipt.c14n.v1",
+        "digest": "sha256:receipt-tree-fixture",
+        "criteria": []
+      }
+    },
+    "root_to_a_b": {
+      "schema": "runx.harness_receipt.v1",
+      "id": "hrn_rcpt_root_to_a_b",
+      "created_at": "2026-05-18T00:00:00Z",
+      "issuer": {
+        "type": "local",
+        "kid": "receipt-tree-fixture",
+        "public_key_sha256": "sha256:receipt-tree-fixture-public"
+      },
+      "signature": {
+        "alg": "Ed25519",
+        "value": "base64:receipt-tree-fixture"
+      },
+      "harness": {
+        "harness_id": "hrn_root_to_a_b",
+        "parent_harness_ref": null,
+        "state": "sealed",
+        "host_ref": {
+          "type": "host",
+          "uri": "runx:host:receipt-tree-fixture"
+        },
+        "harness_ref": {
+          "type": "harness",
+          "uri": "runx:harness:root-to-a-b"
+        },
+        "authority": {
+          "actor_ref": {
+            "type": "principal",
+            "uri": "runx:principal:receipt-tree-fixture"
+          },
+          "attenuation": {
+            "parent_authority_ref": null,
+            "subset_proof": null
+          }
+        },
+        "enforcement": {
+          "version": "receipt-tree-fixture",
+          "enforcement_profile_hash": "sha256:receipt-tree-enforcement",
+          "sandbox": {
+            "profile": "process-boundary",
+            "cwd_policy": "workspace",
+            "network": "none",
+            "filesystem": "workspace_read"
+          }
+        },
+        "idempotency": {
+          "intent_key": "sha256:root-to-a-b-intent",
+          "trigger_fingerprint": "sha256:root-to-a-b-trigger",
+          "content_hash": "sha256:root-to-a-b-content"
+        },
+        "revision": {
+          "sequence": 1,
+          "previous_ref": null
+        },
+        "child_harness_receipt_refs": [
+          {
+            "type": "harness_receipt",
+            "uri": "runx:harness_receipt:hrn_rcpt_child_a"
+          },
+          {
+            "type": "harness_receipt",
+            "uri": "runx:harness_receipt:hrn_rcpt_child_b"
+          }
+        ],
+        "seal": {
+          "disposition": "closed",
+          "reason_code": "fixture_closed",
+          "summary": "receipt tree fixture closed",
+          "closed_at": "2026-05-18T00:00:00Z",
+          "last_observed_at": "2026-05-18T00:00:00Z",
+          "canonicalization": "runx.harness-receipt.c14n.v1",
+          "digest": "sha256:receipt-tree-fixture",
+          "criteria": []
+        }
+      },
+      "seal": {
+        "disposition": "closed",
+        "reason_code": "fixture_closed",
+        "summary": "receipt tree fixture closed",
+        "closed_at": "2026-05-18T00:00:00Z",
+        "last_observed_at": "2026-05-18T00:00:00Z",
+        "canonicalization": "runx.harness-receipt.c14n.v1",
+        "digest": "sha256:receipt-tree-fixture",
+        "criteria": []
+      }
+    },
+    "root_wrong_namespace": {
+      "schema": "runx.harness_receipt.v1",
+      "id": "hrn_rcpt_root_wrong_namespace",
+      "created_at": "2026-05-18T00:00:00Z",
+      "issuer": {
+        "type": "local",
+        "kid": "receipt-tree-fixture",
+        "public_key_sha256": "sha256:receipt-tree-fixture-public"
+      },
+      "signature": {
+        "alg": "Ed25519",
+        "value": "base64:receipt-tree-fixture"
+      },
+      "harness": {
+        "harness_id": "hrn_root_wrong_namespace",
+        "parent_harness_ref": null,
+        "state": "sealed",
+        "host_ref": {
+          "type": "host",
+          "uri": "runx:host:receipt-tree-fixture"
+        },
+        "harness_ref": {
+          "type": "harness",
+          "uri": "runx:harness:root-wrong-namespace"
+        },
+        "authority": {
+          "actor_ref": {
+            "type": "principal",
+            "uri": "runx:principal:receipt-tree-fixture"
+          },
+          "attenuation": {
+            "parent_authority_ref": null,
+            "subset_proof": null
+          }
+        },
+        "enforcement": {
+          "version": "receipt-tree-fixture",
+          "enforcement_profile_hash": "sha256:receipt-tree-enforcement",
+          "sandbox": {
+            "profile": "process-boundary",
+            "cwd_policy": "workspace",
+            "network": "none",
+            "filesystem": "workspace_read"
+          }
+        },
+        "idempotency": {
+          "intent_key": "sha256:root-wrong-namespace-intent",
+          "trigger_fingerprint": "sha256:root-wrong-namespace-trigger",
+          "content_hash": "sha256:root-wrong-namespace-content"
+        },
+        "revision": {
+          "sequence": 1,
+          "previous_ref": null
+        },
+        "child_harness_receipt_refs": [
+          {
+            "type": "harness_receipt",
+            "uri": "runx:receipt:hrn_rcpt_child_a"
+          }
+        ],
+        "seal": {
+          "disposition": "closed",
+          "reason_code": "fixture_closed",
+          "summary": "receipt tree fixture closed",
+          "closed_at": "2026-05-18T00:00:00Z",
+          "last_observed_at": "2026-05-18T00:00:00Z",
+          "canonicalization": "runx.harness-receipt.c14n.v1",
+          "digest": "sha256:receipt-tree-fixture",
+          "criteria": []
+        }
+      },
+      "seal": {
+        "disposition": "closed",
+        "reason_code": "fixture_closed",
+        "summary": "receipt tree fixture closed",
+        "closed_at": "2026-05-18T00:00:00Z",
+        "last_observed_at": "2026-05-18T00:00:00Z",
+        "canonicalization": "runx.harness-receipt.c14n.v1",
+        "digest": "sha256:receipt-tree-fixture",
+        "criteria": []
+      }
+    }
+  },
+  "cases": [
+    {
+      "name": "positive-nested",
+      "root_receipt": "root_to_a",
+      "supplied_child_receipts": ["child_a_to_b", "child_b"],
+      "config": {
+        "max_depth": 64,
+        "max_breadth": 1024,
+        "require_parent_links": false
+      },
+      "expected": {
+        "valid": true,
+        "findings": []
+      }
+    },
+    {
+      "name": "positive-fanout",
+      "root_receipt": "root_to_a_b",
+      "supplied_child_receipts": ["child_a", "child_b"],
+      "config": {
+        "max_depth": 64,
+        "max_breadth": 1024,
+        "require_parent_links": false
+      },
+      "expected": {
+        "valid": true,
+        "findings": []
+      }
+    },
+    {
+      "name": "duplicate-id",
+      "root_receipt": "root_empty",
+      "supplied_child_receipts": ["child_a", "child_a_duplicate"],
+      "config": {
+        "max_depth": 64,
+        "max_breadth": 1024,
+        "require_parent_links": false
+      },
+      "expected": {
+        "valid": false,
+        "findings": [
+          {
+            "code": "DuplicateChildReceipt",
+            "path": "children[1].id"
+          },
+          {
+            "code": "OrphanChildReceipt",
+            "path": "children[0].id"
+          },
+          {
+            "code": "OrphanChildReceipt",
+            "path": "children[1].id"
+          }
+        ]
+      }
+    },
+    {
+      "name": "missing-child",
+      "root_receipt": "root_to_a",
+      "supplied_child_receipts": [],
+      "config": {
+        "max_depth": 64,
+        "max_breadth": 1024,
+        "require_parent_links": false
+      },
+      "expected": {
+        "valid": false,
+        "findings": [
+          {
+            "code": "ChildReceiptMissing",
+            "path": "harness.child_harness_receipt_refs[0]"
+          }
+        ]
+      }
+    },
+    {
+      "name": "malformed-uri",
+      "root_receipt": "root_malformed_uri",
+      "supplied_child_receipts": ["child_a"],
+      "config": {
+        "max_depth": 64,
+        "max_breadth": 1024,
+        "require_parent_links": false
+      },
+      "expected": {
+        "valid": false,
+        "findings": [
+          {
+            "code": "ChildReceiptRefMalformed",
+            "path": "harness.child_harness_receipt_refs[0]"
+          },
+          {
+            "code": "OrphanChildReceipt",
+            "path": "children[0].id"
+          }
+        ]
+      }
+    },
+    {
+      "name": "wrong-namespace",
+      "root_receipt": "root_wrong_namespace",
+      "supplied_child_receipts": ["child_a"],
+      "config": {
+        "max_depth": 64,
+        "max_breadth": 1024,
+        "require_parent_links": false
+      },
+      "expected": {
+        "valid": false,
+        "findings": [
+          {
+            "code": "ChildReceiptRefMalformed",
+            "path": "harness.child_harness_receipt_refs[0]"
+          },
+          {
+            "code": "OrphanChildReceipt",
+            "path": "children[0].id"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ambiguous-id",
+      "root_receipt": "root_to_a",
+      "supplied_child_receipts": ["child_a", "child_a_duplicate"],
+      "config": {
+        "max_depth": 64,
+        "max_breadth": 1024,
+        "require_parent_links": false
+      },
+      "expected": {
+        "valid": false,
+        "findings": [
+          {
+            "code": "DuplicateChildReceipt",
+            "path": "children[1].id"
+          },
+          {
+            "code": "ChildReceiptAmbiguous",
+            "path": "harness.child_harness_receipt_refs[0]"
+          },
+          {
+            "code": "OrphanChildReceipt",
+            "path": "children[0].id"
+          },
+          {
+            "code": "OrphanChildReceipt",
+            "path": "children[1].id"
+          }
+        ]
+      }
+    },
+    {
+      "name": "cycle",
+      "root_receipt": "root_to_a",
+      "supplied_child_receipts": ["child_a_self_cycle"],
+      "config": {
+        "max_depth": 64,
+        "max_breadth": 1024,
+        "require_parent_links": false
+      },
+      "expected": {
+        "valid": false,
+        "findings": [
+          {
+            "code": "ChildReceiptCycle",
+            "path": "children[0].harness.child_harness_receipt_refs[0]"
+          }
+        ]
+      }
+    },
+    {
+      "name": "orphan",
+      "root_receipt": "root_empty",
+      "supplied_child_receipts": ["child_a"],
+      "config": {
+        "max_depth": 64,
+        "max_breadth": 1024,
+        "require_parent_links": false
+      },
+      "expected": {
+        "valid": false,
+        "findings": [
+          {
+            "code": "OrphanChildReceipt",
+            "path": "children[0].id"
+          }
+        ]
+      }
+    },
+    {
+      "name": "wrong-parent",
+      "root_receipt": "root_to_a",
+      "supplied_child_receipts": ["child_a_wrong_parent"],
+      "config": {
+        "max_depth": 64,
+        "max_breadth": 1024,
+        "require_parent_links": true
+      },
+      "expected": {
+        "valid": false,
+        "findings": [
+          {
+            "code": "ChildReceiptParentMismatch",
+            "path": "harness.child_harness_receipt_refs[0].parent_harness_ref"
+          }
+        ]
+      }
+    },
+    {
+      "name": "depth-limit",
+      "root_receipt": "root_to_a",
+      "supplied_child_receipts": ["child_a_to_b", "child_b"],
+      "config": {
+        "max_depth": 1,
+        "max_breadth": 1024,
+        "require_parent_links": false
+      },
+      "expected": {
+        "valid": false,
+        "findings": [
+          {
+            "code": "ChildReceiptDepthLimit",
+            "path": "children[0].harness.child_harness_receipt_refs[0]"
+          },
+          {
+            "code": "OrphanChildReceipt",
+            "path": "children[1].id"
+          }
+        ]
+      }
+    },
+    {
+      "name": "breadth-limit",
+      "root_receipt": "root_to_a_b",
+      "supplied_child_receipts": ["child_a", "child_b"],
+      "config": {
+        "max_depth": 64,
+        "max_breadth": 1,
+        "require_parent_links": false
+      },
+      "expected": {
+        "valid": false,
+        "findings": [
+          {
+            "code": "ChildReceiptBreadthLimit",
+            "path": "harness.child_harness_receipt_refs"
+          },
+          {
+            "code": "OrphanChildReceipt",
+            "path": "children[1].id"
+          }
+        ]
+      }
+    }
+  ]
+}

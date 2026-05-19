@@ -477,3 +477,7 @@ runners:
         type: json
         required: false
         description: "Optional consuming-repo source admission policy; channel and owner rules stay outside runx core."
+      operational_policy:
+        type: json
+        required: false
+        description: "Optional runx.operational_policy.v1 packet for source, target, runner, and source-thread admission."

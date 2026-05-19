@@ -147,8 +147,12 @@ Invariants:
 - Surface runx operational policy readback in Aster so runner availability,
   allowed targets, source-thread routing, and outcome behavior are visible
   before execution.
+- Use the same `runx.operational_policy.v1` semantic validator/readback that
+  backs `runx policy inspect|lint`; Aster must not infer policy by scraping
+  adopter config.
 - Wire Aster-run issue-to-PR flows through the post-merge outcome observer so
-  the final human merge/deploy result is not a separate repo-local script.
+  the final human merge/deploy result is a `runx.issue_to_pr_outcome.v1`
+  packet, not a separate repo-local script.
 - Soak the Rust binding side-by-side with the TS path on aster
   production before the launcher cutover.
 

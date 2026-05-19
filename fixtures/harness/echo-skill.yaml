@@ -6,7 +6,12 @@ inputs:
 expect:
   status: success
   receipt:
-    kind: skill_execution
-    status: success
-    skill_name: echo
-    source_type: cli-tool
+    schema: runx.harness_receipt.v1
+    body_digest: sha256:b2bb0194c93ebafcfb0e60d27b14eda7b360a8468a3b9ae2304e7292c37d91c8
+    receipt_digest: sha256:d9d92cfc962548bf79acd3579e7158b9d091ab95dae50bc5e27572fdd6f38e3e
+    harness_id: hrn_echo-skill_echo
+    state: sealed
+    disposition: closed
+    reason_code: echo_closed
+    act_ids:
+      - act_echo

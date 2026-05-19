@@ -1,0 +1,20 @@
+[
+  {
+    "name": "search-echo",
+    "query": "echo",
+    "source": "fixture-mcp",
+    "expectedStatus": 0
+  },
+  {
+    "name": "search-tag-mcp",
+    "query": "mcp",
+    "source": "fixture-mcp",
+    "expectedStatus": 0
+  },
+  {
+    "name": "search-empty-result",
+    "query": "not-a-fixture-tool",
+    "source": "fixture-mcp",
+    "expectedStatus": 0
+  }
+]

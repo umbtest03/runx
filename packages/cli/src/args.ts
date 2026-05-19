@@ -5,6 +5,7 @@ import {
   type ConnectAuthorityKind,
 } from "./commands/connect.js";
 import { normalizeListKind, type RunxListRequestedKind } from "./commands/list.js";
+import { policyAction, type PolicyAction } from "./commands/policy.js";
 
 export interface ParsedArgs {
   readonly command?: string;
@@ -74,6 +75,8 @@ export interface ParsedArgs {
   readonly configAction?: "set" | "get" | "list";
   readonly configKey?: string;
   readonly configValue?: string;
+  readonly policyAction?: PolicyAction;
+  readonly policyPath?: string;
   readonly newName?: string;
   readonly newDirectory?: string;
   readonly initAction?: "project" | "global";
@@ -158,6 +161,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   const isKnowledgeShow = command === "knowledge" && positionals[0] === "show";
   const isConnect = command === "connect";
   const isConfig = command === "config";
+  const isPolicy = command === "policy";
   const isNew = command === "new";
   const isInit = command === "init";
   const isResume = command === "resume";
@@ -245,23 +249,25 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
           )
           : isConfig
             ? {}
-            : isNew
-              ? omitInputs(inputs, ["directory", "dir"])
-              : isInit
-                ? omitInputs(inputs, ["global", "prefetch", "prefetchOfficial"])
-                : isDoctor
-                  ? omitInputs(inputs, ["fix", "explain", "listDiagnostics", "list-diagnostics"])
-                  : isTool
-                        ? omitInputs(inputs, ["all", "source"])
-                        : isDev
-                          ? omitInputs(inputs, ["lane", "record", "realAgents", "real-agents", "watch"])
-                          : isMcp
-                            ? inputs
-                            : isList
-                              ? omitInputs(inputs, ["okOnly", "ok-only", "invalidOnly", "invalid-only"])
-                              : isExportReceipts
-                                ? omitInputs(inputs, ["trainable", "since", "until", "status", "source"])
-                                : inputs;
+            : isPolicy
+              ? {}
+              : isNew
+                ? omitInputs(inputs, ["directory", "dir"])
+                : isInit
+                  ? omitInputs(inputs, ["global", "prefetch", "prefetchOfficial"])
+                  : isDoctor
+                    ? omitInputs(inputs, ["fix", "explain", "listDiagnostics", "list-diagnostics"])
+                    : isTool
+                          ? omitInputs(inputs, ["all", "source"])
+                          : isDev
+                            ? omitInputs(inputs, ["lane", "record", "realAgents", "real-agents", "watch"])
+                            : isMcp
+                              ? inputs
+                              : isList
+                                ? omitInputs(inputs, ["okOnly", "ok-only", "invalidOnly", "invalid-only"])
+                                : isExportReceipts
+                                  ? omitInputs(inputs, ["trainable", "since", "until", "status", "source"])
+                                  : inputs;
   return {
     command,
     subcommand: positionals[0],
@@ -340,6 +346,8 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     configAction: isConfig ? configAction(positionals) : undefined,
     configKey: isConfig ? positionals[1] : undefined,
     configValue: isConfig ? positionals.slice(2).join(" ") || undefined : undefined,
+    policyAction: isPolicy ? policyAction(positionals) : undefined,
+    policyPath: isPolicy ? positionals[1] : undefined,
     newName: isNew ? positionals[0] : undefined,
     newDirectory,
     initAction,
@@ -425,6 +433,9 @@ export function isSupportedCommand(parsed: ParsedArgs): boolean {
     return true;
   }
   if (parsed.command === "config" && parsed.configAction === "set" && parsed.configKey && parsed.configValue !== undefined) {
+    return true;
+  }
+  if (parsed.command === "policy" && parsed.policyAction && parsed.policyPath) {
     return true;
   }
   if (parsed.command === "new" && parsed.newName) {

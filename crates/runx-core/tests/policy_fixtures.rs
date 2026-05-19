@@ -1,11 +1,67 @@
+use runx_contracts::JsonValue;
 use runx_core::policy::{
-    GraphScopeAdmissionRequest, LocalAdmissionOptions, LocalAdmissionSkill, RetryAdmissionRequest,
-    SandboxAdmissionOptions, SandboxDeclaration, admit_graph_step_scopes, admit_local_skill,
-    admit_retry_policy, admit_sandbox, normalize_sandbox_declaration, sandbox_requires_approval,
+    BuildAuthorityProofOptions, CredentialBindingRequest, GraphScopeAdmissionRequest,
+    LocalAdmissionGrant, LocalAdmissionOptions, LocalAdmissionSkill, LocalScopeAdmissionOptions,
+    PublicCommentOpportunityRequest, PublicPullRequestCandidateRequest, PublicWorkPolicy,
+    RetryAdmissionRequest, SandboxAdmissionOptions, SandboxDeclaration, admit_graph_step_scopes,
+    admit_local_skill, admit_retry_policy, admit_sandbox, build_authority_proof_metadata,
+    build_local_scope_admission, evaluate_public_comment_opportunity,
+    evaluate_public_pull_request_candidate, normalize_public_work_policy,
+    normalize_sandbox_declaration, sandbox_requires_approval, validate_credential_binding,
 };
 use serde::Deserialize;
 
 const FIXTURES: &[(&str, &str)] = &[
+    (
+        "authority-credential-binding-allows-matching",
+        include_str!(
+            "../../../fixtures/kernel/policy/authority-credential-binding-allows-matching.json"
+        ),
+    ),
+    (
+        "authority-credential-binding-denies-grant-reference",
+        include_str!(
+            "../../../fixtures/kernel/policy/authority-credential-binding-denies-grant-reference.json"
+        ),
+    ),
+    (
+        "authority-proof-metadata-full",
+        include_str!("../../../fixtures/kernel/policy/authority-proof-metadata-full.json"),
+    ),
+    (
+        "authority-proof-prunes-empty-sandbox-objects",
+        include_str!(
+            "../../../fixtures/kernel/policy/authority-proof-prunes-empty-sandbox-objects.json"
+        ),
+    ),
+    (
+        "authority-proof-trims-sandbox-declaration",
+        include_str!(
+            "../../../fixtures/kernel/policy/authority-proof-trims-sandbox-declaration.json"
+        ),
+    ),
+    (
+        "authority-scope-admission-active-grant",
+        include_str!("../../../fixtures/kernel/policy/authority-scope-admission-active-grant.json"),
+    ),
+    (
+        "authority-scope-admission-denied-before-grant",
+        include_str!(
+            "../../../fixtures/kernel/policy/authority-scope-admission-denied-before-grant.json"
+        ),
+    ),
+    (
+        "authority-scope-admission-no-connected-auth",
+        include_str!(
+            "../../../fixtures/kernel/policy/authority-scope-admission-no-connected-auth.json"
+        ),
+    ),
+    (
+        "authority-scope-admission-no-matching-grant",
+        include_str!(
+            "../../../fixtures/kernel/policy/authority-scope-admission-no-matching-grant.json"
+        ),
+    ),
     (
         "graph-scope-allows-empty-request",
         include_str!("../../../fixtures/kernel/policy/graph-scope-allows-empty-request.json"),
@@ -83,6 +139,32 @@ const FIXTURES: &[(&str, &str)] = &[
         ),
     ),
     (
+        "public-work-blocks-dependency-bot-pr",
+        include_str!("../../../fixtures/kernel/policy/public-work-blocks-dependency-bot-pr.json"),
+    ),
+    (
+        "public-work-blocks-hyphen-version-title",
+        include_str!(
+            "../../../fixtures/kernel/policy/public-work-blocks-hyphen-version-title.json"
+        ),
+    ),
+    (
+        "public-work-denies-cold-comment",
+        include_str!("../../../fixtures/kernel/policy/public-work-denies-cold-comment.json"),
+    ),
+    (
+        "public-work-denies-trust-recovery",
+        include_str!("../../../fixtures/kernel/policy/public-work-denies-trust-recovery.json"),
+    ),
+    (
+        "public-work-normalizes-policy",
+        include_str!("../../../fixtures/kernel/policy/public-work-normalizes-policy.json"),
+    ),
+    (
+        "public-work-normalizes-empty-arrays",
+        include_str!("../../../fixtures/kernel/policy/public-work-normalizes-empty-arrays.json"),
+    ),
+    (
         "retry-admission-allows-readonly-retry",
         include_str!("../../../fixtures/kernel/policy/retry-admission-allows-readonly-retry.json"),
     ),
@@ -144,6 +226,39 @@ enum PolicyInput {
         #[serde(default)]
         options: SandboxAdmissionOptions,
     },
+    #[serde(rename = "policy.buildLocalScopeAdmission")]
+    BuildLocalScopeAdmission {
+        auth: Option<JsonValue>,
+        #[serde(default)]
+        grants: Vec<LocalAdmissionGrant>,
+        #[serde(default)]
+        options: LocalScopeAdmissionOptions,
+    },
+    #[serde(rename = "policy.buildAuthorityProofMetadata")]
+    BuildAuthorityProofMetadata {
+        options: Box<BuildAuthorityProofOptions>,
+    },
+    #[serde(rename = "policy.validateCredentialBinding")]
+    ValidateCredentialBinding {
+        request: Box<CredentialBindingRequest>,
+    },
+    #[serde(rename = "policy.evaluatePublicPullRequestCandidate")]
+    EvaluatePublicPullRequestCandidate {
+        request: PublicPullRequestCandidateRequest,
+        #[serde(default)]
+        policy: PublicWorkPolicy,
+    },
+    #[serde(rename = "policy.evaluatePublicCommentOpportunity")]
+    EvaluatePublicCommentOpportunity {
+        request: PublicCommentOpportunityRequest,
+        #[serde(default)]
+        policy: PublicWorkPolicy,
+    },
+    #[serde(rename = "policy.normalizePublicWorkPolicy")]
+    NormalizePublicWorkPolicy {
+        #[serde(default)]
+        policy: PublicWorkPolicy,
+    },
 }
 
 #[test]
@@ -175,6 +290,30 @@ fn evaluate_policy_input(input: PolicyInput) -> Result<serde_json::Value, serde_
         }
         PolicyInput::AdmitSandbox { sandbox, options } => {
             serde_json::to_value(admit_sandbox(sandbox.as_ref(), &options))
+        }
+        PolicyInput::BuildLocalScopeAdmission {
+            auth,
+            grants,
+            options,
+        } => serde_json::to_value(build_local_scope_admission(
+            auth.as_ref(),
+            &grants,
+            &options,
+        )),
+        PolicyInput::BuildAuthorityProofMetadata { options } => {
+            serde_json::to_value(build_authority_proof_metadata(&options))
+        }
+        PolicyInput::ValidateCredentialBinding { request } => {
+            serde_json::to_value(validate_credential_binding(&request))
+        }
+        PolicyInput::EvaluatePublicPullRequestCandidate { request, policy } => {
+            serde_json::to_value(evaluate_public_pull_request_candidate(&request, &policy))
+        }
+        PolicyInput::EvaluatePublicCommentOpportunity { request, policy } => {
+            serde_json::to_value(evaluate_public_comment_opportunity(&request, &policy))
+        }
+        PolicyInput::NormalizePublicWorkPolicy { policy } => {
+            serde_json::to_value(normalize_public_work_policy(&policy))
         }
     }
 }

@@ -4,9 +4,16 @@ target: ../graphs/sequential/graph.yaml
 expect:
   status: success
   receipt:
-    kind: graph_execution
-    status: success
-    graph_name: sequential-echo
+    schema: runx.harness_receipt.v1
+    body_digest: sha256:ec37e8e5088683b59c0cfeaed68df076f42bf37b97b6cd1c673262ae14eeccdd
+    receipt_digest: sha256:1c24a79da6ed0e80a550fe5768edda5331cc2e168b98385beebd54908c0bb3d0
+    harness_id: hrn_sequential-echo_graph
+    state: sealed
+    disposition: closed
+    reason_code: graph_closed
+    child_receipt_refs:
+      - runx:harness_receipt:hrn_rcpt_sequential-echo_first
+      - runx:harness_receipt:hrn_rcpt_sequential-echo_second
   steps:
     - first
     - second

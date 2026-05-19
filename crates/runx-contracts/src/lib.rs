@@ -7,6 +7,7 @@ pub mod aster;
 pub mod authority;
 pub mod cli;
 pub mod decision;
+pub mod doctor;
 pub mod execution;
 pub mod fingerprint;
 pub mod harness;
@@ -47,15 +48,21 @@ pub use authority::{
 pub use decision::{
     Closure, ClosureDisposition, Decision, DecisionChoice, DecisionInputs, DecisionJustification,
 };
+pub use doctor::{
+    DoctorDiagnostic, DoctorDiagnosticSeverity, DoctorLocation, DoctorRepair,
+    DoctorRepairConfidence, DoctorRepairKind, DoctorRepairRisk, DoctorReport, DoctorReportSchema,
+    DoctorStatus, DoctorSummary,
+};
 pub use execution::{
     ExecutionSemantics, GovernedDisposition, InputContextCapture, OutcomeState, ReceiptOutcome,
     ReceiptSurfaceRef,
 };
 pub use fingerprint::{Fingerprint, FingerprintAlgorithm};
 pub use harness::{
-    HARNESS_RECEIPT_SCHEMA, Harness, HarnessEnforcement, HarnessIdempotency, HarnessReceipt,
-    HarnessReceiptSchema, HarnessRevision, HarnessSandbox, HarnessSeal, HarnessState,
-    ReceiptIssuer, ReceiptIssuerType, ReceiptSignature, SealCriterion, SignatureAlgorithm,
+    FanoutReceiptDecision, FanoutReceiptStrategy, FanoutReceiptSyncPoint, HARNESS_RECEIPT_SCHEMA,
+    Harness, HarnessEnforcement, HarnessIdempotency, HarnessReceipt, HarnessReceiptSchema,
+    HarnessRevision, HarnessSandbox, HarnessSeal, HarnessState, ReceiptIssuer, ReceiptIssuerType,
+    ReceiptSignature, SealCriterion, SignatureAlgorithm,
 };
 pub use host_protocol::{
     AgentActInvocation, AgentActSourceType, ApprovalDecision, ApprovalGate, ExecutionEvent,

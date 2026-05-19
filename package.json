@@ -40,6 +40,7 @@
     "fixtures:contracts:check": "tsx scripts/generate-rust-contract-fixtures.ts --check",
     "fixtures:contracts:generate": "tsx scripts/generate-rust-contract-fixtures.ts",
     "fixtures:contracts:keys": "tsx scripts/check-contract-fixture-key-order.ts fixtures/contracts",
+    "rust:check": "node scripts/check-rust-kernel-parity.mjs",
     "rust:crate-graph": "node scripts/check-rust-crate-graph.mjs",
     "rust:style": "node scripts/check-rust-core-style.mjs",
     "verify:fast": "node scripts/verify-fast.mjs",

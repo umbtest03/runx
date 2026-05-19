@@ -28,6 +28,11 @@ runx owns reusable machinery:
 - scafld command boundaries
 - provider adapters such as GitHub issue comments and pull requests
 - idempotent update behavior for retries
+- the `runx.operational_policy.v1` schema for sources, target repos, runners,
+  owner routes, dedupe, outcomes, source-thread publishing, and automation
+  permissions
+- the `runx.issue_to_pr_outcome.v1` packet for terminal post-merge observation,
+  verification, final source-thread update, and source-issue closure policy
 
 Consuming repos own product policy:
 
@@ -43,6 +48,20 @@ That split keeps `issue-to-pr` reusable. A service repo can normalize Slack or
 Sentry into a `runx.thread.v1` source and a redacted
 artifact refs and verification evidence, but runx core should not know that Nitrosend uses a
 particular channel, label, Sentry project, or owner map.
+
+Before PR packaging, callers may pass a `runx.operational_policy.v1` packet plus
+`source_id`, `target_repo`, `runner_id`, and source-thread locator. The
+`outbox.build_pull_request` boundary calls `admitOperationalPolicyRequest`
+before it emits a draft PR packet. Denied policy admission stops packaging and
+reports stable finding codes such as `unknown_target_repo`, `unknown_runner`,
+`runner_unavailable`, `source_action_not_allowed`, or
+`source_thread_locator_required`.
+
+Allowed admission is projected into the draft PR packet and pull-request outbox
+metadata as a redacted summary: policy id, source id, target repo, runner id,
+owner route id, owner count, dedupe strategy, outcome close mode, and human
+merge gate requirement. Raw source locators stay out of public PR and admin
+readback surfaces.
 
 ## Reviewer Context
 
@@ -85,9 +104,19 @@ or review evidence is missing. The generated PR remains draft/reviewable, and a
 human controls the merge. Post-merge behavior is observation and source-thread
 update, not automatic merge.
 
+Source-thread publishing is part of the security boundary. Public milestone
+entries carry `metadata.source_thread.required=true`,
+`publish_mode=reply`, and `missing_behavior=fail_closed`. A publisher that
+cannot recover the original thread must stop rather than posting a new root
+message in a busy issue channel.
+
 Retries must reuse the same outbox entry, issue comment, branch, and PR when
 possible. Duplicates are a correctness bug because the source thread is the
 control surface.
+
+Pull-request outbox entries carry `metadata.dedupe.strategy`,
+`metadata.dedupe.key`, and `metadata.dedupe.result` so provider pushers and
+admin surfaces can tell whether a retry created or reused the PR path.
 
 ## PR Review And Fix-Up Lanes
 
@@ -187,6 +216,10 @@ Observe mode is intentionally narrow: it records `merged` or `closed` provider
 state back to the source issue with the PR URL, branch, scafld task id, and the
 human-gate statement. If the PR is still open, it returns
 `dogfood_pr_open_human_gate_pending` and does not post another comment.
+Terminal observe mode should normalize provider state into
+`runx.issue_to_pr_outcome.v1` before publishing, so wrappers can validate the
+verification result, human gate, close policy, and source-thread target as one
+packet.
 
 ## Fixtures
 

@@ -1,0 +1,784 @@
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::{Component, Path, PathBuf};
+
+use runx_contracts::{
+    DoctorDiagnostic, DoctorDiagnosticSeverity, DoctorLocation, DoctorRepair,
+    DoctorRepairConfidence, DoctorRepairKind, DoctorRepairRisk, DoctorReport, DoctorReportSchema,
+    DoctorStatus, DoctorSummary, JsonNumber, JsonObject, JsonValue,
+};
+use serde::Deserialize;
+use sha2::{Digest, Sha256};
+
+use crate::RuntimeError;
+
+// rust-style-allow: large-file - this first doctor slice keeps parity checks and builders together until follow-up diagnostics add natural module boundaries.
+
+const FILE_BUDGETS: &[DoctorFileBudget] = &[
+    DoctorFileBudget {
+        path: "packages/cli/src/index.ts",
+        max_lines: 1000,
+    },
+    DoctorFileBudget {
+        path: "packages/cli/src/commands/doctor.ts",
+        max_lines: 950,
+    },
+    DoctorFileBudget {
+        path: "packages/runtime-local/src/runner-local/index.ts",
+        max_lines: 2000,
+    },
+];
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct DoctorOptions;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct DoctorFileBudget {
+    path: &'static str,
+    max_lines: u64,
+}
+
+#[derive(Deserialize)]
+struct ToolManifestProbe {}
+
+#[must_use]
+pub fn default_doctor_options() -> DoctorOptions {
+    DoctorOptions
+}
+
+pub fn run_doctor(root: &Path, options: &DoctorOptions) -> Result<DoctorReport, RuntimeError> {
+    let _ = options;
+    let root = lexical_normalize(root);
+
+    let mut diagnostics = Vec::new();
+    diagnostics.extend(discover_file_budget_diagnostics(&root)?);
+    diagnostics.extend(discover_cross_package_reach_in_diagnostics(&root)?);
+    diagnostics.extend(discover_tool_diagnostics(&root)?);
+    diagnostics.extend(discover_skill_diagnostics(&root)?);
+    diagnostics.sort_by(|left, right| {
+        left.location
+            .path
+            .cmp(&right.location.path)
+            .then_with(|| left.id.cmp(&right.id))
+    });
+
+    let summary = summary(&diagnostics);
+    let status = if summary.errors > 0 {
+        DoctorStatus::Failure
+    } else {
+        DoctorStatus::Success
+    };
+    Ok(DoctorReport {
+        schema: DoctorReportSchema::V1,
+        status,
+        summary,
+        diagnostics,
+    })
+}
+
+fn discover_file_budget_diagnostics(root: &Path) -> Result<Vec<DoctorDiagnostic>, RuntimeError> {
+    let mut diagnostics = Vec::new();
+    for budget in FILE_BUDGETS {
+        let file_path = root.join(budget.path);
+        if !file_path.exists() {
+            continue;
+        }
+        let contents = read_to_string(&file_path)?;
+        let line_count = count_file_lines(&contents);
+        if line_count <= budget.max_lines {
+            continue;
+        }
+        let target = object([
+            ("kind", string_value("workspace")),
+            ("ref", string_value(budget.path)),
+        ]);
+        let location = DoctorLocation {
+            path: budget.path.to_owned(),
+            json_pointer: None,
+        };
+        let evidence = object([
+            ("line_count", number_value(line_count)),
+            ("max_lines", number_value(budget.max_lines)),
+        ]);
+        diagnostics.push(create_diagnostic(DiagnosticParts {
+            id: "runx.structure.file_budget.exceeded",
+            severity: DoctorDiagnosticSeverity::Error,
+            title: "File exceeded structural line budget",
+            message: format!(
+                "{} is {} lines, above the enforced budget of {}.",
+                budget.path, line_count, budget.max_lines
+            ),
+            target,
+            target_json: format!(
+                r#"{{"kind":"workspace","ref":{}}}"#,
+                json_string(budget.path)
+            ),
+            location,
+            location_json: format!(r#"{{"path":{}}}"#, json_string(budget.path)),
+            evidence: Some(evidence),
+            evidence_json: Some(format!(
+                r#"{{"line_count":{},"max_lines":{}}}"#,
+                line_count, budget.max_lines
+            )),
+            repairs: vec![manual_repair(
+                "split_file_along_real_boundary",
+                DoctorRepairConfidence::Medium,
+                DoctorRepairRisk::Low,
+                false,
+            )],
+        }));
+    }
+    Ok(diagnostics)
+}
+
+// rust-style-allow: long-function - cross-package reach-in parity mirrors the TypeScript scanner in one read-only pass.
+fn discover_cross_package_reach_in_diagnostics(
+    root: &Path,
+) -> Result<Vec<DoctorDiagnostic>, RuntimeError> {
+    let packages_root = root.join("packages");
+    if !packages_root.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut diagnostics = Vec::new();
+    for entry in list_source_files(&packages_root)? {
+        let Some(source_package) = workspace_package_name(root, &entry) else {
+            continue;
+        };
+        let contents = read_to_string(&entry)?;
+        for specifier in extract_import_specifiers(&contents) {
+            if !specifier.starts_with('.') {
+                continue;
+            }
+            let resolved = lexical_normalize(
+                &entry
+                    .parent()
+                    .map_or_else(PathBuf::new, Path::to_path_buf)
+                    .join(&specifier),
+            );
+            let target_segments = project_segments(root, &resolved);
+            if target_segments.len() < 3
+                || target_segments[0] != "packages"
+                || target_segments[2] != "src"
+            {
+                continue;
+            }
+            let target_package = target_segments[1].clone();
+            if target_package == source_package {
+                continue;
+            }
+
+            let source_path = project_path(root, &entry);
+            let resolved_path = project_path(root, &resolved);
+            let target = object([
+                ("kind", string_value("workspace")),
+                ("ref", string_value(&source_path)),
+            ]);
+            let location = DoctorLocation {
+                path: source_path.clone(),
+                json_pointer: None,
+            };
+            let evidence = object([
+                ("specifier", string_value(&specifier)),
+                ("source_package", string_value(&source_package)),
+                ("target_package", string_value(&target_package)),
+                ("resolved_path", string_value(&resolved_path)),
+            ]);
+            diagnostics.push(create_diagnostic(DiagnosticParts {
+                id: "runx.structure.cross_package_reach_in",
+                severity: DoctorDiagnosticSeverity::Error,
+                title: "Cross-package src reach-in is forbidden",
+                message: format!(
+                    "{source_path} imports {specifier}, reaching into packages/{target_package}/src directly."
+                ),
+                target,
+                target_json: format!(
+                    r#"{{"kind":"workspace","ref":{}}}"#,
+                    json_string(&source_path)
+                ),
+                location,
+                location_json: format!(r#"{{"path":{}}}"#, json_string(&source_path)),
+                evidence: Some(evidence),
+                evidence_json: Some(format!(
+                    r#"{{"specifier":{},"source_package":{},"target_package":{},"resolved_path":{}}}"#,
+                    json_string(&specifier),
+                    json_string(&source_package),
+                    json_string(&target_package),
+                    json_string(&resolved_path)
+                )),
+                repairs: vec![manual_repair(
+                    "replace_with_package_boundary_import",
+                    DoctorRepairConfidence::High,
+                    DoctorRepairRisk::Low,
+                    false,
+                )],
+            }));
+        }
+    }
+    Ok(diagnostics)
+}
+
+fn discover_tool_diagnostics(root: &Path) -> Result<Vec<DoctorDiagnostic>, RuntimeError> {
+    let tools_root = root.join("tools");
+    let mut diagnostics = Vec::new();
+    for namespace_entry in read_dir_sorted(&tools_root)? {
+        if !namespace_entry.is_dir {
+            continue;
+        }
+        for tool_entry in read_dir_sorted(&namespace_entry.path)? {
+            if !tool_entry.is_dir {
+                continue;
+            }
+            let tool_dir = tool_entry.path;
+            let tool_ref = format!("{}.{}", namespace_entry.name, tool_entry.name);
+            let removed_format_path = tool_dir.join("tool.yaml");
+            if removed_format_path.exists() {
+                diagnostics.push(removed_tool_yaml_diagnostic(
+                    root,
+                    &tool_ref,
+                    &removed_format_path,
+                ));
+            }
+
+            let manifest_path = tool_dir.join("manifest.json");
+            if !manifest_path.exists() {
+                continue;
+            }
+            let manifest_contents = read_to_string(&manifest_path)?;
+            serde_json::from_str::<ToolManifestProbe>(&manifest_contents).map_err(|source| {
+                RuntimeError::json(
+                    format!(
+                        "reading tool manifest {}",
+                        project_path(root, &manifest_path)
+                    ),
+                    source,
+                )
+            })?;
+            let fixture_count = count_yaml_files(&tool_dir.join("fixtures"))?;
+            if fixture_count == 0 {
+                diagnostics.push(tool_fixture_missing_diagnostic(
+                    root,
+                    &tool_ref,
+                    &manifest_path,
+                    &tool_dir.join("fixtures"),
+                    fixture_count,
+                ));
+            }
+        }
+    }
+    Ok(diagnostics)
+}
+
+fn removed_tool_yaml_diagnostic(
+    root: &Path,
+    tool_ref: &str,
+    removed_format_path: &Path,
+) -> DoctorDiagnostic {
+    let location_path = project_path(root, removed_format_path);
+    let expected_manifest =
+        project_path(root, &removed_format_path.with_file_name("manifest.json"));
+    let target = object([
+        ("kind", string_value("tool")),
+        ("ref", string_value(tool_ref)),
+    ]);
+    let location = DoctorLocation {
+        path: location_path.clone(),
+        json_pointer: None,
+    };
+    let evidence = object([("expected_manifest", string_value(&expected_manifest))]);
+    create_diagnostic(DiagnosticParts {
+        id: "runx.tool.manifest.removed_format",
+        severity: DoctorDiagnosticSeverity::Error,
+        title: "tool.yaml is no longer supported",
+        message: format!("Tool {tool_ref} still uses tool.yaml. Runx resolves manifest.json only."),
+        target,
+        target_json: format!(r#"{{"kind":"tool","ref":{}}}"#, json_string(tool_ref)),
+        location,
+        location_json: format!(r#"{{"path":{}}}"#, json_string(&location_path)),
+        evidence: Some(evidence),
+        evidence_json: Some(format!(
+            r#"{{"expected_manifest":{}}}"#,
+            json_string(&expected_manifest)
+        )),
+        repairs: vec![manual_repair(
+            "replace_removed_tool_manifest",
+            DoctorRepairConfidence::High,
+            DoctorRepairRisk::Medium,
+            true,
+        )],
+    })
+}
+
+fn tool_fixture_missing_diagnostic(
+    root: &Path,
+    tool_ref: &str,
+    manifest_path: &Path,
+    fixtures_path: &Path,
+    fixture_count: u64,
+) -> DoctorDiagnostic {
+    let location_path = project_path(root, manifest_path);
+    let expected_location = project_path(root, fixtures_path);
+    let target = object([
+        ("kind", string_value("tool")),
+        ("ref", string_value(tool_ref)),
+    ]);
+    let location = DoctorLocation {
+        path: location_path.clone(),
+        json_pointer: None,
+    };
+    let evidence = object([
+        ("fixture_count", number_value(fixture_count)),
+        ("expected_location", string_value(&expected_location)),
+    ]);
+    create_diagnostic(DiagnosticParts {
+        id: "runx.tool.fixture.missing",
+        severity: DoctorDiagnosticSeverity::Error,
+        title: "Tool has no deterministic fixture",
+        message: format!("Tool {tool_ref} declares a manifest but has no deterministic fixture."),
+        target,
+        target_json: format!(r#"{{"kind":"tool","ref":{}}}"#, json_string(tool_ref)),
+        location,
+        location_json: format!(r#"{{"path":{}}}"#, json_string(&location_path)),
+        evidence: Some(evidence),
+        evidence_json: Some(format!(
+            r#"{{"fixture_count":{},"expected_location":{}}}"#,
+            fixture_count,
+            json_string(&expected_location)
+        )),
+        repairs: vec![manual_repair(
+            "add_tool_fixture",
+            DoctorRepairConfidence::Medium,
+            DoctorRepairRisk::Low,
+            false,
+        )],
+    })
+}
+
+fn discover_skill_diagnostics(root: &Path) -> Result<Vec<DoctorDiagnostic>, RuntimeError> {
+    let mut diagnostics = Vec::new();
+    for profile_path in discover_skill_profile_paths(root)? {
+        let contents = read_to_string(&profile_path)?;
+        if !contents.contains("runners:") {
+            continue;
+        }
+        let skill_dir = profile_path.parent().map_or(root, |parent| parent);
+        let skill_name = if skill_dir == root {
+            root.file_name().map_or_else(
+                || ".".to_owned(),
+                |name| name.to_string_lossy().into_owned(),
+            )
+        } else {
+            skill_dir.file_name().map_or_else(
+                || ".".to_owned(),
+                |name| name.to_string_lossy().into_owned(),
+            )
+        };
+        let fixture_count = count_yaml_files(&skill_dir.join("fixtures"))?;
+        let harness_case_count = inline_harness_case_count(&contents);
+        if fixture_count == 0 && harness_case_count == 0 {
+            diagnostics.push(skill_fixture_missing_diagnostic(
+                root,
+                &profile_path,
+                &skill_name,
+                fixture_count,
+                harness_case_count,
+            ));
+        }
+    }
+    Ok(diagnostics)
+}
+
+fn skill_fixture_missing_diagnostic(
+    root: &Path,
+    profile_path: &Path,
+    skill_name: &str,
+    fixture_count: u64,
+    harness_case_count: u64,
+) -> DoctorDiagnostic {
+    let location_path = project_path(root, profile_path);
+    let target = object([
+        ("kind", string_value("skill")),
+        ("ref", string_value(skill_name)),
+    ]);
+    let location = DoctorLocation {
+        path: location_path.clone(),
+        json_pointer: Some("/harness".to_owned()),
+    };
+    let evidence = object([
+        ("fixture_count", number_value(fixture_count)),
+        ("harness_case_count", number_value(harness_case_count)),
+    ]);
+    create_diagnostic(DiagnosticParts {
+        id: "runx.skill.fixture.missing",
+        severity: DoctorDiagnosticSeverity::Error,
+        title: "Skill has no harness coverage",
+        message: format!(
+            "Skill {skill_name} declares an execution profile but has no fixtures or inline harness.cases."
+        ),
+        target,
+        target_json: format!(r#"{{"kind":"skill","ref":{}}}"#, json_string(skill_name)),
+        location,
+        location_json: format!(
+            r#"{{"path":{},"json_pointer":"/harness"}}"#,
+            json_string(&location_path)
+        ),
+        evidence: Some(evidence),
+        evidence_json: Some(format!(
+            r#"{{"fixture_count":{},"harness_case_count":{}}}"#,
+            fixture_count, harness_case_count
+        )),
+        repairs: vec![manual_repair(
+            "add_inline_harness_case",
+            DoctorRepairConfidence::Medium,
+            DoctorRepairRisk::Low,
+            false,
+        )],
+    })
+}
+
+struct DiagnosticParts {
+    id: &'static str,
+    severity: DoctorDiagnosticSeverity,
+    title: &'static str,
+    message: String,
+    target: JsonObject,
+    target_json: String,
+    location: DoctorLocation,
+    location_json: String,
+    evidence: Option<JsonObject>,
+    evidence_json: Option<String>,
+    repairs: Vec<DoctorRepair>,
+}
+
+fn create_diagnostic(parts: DiagnosticParts) -> DoctorDiagnostic {
+    DoctorDiagnostic {
+        id: parts.id.to_owned(),
+        instance_id: diagnostic_instance_id(
+            parts.id,
+            &parts.target_json,
+            &parts.location_json,
+            parts.evidence_json.as_deref(),
+        ),
+        severity: parts.severity,
+        title: parts.title.to_owned(),
+        message: parts.message,
+        target: parts.target,
+        location: parts.location,
+        evidence: parts.evidence,
+        repairs: parts.repairs,
+    }
+}
+
+// rust-style-allow: long-function - the style guard counts JSON hash-material braces inside string literals.
+fn diagnostic_instance_id(
+    id: &str,
+    target_json: &str,
+    location_json: &str,
+    evidence_json: Option<&str>,
+) -> String {
+    let mut material = String::new();
+    material.push('{');
+    material.push_str(r#""id":"#);
+    material.push_str(&json_string(id));
+    material.push_str(r#","target":"#);
+    material.push_str(target_json);
+    material.push_str(r#","location":"#);
+    material.push_str(location_json);
+    if let Some(evidence) = evidence_json {
+        material.push_str(r#","evidence":"#);
+        material.push_str(evidence);
+    }
+    material.push('}');
+    sha256_prefixed(&material)
+}
+
+fn manual_repair(
+    id: &str,
+    confidence: DoctorRepairConfidence,
+    risk: DoctorRepairRisk,
+    requires_human_review: bool,
+) -> DoctorRepair {
+    DoctorRepair {
+        id: id.to_owned(),
+        kind: DoctorRepairKind::Manual,
+        confidence,
+        risk,
+        path: None,
+        json_pointer: None,
+        contents: None,
+        patch: None,
+        command: None,
+        requires_human_review,
+    }
+}
+
+fn summary(diagnostics: &[DoctorDiagnostic]) -> DoctorSummary {
+    let mut errors = 0;
+    let mut warnings = 0;
+    let mut infos = 0;
+    for diagnostic in diagnostics {
+        match diagnostic.severity {
+            DoctorDiagnosticSeverity::Error => errors += 1,
+            DoctorDiagnosticSeverity::Warning => warnings += 1,
+            DoctorDiagnosticSeverity::Info => infos += 1,
+        }
+    }
+    DoctorSummary {
+        errors,
+        warnings,
+        infos,
+    }
+}
+
+fn discover_skill_profile_paths(root: &Path) -> Result<Vec<PathBuf>, RuntimeError> {
+    let mut paths = Vec::new();
+    let root_profile = root.join("X.yaml");
+    if root_profile.exists() {
+        paths.push(root_profile);
+    }
+    for skill_entry in read_dir_sorted(&root.join("skills"))? {
+        if !skill_entry.is_dir {
+            continue;
+        }
+        let profile_path = skill_entry.path.join("X.yaml");
+        if profile_path.exists() {
+            paths.push(profile_path);
+        }
+    }
+    paths.sort();
+    Ok(paths)
+}
+
+fn inline_harness_case_count(contents: &str) -> u64 {
+    if contents.contains("harness:") && contents.contains("cases:") {
+        1
+    } else {
+        0
+    }
+}
+
+fn count_yaml_files(directory: &Path) -> Result<u64, RuntimeError> {
+    let mut count = 0;
+    for entry in read_dir_sorted(directory)? {
+        if entry.is_file && is_yaml_path(&entry.path) {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+
+fn is_yaml_path(path: &Path) -> bool {
+    path.extension()
+        .map(|extension| {
+            let extension = extension.to_string_lossy();
+            extension.eq_ignore_ascii_case("yaml") || extension.eq_ignore_ascii_case("yml")
+        })
+        .unwrap_or(false)
+}
+
+fn list_source_files(directory: &Path) -> Result<Vec<PathBuf>, RuntimeError> {
+    let mut files = Vec::new();
+    for entry in read_dir_sorted(directory)? {
+        if entry.name == "dist" || entry.name == "node_modules" {
+            continue;
+        }
+        if entry.is_dir {
+            files.extend(list_source_files(&entry.path)?);
+        } else if entry.is_file && is_source_path(&entry.path) {
+            files.push(entry.path);
+        }
+    }
+    files.sort();
+    Ok(files)
+}
+
+fn is_source_path(path: &Path) -> bool {
+    path.extension()
+        .map(|extension| {
+            matches!(
+                extension.to_string_lossy().as_ref(),
+                "ts" | "tsx" | "js" | "jsx" | "mts" | "mjs" | "cts" | "cjs"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn extract_import_specifiers(contents: &str) -> Vec<String> {
+    let mut specifiers = Vec::new();
+    for line in contents.lines() {
+        let trimmed = line.trim_start();
+        if !trimmed.starts_with("import ") && !trimmed.starts_with("export ") {
+            continue;
+        }
+        for quote in ['"', '\''] {
+            let Some(start) = trimmed.find(quote) else {
+                continue;
+            };
+            let rest = &trimmed[start + quote.len_utf8()..];
+            let Some(end) = rest.find(quote) else {
+                continue;
+            };
+            let specifier = rest[..end].to_owned();
+            if !specifiers.contains(&specifier) {
+                specifiers.push(specifier);
+            }
+        }
+    }
+    specifiers
+}
+
+#[derive(Clone, Debug)]
+struct DirectoryEntry {
+    name: String,
+    path: PathBuf,
+    is_dir: bool,
+    is_file: bool,
+}
+
+fn read_dir_sorted(directory: &Path) -> Result<Vec<DirectoryEntry>, RuntimeError> {
+    match fs::read_dir(directory) {
+        Ok(entries) => {
+            let mut output = Vec::new();
+            for entry in entries {
+                let entry = entry.map_err(|source| {
+                    RuntimeError::io(format!("reading directory {}", directory.display()), source)
+                })?;
+                let file_type = entry.file_type().map_err(|source| {
+                    RuntimeError::io(
+                        format!("reading file type {}", entry.path().display()),
+                        source,
+                    )
+                })?;
+                output.push(DirectoryEntry {
+                    name: entry.file_name().to_string_lossy().into_owned(),
+                    path: entry.path(),
+                    is_dir: file_type.is_dir(),
+                    is_file: file_type.is_file(),
+                });
+            }
+            output.sort_by(|left, right| left.name.cmp(&right.name));
+            Ok(output)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
+        Err(source) => Err(RuntimeError::io(
+            format!("reading directory {}", directory.display()),
+            source,
+        )),
+    }
+}
+
+fn read_to_string(path: &Path) -> Result<String, RuntimeError> {
+    fs::read_to_string(path)
+        .map_err(|source| RuntimeError::io(format!("reading {}", path.display()), source))
+}
+
+fn count_file_lines(contents: &str) -> u64 {
+    if contents.is_empty() {
+        0
+    } else {
+        contents.bytes().filter(|byte| *byte == b'\n').count() as u64
+    }
+}
+
+fn workspace_package_name(root: &Path, file_path: &Path) -> Option<String> {
+    let segments = project_segments(root, file_path);
+    if segments
+        .first()
+        .is_some_and(|segment| segment == "packages")
+    {
+        segments.get(1).cloned()
+    } else {
+        None
+    }
+}
+
+fn project_segments(root: &Path, path: &Path) -> Vec<String> {
+    project_path(root, path)
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn project_path(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .components()
+        .filter_map(|component| match component {
+            Component::Normal(segment) => Some(segment.to_string_lossy().into_owned()),
+            Component::CurDir => Some(".".to_owned()),
+            Component::ParentDir => Some("..".to_owned()),
+            Component::Prefix(_) | Component::RootDir => None,
+        })
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+fn lexical_normalize(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
+            Component::RootDir => normalized.push(component.as_os_str()),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !normalized.pop() {
+                    normalized.push("..");
+                }
+            }
+            Component::Normal(segment) => normalized.push(segment),
+        }
+    }
+    normalized
+}
+
+fn object(entries: impl IntoIterator<Item = (&'static str, JsonValue)>) -> JsonObject {
+    BTreeMap::from_iter(
+        entries
+            .into_iter()
+            .map(|(key, value)| (key.to_owned(), value)),
+    )
+}
+
+fn string_value(value: &str) -> JsonValue {
+    JsonValue::String(value.to_owned())
+}
+
+fn number_value(value: u64) -> JsonValue {
+    JsonValue::Number(JsonNumber::U64(value))
+}
+
+fn sha256_prefixed(value: &str) -> String {
+    let digest = Sha256::digest(value.as_bytes());
+    format!("sha256:{}", hex_lower(&digest))
+}
+
+fn hex_lower(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        encoded.push(HEX[(byte >> 4) as usize] as char);
+        encoded.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    encoded
+}
+
+fn json_string(value: &str) -> String {
+    let mut encoded = String::with_capacity(value.len() + 2);
+    encoded.push('"');
+    for character in value.chars() {
+        match character {
+            '"' => encoded.push_str("\\\""),
+            '\\' => encoded.push_str("\\\\"),
+            '\n' => encoded.push_str("\\n"),
+            '\r' => encoded.push_str("\\r"),
+            '\t' => encoded.push_str("\\t"),
+            character if character <= '\u{1f}' => {
+                encoded.push_str(&format!("\\u{:04x}", character as u32));
+            }
+            character => encoded.push(character),
+        }
+    }
+    encoded.push('"');
+    encoded
+}

@@ -1,0 +1,280 @@
+pub mod runx_core
+pub mod runx_core::policy
+pub enum runx_core::policy::AdmissionDecision
+pub runx_core::policy::AdmissionDecision::Allow
+pub runx_core::policy::AdmissionDecision::Allow::reasons: alloc::vec::Vec<alloc::string::String>
+pub runx_core::policy::AdmissionDecision::Deny
+pub runx_core::policy::AdmissionDecision::Deny::reasons: alloc::vec::Vec<alloc::string::String>
+pub enum runx_core::policy::AuthorityKind
+pub runx_core::policy::AuthorityKind::Constructive
+pub runx_core::policy::AuthorityKind::Destructive
+pub runx_core::policy::AuthorityKind::ReadOnly
+pub enum runx_core::policy::CwdPolicy
+pub runx_core::policy::CwdPolicy::Custom
+pub runx_core::policy::CwdPolicy::SkillDirectory
+pub runx_core::policy::CwdPolicy::Workspace
+pub enum runx_core::policy::GraphScopeAdmissionDecision
+pub runx_core::policy::GraphScopeAdmissionDecision::Allow
+pub runx_core::policy::GraphScopeAdmissionDecision::Allow::grant_id: core::option::Option<alloc::string::String>
+pub runx_core::policy::GraphScopeAdmissionDecision::Allow::granted_scopes: alloc::vec::Vec<alloc::string::String>
+pub runx_core::policy::GraphScopeAdmissionDecision::Allow::reasons: alloc::vec::Vec<alloc::string::String>
+pub runx_core::policy::GraphScopeAdmissionDecision::Allow::requested_scopes: alloc::vec::Vec<alloc::string::String>
+pub runx_core::policy::GraphScopeAdmissionDecision::Allow::step_id: alloc::string::String
+pub runx_core::policy::GraphScopeAdmissionDecision::Deny
+pub runx_core::policy::GraphScopeAdmissionDecision::Deny::grant_id: core::option::Option<alloc::string::String>
+pub runx_core::policy::GraphScopeAdmissionDecision::Deny::granted_scopes: alloc::vec::Vec<alloc::string::String>
+pub runx_core::policy::GraphScopeAdmissionDecision::Deny::reasons: alloc::vec::Vec<alloc::string::String>
+pub runx_core::policy::GraphScopeAdmissionDecision::Deny::requested_scopes: alloc::vec::Vec<alloc::string::String>
+pub runx_core::policy::GraphScopeAdmissionDecision::Deny::step_id: alloc::string::String
+pub enum runx_core::policy::LocalAdmissionGrantStatus
+pub runx_core::policy::LocalAdmissionGrantStatus::Active
+pub runx_core::policy::LocalAdmissionGrantStatus::Revoked
+pub enum runx_core::policy::SandboxAdmissionDecision
+pub runx_core::policy::SandboxAdmissionDecision::Allow
+pub runx_core::policy::SandboxAdmissionDecision::Allow::reasons: alloc::vec::Vec<alloc::string::String>
+pub runx_core::policy::SandboxAdmissionDecision::ApprovalRequired
+pub runx_core::policy::SandboxAdmissionDecision::ApprovalRequired::reasons: alloc::vec::Vec<alloc::string::String>
+pub runx_core::policy::SandboxAdmissionDecision::Deny
+pub runx_core::policy::SandboxAdmissionDecision::Deny::reasons: alloc::vec::Vec<alloc::string::String>
+pub enum runx_core::policy::SandboxProfile
+pub runx_core::policy::SandboxProfile::Network
+pub runx_core::policy::SandboxProfile::Readonly
+pub runx_core::policy::SandboxProfile::UnrestrictedLocalDev
+pub runx_core::policy::SandboxProfile::WorkspaceWrite
+pub struct runx_core::policy::GraphScopeAdmissionRequest
+pub runx_core::policy::GraphScopeAdmissionRequest::grant: runx_core::policy::GraphScopeGrant
+pub runx_core::policy::GraphScopeAdmissionRequest::requested_scopes: alloc::vec::Vec<alloc::string::String>
+pub runx_core::policy::GraphScopeAdmissionRequest::step_id: alloc::string::String
+pub struct runx_core::policy::GraphScopeGrant
+pub runx_core::policy::GraphScopeGrant::grant_id: core::option::Option<alloc::string::String>
+pub runx_core::policy::GraphScopeGrant::scopes: alloc::vec::Vec<alloc::string::String>
+pub struct runx_core::policy::LocalAdmissionGrant
+pub runx_core::policy::LocalAdmissionGrant::authority_kind: core::option::Option<runx_core::policy::AuthorityKind>
+pub runx_core::policy::LocalAdmissionGrant::grant_id: alloc::string::String
+pub runx_core::policy::LocalAdmissionGrant::provider: alloc::string::String
+pub runx_core::policy::LocalAdmissionGrant::scope_family: core::option::Option<alloc::string::String>
+pub runx_core::policy::LocalAdmissionGrant::scopes: alloc::vec::Vec<alloc::string::String>
+pub runx_core::policy::LocalAdmissionGrant::status: core::option::Option<runx_core::policy::LocalAdmissionGrantStatus>
+pub runx_core::policy::LocalAdmissionGrant::target_locator: core::option::Option<alloc::string::String>
+pub runx_core::policy::LocalAdmissionGrant::target_repo: core::option::Option<alloc::string::String>
+pub struct runx_core::policy::LocalAdmissionOptions
+pub runx_core::policy::LocalAdmissionOptions::allowed_source_types: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub runx_core::policy::LocalAdmissionOptions::approved_sandbox_escalation: core::option::Option<bool>
+pub runx_core::policy::LocalAdmissionOptions::connected_grants: core::option::Option<alloc::vec::Vec<runx_core::policy::LocalAdmissionGrant>>
+pub runx_core::policy::LocalAdmissionOptions::execution_policy: core::option::Option<runx_core::policy::LocalExecutionPolicy>
+pub runx_core::policy::LocalAdmissionOptions::max_timeout_seconds: core::option::Option<i64>
+pub runx_core::policy::LocalAdmissionOptions::skip_connected_auth: core::option::Option<bool>
+pub runx_core::policy::LocalAdmissionOptions::skip_sandbox_escalation: core::option::Option<bool>
+pub struct runx_core::policy::LocalAdmissionSkill
+pub runx_core::policy::LocalAdmissionSkill::auth: core::option::Option<runx_contracts::json::JsonValue>
+pub runx_core::policy::LocalAdmissionSkill::name: alloc::string::String
+pub runx_core::policy::LocalAdmissionSkill::runtime: core::option::Option<runx_contracts::json::JsonValue>
+pub runx_core::policy::LocalAdmissionSkill::source: runx_core::policy::LocalAdmissionSource
+pub struct runx_core::policy::LocalAdmissionSource
+pub runx_core::policy::LocalAdmissionSource::args: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub runx_core::policy::LocalAdmissionSource::command: core::option::Option<alloc::string::String>
+pub runx_core::policy::LocalAdmissionSource::sandbox: core::option::Option<runx_core::policy::SandboxDeclaration>
+pub runx_core::policy::LocalAdmissionSource::source_type: alloc::string::String
+pub runx_core::policy::LocalAdmissionSource::timeout_seconds: core::option::Option<i64>
+pub struct runx_core::policy::LocalExecutionPolicy
+pub runx_core::policy::LocalExecutionPolicy::strict_cli_tool_inline_code: core::option::Option<bool>
+pub struct runx_core::policy::RequiredSandboxDeclaration
+pub runx_core::policy::RequiredSandboxDeclaration::cwd_policy: runx_core::policy::CwdPolicy
+pub runx_core::policy::RequiredSandboxDeclaration::env_allowlist: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub runx_core::policy::RequiredSandboxDeclaration::network: bool
+pub runx_core::policy::RequiredSandboxDeclaration::profile: runx_core::policy::SandboxProfile
+pub runx_core::policy::RequiredSandboxDeclaration::require_enforcement: bool
+pub runx_core::policy::RequiredSandboxDeclaration::writable_paths: alloc::vec::Vec<alloc::string::String>
+pub struct runx_core::policy::RetryAdmissionRequest
+pub runx_core::policy::RetryAdmissionRequest::idempotency_key: core::option::Option<alloc::string::String>
+pub runx_core::policy::RetryAdmissionRequest::mutating: core::option::Option<bool>
+pub runx_core::policy::RetryAdmissionRequest::retry: core::option::Option<runx_core::policy::RetryPolicy>
+pub runx_core::policy::RetryAdmissionRequest::step_id: alloc::string::String
+pub struct runx_core::policy::RetryPolicy
+pub runx_core::policy::RetryPolicy::max_attempts: i64
+pub struct runx_core::policy::SandboxAdmissionOptions
+pub runx_core::policy::SandboxAdmissionOptions::approved_escalation: core::option::Option<bool>
+pub runx_core::policy::SandboxAdmissionOptions::skip_escalation: core::option::Option<bool>
+pub struct runx_core::policy::SandboxDeclaration
+pub runx_core::policy::SandboxDeclaration::cwd_policy: core::option::Option<runx_core::policy::CwdPolicy>
+pub runx_core::policy::SandboxDeclaration::env_allowlist: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub runx_core::policy::SandboxDeclaration::network: core::option::Option<bool>
+pub runx_core::policy::SandboxDeclaration::profile: runx_core::policy::SandboxProfile
+pub runx_core::policy::SandboxDeclaration::require_enforcement: core::option::Option<bool>
+pub runx_core::policy::SandboxDeclaration::writable_paths: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub fn runx_core::policy::admit_graph_step_scopes(request: &runx_core::policy::GraphScopeAdmissionRequest) -> runx_core::policy::GraphScopeAdmissionDecision
+pub fn runx_core::policy::admit_local_skill(skill: &runx_core::policy::LocalAdmissionSkill, options: &runx_core::policy::LocalAdmissionOptions) -> runx_core::policy::AdmissionDecision
+pub fn runx_core::policy::admit_retry_policy(request: &runx_core::policy::RetryAdmissionRequest) -> runx_core::policy::AdmissionDecision
+pub fn runx_core::policy::admit_sandbox(sandbox: core::option::Option<&runx_core::policy::SandboxDeclaration>, options: &runx_core::policy::SandboxAdmissionOptions) -> runx_core::policy::SandboxAdmissionDecision
+pub fn runx_core::policy::normalize_sandbox_declaration(sandbox: core::option::Option<&runx_core::policy::SandboxDeclaration>) -> runx_core::policy::RequiredSandboxDeclaration
+pub fn runx_core::policy::sandbox_requires_approval(sandbox: core::option::Option<&runx_core::policy::SandboxDeclaration>) -> bool
+pub mod runx_core::serde_conventions
+pub mod runx_core::state_machine
+pub enum runx_core::state_machine::FanoutBranchFailurePolicy
+pub runx_core::state_machine::FanoutBranchFailurePolicy::Continue
+pub runx_core::state_machine::FanoutBranchFailurePolicy::Halt
+pub enum runx_core::state_machine::FanoutGate
+pub runx_core::state_machine::FanoutGate::Conflict
+pub runx_core::state_machine::FanoutGate::Conflict::action: runx_core::state_machine::FanoutGateAction
+pub runx_core::state_machine::FanoutGate::Conflict::field: alloc::string::String
+pub runx_core::state_machine::FanoutGate::Conflict::values: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, runx_contracts::json::JsonValue>>
+pub runx_core::state_machine::FanoutGate::Threshold
+pub runx_core::state_machine::FanoutGate::Threshold::action: runx_core::state_machine::FanoutGateAction
+pub runx_core::state_machine::FanoutGate::Threshold::compared_to: core::option::Option<runx_contracts::json::JsonNumber>
+pub runx_core::state_machine::FanoutGate::Threshold::field: alloc::string::String
+pub runx_core::state_machine::FanoutGate::Threshold::step_id: core::option::Option<alloc::string::String>
+pub runx_core::state_machine::FanoutGate::Threshold::value: core::option::Option<runx_contracts::json::JsonValue>
+pub enum runx_core::state_machine::FanoutGateAction
+pub runx_core::state_machine::FanoutGateAction::Escalate
+pub runx_core::state_machine::FanoutGateAction::Pause
+impl core::convert::From<runx_core::state_machine::FanoutGateAction> for runx_core::state_machine::FanoutSyncOutcome
+pub fn runx_core::state_machine::FanoutSyncOutcome::from(action: runx_core::state_machine::FanoutGateAction) -> Self
+pub enum runx_core::state_machine::FanoutSyncOutcome
+pub runx_core::state_machine::FanoutSyncOutcome::Escalate
+pub runx_core::state_machine::FanoutSyncOutcome::Halt
+pub runx_core::state_machine::FanoutSyncOutcome::Pause
+pub runx_core::state_machine::FanoutSyncOutcome::Proceed
+impl core::convert::From<runx_core::state_machine::FanoutGateAction> for runx_core::state_machine::FanoutSyncOutcome
+pub fn runx_core::state_machine::FanoutSyncOutcome::from(action: runx_core::state_machine::FanoutGateAction) -> Self
+pub enum runx_core::state_machine::FanoutSyncStrategy
+pub runx_core::state_machine::FanoutSyncStrategy::All
+pub runx_core::state_machine::FanoutSyncStrategy::Any
+pub runx_core::state_machine::FanoutSyncStrategy::Quorum
+pub enum runx_core::state_machine::GraphStatus
+pub runx_core::state_machine::GraphStatus::Escalated
+pub runx_core::state_machine::GraphStatus::Failed
+pub runx_core::state_machine::GraphStatus::Paused
+pub runx_core::state_machine::GraphStatus::Pending
+pub runx_core::state_machine::GraphStatus::Running
+pub runx_core::state_machine::GraphStatus::Succeeded
+pub enum runx_core::state_machine::GraphStepStatus
+pub runx_core::state_machine::GraphStepStatus::Failed
+pub runx_core::state_machine::GraphStepStatus::Pending
+pub runx_core::state_machine::GraphStepStatus::Running
+pub runx_core::state_machine::GraphStepStatus::Succeeded
+pub enum runx_core::state_machine::SequentialGraphEvent
+pub runx_core::state_machine::SequentialGraphEvent::Complete
+pub runx_core::state_machine::SequentialGraphEvent::EscalateGraph
+pub runx_core::state_machine::SequentialGraphEvent::EscalateGraph::reason: alloc::string::String
+pub runx_core::state_machine::SequentialGraphEvent::FailGraph
+pub runx_core::state_machine::SequentialGraphEvent::FailGraph::error: alloc::string::String
+pub runx_core::state_machine::SequentialGraphEvent::PauseGraph
+pub runx_core::state_machine::SequentialGraphEvent::PauseGraph::reason: alloc::string::String
+pub runx_core::state_machine::SequentialGraphEvent::StartStep
+pub runx_core::state_machine::SequentialGraphEvent::StartStep::at: alloc::string::String
+pub runx_core::state_machine::SequentialGraphEvent::StartStep::step_id: alloc::string::String
+pub runx_core::state_machine::SequentialGraphEvent::StepFailed
+pub runx_core::state_machine::SequentialGraphEvent::StepFailed::at: alloc::string::String
+pub runx_core::state_machine::SequentialGraphEvent::StepFailed::error: alloc::string::String
+pub runx_core::state_machine::SequentialGraphEvent::StepFailed::step_id: alloc::string::String
+pub runx_core::state_machine::SequentialGraphEvent::StepSucceeded
+pub runx_core::state_machine::SequentialGraphEvent::StepSucceeded::at: alloc::string::String
+pub runx_core::state_machine::SequentialGraphEvent::StepSucceeded::outputs: core::option::Option<runx_contracts::json::JsonObject>
+pub runx_core::state_machine::SequentialGraphEvent::StepSucceeded::receipt_id: alloc::string::String
+pub runx_core::state_machine::SequentialGraphEvent::StepSucceeded::step_id: alloc::string::String
+pub enum runx_core::state_machine::SequentialGraphPlan
+pub runx_core::state_machine::SequentialGraphPlan::Blocked
+pub runx_core::state_machine::SequentialGraphPlan::Blocked::reason: alloc::string::String
+pub runx_core::state_machine::SequentialGraphPlan::Blocked::step_id: alloc::string::String
+pub runx_core::state_machine::SequentialGraphPlan::Blocked::sync_decision: core::option::Option<runx_core::state_machine::FanoutSyncDecision>
+pub runx_core::state_machine::SequentialGraphPlan::Complete
+pub runx_core::state_machine::SequentialGraphPlan::Escalated
+pub runx_core::state_machine::SequentialGraphPlan::Escalated::reason: alloc::string::String
+pub runx_core::state_machine::SequentialGraphPlan::Escalated::step_id: alloc::string::String
+pub runx_core::state_machine::SequentialGraphPlan::Escalated::sync_decision: runx_core::state_machine::FanoutSyncDecision
+pub runx_core::state_machine::SequentialGraphPlan::Failed
+pub runx_core::state_machine::SequentialGraphPlan::Failed::reason: alloc::string::String
+pub runx_core::state_machine::SequentialGraphPlan::Failed::step_id: alloc::string::String
+pub runx_core::state_machine::SequentialGraphPlan::Failed::sync_decision: core::option::Option<runx_core::state_machine::FanoutSyncDecision>
+pub runx_core::state_machine::SequentialGraphPlan::Paused
+pub runx_core::state_machine::SequentialGraphPlan::Paused::reason: alloc::string::String
+pub runx_core::state_machine::SequentialGraphPlan::Paused::step_id: alloc::string::String
+pub runx_core::state_machine::SequentialGraphPlan::Paused::sync_decision: runx_core::state_machine::FanoutSyncDecision
+pub runx_core::state_machine::SequentialGraphPlan::RunFanout
+pub runx_core::state_machine::SequentialGraphPlan::RunFanout::attempts: alloc::collections::btree::map::BTreeMap<alloc::string::String, u32>
+pub runx_core::state_machine::SequentialGraphPlan::RunFanout::context_from: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::vec::Vec<alloc::string::String>>
+pub runx_core::state_machine::SequentialGraphPlan::RunFanout::group_id: alloc::string::String
+pub runx_core::state_machine::SequentialGraphPlan::RunFanout::step_ids: alloc::vec::Vec<alloc::string::String>
+pub runx_core::state_machine::SequentialGraphPlan::RunStep
+pub runx_core::state_machine::SequentialGraphPlan::RunStep::attempt: u32
+pub runx_core::state_machine::SequentialGraphPlan::RunStep::context_from: alloc::vec::Vec<alloc::string::String>
+pub runx_core::state_machine::SequentialGraphPlan::RunStep::step_id: alloc::string::String
+pub enum runx_core::state_machine::SingleStepEvent
+pub runx_core::state_machine::SingleStepEvent::Admit
+pub runx_core::state_machine::SingleStepEvent::Fail
+pub runx_core::state_machine::SingleStepEvent::Fail::at: alloc::string::String
+pub runx_core::state_machine::SingleStepEvent::Fail::error: alloc::string::String
+pub runx_core::state_machine::SingleStepEvent::Start
+pub runx_core::state_machine::SingleStepEvent::Start::at: alloc::string::String
+pub runx_core::state_machine::SingleStepEvent::Succeed
+pub runx_core::state_machine::SingleStepEvent::Succeed::at: alloc::string::String
+pub enum runx_core::state_machine::StepStatus
+pub runx_core::state_machine::StepStatus::Admitted
+pub runx_core::state_machine::StepStatus::Failed
+pub runx_core::state_machine::StepStatus::Pending
+pub runx_core::state_machine::StepStatus::Running
+pub runx_core::state_machine::StepStatus::Succeeded
+pub struct runx_core::state_machine::FanoutBranchResult
+pub runx_core::state_machine::FanoutBranchResult::outputs: core::option::Option<runx_contracts::json::JsonObject>
+pub runx_core::state_machine::FanoutBranchResult::status: runx_core::state_machine::GraphStepStatus
+pub runx_core::state_machine::FanoutBranchResult::step_id: alloc::string::String
+pub struct runx_core::state_machine::FanoutConflictGate
+pub runx_core::state_machine::FanoutConflictGate::action: runx_core::state_machine::FanoutGateAction
+pub runx_core::state_machine::FanoutConflictGate::field: alloc::string::String
+pub runx_core::state_machine::FanoutConflictGate::steps: alloc::vec::Vec<alloc::string::String>
+pub struct runx_core::state_machine::FanoutGroupPolicy
+pub runx_core::state_machine::FanoutGroupPolicy::conflict_gates: core::option::Option<alloc::vec::Vec<runx_core::state_machine::FanoutConflictGate>>
+pub runx_core::state_machine::FanoutGroupPolicy::group_id: alloc::string::String
+pub runx_core::state_machine::FanoutGroupPolicy::min_success: core::option::Option<u32>
+pub runx_core::state_machine::FanoutGroupPolicy::on_branch_failure: runx_core::state_machine::FanoutBranchFailurePolicy
+pub runx_core::state_machine::FanoutGroupPolicy::strategy: runx_core::state_machine::FanoutSyncStrategy
+pub runx_core::state_machine::FanoutGroupPolicy::threshold_gates: core::option::Option<alloc::vec::Vec<runx_core::state_machine::FanoutThresholdGate>>
+pub struct runx_core::state_machine::FanoutSyncDecision
+pub runx_core::state_machine::FanoutSyncDecision::branch_count: usize
+pub runx_core::state_machine::FanoutSyncDecision::decision: runx_core::state_machine::FanoutSyncOutcome
+pub runx_core::state_machine::FanoutSyncDecision::failure_count: usize
+pub runx_core::state_machine::FanoutSyncDecision::gate: core::option::Option<runx_core::state_machine::FanoutGate>
+pub runx_core::state_machine::FanoutSyncDecision::group_id: alloc::string::String
+pub runx_core::state_machine::FanoutSyncDecision::reason: alloc::string::String
+pub runx_core::state_machine::FanoutSyncDecision::required_successes: usize
+pub runx_core::state_machine::FanoutSyncDecision::rule_fired: alloc::string::String
+pub runx_core::state_machine::FanoutSyncDecision::strategy: runx_core::state_machine::FanoutSyncStrategy
+pub runx_core::state_machine::FanoutSyncDecision::success_count: usize
+pub struct runx_core::state_machine::FanoutThresholdGate
+pub runx_core::state_machine::FanoutThresholdGate::above: runx_contracts::json::JsonNumber
+pub runx_core::state_machine::FanoutThresholdGate::action: runx_core::state_machine::FanoutGateAction
+pub runx_core::state_machine::FanoutThresholdGate::field: alloc::string::String
+pub runx_core::state_machine::FanoutThresholdGate::step: alloc::string::String
+pub struct runx_core::state_machine::RetryPolicy
+pub runx_core::state_machine::RetryPolicy::max_attempts: u32
+pub struct runx_core::state_machine::SequentialGraphState
+pub runx_core::state_machine::SequentialGraphState::graph_id: alloc::string::String
+pub runx_core::state_machine::SequentialGraphState::status: runx_core::state_machine::GraphStatus
+pub runx_core::state_machine::SequentialGraphState::steps: alloc::vec::Vec<runx_core::state_machine::SequentialGraphStepState>
+pub struct runx_core::state_machine::SequentialGraphStepDefinition
+pub runx_core::state_machine::SequentialGraphStepDefinition::context_from: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub runx_core::state_machine::SequentialGraphStepDefinition::fanout_group: core::option::Option<alloc::string::String>
+pub runx_core::state_machine::SequentialGraphStepDefinition::id: alloc::string::String
+pub runx_core::state_machine::SequentialGraphStepDefinition::retry: core::option::Option<runx_core::state_machine::RetryPolicy>
+pub struct runx_core::state_machine::SequentialGraphStepState
+pub runx_core::state_machine::SequentialGraphStepState::attempts: u32
+pub runx_core::state_machine::SequentialGraphStepState::completed_at: core::option::Option<alloc::string::String>
+pub runx_core::state_machine::SequentialGraphStepState::error: core::option::Option<alloc::string::String>
+pub runx_core::state_machine::SequentialGraphStepState::outputs: core::option::Option<runx_contracts::json::JsonObject>
+pub runx_core::state_machine::SequentialGraphStepState::receipt_id: core::option::Option<alloc::string::String>
+pub runx_core::state_machine::SequentialGraphStepState::started_at: core::option::Option<alloc::string::String>
+pub runx_core::state_machine::SequentialGraphStepState::status: runx_core::state_machine::GraphStepStatus
+pub runx_core::state_machine::SequentialGraphStepState::step_id: alloc::string::String
+pub struct runx_core::state_machine::SingleStepState
+pub runx_core::state_machine::SingleStepState::completed_at: core::option::Option<alloc::string::String>
+pub runx_core::state_machine::SingleStepState::error: core::option::Option<alloc::string::String>
+pub runx_core::state_machine::SingleStepState::started_at: core::option::Option<alloc::string::String>
+pub runx_core::state_machine::SingleStepState::status: runx_core::state_machine::StepStatus
+pub runx_core::state_machine::SingleStepState::step_id: alloc::string::String
+pub fn runx_core::state_machine::create_sequential_graph_state(graph_id: impl core::convert::Into<alloc::string::String>, steps: &[runx_core::state_machine::SequentialGraphStepDefinition]) -> runx_core::state_machine::SequentialGraphState
+pub fn runx_core::state_machine::create_single_step_state(step_id: impl core::convert::Into<alloc::string::String>) -> runx_core::state_machine::SingleStepState
+pub fn runx_core::state_machine::evaluate_fanout_sync(policy: &runx_core::state_machine::FanoutGroupPolicy, results: &[runx_core::state_machine::FanoutBranchResult], resolved_gate_keys: core::option::Option<&alloc::collections::btree::set::BTreeSet<alloc::string::String>>) -> runx_core::state_machine::FanoutSyncDecision
+pub fn runx_core::state_machine::fanout_sync_decision_key(group_id: &str, rule_fired: &str) -> alloc::string::String
+pub fn runx_core::state_machine::plan_sequential_graph_transition(state: &runx_core::state_machine::SequentialGraphState, steps: &[runx_core::state_machine::SequentialGraphStepDefinition], fanout_policies: &alloc::collections::btree::map::BTreeMap<alloc::string::String, runx_core::state_machine::FanoutGroupPolicy>, resolved_fanout_gate_keys: core::option::Option<&alloc::collections::btree::set::BTreeSet<alloc::string::String>>) -> runx_core::state_machine::SequentialGraphPlan
+pub fn runx_core::state_machine::transition_sequential_graph(state: &runx_core::state_machine::SequentialGraphState, event: &runx_core::state_machine::SequentialGraphEvent) -> runx_core::state_machine::SequentialGraphState
+pub fn runx_core::state_machine::transition_single_step(state: &runx_core::state_machine::SingleStepState, event: &runx_core::state_machine::SingleStepEvent) -> runx_core::state_machine::SingleStepState

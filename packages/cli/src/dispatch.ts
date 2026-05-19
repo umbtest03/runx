@@ -89,6 +89,7 @@ import { handleInitCommand } from "./commands/init.js";
 import { handleListCommand } from "./commands/list.js";
 import { handleMcpServeCommand } from "./commands/mcp.js";
 import { handleNewCommand } from "./commands/new.js";
+import { handlePolicyCommand, renderPolicyResult } from "./commands/policy.js";
 import {
   handleToolBuildCommand,
   renderToolCommandResult,
@@ -235,6 +236,16 @@ export async function dispatchCli(
       io.stdout.write(renderConfigResult(result, env));
     }
     return 0;
+  }
+
+  if (parsed.command === "policy" && parsed.policyAction) {
+    const result = await handlePolicyCommand(parsed, env);
+    if (parsed.json) {
+      io.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    } else {
+      io.stdout.write(renderPolicyResult(result, env));
+    }
+    return result.status === "success" ? 0 : 1;
   }
 
   if (parsed.command === "init" && parsed.initAction) {

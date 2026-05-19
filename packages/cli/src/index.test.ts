@@ -279,6 +279,15 @@ runners:
     expect(parsed.inputs).toEqual({});
   });
 
+  it("parses policy commands without leaking flags into skill inputs", () => {
+    const parsed = parseArgs(["policy", "inspect", "policy.json", "--json"]);
+
+    expect(parsed.command).toBe("policy");
+    expect(parsed.policyAction).toBe("inspect");
+    expect(parsed.policyPath).toBe("policy.json");
+    expect(parsed.inputs).toEqual({});
+  });
+
   it("returns a CLI error when an answers file cannot be read", async () => {
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
@@ -409,6 +418,58 @@ runners:
     expect(stdout.contents()).toContain("agent.api_key");
     expect(stdout.contents()).toContain("[encrypted]");
     expect(stdout.contents()).not.toContain("sk-secret-test");
+  });
+
+  it("inspects operational policy without exposing raw source locators", async () => {
+    const stdout = createMemoryStream();
+    const stderr = createMemoryStream();
+    const exitCode = await runCli(
+      ["policy", "inspect", "fixtures/operational-policy/nitrosend-like.json", "--json"],
+      { stdin: process.stdin, stdout, stderr },
+      { ...process.env, RUNX_CWD: process.cwd() },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(stderr.contents()).toBe("");
+    const result = JSON.parse(stdout.contents()) as {
+      status: string;
+      policy: {
+        policy_id: string;
+        sources: Array<{ locator_count: number }>;
+      };
+    };
+    expect(result.status).toBe("success");
+    expect(result.policy.policy_id).toBe("nitrosend-issue-flow");
+    expect(result.policy.sources[0]?.locator_count).toBe(1);
+    expect(stdout.contents()).not.toContain(process.cwd());
+    expect(stdout.contents()).not.toContain("slack://nitrosend/C0APFMY0V8Q");
+    expect(stdout.contents()).not.toContain("sentry://nitrosend/production");
+  });
+
+  it("fails policy lint when target actions have no available runner", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-policy-"));
+    tempDirs.push(tempDir);
+    const policyPath = path.join(tempDir, "policy.json");
+    const policy = await readFixturePolicy();
+    policy.runners[0].state = "maintenance";
+    await writeFile(policyPath, `${JSON.stringify(policy, null, 2)}\n`);
+
+    const stdout = createMemoryStream();
+    const stderr = createMemoryStream();
+    const exitCode = await runCli(
+      ["policy", "lint", policyPath, "--json"],
+      { stdin: process.stdin, stdout, stderr },
+      { ...process.env, RUNX_CWD: process.cwd() },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(stderr.contents()).toBe("");
+    const result = JSON.parse(stdout.contents()) as {
+      status: string;
+      findings: Array<{ code: string }>;
+    };
+    expect(result.status).toBe("failure");
+    expect(result.findings.map((finding) => finding.code)).toContain("target_action_without_runner");
   });
 
   it("auto-resolves structured agent-step runs through the configured OpenAI managed adapter", async () => {
@@ -2114,6 +2175,14 @@ function createMemoryStream(): NodeJS.WriteStream & { contents: () => string; cl
       buffer = "";
     },
   } as NodeJS.WriteStream & { contents: () => string; clear: () => void };
+}
+
+interface MutablePolicyFixture extends Record<string, unknown> {
+  runners: Array<{ state: string }>;
+}
+
+async function readFixturePolicy(): Promise<MutablePolicyFixture> {
+  return JSON.parse(await readFile("fixtures/operational-policy/nitrosend-like.json", "utf8")) as MutablePolicyFixture;
 }
 
 async function createFakeAgentBin(commands: readonly string[]): Promise<string> {

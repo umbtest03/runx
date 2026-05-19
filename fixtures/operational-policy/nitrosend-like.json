@@ -1,0 +1,135 @@
+{
+  "schema": "runx.operational_policy.v1",
+  "schema_version": "runx.operational_policy.v1",
+  "policy_id": "nitrosend-issue-flow",
+  "created_at": "2026-05-19T00:00:00.000Z",
+  "sources": [
+    {
+      "source_id": "bugs-fixes",
+      "provider": "slack",
+      "allowed_locators": [
+        "slack://nitrosend/C0APFMY0V8Q"
+      ],
+      "allowed_actions": [
+        "issue-intake",
+        "issue-to-pr",
+        "pr-review"
+      ],
+      "source_thread": {
+        "required": true,
+        "publish_mode": "reply",
+        "missing_behavior": "fail_closed"
+      },
+      "minimum_confidence": 0.72
+    },
+    {
+      "source_id": "sentry-alerts",
+      "provider": "sentry",
+      "allowed_locators": [
+        "sentry://nitrosend/production"
+      ],
+      "allowed_actions": [
+        "issue-intake",
+        "issue-to-pr"
+      ],
+      "source_thread": {
+        "required": true,
+        "publish_mode": "reply",
+        "missing_behavior": "fail_closed"
+      },
+      "minimum_confidence": 0.82,
+      "sentry": {
+        "production_only": true,
+        "unresolved_only": true,
+        "regressed_only": true
+      }
+    }
+  ],
+  "runners": [
+    {
+      "runner_id": "aster-production",
+      "kind": "aster",
+      "state": "available",
+      "allowed_actions": [
+        "issue-intake",
+        "work-plan",
+        "issue-to-pr",
+        "pr-review",
+        "pr-fix-up"
+      ],
+      "target_repos": [
+        "nitrosend/nitrosend",
+        "nitrosend/app"
+      ],
+      "scafld_required": true
+    }
+  ],
+  "owner_routes": [
+    {
+      "route_id": "product-surface",
+      "owners": [
+        "Kam"
+      ],
+      "target_repos": [
+        "nitrosend/nitrosend",
+        "nitrosend/app"
+      ],
+      "labels": [
+        "runx",
+        "bug"
+      ],
+      "project": "Nitrosend Engineering"
+    }
+  ],
+  "targets": [
+    {
+      "repo": "nitrosend/nitrosend",
+      "runner_ids": [
+        "aster-production"
+      ],
+      "allowed_actions": [
+        "issue-intake",
+        "issue-to-pr",
+        "pr-review"
+      ],
+      "default_owner_route": "product-surface",
+      "scafld_required": true,
+      "base_branch": "main"
+    },
+    {
+      "repo": "nitrosend/app",
+      "runner_ids": [
+        "aster-production"
+      ],
+      "allowed_actions": [
+        "issue-intake",
+        "issue-to-pr",
+        "pr-review"
+      ],
+      "default_owner_route": "product-surface",
+      "scafld_required": true,
+      "base_branch": "main"
+    }
+  ],
+  "dedupe": {
+    "strategy": "source_fingerprint",
+    "key_fields": [
+      "source.provider",
+      "source.locator",
+      "source.thread_ts",
+      "signal.fingerprint"
+    ],
+    "on_duplicate": "reuse"
+  },
+  "outcomes": {
+    "observe_provider": true,
+    "verification_required": true,
+    "close_source_issue": "when_verified",
+    "publish_final_source_thread_update": true
+  },
+  "permissions": {
+    "auto_merge": false,
+    "mutate_target_repo": true,
+    "require_human_merge_gate": true
+  }
+}

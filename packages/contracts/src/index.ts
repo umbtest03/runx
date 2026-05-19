@@ -166,6 +166,45 @@ export {
 } from "./schemas/outcome-resolution.js";
 
 export {
+  operationalPolicySchema,
+  operationalPolicySchemaVersion,
+  operationalPolicySourceProviders,
+  operationalPolicyActions,
+  operationalPolicyRunnerKinds,
+  operationalPolicyRunnerStates,
+  operationalPolicyDedupeStrategies,
+  operationalPolicyOutcomeCloseModes,
+  validateOperationalPolicyContract,
+  admitOperationalPolicyRequest,
+  lintOperationalPolicyContract,
+  validateOperationalPolicySemantics,
+  projectOperationalPolicyReadback,
+  type OperationalPolicyAdmission,
+  type OperationalPolicyAdmissionRequest,
+  type OperationalPolicyValidationFinding,
+  type OperationalPolicyReadback,
+  type OperationalPolicySourceProviderContract,
+  type OperationalPolicyActionContract,
+  type OperationalPolicyRunnerKindContract,
+  type OperationalPolicyRunnerStateContract,
+  type OperationalPolicyContract,
+} from "./schemas/operational-policy.js";
+
+export {
+  issueToPrOutcomeSchema,
+  issueToPrOutcomeSchemaVersion,
+  issueToPrOutcomeProviders,
+  issueToPrProviderOutcomes,
+  issueToPrVerificationStatuses,
+  issueToPrSourceIssueCloseModes,
+  validateIssueToPrOutcomeContract,
+  lintIssueToPrOutcomeContract,
+  validateIssueToPrOutcomeSemantics,
+  type IssueToPrOutcomeFinding,
+  type IssueToPrOutcomeContract,
+} from "./schemas/issue-to-pr-outcome.js";
+
+export {
   validateArtifactEnvelopeContract,
 } from "./schemas/artifact.js";
 
@@ -451,6 +490,8 @@ import {
 } from "./schemas/spine.js";
 import { ledgerRecordSchema } from "./schemas/ledger.js";
 import { handoffSignalV1Schema, handoffStateV1Schema, suppressionRecordV1Schema } from "./schemas/handoff.js";
+import { operationalPolicySchema } from "./schemas/operational-policy.js";
+import { issueToPrOutcomeSchema } from "./schemas/issue-to-pr-outcome.js";
 
 export const runxContractSchemas = {
   output: outputSchema,
@@ -496,6 +537,8 @@ export const runxContractSchemas = {
   handoffSignal: handoffSignalV1Schema,
   handoffState: handoffStateV1Schema,
   suppressionRecord: suppressionRecordV1Schema,
+  operationalPolicy: operationalPolicySchema,
+  issueToPrOutcome: issueToPrOutcomeSchema,
 } as const;
 
 export const runxAuxiliarySchemas = {
@@ -547,6 +590,8 @@ export const runxGeneratedSchemaArtifacts = {
   "handoff-signal.schema.json": handoffSignalV1Schema,
   "handoff-state.schema.json": handoffStateV1Schema,
   "suppression-record.schema.json": suppressionRecordV1Schema,
+  "operational-policy.schema.json": operationalPolicySchema,
+  "issue-to-pr-outcome.schema.json": issueToPrOutcomeSchema,
   "registry-binding.schema.json": registryBindingSchema,
   "review-receipt-output.schema.json": reviewReceiptOutputSchema,
 } as const;

@@ -13991,6 +13991,110 @@
           }
         }
       }
+    },
+    "sync_points": {
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "group_id",
+          "strategy",
+          "decision",
+          "rule_fired",
+          "reason",
+          "branch_count",
+          "success_count",
+          "failure_count",
+          "required_successes",
+          "branch_receipts"
+        ],
+        "properties": {
+          "group_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "strategy": {
+            "anyOf": [
+              {
+                "const": "all",
+                "type": "string"
+              },
+              {
+                "const": "any",
+                "type": "string"
+              },
+              {
+                "const": "quorum",
+                "type": "string"
+              }
+            ]
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "const": "proceed",
+                "type": "string"
+              },
+              {
+                "const": "halt",
+                "type": "string"
+              },
+              {
+                "const": "pause",
+                "type": "string"
+              },
+              {
+                "const": "escalate",
+                "type": "string"
+              }
+            ]
+          },
+          "rule_fired": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "branch_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "success_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "failure_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "required_successes": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "branch_receipts": {
+            "type": "array",
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "gate": {
+            "type": "object",
+            "patternProperties": {
+              "^(.*)$": {}
+            }
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {}
+      }
     }
   }
 }

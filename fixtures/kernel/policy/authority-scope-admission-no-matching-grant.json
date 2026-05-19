@@ -1,0 +1,43 @@
+{
+  "$schema": "../schema/policy.schema.json",
+  "expected": {
+    "kind": "output",
+    "value": {
+      "decision_summary": "no matching active grant resolved",
+      "granted_scopes": [],
+      "reasons": [
+        "connected auth grant required for provider 'github'"
+      ],
+      "requested_scopes": [
+        "repo:write"
+      ],
+      "status": "deny"
+    }
+  },
+  "input": {
+    "auth": {
+      "provider": "github",
+      "scopes": [
+        "repo:write"
+      ],
+      "type": "nango"
+    },
+    "grants": [
+      {
+        "authority_kind": "read_only",
+        "grant_id": "grant_expected",
+        "provider": "github",
+        "scope_family": "github_repo",
+        "scopes": [
+          "repo:read",
+          "user:read"
+        ],
+        "status": "active",
+        "target_locator": "runxhq/aster#issue/4",
+        "target_repo": "runxhq/aster"
+      }
+    ],
+    "kind": "policy.buildLocalScopeAdmission"
+  },
+  "name": "authority-scope-admission-no-matching-grant"
+}

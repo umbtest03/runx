@@ -37,6 +37,7 @@ pnpm build
 pnpm test
 pnpm typecheck
 pnpm verify:fast
+pnpm rust:check
 ```
 
 Contributor setup, test selection, and commit sign-off rules are in

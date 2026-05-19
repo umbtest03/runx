@@ -73,8 +73,10 @@ function runBuildFeedStory({ inputs }) {
     thread?.thread_locator,
     draftThread.thread_locator,
     pullRequestOutboxEntry.thread_locator,
-    "thread:not-provided",
   );
+  if (!threadLocator) {
+    throw new Error("source thread locator is required to build an issue-to-PR feed entry.");
+  }
   const taskId = firstNonEmptyString(inputs.task_id, draftPullRequest.task_id, pullRequestMetadata.task_id);
   const title = firstNonEmptyString(
     inputs.thread_title,

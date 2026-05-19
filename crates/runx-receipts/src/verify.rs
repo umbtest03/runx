@@ -6,8 +6,17 @@ use runx_contracts::{
 };
 
 mod finding;
+mod projection;
+mod proof;
 
 pub use finding::{ReceiptError, ReceiptFinding, ReceiptFindingCode, ReceiptVerification};
+pub use projection::{
+    ReceiptProofFindingSummary, ReceiptProofStatus, ReceiptProofStatusKind, receipt_proof_status,
+};
+pub use proof::{
+    ReceiptProofContext, SignatureVerificationFailure, SignatureVerifier,
+    validate_harness_receipt_proof, verify_harness_receipt_proof,
+};
 
 pub fn validate_harness_receipt(receipt: &HarnessReceipt) -> Result<(), ReceiptVerification> {
     let verification = verify_harness_receipt(receipt);

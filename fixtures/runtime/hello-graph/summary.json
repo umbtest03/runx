@@ -1,0 +1,24 @@
+{
+  "graphName": "hello-graph",
+  "state": "succeeded",
+  "stepIds": [
+    "first",
+    "second"
+  ],
+  "stdout": [
+    "hello from graph\n",
+    "hello from graph\n\n"
+  ],
+  "createdAt": "2026-05-18T00:00:00Z",
+  "graphSealDigest": "sha256:9ea2f1c2fc9625f5079bc8766f764b17ccf2f450877b96dbccedff96e756c101",
+  "childSealDigests": [
+    "sha256:c6e2a5e12e2cfff9f3c55c3d14859b8e0a76a9a61e26dd8aab563400af025cb8",
+    "sha256:e70c338f5fac1555cd121bedcbde9a1d3260d27ee6e0d78aca059804cac35d47"
+  ],
+  "sandboxProfile": "process-boundary",
+  "graphReceiptId": "hrn_rcpt_hello-graph",
+  "childReceiptIds": [
+    "hrn_rcpt_hello-graph_first",
+    "hrn_rcpt_hello-graph_second"
+  ]
+}

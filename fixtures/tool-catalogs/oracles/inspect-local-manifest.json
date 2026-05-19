@@ -1,0 +1,30 @@
+{
+  "status": "success",
+  "tool": {
+    "ref": "fixture.local_echo",
+    "name": "fixture.local_echo",
+    "description": "Local inspect fixture tool.",
+    "execution_source_type": "cli-tool",
+    "inputs": {
+      "message": {
+        "type": "string",
+        "required": true,
+        "description": "Message to echo."
+      }
+    },
+    "scopes": [
+      "fixture.local_echo"
+    ],
+    "runtime": {
+      "command": "node",
+      "args": [
+        "./run.mjs"
+      ]
+    },
+    "reference_path": "<repo>/fixtures/tool-catalogs/inspect/tool-roots/local/fixture/local_echo/manifest.json",
+    "skill_directory": "<repo>/fixtures/tool-catalogs/inspect/tool-roots/local/fixture/local_echo",
+    "provenance": {
+      "origin": "local"
+    }
+  }
+}

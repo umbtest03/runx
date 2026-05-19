@@ -14,6 +14,12 @@ separate cutover spec changes a consumer and passes the relevant parity gate.
 Rust crates may provide distribution, SDK, or fixture-parity implementations,
 but they do not become authoritative by existing.
 
+Local Rust kernel parity is checked with `pnpm rust:check`, which runs Cargo
+formatting, clippy, workspace tests, crate graph/style guards, `cargo-deny`,
+and the `runx-core` public API snapshot. In CI this remains advisory during
+Phase A; it becomes blocking only through the `rust-kernel-blocking-promotion`
+spec after five clean kernel-touching PRs.
+
 Kernel parity fixtures live under `fixtures/kernel/`. They are generated from
 the TypeScript implementation and act as conformance evidence for the Rust
 port. Fixture refreshes must be deliberate: update the TypeScript oracle,
@@ -41,3 +47,6 @@ The initial pure-kernel Rust parity surface is:
 
 Parser, receipts, runtime, adapters, and CLI cutover are separate specs.
 The authority-proof and public-work re-exports are deferred to a follow-up spec.
+Full CLI/runtime cutover still requires the `fixtures/cli-parity` feature
+matrix and one-to-one TypeScript oracle parity; kernel parity alone is not a
+CLI or runtime cutover gate.

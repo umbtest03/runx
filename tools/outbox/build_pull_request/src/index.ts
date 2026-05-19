@@ -11,6 +11,7 @@ import {
   sanitizePublicMarkdown,
   summarizePublicHandoffMarkdown,
 } from "@runxhq/core/knowledge";
+import { admitOperationalPolicyRequest } from "@runxhq/contracts";
 
 export default defineTool({
   name: "outbox.build_pull_request",
@@ -22,7 +23,12 @@ export default defineTool({
     thread: recordInput({ optional: true, description: "Optional hydrated thread that may already carry a pull_request outbox entry." }),
     outbox_entry: recordInput({ optional: true, description: "Optional current pull_request outbox entry when refreshing an existing draft." }),
     harness_context: recordInput({ optional: true, description: "Optional captured harness context containing signal and decision state." }),
+    operational_policy: recordInput({ optional: true, description: "Optional runx.operational_policy.v1 packet used for request-time admission." }),
+    source_id: stringInput({ optional: true, description: "Operational policy source id for request-time admission." }),
     target_repo: stringInput({ optional: true, description: "Intended repository slug when the caller already knows it." }),
+    runner_id: stringInput({ optional: true, description: "Operational policy runner id for request-time admission." }),
+    policy_action: stringInput({ optional: true, description: "Operational policy action, defaults to issue-to-pr." }),
+    source_thread_locator: stringInput({ optional: true, description: "Recoverable source-thread locator for request-time admission." }),
     branch: stringInput({ optional: true, description: "Explicit head branch for provider publication." }),
     fix_bundle: recordInput({ optional: true, description: "Bounded fix bundle used to derive the governed file list for provider publication." }),
     handoff_markdown: stringInput({ description: "Native markdown emitted by `scafld handoff`." }),
@@ -89,6 +95,14 @@ function runBuildPullRequest({ inputs }) {
     inputs.target_repo,
     parseRepoSlug(firstNonEmptyString(threadContext.canonical_uri)),
   );
+  const policyAdmission = admitPolicyRequest({
+    policy: optionalRecord(inputs.operational_policy),
+    sourceId: inputs.source_id,
+    targetRepo,
+    runnerId: inputs.runner_id,
+    policyAction: inputs.policy_action,
+    sourceThreadLocator: firstNonEmptyString(inputs.source_thread_locator, threadLocator),
+  });
 
   const action = existingOutboxEntry ? "refresh" : "create";
   const reviewVerdict = firstNonEmptyString(
@@ -108,6 +122,13 @@ function runBuildPullRequest({ inputs }) {
     currentBranch?.branch,
   );
   const base = firstNonEmptyString(inputs.base);
+  const dedupe = buildPullRequestDedupe({
+    existingOutboxEntry,
+    taskId,
+    targetRepo,
+    branch,
+    threadLocator,
+  });
 
   const draftPullRequest = prune({
     schema_version: "runx.pull-request-draft.v1",
@@ -131,6 +152,7 @@ function runBuildPullRequest({ inputs }) {
       remote: "origin",
     }),
     harness_context: summarizeHarnessContext(harnessContext),
+    operational_policy: summarizePolicyAdmission(policyAdmission),
     pull_request: {
       title,
       body_markdown: buildReviewerPullRequestBody({
@@ -189,12 +211,14 @@ function runBuildPullRequest({ inputs }) {
       branch: draftPullRequest.target?.branch,
       base: draftPullRequest.target?.base,
       harness_context: summarizeHarnessContext(harnessContext),
+      operational_policy: summarizePolicyAdmission(policyAdmission),
       title,
       review_verdict: reviewVerdict,
       check_status: checkStatus,
       sync_status: syncStatus,
       push_ready: pushReady,
       changed_files: changedFiles,
+      dedupe,
       human_merge_gate: "required",
       post_merge_observation: "provider_state_update",
       story_milestones: [
@@ -214,6 +238,67 @@ function runBuildPullRequest({ inputs }) {
     draft_pull_request: draftPullRequest,
     outbox_entry: outboxEntry,
   };
+}
+
+function admitPolicyRequest({
+  policy,
+  sourceId,
+  targetRepo,
+  runnerId,
+  policyAction,
+  sourceThreadLocator,
+}) {
+  if (!policy) {
+    return undefined;
+  }
+  const admission = admitOperationalPolicyRequest(policy, {
+    source_id: firstNonEmptyString(sourceId),
+    target_repo: targetRepo,
+    action: firstNonEmptyString(policyAction) ?? "issue-to-pr",
+    runner_id: firstNonEmptyString(runnerId),
+    source_thread_locator: firstNonEmptyString(sourceThreadLocator),
+  });
+  if (admission.status === "deny") {
+    const codes = admission.findings.map((finding) => finding.code).join(", ");
+    throw new Error(`operational policy denied pull request packaging: ${codes}`);
+  }
+  return admission;
+}
+
+function summarizePolicyAdmission(admission) {
+  if (!admission) {
+    return undefined;
+  }
+  return prune({
+    policy_id: admission.policy_id,
+    source_id: admission.source_id,
+    target_repo: admission.target_repo,
+    runner_id: admission.runner_id,
+    owner_route_id: admission.owner_route_id,
+    owner_count: Array.isArray(admission.owners) ? admission.owners.length : undefined,
+    dedupe_strategy: admission.dedupe_strategy,
+    outcome_close_mode: admission.outcome_close_mode,
+    source_thread_required: admission.source_thread_required,
+    mutate_target_repo: admission.mutate_target_repo,
+    require_human_merge_gate: admission.require_human_merge_gate,
+  });
+}
+
+function buildPullRequestDedupe({
+  existingOutboxEntry,
+  taskId,
+  targetRepo,
+  branch,
+  threadLocator,
+}) {
+  const branchKey = targetRepo && branch ? `${targetRepo}:${branch}` : undefined;
+  return prune({
+    strategy: branchKey ? "branch" : "source_fingerprint",
+    key: firstNonEmptyString(branchKey, threadLocator, `task:${taskId}`),
+    result: existingOutboxEntry ? "reused" : "created",
+    existing_entry_id: existingOutboxEntry?.entry_id,
+    existing_locator: existingOutboxEntry?.locator,
+  });
 }
 
 function summarizeHarnessContext(harnessContext) {

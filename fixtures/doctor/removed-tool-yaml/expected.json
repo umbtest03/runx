@@ -1,0 +1,37 @@
+{
+  "schema": "runx.doctor.v1",
+  "status": "failure",
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "id": "runx.tool.manifest.removed_format",
+      "severity": "error",
+      "title": "tool.yaml is no longer supported",
+      "message": "Tool demo.removed still uses tool.yaml. Runx resolves manifest.json only.",
+      "target": {
+        "kind": "tool",
+        "ref": "demo.removed"
+      },
+      "location": {
+        "path": "tools/demo/removed/tool.yaml"
+      },
+      "evidence": {
+        "expected_manifest": "tools/demo/removed/manifest.json"
+      },
+      "repairs": [
+        {
+          "id": "replace_removed_tool_manifest",
+          "kind": "manual",
+          "confidence": "high",
+          "risk": "medium",
+          "requires_human_review": true
+        }
+      ],
+      "instance_id": "sha256:23b17c67e2312ff3a2359aa935b8a58e276e70f41fcc3a1ec4f398e3db464c5c"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+use runx_contracts::{ExecutionEvent, ResolutionRequest, ResolutionResponse};
+
+use crate::RuntimeError;
+
+pub trait Caller {
+    fn report(&mut self, event: ExecutionEvent) -> Result<(), RuntimeError>;
+
+    fn resolve(
+        &mut self,
+        _request: ResolutionRequest,
+    ) -> Result<Option<ResolutionResponse>, RuntimeError> {
+        Ok(None)
+    }
+
+    fn log(&mut self, _message: String) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct NoopCaller;
+
+impl Caller for NoopCaller {
+    fn report(&mut self, _event: ExecutionEvent) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+}

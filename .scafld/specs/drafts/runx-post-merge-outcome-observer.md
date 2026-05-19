@@ -64,11 +64,15 @@ Invariants:
   superseded states are distinct.
 - Verification output is reviewer-safe and redacted.
 - No hidden auto-merge path is introduced.
+- Terminal observer output normalizes to `runx.issue_to_pr_outcome.v1` before
+  any source issue closure or final source-thread publication.
 
 ## Objectives
 
 - Define outcome event model for merged, closed-unmerged, superseded,
   verification-passed, and verification-failed.
+- Define the `runx.issue_to_pr_outcome.v1` packet for provider outcome, PR
+  state, human gate, verification, close policy, and source-thread target.
 - Add provider observer for GitHub PR state changes.
 - Add policy-driven verification hook.
 - Publish final outcome to source GitHub issue and Slack/source thread.
@@ -144,6 +148,8 @@ Required behavior:
   channel root.
 - [ ] Final outcome includes issue link, PR link, merge sha when available,
   verification summary, and next human action.
+- [ ] Final outcome validates against `runx.issue_to_pr_outcome.v1` before it
+  is published or used to close the source issue.
 - [ ] Final outcome excludes absolute local paths, raw env vars, secrets, and
   excessive logs.
 
@@ -156,6 +162,7 @@ Objective: Define the events, states, and idempotency keys.
 
 Changes:
 - Add outcome state contract.
+- Add `runx.issue_to_pr_outcome.v1` contract and semantic validation.
 - Add idempotency key rules.
 - Add policy validation for outcome actions.
 
@@ -233,3 +240,6 @@ Source: plan
 ## Planning Log
 
 - 2026-05-19: Expanded placeholder into post-merge outcome observer contract.
+- 2026-05-19: Locked the terminal outcome packet to
+  `runx.issue_to_pr_outcome.v1`; Rust, Aster, and repo wrappers must consume
+  this shape rather than publishing bespoke terminal payloads.

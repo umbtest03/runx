@@ -1,0 +1,45 @@
+{
+  "status": "success",
+  "tool": {
+    "ref": "fixture.echo",
+    "name": "fixture.echo",
+    "description": "Echo a message through the fixture MCP server.",
+    "execution_source_type": "catalog",
+    "inputs": {
+      "message": {
+        "type": "string",
+        "required": true,
+        "description": "Message to echo."
+      }
+    },
+    "scopes": [
+      "fixture.echo"
+    ],
+    "runx": {
+      "imported_from": {
+        "source": "fixture-mcp",
+        "source_label": "Fixture MCP Catalog",
+        "source_type": "mcp",
+        "namespace": "fixture",
+        "external_name": "echo",
+        "digest": "4f47a953ab076a06780963c4c97580a0fd8c9e8a2d64c5d85a6fa82ddac42636"
+      }
+    },
+    "reference_path": "catalog:fixture-mcp:fixture.echo",
+    "skill_directory": "<repo>",
+    "provenance": {
+      "origin": "imported",
+      "source": "fixture-mcp",
+      "source_label": "Fixture MCP Catalog",
+      "source_type": "mcp",
+      "namespace": "fixture",
+      "external_name": "echo",
+      "catalog_ref": "fixture-mcp:fixture.echo",
+      "tool_id": "fixture-mcp/fixture.echo",
+      "tags": [
+        "fixture",
+        "mcp"
+      ]
+    }
+  }
+}

@@ -1,0 +1,301 @@
+{
+  "schema": "runx.cli_runtime_surfaces.v1",
+  "surfaces": [
+    {
+      "id": "cli-presentation",
+      "owner": "packages/cli",
+      "parityClass": "semantic",
+      "coveredBy": [
+        "cli.help",
+        "config.list"
+      ],
+      "notes": "Human output is normalized semantically; JSON output stays schema-exact."
+    },
+    {
+      "id": "skill-resolution",
+      "owner": "packages/cli + packages/core",
+      "parityClass": "fixture-backed",
+      "coveredBy": [
+        "skill.run",
+        "skill.add"
+      ],
+      "notes": "Covers local paths, registry refs, and official skill resolution."
+    },
+    {
+      "id": "graph-runtime",
+      "owner": "packages/runtime-local",
+      "parityClass": "fixture-backed",
+      "coveredBy": [
+        "skill.run",
+        "evolve"
+      ],
+      "notes": "Covers graph execution, branching, caller pauses, and receipts."
+    },
+    {
+      "id": "receipts",
+      "owner": "packages/core + packages/runtime-local",
+      "parityClass": "schema-exact",
+      "coveredBy": [
+        "skill.run",
+        "harness",
+        "history",
+        "export-receipts.trainable"
+      ],
+      "notes": "Receipt JSON and signature metadata are schema-exact parity surfaces."
+    },
+    {
+      "id": "ledger",
+      "owner": "packages/runtime-local",
+      "parityClass": "schema-exact",
+      "coveredBy": [
+        "resume",
+        "history"
+      ],
+      "notes": "Append-only run state and resume history must survive cutover."
+    },
+    {
+      "id": "artifacts",
+      "owner": "packages/core",
+      "parityClass": "schema-exact",
+      "coveredBy": [
+        "evolve",
+        "dev"
+      ],
+      "notes": "Large outputs are referenced by artifact metadata instead of copied into receipts."
+    },
+    {
+      "id": "sandbox",
+      "owner": "packages/core/policy + packages/runtime-local",
+      "parityClass": "schema-exact",
+      "coveredBy": [
+        "skill.run",
+        "harness"
+      ],
+      "notes": "Declared and enforced sandbox metadata must remain distinct."
+    },
+    {
+      "id": "harness",
+      "owner": "packages/runtime-local/harness",
+      "parityClass": "fixture-backed",
+      "coveredBy": [
+        "harness",
+        "dev"
+      ],
+      "notes": "Harness replay mode proves deterministic fixture execution and sealed receipt checks."
+    },
+    {
+      "id": "history",
+      "owner": "packages/cli",
+      "parityClass": "semantic",
+      "coveredBy": [
+        "history"
+      ],
+      "notes": "Search/filter behavior is command-level parity with normalized output."
+    },
+    {
+      "id": "resume-replay",
+      "owner": "packages/runtime-local",
+      "parityClass": "fixture-backed",
+      "coveredBy": [
+        "resume",
+        "replay",
+        "diff"
+      ],
+      "notes": "Paused runs and replay/diff inputs must resolve to the same receipt graph semantics."
+    },
+    {
+      "id": "registry",
+      "owner": "packages/core/registry",
+      "parityClass": "stubbed",
+      "coveredBy": [
+        "skill.search",
+        "skill.add",
+        "skill.publish"
+      ],
+      "notes": "Live registries are replaced by deterministic registry fixtures."
+    },
+    {
+      "id": "tool-catalog",
+      "owner": "packages/runtime-local/tool-catalogs",
+      "parityClass": "stubbed",
+      "coveredBy": [
+        "tool.search",
+        "tool.inspect",
+        "tool.build",
+        "list"
+      ],
+      "notes": "Catalog discovery and local tool builds use fixtures or local files."
+    },
+    {
+      "id": "mcp",
+      "owner": "packages/runtime-local/mcp",
+      "parityClass": "stubbed",
+      "coveredBy": [
+        "mcp.serve"
+      ],
+      "notes": "Protocol behavior uses local servers and deterministic clients."
+    },
+    {
+      "id": "adapter-cli-tool",
+      "owner": "packages/adapters/cli-tool",
+      "parityClass": "fixture-backed",
+      "coveredBy": [
+        "skill.run"
+      ],
+      "notes": "Process invocation, env, cwd, and sandbox metadata are parity-critical."
+    },
+    {
+      "id": "adapter-mcp",
+      "owner": "packages/adapters/mcp",
+      "parityClass": "stubbed",
+      "coveredBy": [
+        "mcp.serve"
+      ],
+      "notes": "MCP transport and tool results use local protocol fixtures."
+    },
+    {
+      "id": "adapter-a2a",
+      "owner": "packages/adapters/a2a",
+      "parityClass": "stubbed",
+      "coveredBy": [
+        "skill.run"
+      ],
+      "notes": "A2A remains a deterministic adapter path until live provider cutover."
+    },
+    {
+      "id": "adapter-catalog",
+      "owner": "packages/adapters/catalog",
+      "parityClass": "stubbed",
+      "coveredBy": [
+        "tool.search",
+        "tool.inspect"
+      ],
+      "notes": "Catalog adapter inputs and normalized outputs are preserved."
+    },
+    {
+      "id": "adapter-agent",
+      "owner": "packages/adapters/agent",
+      "parityClass": "stubbed",
+      "coveredBy": [
+        "skill.run",
+        "dev"
+      ],
+      "notes": "Managed agent calls are represented by local stubs, not live providers."
+    },
+    {
+      "id": "config",
+      "owner": "packages/cli",
+      "parityClass": "schema-exact",
+      "coveredBy": [
+        "config.set",
+        "config.get",
+        "config.list"
+      ],
+      "notes": "RUNX_HOME and local config file behavior are part of CLI parity."
+    },
+    {
+      "id": "doctor",
+      "owner": "packages/cli",
+      "parityClass": "semantic",
+      "coveredBy": [
+        "doctor"
+      ],
+      "notes": "Diagnostics can add ids, but the documented command surface must not disappear."
+    },
+    {
+      "id": "dev",
+      "owner": "packages/cli",
+      "parityClass": "fixture-backed",
+      "coveredBy": [
+        "dev"
+      ],
+      "notes": "Development lanes run deterministic or recorded harness fixtures."
+    },
+    {
+      "id": "knowledge",
+      "owner": "packages/core/knowledge",
+      "parityClass": "schema-exact",
+      "coveredBy": [
+        "knowledge.show"
+      ],
+      "notes": "Public projection output stays schema-exact."
+    },
+    {
+      "id": "connect",
+      "owner": "packages/cli",
+      "parityClass": "stubbed",
+      "coveredBy": [
+        "connect.list",
+        "connect.revoke",
+        "connect.preprovision"
+      ],
+      "notes": "OAuth/provider calls are represented by stub services."
+    },
+    {
+      "id": "authority",
+      "owner": "packages/core/policy",
+      "parityClass": "schema-exact",
+      "coveredBy": [
+        "connect.preprovision",
+        "skill.run"
+      ],
+      "notes": "Grant, scope, and authority-kind parsing must remain machine-checkable."
+    },
+    {
+      "id": "caller-mediated-resolution",
+      "owner": "packages/runtime-local",
+      "parityClass": "fixture-backed",
+      "coveredBy": [
+        "resume",
+        "skill.run"
+      ],
+      "notes": "Required input, approvals, and agent work keep the same pause/resume contract."
+    },
+    {
+      "id": "scaffold",
+      "owner": "packages/cli",
+      "parityClass": "semantic",
+      "coveredBy": [
+        "new",
+        "init"
+      ],
+      "notes": "Project and standalone package scaffolds preserve command shape and generated-file intent."
+    },
+    {
+      "id": "official-skills",
+      "owner": "packages/cli",
+      "parityClass": "schema-exact",
+      "coveredBy": [
+        "init"
+      ],
+      "notes": "Prefetch and lockfile behavior stays fixture-backed before Rust cutover."
+    },
+    {
+      "id": "list",
+      "owner": "packages/cli",
+      "parityClass": "semantic",
+      "coveredBy": [
+        "list"
+      ],
+      "notes": "Inventory output for tools, skills, graphs, packets, and overlays stays represented."
+    },
+    {
+      "id": "authoring",
+      "owner": "packages/authoring",
+      "parityClass": "schema-exact",
+      "coveredBy": [
+        "tool.build"
+      ],
+      "notes": "Tool build output and manifest validation remain schema-exact."
+    },
+    {
+      "id": "trainable-export",
+      "owner": "packages/cli",
+      "parityClass": "schema-exact",
+      "coveredBy": [
+        "export-receipts.trainable"
+      ],
+      "notes": "Redacted trainable receipt export remains a contract surface."
+    }
+  ]
+}

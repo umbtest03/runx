@@ -159,15 +159,16 @@ export function buildFeedStoryOutboxEntry(
   const milestone = validateFeedStoryMilestone(options.milestone);
   const workflow = normalizeIdentifierSegment(options.workflow ?? "issue-to-pr");
   const taskId = normalizeIdentifierSegment(options.taskId);
+  const threadLocator = normalizeSourceThreadLocator(options.threadLocator);
   const outboxReceiptId = sanitizePublicMarkdown(options.outboxReceiptId) ?? stableStoryOutboxReceiptId({
     workflow,
     taskId,
     milestoneKind: milestone.kind,
-    threadLocator: options.threadLocator,
+    threadLocator,
   });
   const bodyMarkdown = sanitizePublicMarkdown(
     options.bodyMarkdown ?? renderFeedStoryMarkdown({
-      thread_locator: options.threadLocator,
+      thread_locator: threadLocator,
       title: options.title,
       milestones: [milestone],
     }),
@@ -178,7 +179,7 @@ export function buildFeedStoryOutboxEntry(
     kind: "message",
     title: sanitizePublicMarkdown(options.title ?? milestone.title ?? formatMilestoneKind(milestone.kind)),
     status: "proposed",
-    thread_locator: options.threadLocator,
+    thread_locator: threadLocator,
     metadata: {
       schema_version: "runx.outbox-entry.feed-entry.v1",
       workflow,
@@ -186,6 +187,12 @@ export function buildFeedStoryOutboxEntry(
       outbox_receipt_id: outboxReceiptId,
       body_markdown: bodyMarkdown,
       updated_at: options.updatedAt,
+      source_thread: {
+        required: true,
+        publish_mode: "reply",
+        missing_behavior: "fail_closed",
+        thread_locator: threadLocator,
+      },
       control: {
         workflow,
         lane: milestone.kind,
@@ -337,6 +344,14 @@ function normalizeIdentifierSegment(value: string): string {
     throw new Error("feed entry identifier segment must not be empty.");
   }
   return normalized;
+}
+
+function normalizeSourceThreadLocator(value: string): string {
+  const sanitized = sanitizePublicMarkdown(value)?.trim();
+  if (!sanitized || sanitized === "thread:not-provided") {
+    throw new Error("feed entry source thread locator is required.");
+  }
+  return sanitized;
 }
 
 function formatMilestoneKind(kind: FeedStoryMilestoneKind): string {

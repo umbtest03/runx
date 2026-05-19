@@ -107,6 +107,12 @@ describe("outbox.build_feed_entry tool", () => {
         workflow: "issue-to-pr",
         milestone_kind: "merge_gate",
         outbox_receipt_id: expect.stringMatching(/^feed:issue-to-pr:fixture-task:merge_gate:[a-f0-9]{20}$/),
+        source_thread: {
+          required: true,
+          publish_mode: "reply",
+          missing_behavior: "fail_closed",
+          thread_locator: "github://example/repo/issues/123",
+        },
         body_markdown: expect.stringContaining("PR: https://github.com/example/repo/pull/77"),
       },
     });
@@ -115,6 +121,33 @@ describe("outbox.build_feed_entry tool", () => {
     expect(result.outbox_entry.metadata.body_markdown).toContain("Fingerprint: sha256:fixture-123");
     expect(result.outbox_entry.metadata.body_markdown).toContain("Blocking findings: 0");
     expect(result.outbox_entry.metadata.body_markdown).toContain("No final provider outcome has been observed yet");
+  });
+
+  it("fails closed when no source thread locator is available", () => {
+    const result = spawnSync("node", [toolPath], {
+      cwd: path.resolve("."),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        RUNX_INPUTS_JSON: JSON.stringify({
+          task_id: "fixture-task",
+          build_result: {
+            passed: 1,
+            failed: 0,
+          },
+          review_result: {
+            verdict: "pass",
+          },
+          completion_result: {
+            status: "completed",
+            title: "Fix fixture behavior",
+          },
+        }),
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("source thread locator is required");
   });
 
   it("packages observed merged provider outcomes as a final source-thread update", () => {

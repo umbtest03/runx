@@ -1,0 +1,5 @@
+skill: echo
+runners:
+  default:
+    type: agent
+    default: true

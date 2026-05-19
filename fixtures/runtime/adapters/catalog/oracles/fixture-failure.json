@@ -1,0 +1,16 @@
+{
+  "status": "failure",
+  "stdout": "",
+  "stderr": "MCP error -32000: fixture failure: catalog fixture failure",
+  "exitCode": null,
+  "signal": null,
+  "durationMs": 0,
+  "errorMessage": "MCP error -32000: fixture failure: catalog fixture failure",
+  "metadata": {
+    "mcp": {
+      "tool": "fail",
+      "server_command_hash": "545ea538461003efdc8c81c244531b003f6f26cfccf6c0073b3239fdedf49446",
+      "server_args_hash": "d4ae1dfdf0cefbd9a703697ec29358f080df41c1289657e5be139ce8952979b3"
+    }
+  }
+}

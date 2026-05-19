@@ -1,0 +1,86 @@
+{
+  "schema": "runx.operational_policy.v1",
+  "schema_version": "runx.operational_policy.v1",
+  "policy_id": "single-repo-review-flow",
+  "sources": [
+    {
+      "source_id": "github-issues",
+      "provider": "github",
+      "allowed_locators": [
+        "github://example/project/issues"
+      ],
+      "allowed_actions": [
+        "reply-only",
+        "issue-intake",
+        "issue-to-pr"
+      ],
+      "source_thread": {
+        "required": true,
+        "publish_mode": "comment",
+        "missing_behavior": "fail_closed"
+      }
+    }
+  ],
+  "runners": [
+    {
+      "runner_id": "local-review",
+      "kind": "local",
+      "state": "available",
+      "allowed_actions": [
+        "reply-only",
+        "issue-intake",
+        "issue-to-pr"
+      ],
+      "target_repos": [
+        "example/project"
+      ],
+      "scafld_required": true
+    }
+  ],
+  "owner_routes": [
+    {
+      "route_id": "maintainers",
+      "owners": [
+        "maintainers"
+      ],
+      "target_repos": [
+        "example/project"
+      ]
+    }
+  ],
+  "targets": [
+    {
+      "repo": "example/project",
+      "runner_ids": [
+        "local-review"
+      ],
+      "allowed_actions": [
+        "reply-only",
+        "issue-intake",
+        "issue-to-pr"
+      ],
+      "default_owner_route": "maintainers",
+      "scafld_required": true
+    }
+  ],
+  "dedupe": {
+    "strategy": "source_fingerprint",
+    "key_fields": [
+      "source.provider",
+      "source.locator",
+      "signal.fingerprint"
+    ],
+    "on_duplicate": "reuse"
+  },
+  "outcomes": {
+    "observe_provider": true,
+    "verification_required": true,
+    "close_source_issue": "when_verified",
+    "publish_final_source_thread_update": true
+  },
+  "permissions": {
+    "auto_merge": false,
+    "mutate_target_repo": true,
+    "require_human_merge_gate": true
+  }
+}

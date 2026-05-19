@@ -1,0 +1,39 @@
+{
+  "schema": "runx.doctor.v1",
+  "status": "failure",
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "id": "runx.skill.fixture.missing",
+      "severity": "error",
+      "title": "Skill has no harness coverage",
+      "message": "Skill uncovered declares an execution profile but has no fixtures or inline harness.cases.",
+      "target": {
+        "kind": "skill",
+        "ref": "uncovered"
+      },
+      "location": {
+        "path": "skills/uncovered/X.yaml",
+        "json_pointer": "/harness"
+      },
+      "evidence": {
+        "fixture_count": 0,
+        "harness_case_count": 0
+      },
+      "repairs": [
+        {
+          "id": "add_inline_harness_case",
+          "kind": "manual",
+          "confidence": "medium",
+          "risk": "low",
+          "requires_human_review": false
+        }
+      ],
+      "instance_id": "sha256:89b05275c66d6a211e8234fc9edcb2cb37110fed7d0d99f53780f2c111464956"
+    }
+  ]
+}

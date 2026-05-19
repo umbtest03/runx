@@ -22,6 +22,13 @@ import {
   admitGraphStepScopes,
   admitLocalSkill,
   admitRetryPolicy,
+  buildAuthorityProofMetadata,
+  buildLocalScopeAdmission,
+  evaluatePublicCommentOpportunity,
+  evaluatePublicPullRequestCandidate,
+  normalizePublicWorkPolicy,
+  validateCredentialBinding,
+  type AuthorityProofGrant,
   type GraphScopeAdmissionRequest,
   type LocalAdmissionOptions,
   type LocalAdmissionSkill,
@@ -253,6 +260,18 @@ function evaluateKernelFixtureInputUnchecked(input: KernelFixture["input"]): unk
       return sandboxRequiresApproval(input.sandbox as SandboxDeclaration | undefined);
     case "policy.admitSandbox":
       return admitSandbox(input.sandbox as SandboxDeclaration | undefined, (input.options ?? {}) as { readonly approvedEscalation?: boolean; readonly skipEscalation?: boolean });
+    case "policy.buildLocalScopeAdmission":
+      return buildLocalScopeAdmission(input.auth, expectArray(input.grants ?? [], "input.grants") as never[], (input.options ?? {}) as never);
+    case "policy.buildAuthorityProofMetadata":
+      return buildAuthorityProofMetadata(expectRecord(input.options, "input.options") as never);
+    case "policy.validateCredentialBinding":
+      return validateCredentialBinding(expectRecord(input.request, "input.request") as never);
+    case "policy.evaluatePublicPullRequestCandidate":
+      return evaluatePublicPullRequestCandidate(expectRecord(input.request, "input.request") as never, (input.policy ?? {}) as never);
+    case "policy.evaluatePublicCommentOpportunity":
+      return evaluatePublicCommentOpportunity(expectRecord(input.request, "input.request") as never, (input.policy ?? {}) as never);
+    case "policy.normalizePublicWorkPolicy":
+      return normalizePublicWorkPolicy((input.policy ?? {}) as never);
     default:
       throw new Error(`unknown kernel fixture input kind: ${input.kind}`);
   }
@@ -362,8 +381,290 @@ function fixtureCases(): readonly KernelFixtureCase[] {
     "succeeded",
     { report: "hold" },
   );
+  const githubReadAuth = {
+    type: "nango",
+    provider: "github",
+    scopes: ["repo:read", "repo:read"],
+    scope_family: "github_repo",
+    authority_kind: "read_only",
+    target_repo: "runxhq/aster",
+    target_locator: "runxhq/aster#issue/4",
+  };
+  const githubReadGrant: AuthorityProofGrant = {
+    grant_id: "grant_expected",
+    provider: "github",
+    scopes: ["repo:read", "user:read"],
+    status: "active",
+    scope_family: "github_repo",
+    authority_kind: "read_only",
+    target_repo: "runxhq/aster",
+    target_locator: "runxhq/aster#issue/4",
+  };
+  const githubCredential = {
+    kind: "runx.credential-envelope.v1",
+    grant_id: "grant_expected",
+    provider: "github",
+    connection_id: "conn_1",
+    scopes: ["repo:read"],
+    grant_reference: {
+      grant_id: "grant_expected",
+      scope_family: "github_repo",
+      authority_kind: "read_only",
+      target_repo: "runxhq/aster",
+      target_locator: "runxhq/aster#issue/4",
+    },
+    material_ref: "nango:github:conn_1",
+  };
 
   return [
+    {
+      name: "authority-credential-binding-allows-matching",
+      input: {
+        kind: "policy.validateCredentialBinding",
+        request: {
+          auth: githubReadAuth,
+          grants: [githubReadGrant],
+          scopeAdmission: buildLocalScopeAdmission(githubReadAuth, [githubReadGrant]),
+          credential: githubCredential,
+        },
+      },
+    },
+    {
+      name: "authority-credential-binding-denies-grant-reference",
+      input: {
+        kind: "policy.validateCredentialBinding",
+        request: {
+          auth: githubReadAuth,
+          grants: [githubReadGrant],
+          scopeAdmission: buildLocalScopeAdmission(githubReadAuth, [githubReadGrant]),
+          credential: {
+            ...githubCredential,
+            grant_id: "grant_other",
+            grant_reference: {
+              ...githubCredential.grant_reference,
+              grant_id: "grant_other",
+            },
+          },
+        },
+      },
+    },
+    {
+      name: "authority-proof-metadata-full",
+      input: {
+        kind: "policy.buildAuthorityProofMetadata",
+        options: {
+          runId: "run_policy_fixture",
+          skillName: "issue-intake",
+          sourceType: "agent-step",
+          auth: githubReadAuth,
+          grants: [githubReadGrant],
+          credential: githubCredential,
+          sandboxDeclaration: {
+            profile: "workspace-write",
+            cwdPolicy: "workspace",
+            network: false,
+            requireEnforcement: true,
+          },
+          sandboxMetadata: {
+            profile: "workspace-write",
+            cwd_policy: "workspace",
+            require_enforcement: true,
+            network: {
+              declared: false,
+              enforcement: "isolated-namespace",
+            },
+            filesystem: {
+              enforcement: "bubblewrap-mount-namespace",
+              readonly_paths: false,
+              writable_paths_enforced: true,
+              private_tmp: true,
+            },
+            runtime: {
+              enforcer: "bubblewrap",
+              reason: "fixture",
+            },
+          },
+          approval: {
+            gate: {
+              id: "approval_1",
+              type: "human",
+              reason: "mutating github action",
+            },
+            approved: true,
+          },
+          mutating: true,
+        },
+      },
+    },
+    {
+      name: "authority-proof-prunes-empty-sandbox-objects",
+      input: {
+        kind: "policy.buildAuthorityProofMetadata",
+        options: {
+          runId: "run_policy_fixture",
+          skillName: "issue-intake",
+          sourceType: "agent-step",
+          auth: githubReadAuth,
+          grants: [githubReadGrant],
+          credential: githubCredential,
+          sandboxMetadata: {
+            profile: "workspace-write",
+            network: {},
+            filesystem: {},
+            runtime: {},
+          },
+          mutating: false,
+        },
+      },
+    },
+    {
+      name: "authority-proof-trims-sandbox-declaration",
+      input: {
+        kind: "policy.buildAuthorityProofMetadata",
+        options: {
+          runId: "run_policy_fixture",
+          skillName: "issue-intake",
+          sourceType: "agent-step",
+          auth: githubReadAuth,
+          grants: [githubReadGrant],
+          credential: githubCredential,
+          sandboxDeclaration: {
+            profile: "  workspace-write  ",
+            cwdPolicy: "  workspace  ",
+            network: false,
+            requireEnforcement: true,
+          },
+          mutating: false,
+        },
+      },
+    },
+    {
+      name: "authority-scope-admission-active-grant",
+      input: {
+        kind: "policy.buildLocalScopeAdmission",
+        auth: githubReadAuth,
+        grants: [githubReadGrant],
+      },
+    },
+    {
+      name: "authority-scope-admission-denied-before-grant",
+      input: {
+        kind: "policy.buildLocalScopeAdmission",
+        auth: githubReadAuth,
+        grants: [githubReadGrant],
+        options: {
+          deniedBeforeGrantResolution: true,
+        },
+      },
+    },
+    {
+      name: "authority-scope-admission-no-connected-auth",
+      input: {
+        kind: "policy.buildLocalScopeAdmission",
+        auth: {
+          type: "env",
+        },
+        grants: [githubReadGrant],
+      },
+    },
+    {
+      name: "authority-scope-admission-no-matching-grant",
+      input: {
+        kind: "policy.buildLocalScopeAdmission",
+        auth: {
+          type: "nango",
+          provider: "github",
+          scopes: ["repo:write"],
+        },
+        grants: [githubReadGrant],
+      },
+    },
+    {
+      name: "public-work-blocks-dependency-bot-pr",
+      input: {
+        kind: "policy.evaluatePublicPullRequestCandidate",
+        request: {
+          authorLogin: "dependabot[bot]",
+          title: "Bump react from 19.0.0 to 19.0.1",
+          labels: ["dependencies"],
+          headRefName: "dependabot/npm_and_yarn/react-19.0.1",
+        },
+      },
+    },
+    {
+      name: "public-work-blocks-hyphen-version-title",
+      input: {
+        kind: "policy.evaluatePublicPullRequestCandidate",
+        request: {
+          authorLogin: "maintainer",
+          title: "upgrade abc-1.2",
+          labels: [],
+          headRefName: "feature/upgrade-abc",
+        },
+      },
+    },
+    {
+      name: "public-work-denies-cold-comment",
+      input: {
+        kind: "policy.evaluatePublicCommentOpportunity",
+        request: {
+          source: "github_pull_request",
+          lane: "issue-triage",
+          authorLogin: "stranger",
+          authorAssociation: "NONE",
+          title: "Clarify docs wording",
+          labels: [],
+          headRefName: "docs/fix-wording",
+          commentsCount: 0,
+          reviewCommentsCount: 0,
+        },
+      },
+    },
+    {
+      name: "public-work-denies-trust-recovery",
+      input: {
+        kind: "policy.evaluatePublicCommentOpportunity",
+        request: {
+          source: "github_pull_request",
+          lane: "issue-triage",
+          authorLogin: "maintainer",
+          authorAssociation: "CONTRIBUTOR",
+          title: "Improve onboarding docs",
+          labels: [],
+          headRefName: "docs/onboarding",
+          commentsCount: 1,
+          reviewCommentsCount: 0,
+          recentOutcomes: [{ status: "cooldown" }],
+        },
+        policy: {
+          trust_recovery_statuses: ["cooldown"],
+        },
+      },
+    },
+    {
+      name: "public-work-normalizes-policy",
+      input: {
+        kind: "policy.normalizePublicWorkPolicy",
+        policy: {
+          blocked_author_patterns: ["  Team-Bot  "],
+          blocked_exact_labels: [" Needs Review "],
+          require_welcome_signal_for_pull_request_comments: false,
+        },
+      },
+    },
+    {
+      name: "public-work-normalizes-empty-arrays",
+      input: {
+        kind: "policy.normalizePublicWorkPolicy",
+        policy: {
+          blocked_author_patterns: [],
+          blocked_head_ref_prefixes: [],
+          blocked_exact_labels: [],
+          blocked_label_prefixes: [],
+          trust_recovery_statuses: [],
+        },
+      },
+    },
     {
       name: "single-step-create-pending",
       description: "Creates a pending single-step state.",

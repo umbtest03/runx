@@ -14,6 +14,7 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo package --workspace --allow-dirty
+node ../scripts/check-rust-kernel-parity.mjs
 node ../scripts/check-rust-crate-graph.mjs
 node ../scripts/check-rust-core-style.mjs
 ```
@@ -33,6 +34,14 @@ node ../scripts/check-rust-core-style.mjs
 
 Placeholder crates must not claim native feature parity. TypeScript remains
 authoritative until each crate has its own fixture-backed parity spec.
+No Rust CLI/runtime cutover may replace npm CLI behavior until the
+`fixtures/cli-parity` matrix is complete and both the TypeScript oracle and
+Rust candidate pass one-to-one feature parity.
+For local Rust kernel parity, run `pnpm rust:check` from `oss/` or
+`node ../scripts/check-rust-kernel-parity.mjs` from `oss/crates/`. The command
+uses `cargo-deny` and `cargo-public-api`; install optional tools with
+`cargo install cargo-deny cargo-public-api` and `rustup toolchain install
+nightly --profile minimal`.
 The placeholder library crates are crates.io reservation releases at `0.0.1`;
 `runx-core` also remains at `0.0.1` while it accumulates parity surfaces.
 `runx-cli` is live at `0.1.0` because it installs the usable `runx` launcher.

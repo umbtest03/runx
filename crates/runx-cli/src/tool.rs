@@ -1,0 +1,373 @@
+// rust-style-allow: large-file - command wiring keeps tool build/search/inspect output parity together.
+use std::env;
+use std::ffi::OsString;
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
+
+use runx_runtime::{
+    ToolBuildOptions, ToolCatalogError, ToolInspectOptions, ToolSearchOptions, build_tool_catalogs,
+    inspect_tool, search_tools,
+};
+
+use crate::launcher::{ToolAction, ToolPlan};
+
+pub fn run_native_tool(plan: ToolPlan) -> ExitCode {
+    match run_tool(plan) {
+        Ok(output) => write_stdout(&output.stdout, output.exit_code),
+        Err(error) => {
+            let _ignored = write_stderr(&render_cli_error(&error.to_string()));
+            ExitCode::from(error.exit_code())
+        }
+    }
+}
+
+struct ToolCliOutput {
+    stdout: String,
+    exit_code: u8,
+}
+
+fn run_tool(plan: ToolPlan) -> Result<ToolCliOutput, ToolCliError> {
+    let env = env_pairs();
+    let cwd = env::current_dir().map_err(|error| ToolCliError::Internal(error.to_string()))?;
+    match plan.action {
+        ToolAction::Build => run_build(plan, &env, &cwd),
+        ToolAction::Search => run_search(plan, &env),
+        ToolAction::Inspect => run_inspect(plan, &env, &cwd),
+    }
+}
+
+fn run_build(
+    plan: ToolPlan,
+    env: &[(OsString, OsString)],
+    cwd: &Path,
+) -> Result<ToolCliOutput, ToolCliError> {
+    let root = resolve_workspace_base(env, cwd);
+    let tool_path = plan
+        .path
+        .as_deref()
+        .map(|path| resolve_user_path(path, env, cwd));
+    let toolkit_version = toolkit_version(env);
+    let report = build_tool_catalogs(&ToolBuildOptions {
+        root,
+        tool_path,
+        all: plan.all,
+        toolkit_version,
+    })?;
+    let stdout = if plan.json {
+        json_line(&report)?
+    } else {
+        render_build_report(report.built.len(), &report.errors)
+    };
+    let exit_code = if report.status == runx_contracts::tools::ToolBuildStatus::Success {
+        0
+    } else {
+        1
+    };
+    Ok(ToolCliOutput { stdout, exit_code })
+}
+
+fn run_search(plan: ToolPlan, env: &[(OsString, OsString)]) -> Result<ToolCliOutput, ToolCliError> {
+    let query = plan
+        .ref_or_query
+        .ok_or_else(|| ToolCliError::Usage("runx tool search requires a query".to_owned()))?;
+    let report = search_tools(&ToolSearchOptions {
+        query,
+        source: plan.source,
+        limit: 20,
+        fixture_catalog_enabled: env_value(env, "RUNX_ENABLE_FIXTURE_TOOL_CATALOG")
+            .is_some_and(|value| value == "1"),
+    });
+    let stdout = if plan.json {
+        json_line(&report)?
+    } else {
+        render_search_results(&report.results)
+    };
+    Ok(ToolCliOutput {
+        stdout,
+        exit_code: 0,
+    })
+}
+
+fn run_inspect(
+    plan: ToolPlan,
+    env: &[(OsString, OsString)],
+    cwd: &Path,
+) -> Result<ToolCliOutput, ToolCliError> {
+    let tool_ref = plan.ref_or_query.ok_or_else(|| {
+        ToolCliError::Usage("runx tool inspect requires a tool reference".to_owned())
+    })?;
+    let root = resolve_workspace_base(env, cwd);
+    let search_from_directory = resolve_user_path(Path::new("."), env, cwd);
+    let tool_roots = env_value(env, "RUNX_TOOL_ROOTS")
+        .map(|value| split_env_paths(&value))
+        .unwrap_or_default();
+    let report = inspect_tool(&ToolInspectOptions {
+        root,
+        tool_ref,
+        source: plan.source,
+        search_from_directory,
+        tool_roots,
+        fixture_catalog_enabled: env_value(env, "RUNX_ENABLE_FIXTURE_TOOL_CATALOG")
+            .is_some_and(|value| value == "1"),
+    })?;
+    let stdout = if plan.json {
+        json_line(&report)?
+    } else {
+        render_inspect_result(&report.tool)
+    };
+    Ok(ToolCliOutput {
+        stdout,
+        exit_code: 0,
+    })
+}
+
+fn env_pairs() -> Vec<(OsString, OsString)> {
+    env::vars_os().collect()
+}
+
+fn env_value(env: &[(OsString, OsString)], key: &str) -> Option<String> {
+    env.iter()
+        .find(|(name, _)| name == key)
+        .and_then(|(_, value)| value.to_str().map(str::to_owned))
+}
+
+fn resolve_workspace_base(env: &[(OsString, OsString)], cwd: &Path) -> PathBuf {
+    env_value(env, "RUNX_CWD")
+        .map(PathBuf::from)
+        .or_else(|| find_workspace_root(cwd))
+        .or_else(|| env_value(env, "INIT_CWD").map(PathBuf::from))
+        .unwrap_or_else(|| cwd.to_path_buf())
+}
+
+fn resolve_user_path(user_path: &Path, env: &[(OsString, OsString)], cwd: &Path) -> PathBuf {
+    if user_path.is_absolute() {
+        return user_path.to_path_buf();
+    }
+    for base in [
+        env_value(env, "RUNX_CWD").map(PathBuf::from),
+        env_value(env, "INIT_CWD").map(PathBuf::from),
+        find_workspace_root(cwd),
+        Some(cwd.to_path_buf()),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        let candidate = base.join(user_path);
+        if candidate.exists() {
+            return candidate;
+        }
+    }
+    resolve_workspace_base(env, cwd).join(user_path)
+}
+
+fn find_workspace_root(start: &Path) -> Option<PathBuf> {
+    let mut current = start.to_path_buf();
+    loop {
+        if current.join("pnpm-workspace.yaml").exists() {
+            return Some(current);
+        }
+        let parent = current.parent()?.to_path_buf();
+        if parent == current {
+            return None;
+        }
+        current = parent;
+    }
+}
+
+fn split_env_paths(value: &str) -> Vec<PathBuf> {
+    env::split_paths(value).collect()
+}
+
+fn toolkit_version(env: &[(OsString, OsString)]) -> String {
+    env_value(env, "RUNX_AUTHORING_TOOLKIT_VERSION")
+        .or_else(|| env_value(env, "RUNX_AUTHORING_PACKAGE_VERSION"))
+        .map(|value| value.trim_start_matches('^').to_owned())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "0.1.4".to_owned())
+}
+
+fn json_line<T: serde::Serialize>(value: &T) -> Result<String, ToolCliError> {
+    serde_json::to_string_pretty(value)
+        .map(|json| format!("{json}\n"))
+        .map_err(|error| ToolCliError::Internal(error.to_string()))
+}
+
+fn render_build_report(count: usize, errors: &[String]) -> String {
+    let mut lines = vec!["".to_owned(), format!("  tool build  {count} tool(s)")];
+    for error in errors {
+        lines.push(format!("  {error}"));
+    }
+    lines.push(String::new());
+    lines.join("\n")
+}
+
+fn render_search_results(results: &[runx_contracts::tools::ToolCatalogSearchResult]) -> String {
+    if results.is_empty() {
+        return "\n  No imported tools found.\n\n".to_owned();
+    }
+    let mut lines = vec!["".to_owned(), "  Imported Tools".to_owned()];
+    for result in results {
+        lines.push(format!("  {}  {}", result.name, result.source_label));
+        lines.push(format!("  type      {}", result.source_type));
+        lines.push(format!("  namespace {}", result.namespace));
+        lines.push(format!("  external  {}", result.external_name));
+        lines.push(format!("  catalog   {}", result.catalog_ref));
+        if !result.required_scopes.is_empty() {
+            lines.push(format!("  scopes    {}", result.required_scopes.join(", ")));
+        }
+        if let Some(summary) = &result.summary {
+            lines.push(format!("  summary   {summary}"));
+        }
+        lines.push(String::new());
+    }
+    format!("{}\n", lines.join("\n"))
+}
+
+fn render_inspect_result(result: &runx_contracts::tools::ToolInspectResult) -> String {
+    let mut lines = inspect_header_lines(result);
+    if matches!(
+        result.provenance.origin,
+        runx_contracts::tools::ToolInspectOrigin::Imported
+    ) {
+        lines.extend(imported_tool_lines(result));
+    }
+    if !result.scopes.is_empty() {
+        lines.push(format!("  scopes    {}", result.scopes.join(", ")));
+    }
+    if let Some(description) = &result.description {
+        lines.push(format!("  summary   {description}"));
+    }
+    if !result.inputs.is_empty() {
+        lines.push("  inputs".to_owned());
+        lines.extend(input_lines(result));
+    }
+    lines.push(String::new());
+    format!("{}\n", lines.join("\n"))
+}
+
+fn inspect_header_lines(result: &runx_contracts::tools::ToolInspectResult) -> Vec<String> {
+    let origin = match result.provenance.origin {
+        runx_contracts::tools::ToolInspectOrigin::Local => "local",
+        runx_contracts::tools::ToolInspectOrigin::Imported => "imported",
+    };
+    vec![
+        String::new(),
+        format!("  {}  {origin}", result.name),
+        format!("  exec      {}", result.execution_source_type),
+        format!("  path      {}", result.reference_path),
+        format!("  root      {}", result.skill_directory),
+    ]
+}
+
+fn imported_tool_lines(result: &runx_contracts::tools::ToolInspectResult) -> Vec<String> {
+    vec![
+        format!(
+            "  catalog   {}",
+            result
+                .provenance
+                .catalog_ref
+                .as_deref()
+                .unwrap_or("unknown")
+        ),
+        format!("  source    {}", inspect_source_label(result)),
+        format!(
+            "  kind      {}",
+            result
+                .provenance
+                .source_type
+                .as_deref()
+                .unwrap_or("unknown")
+        ),
+        format!(
+            "  external  {}",
+            result
+                .provenance
+                .external_name
+                .as_deref()
+                .unwrap_or("unknown")
+        ),
+    ]
+}
+
+fn inspect_source_label(result: &runx_contracts::tools::ToolInspectResult) -> &str {
+    result
+        .provenance
+        .source_label
+        .as_deref()
+        .or(result.provenance.source.as_deref())
+        .unwrap_or("unknown")
+}
+
+fn input_lines(result: &runx_contracts::tools::ToolInspectResult) -> Vec<String> {
+    result
+        .inputs
+        .iter()
+        .map(|(name, input)| {
+            let required = if input.required {
+                "required"
+            } else {
+                "optional"
+            };
+            let description = input
+                .description
+                .as_ref()
+                .map(|value| format!(" · {value}"))
+                .unwrap_or_default();
+            format!("    {name}: {} · {required}{description}", input.input_type)
+        })
+        .collect()
+}
+
+fn write_stdout(message: &str, exit_code: u8) -> ExitCode {
+    let mut stdout = io::stdout().lock();
+    if stdout.write_all(message.as_bytes()).is_ok() {
+        ExitCode::from(exit_code)
+    } else {
+        ExitCode::from(1)
+    }
+}
+
+fn write_stderr(message: &str) -> ExitCode {
+    let mut stderr = io::stderr().lock();
+    if stderr.write_all(message.as_bytes()).is_ok() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
+    }
+}
+
+fn render_cli_error(message: &str) -> String {
+    format!("\n  ✗  {message}\n\n")
+}
+
+#[derive(Debug)]
+enum ToolCliError {
+    Usage(String),
+    Runtime(ToolCatalogError),
+    Internal(String),
+}
+
+impl ToolCliError {
+    fn exit_code(&self) -> u8 {
+        match self {
+            Self::Usage(_) => 2,
+            Self::Runtime(_) | Self::Internal(_) => 1,
+        }
+    }
+}
+
+impl std::fmt::Display for ToolCliError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Usage(message) | Self::Internal(message) => formatter.write_str(message),
+            Self::Runtime(error) => write!(formatter, "{error}"),
+        }
+    }
+}
+
+impl From<ToolCatalogError> for ToolCliError {
+    fn from(value: ToolCatalogError) -> Self {
+        Self::Runtime(value)
+    }
+}

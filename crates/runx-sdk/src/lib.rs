@@ -1,12 +1,22 @@
-//! Rust SDK placeholder for runx clients and host protocol helpers.
+//! CLI-backed Rust SDK for runx clients and host protocol helpers.
 //!
-//! This crate is a placeholder. The first implementation will call the
-//! authoritative `runx --json` CLI rather than executing skills natively.
-//! SDK v0 depends on `runx-contracts`, not `runx-core`.
+//! SDK v0 calls the authoritative `runx --json` CLI. It does not execute
+//! skills natively and does not replace the TypeScript runtime.
+
+pub mod act_assignment;
+pub mod client;
+pub mod command;
+pub mod error;
+pub mod host;
+
+pub use client::{
+    ConnectionSummary, ResumePayload, RunSkillOptions, RunxClient, RunxClientOptions,
+    RunxJsonReport, SkillSearchResult,
+};
+pub use error::{RunxError, RunxResult};
 
 pub const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
-pub const ROLE: &str = "CLI-backed Rust SDK and host protocol helpers";
-pub const IS_PLACEHOLDER: bool = true;
+pub const ROLE: &str = "CLI-backed Rust SDK";
 
 #[cfg(test)]
 mod tests {

@@ -67,6 +67,7 @@ async function runPushOutbox({ inputs, env }) {
   const thread = isRecord(inputs.thread) ? inputs.thread : undefined;
   const outboxEntry = inputs.outbox_entry;
   const draftPullRequest = inputs.draft_pull_request;
+  const sourceThread = sourceThreadRequirement(outboxEntry);
   const nextStatus = firstNonEmptyString(inputs.next_status);
   const workspacePath = firstNonEmptyString(
     inputs.workspace_path,
@@ -75,6 +76,9 @@ async function runPushOutbox({ inputs, env }) {
   );
 
   if (!thread) {
+    if (sourceThread?.required) {
+      throw new Error("thread is required for this outbox entry; source_thread.missing_behavior is fail_closed.");
+    }
     return {
       draft_pull_request: draftPullRequest,
       outbox_entry: outboxEntry,
@@ -90,6 +94,12 @@ async function runPushOutbox({ inputs, env }) {
   const adapterType = firstNonEmptyString(adapter.type);
   const adapterRef = firstNonEmptyString(adapter.adapter_ref);
   const outboxKind = firstNonEmptyString(outboxEntry.kind);
+
+  validateRequiredSourceThread({
+    sourceThread,
+    thread,
+    outboxEntry,
+  });
 
   if (!adapterType) {
     throw new Error("thread.adapter.type is required.");
@@ -386,6 +396,48 @@ function selectMatchingOutboxEntry(threadValue, pushedEntry) {
       return Boolean(pushedReceiptId && candidateReceiptId === pushedReceiptId);
     },
   );
+}
+
+function sourceThreadRequirement(outboxEntry) {
+  const metadata = optionalRecord(outboxEntry?.metadata) ?? {};
+  const sourceThread = optionalRecord(metadata.source_thread);
+  if (!sourceThread) {
+    return undefined;
+  }
+  return {
+    required: sourceThread.required === true,
+    publishMode: firstNonEmptyString(sourceThread.publish_mode),
+    threadLocator: firstNonEmptyString(sourceThread.thread_locator),
+    missingBehavior: firstNonEmptyString(sourceThread.missing_behavior),
+  };
+}
+
+function validateRequiredSourceThread({
+  sourceThread,
+  thread,
+  outboxEntry,
+}) {
+  if (!sourceThread?.required) {
+    return;
+  }
+  if (sourceThread.missingBehavior !== "fail_closed") {
+    throw new Error("source_thread.missing_behavior must be fail_closed for required source-thread publishing.");
+  }
+  const outboxThreadLocator = firstNonEmptyString(outboxEntry.thread_locator);
+  const threadLocator = firstNonEmptyString(thread.thread_locator);
+  const requiredThreadLocator = firstNonEmptyString(sourceThread.threadLocator);
+  if (!firstNonEmptyString(requiredThreadLocator, outboxThreadLocator, threadLocator)) {
+    throw new Error("source_thread.thread_locator is required for required source-thread publishing.");
+  }
+  if (requiredThreadLocator && outboxThreadLocator && requiredThreadLocator !== outboxThreadLocator) {
+    throw new Error("outbox_entry.thread_locator must match source_thread.thread_locator.");
+  }
+  if (requiredThreadLocator && threadLocator && requiredThreadLocator !== threadLocator) {
+    throw new Error("thread.thread_locator must match source_thread.thread_locator.");
+  }
+  if (sourceThread.publishMode === "none") {
+    throw new Error("source_thread.publish_mode cannot be none when source_thread.required is true.");
+  }
 }
 
 function upsertOutboxEntry(existingEntries, entry) {

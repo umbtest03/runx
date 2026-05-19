@@ -1,0 +1,14 @@
+name: echo-agent-replay
+lane: agent
+target:
+  kind: skill
+  ref: .
+inputs:
+  message: hello
+agent:
+  mode: replay
+expect:
+  status: success
+  outputs:
+    echo_packet:
+      matches_packet: docs.demo.echo.v1

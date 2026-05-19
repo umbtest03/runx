@@ -251,6 +251,18 @@ runners:
         type: string
         required: false
         description: "Intended repository slug for repo-local dispatchers."
+      operational_policy:
+        type: json
+        required: false
+        description: "Optional runx.operational_policy.v1 packet for source, target, runner, and source-thread admission."
+      source_id:
+        type: string
+        required: false
+        description: "Operational policy source id for request-time admission."
+      runner_id:
+        type: string
+        required: false
+        description: "Operational policy runner id for request-time admission."
       branch:
         type: string
         required: false
@@ -573,6 +585,13 @@ runners:
             status_snapshot: scafld-final-status.result
             current_branch: read-current-branch.git_branch.data
             fix_bundle: author-fix.fix_bundle.data
+          inputs:
+            operational_policy: $input.operational_policy
+            source_id: $input.source_id
+            target_repo: $input.target_repo
+            runner_id: $input.runner_id
+            source_thread_locator: $input.thread_locator
+            policy_action: issue-to-pr
         - id: push-pull-request
           label: push the PR outbox entry through thread
           tool: thread.push_outbox

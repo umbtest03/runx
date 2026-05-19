@@ -21,13 +21,22 @@ cli-tool = []
 mcp = []
 a2a = []
 agent = []
-catalog = []
+catalog = ["cli-tool"]
 
 [dependencies]
 runx-contracts.workspace = true
 runx-core.workspace = true
 runx-parser.workspace = true
 runx-receipts.workspace = true
+runx-registry-client.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yml.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest = { version = "1.11.0", default-features = false, features = ["std"] }
 
 [lib]
 name = "runx_runtime"

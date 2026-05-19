@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -91,6 +92,11 @@ describe("outbox.build_pull_request tool", () => {
         check_status: "success",
         push_ready: true,
         changed_files: ["app.txt", "notes.md"],
+        dedupe: {
+          strategy: "branch",
+          key: "example/repo:fixture-task",
+          result: "created",
+        },
       },
     });
     expect(result.draft_pull_request).toMatchObject({
@@ -191,6 +197,13 @@ describe("outbox.build_pull_request tool", () => {
       metadata: {
         action: "refresh",
         push_ready: true,
+        dedupe: {
+          strategy: "branch",
+          key: "example/repo:fixture-task",
+          result: "reused",
+          existing_entry_id: "pr-77",
+          existing_locator: "https://github.com/example/repo/pull/77",
+        },
       },
     });
     expect(result.draft_pull_request).toMatchObject({
@@ -234,9 +247,60 @@ describe("outbox.build_pull_request tool", () => {
     expect(result.draft_pull_request.pull_request.body_markdown).not.toContain("RUNX_BIN=");
     expect(result.draft_pull_request.pull_request.body_markdown).toContain("Detailed handoff omitted from public markdown");
   });
+
+  it("admits PR packaging through operational policy before producing packets", () => {
+    const result = runTool({
+      ...minimalPullRequestInputs(),
+      operational_policy: readPolicyFixture("minimal-single-repo.json"),
+      source_id: "github-issues",
+      runner_id: "local-review",
+      source_thread_locator: "github://example/project/issues/42",
+      target_repo: "example/project",
+    });
+
+    expect(result.draft_pull_request).toMatchObject({
+      operational_policy: {
+        policy_id: "single-repo-review-flow",
+        source_id: "github-issues",
+        target_repo: "example/project",
+        runner_id: "local-review",
+        owner_route_id: "maintainers",
+        source_thread_required: true,
+      },
+    });
+    expect(result.outbox_entry.metadata.operational_policy).toMatchObject({
+      policy_id: "single-repo-review-flow",
+      dedupe_strategy: "source_fingerprint",
+      outcome_close_mode: "when_verified",
+    });
+  });
+
+  it("fails closed before PR packet creation when operational policy denies admission", () => {
+    const result = runToolRaw({
+      ...minimalPullRequestInputs(),
+      operational_policy: readPolicyFixture("minimal-single-repo.json"),
+      source_id: "github-issues",
+      runner_id: "local-review",
+      target_repo: "example/unknown",
+      source_thread_locator: "github://example/project/issues/42",
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("operational policy denied pull request packaging");
+    expect(result.stderr).toContain("unknown_target_repo");
+  });
 });
 
 function runTool(inputs: Readonly<Record<string, unknown>>) {
+  const result = runToolRaw(inputs);
+  expect(result.status).toBe(0);
+  if (result.status !== 0) {
+    throw new Error(result.stderr || result.stdout || "tool failed");
+  }
+  return JSON.parse(result.stdout);
+}
+
+function runToolRaw(inputs: Readonly<Record<string, unknown>>) {
   const result = spawnSync("node", [toolPath], {
     cwd: path.resolve("."),
     encoding: "utf8",
@@ -245,9 +309,35 @@ function runTool(inputs: Readonly<Record<string, unknown>>) {
       RUNX_INPUTS_JSON: JSON.stringify(inputs),
     },
   });
-  expect(result.status).toBe(0);
-  if (result.status !== 0) {
-    throw new Error(result.stderr || result.stdout || "tool failed");
-  }
-  return JSON.parse(result.stdout);
+  return result;
+}
+
+function minimalPullRequestInputs(): Readonly<Record<string, unknown>> {
+  return {
+    task_id: "fixture-task",
+    thread_title: "Fix fixture behavior",
+    thread_locator: "github://example/project/issues/42",
+    target_repo: "example/project",
+    handoff_markdown: "# Handoff: Fix fixture behavior\n\nStatus: completed\nNext: none\n",
+    build_result: {
+      passed: 1,
+      failed: 0,
+    },
+    review_result: {
+      verdict: "pass",
+    },
+    completion_result: {
+      status: "completed",
+      title: "Fix fixture behavior",
+    },
+    current_branch: {
+      branch: "fixture-task",
+    },
+    branch: "fixture-task",
+    base: "main",
+  };
+}
+
+function readPolicyFixture(name: string): unknown {
+  return JSON.parse(readFileSync(path.resolve("fixtures/operational-policy", name), "utf8")) as unknown;
 }

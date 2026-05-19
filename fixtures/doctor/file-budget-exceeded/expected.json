@@ -1,0 +1,38 @@
+{
+  "schema": "runx.doctor.v1",
+  "status": "failure",
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "id": "runx.structure.file_budget.exceeded",
+      "severity": "error",
+      "title": "File exceeded structural line budget",
+      "message": "packages/cli/src/index.ts is 3001 lines, above the enforced budget of 1000.",
+      "target": {
+        "kind": "workspace",
+        "ref": "packages/cli/src/index.ts"
+      },
+      "location": {
+        "path": "packages/cli/src/index.ts"
+      },
+      "evidence": {
+        "line_count": 3001,
+        "max_lines": 1000
+      },
+      "repairs": [
+        {
+          "id": "split_file_along_real_boundary",
+          "kind": "manual",
+          "confidence": "medium",
+          "risk": "low",
+          "requires_human_review": false
+        }
+      ],
+      "instance_id": "sha256:93ea5dae24b1134350e3d22b034901e01fc21f8fb3fcf0abc62767d6fe5fe26e"
+    }
+  ]
+}

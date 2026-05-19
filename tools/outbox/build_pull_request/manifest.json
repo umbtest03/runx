@@ -40,10 +40,35 @@
       "required": false,
       "description": "Optional captured harness context containing signal and decision state."
     },
+    "operational_policy": {
+      "type": "json",
+      "required": false,
+      "description": "Optional runx.operational_policy.v1 packet used for request-time admission."
+    },
+    "source_id": {
+      "type": "string",
+      "required": false,
+      "description": "Operational policy source id for request-time admission."
+    },
     "target_repo": {
       "type": "string",
       "required": false,
       "description": "Intended repository slug when the caller already knows it."
+    },
+    "runner_id": {
+      "type": "string",
+      "required": false,
+      "description": "Operational policy runner id for request-time admission."
+    },
+    "policy_action": {
+      "type": "string",
+      "required": false,
+      "description": "Operational policy action, defaults to issue-to-pr."
+    },
+    "source_thread_locator": {
+      "type": "string",
+      "required": false,
+      "description": "Recoverable source-thread locator for request-time admission."
     },
     "branch": {
       "type": "string",
@@ -122,7 +147,7 @@
       "./run.mjs"
     ]
   },
-  "source_hash": "sha256:31600a46e4909eb32d8be564d2745d661971ec2abb7a5cee548ff4793400b472",
+  "source_hash": "sha256:de55c31eeeabfc60f016c060c73b481bff928e30770a23c8ca70178a6106c02e",
   "schema_hash": "sha256:33e090465d87df465a8957aa9ce04ea691b77d426854b5c063d5231351876b1c",
   "toolkit_version": "0.1.4"
 }

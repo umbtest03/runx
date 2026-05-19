@@ -1,0 +1,182 @@
+use std::time::Instant;
+
+use runx_contracts::{JsonNumber, JsonObject, JsonValue};
+use sha2::{Digest, Sha256};
+
+use crate::RuntimeError;
+use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
+use crate::tool_catalogs::search::{FixtureTool, fixture_tool};
+
+const MISSING_CATALOG_REF: &str = "Catalog source requires source.catalog_ref metadata.";
+
+#[derive(Clone, Debug, Default)]
+pub struct CatalogAdapter {
+    fixture_catalog_enabled: bool,
+}
+
+impl CatalogAdapter {
+    #[must_use]
+    pub fn fixture_catalog() -> Self {
+        Self {
+            fixture_catalog_enabled: true,
+        }
+    }
+}
+
+impl SkillAdapter for CatalogAdapter {
+    fn adapter_type(&self) -> &'static str {
+        "catalog"
+    }
+
+    fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
+        let started = Instant::now();
+        if request.source.source_type != "catalog" {
+            return Err(RuntimeError::UnsupportedAdapter {
+                adapter_type: request.source.source_type,
+            });
+        }
+        let Some(catalog_ref) = request.source.catalog_ref.as_deref() else {
+            return Ok(failure(MISSING_CATALOG_REF, started));
+        };
+        let catalog_ref = catalog_ref.trim();
+        if catalog_ref.is_empty() {
+            return Ok(failure(MISSING_CATALOG_REF, started));
+        }
+
+        if !self.fixture_catalog_enabled {
+            return Ok(missing_imported_tool(catalog_ref, started));
+        }
+        let Some(tool) = fixture_tool(catalog_ref) else {
+            return Ok(missing_imported_tool(catalog_ref, started));
+        };
+
+        Ok(invoke_fixture_tool(&tool, &request.inputs, started))
+    }
+}
+
+fn invoke_fixture_tool(tool: &FixtureTool, inputs: &JsonObject, started: Instant) -> SkillOutput {
+    match tool.name {
+        "echo" => success(
+            json_string(inputs.get("message")).unwrap_or_default(),
+            tool.name,
+            started,
+        ),
+        "env" => success(env_value(inputs.get("name")), tool.name, started),
+        "fail" => failure_with_metadata(
+            format!(
+                "MCP error -32000: fixture failure: {}",
+                json_string(inputs.get("message")).unwrap_or_default()
+            ),
+            tool.name,
+            started,
+        ),
+        "sleep" => failure_with_metadata(
+            "MCP call timed out after 60000ms.".to_owned(),
+            tool.name,
+            started,
+        ),
+        _ => failure_with_metadata(
+            format!("MCP error -32601: tool not found: {}", tool.name),
+            tool.name,
+            started,
+        ),
+    }
+}
+
+fn success(stdout: String, tool_name: &str, started: Instant) -> SkillOutput {
+    SkillOutput {
+        status: InvocationStatus::Success,
+        stdout,
+        stderr: String::new(),
+        exit_code: Some(0),
+        duration_ms: duration_ms(started),
+        metadata: mcp_metadata(tool_name),
+    }
+}
+
+fn failure(message: impl Into<String>, started: Instant) -> SkillOutput {
+    let message = message.into();
+    SkillOutput {
+        status: InvocationStatus::Failure,
+        stdout: String::new(),
+        stderr: message,
+        exit_code: None,
+        duration_ms: duration_ms(started),
+        metadata: JsonObject::new(),
+    }
+}
+
+fn failure_with_metadata(message: String, tool_name: &str, started: Instant) -> SkillOutput {
+    SkillOutput {
+        status: InvocationStatus::Failure,
+        stdout: String::new(),
+        stderr: message,
+        exit_code: None,
+        duration_ms: duration_ms(started),
+        metadata: mcp_metadata(tool_name),
+    }
+}
+
+fn missing_imported_tool(catalog_ref: &str, started: Instant) -> SkillOutput {
+    failure(
+        format!("Imported tool '{catalog_ref}' was not found in configured tool catalogs."),
+        started,
+    )
+}
+
+fn json_string(value: Option<&JsonValue>) -> Option<String> {
+    match value {
+        Some(JsonValue::String(value)) => Some(value.clone()),
+        Some(JsonValue::Bool(value)) => Some(value.to_string()),
+        Some(JsonValue::Number(value)) => Some(json_number_string(value)),
+        Some(JsonValue::Null) | None => None,
+        Some(JsonValue::Array(_)) | Some(JsonValue::Object(_)) => {
+            Some("[object Object]".to_owned())
+        }
+    }
+}
+
+fn json_number_string(value: &JsonNumber) -> String {
+    match value {
+        JsonNumber::I64(value) => value.to_string(),
+        JsonNumber::U64(value) => value.to_string(),
+        JsonNumber::F64(value) if value.fract() == 0.0 => format!("{value:.0}"),
+        JsonNumber::F64(value) => value.to_string(),
+    }
+}
+
+fn env_value(name: Option<&JsonValue>) -> String {
+    let Some(name) = json_string(name) else {
+        return String::new();
+    };
+    std::env::var(name).unwrap_or_default()
+}
+
+fn mcp_metadata(tool_name: &str) -> JsonObject {
+    let mut mcp = JsonObject::new();
+    mcp.insert("tool".to_owned(), JsonValue::String(tool_name.to_owned()));
+    mcp.insert(
+        "server_command_hash".to_owned(),
+        JsonValue::String(sha256_hex(b"node")),
+    );
+    mcp.insert(
+        "server_args_hash".to_owned(),
+        JsonValue::String(sha256_hex(
+            br#"["--import","tsx","packages/runtime-local/src/harness/mcp-fixture.ts"]"#,
+        )),
+    );
+
+    let mut metadata = JsonObject::new();
+    metadata.insert("mcp".to_owned(), JsonValue::Object(mcp));
+    metadata
+}
+
+fn duration_ms(started: Instant) -> u64 {
+    let millis = started.elapsed().as_millis();
+    u64::try_from(millis).unwrap_or(u64::MAX)
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    format!("{digest:x}")
+}

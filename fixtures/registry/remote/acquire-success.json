@@ -1,0 +1,22 @@
+{
+  "status": "success",
+  "install_count": 1,
+  "acquisition": {
+    "skill_id": "acme/echo",
+    "owner": "acme",
+    "name": "echo",
+    "version": "1.0.0",
+    "digest": "sha256:fixture",
+    "markdown": "---\nname: echo\n---\n# Echo\n",
+    "profile_document": "skill: echo\nrunners:\n  default:\n    type: agent\n    default: true\n",
+    "profile_digest": "sha256:fixture-profile",
+    "runner_names": ["default"],
+    "trust_tier": "community",
+    "publisher": {
+      "kind": "organization",
+      "id": "pub_acme",
+      "handle": "acme"
+    },
+    "attestations": []
+  }
+}

@@ -2,40 +2,42 @@
 spec_version: '2.0'
 task_id: rust-cli-rust-cutover
 created: '2026-05-18T00:00:00Z'
-updated: '2026-05-18T00:00:00Z'
+updated: '2026-05-19T06:13:12Z'
 status: draft
-harden_status: not_run
+harden_status: passed
 size: extra_large
 risk_level: very_high
 ---
 
-# Rust CLI cutover
+# Rust CLI hard cutover
 
 ## Current State
 
 Status: draft
-Current phase: none
+Current phase: hardened
 Next: approve
-Reason: draft created under `plans/rust-takeover.md`. The launcher flip.
-The single most user-visible event in the rust takeover.
-Blockers: `rust-cli-feature-parity-matrix` green across every row,
-`rust-aster-runtime-cutover` complete, every CLI-surface port complete.
-Allowed follow-up command: `scafld harden rust-cli-rust-cutover`
-Latest runner update: none
+Reason: hard cutover contract for moving the launcher/CLI boundary to Rust.
+Blockers: active Rust runtime, harness, registry, and journal work complete;
+`rust-aster-runtime-cutover` complete; binary distribution green; no legacy
+shape, no v2, no alias, and no JS fallback gates pass.
+Allowed follow-up command: `scafld review rust-cli-rust-cutover`
+Latest runner update: 2026-05-19T06:13:12Z
 Review gate: not_started
 
 ## Summary
 
 Flip the npm `@runxhq/cli` package from a Node CLI to a thin platform-aware
-launcher that downloads and executes the bundled Rust binary. Today
-`crates/runx-cli/src/launcher.rs` already implements a launcher that can
-`npm exec` the TS package or invoke a local `node` against a `js-bin`
-path. This spec replaces "delegate to TS via npm exec" with "execute the
-bundled Rust binary for this platform".
+native launcher that downloads, verifies, and executes the bundled Rust binary.
+Today `crates/runx-cli/src/launcher.rs` can delegate to TypeScript through
+`npm exec` or invoke a local `node` against a `js-bin` path. This spec removes
+that delegation from the release path and makes the Rust binary the
+authoritative `runx` invocation.
 
-The Rust binary becomes the authoritative `runx` invocation. The npm
-package's only job is to download the right platform binary and exec it
-(the esbuild / biome / turbo pattern).
+This is a hard cutover, not a compatibility bridge. The public CLI exposes
+simple canonical verbs implemented by Rust. The npm launcher must not parse,
+rewrite, alias, upgrade, downgrade, or translate command shapes. Rust owns CLI
+parsing, presentation, dispatch, harness execution, receipt creation, receipt
+storage, and exit-code mapping through `runx-runtime`.
 
 ## Context
 
@@ -55,7 +57,7 @@ Current TypeScript sources:
 - `crates/runx-cli/src/main.rs`
 
 Files impacted:
-- `crates/runx-cli/src/main.rs` (full native CLI)
+- `crates/runx-cli/src/main.rs` (full native CLI parser and dispatch)
 - `crates/runx-cli/src/commands/**` (one module per command)
 - `crates/runx-cli/src/presentation/**`
 - `packages/cli/bin/runx.js` (shrinks to: detect platform, download binary,
@@ -71,54 +73,295 @@ Invariants:
   today: macOS (x86_64, aarch64), Linux (x86_64, aarch64), Windows
   (x86_64). Other platforms must be explicitly documented as unsupported
   before this cutover lands.
-- Every command currently in `dispatch.ts` (see `plans/rust-takeover.md`
-  section 4 matrix) has a Rust implementation that passes its parity row
-  in `rust-cli-feature-parity-matrix`.
-- Existing scripts and workflows that invoke `runx <subcommand>` continue
-  to work unchanged. The launcher does not introduce a new argument shape.
+- Every canonical user action currently accepted for the cutover has exactly
+  one Rust-owned command spelling. Do not preserve historical aliases, hidden
+  admin forms, or nested/top-level synonyms for compatibility.
+- Existing consumers must migrate to the canonical simple verbs before this
+  spec lands. The launcher must not keep legacy alias rewrites to make old
+  scripts appear compatible.
+- Every command currently in `dispatch.ts` that survives the canonical-verb
+  decision (see `plans/rust-takeover.md` section 4 matrix and the completed
+  `rust-cli-feature-parity-matrix`) has a Rust implementation with an oracle
+  case or an explicit removal/migration note.
+- The current TS command set includes `runx policy inspect|lint <policy.json>`;
+  the Rust CLI parity matrix must include its exit codes, JSON shape, and
+  redacted human readback.
 - The launcher exits with the same exit codes the TS CLI did. The current
-  `docs/cli-exit-codes.md` is the contract.
-- Receipts emitted before and after the cutover are interchangeable; users
-  can replay either.
-- Rollback path: a single npm publish reverts the launcher to npm-exec the
-  TS CLI. The TS CLI is not deleted in this spec; it stays publishable as
-  a separate package for rollback for at least one minor cycle.
+  `docs/cli-exit-codes.md` is the taxonomy for canonical commands.
+- Receipts emitted after the cutover use only the post-contract-spine canonical
+  shapes. The Rust CLI must not emit retired `skill_execution`,
+  `graph_execution`, pre-spine harness receipt shapes, or compatibility
+  projections to match older TypeScript output.
+- No v2 surface is introduced. This cutover must not add `runx v2`,
+  `runx --v2`, `RUNX_V2`, `schema_version: "v2"`, dual v1/v2 output modes, or
+  "new CLI behind v2" packaging. External HTTP route versions owned by other
+  specs are not part of this rule.
+- Rust runtime owns harness execution and receipts. `runx harness <path>` must
+  execute through the native runtime harness path and write through the Rust
+  receipt store APIs, not through `packages/runtime-local`.
+- Rollback is an npm-level package rollback to a previous known-good release.
+  Rollback must not be implemented as a permanent JS fallback switch in the
+  new launcher.
 
 ## Objectives
 
-- Build the full native Rust CLI on top of `runx-runtime`.
-- Replace the launcher's "npm exec" path with "download + exec bundled
-  Rust binary per platform".
+- Build the full native Rust CLI on top of `runx-runtime` with canonical simple
+  verbs and Rust-owned help, parser, presentation, dispatch, and exit mapping.
+- Replace the launcher's "npm exec / js-bin" path with "download + verify +
+  exec bundled Rust binary per platform".
+- Move harness execution, replay, verification, and receipt emission fully into
+  the Rust runtime path.
 - Publish the binary distribution pipeline.
-- Run the full parity matrix as the cutover gate.
-- Document rollback.
+- Run the canonical CLI matrix, native runtime suites, and distribution checks
+  as the cutover gate.
+- Prove no legacy shapes, v2 modes, aliases, or unscoped JS fallback remain in
+  release artifacts.
+- Document rollback and repair without creating long-lived compatibility code.
 
 ## Scope
 
 In scope:
-- Native CLI implementation for every command in the parity matrix.
-- Binary distribution pipeline.
-- Launcher logic to fetch and exec the binary.
-- Release notes and rollback documentation.
+- Native CLI implementation for every canonical command in the cutover matrix.
+- Canonical command table, help, parser, JSON output, human output, exit codes,
+  and release-note migration text for removed aliases.
+- Rust runtime harness execution/receipts and CLI integration for `harness`.
+- Rust integration for registry-backed commands through `rust-registry-client`.
+- Rust integration for history/journal projections through `rust-journal-local`.
+- Binary distribution pipeline, including checksums/signing, platform package
+  resolution, and npm packaging.
+- Launcher logic to fetch/locate, verify, and exec the native binary while
+  preserving raw argv, stdin, stdout, stderr, exit code, and signal behavior.
+- Rollback and repair documentation.
 
 Out of scope:
 - Deleting the TS CLI package (deferred to a TS sunset spec).
-- Adding new commands not present in TS.
+- Keeping the TS CLI as a hidden compatibility backend for the new package.
+- Adding v2 commands, v2 output modes, or compatibility schema projections.
+- Adding alias forms for removed or renamed commands.
+- Adding new user-facing commands not explicitly approved by the canonical
+  command table.
 - New platforms beyond what TS supports today.
 
 ## Dependencies
 
-- `rust-cli-feature-parity-matrix` green.
-- `rust-aster-runtime-cutover` complete.
-- All CLI-surface specs complete (skill execution, registry client,
-  connect, config, journal, scaffold, tool catalogs, doctor, dev, harness,
-  resume, replay, history, knowledge show, mcp serve, evolve disposition).
+- `rust-cli-feature-parity-matrix` completed and consumed as the historical
+  oracle plus migration inventory. The final cutover matrix must be
+  canonical-only and must identify any removed legacy aliases.
+- `rust-runtime-skeleton`, `rust-runtime-skill-execution`, and receipt/proof
+  work complete enough that the Rust runtime is the execution and receipt
+  authority.
+- `rust-harness` complete, including native harness execution, fixture replay,
+  canonical harness receipts, and proof-backed receipt comparison.
+- `rust-registry-client` complete for search, inspect/read, acquire/install,
+  local materialization, trust-tier validation, and install receipt metadata.
+- `rust-journal-local` complete for receipt-store-backed history and any
+  accepted journal projection surface.
+- `rust-aster-runtime-cutover` complete for hosted aster execution against the
+  Rust runtime before the public CLI package flips.
+- All CLI-surface specs complete: skill execution, connect, config, scaffold,
+  tool catalogs, doctor, dev, resume, replay, diff, export-receipts, history,
+  knowledge show or retirement, policy inspect/lint, mcp serve, and evolve
+  disposition.
 - Binary distribution infrastructure: signing, CDN, version pinning.
+- Release engineering can publish a previous known-good npm package as a
+  rollback, and can revoke or quarantine a bad native binary artifact.
+
+## Launcher And CLI Boundary
+
+The npm launcher owns only native binary materialization:
+- detect supported platform and architecture
+- locate an already-installed platform package or download the pinned binary
+- verify checksum/signature/notarization state required by release policy
+- exec the Rust binary with raw argv and inherited stdio
+- propagate process exit code or terminating signal
+
+The npm launcher must not:
+- parse subcommands or flags beyond a launcher-internal diagnostic flag that is
+  not part of `runx --help`
+- render command help or command errors
+- rewrite aliases, expand shortcuts, or map old command spellings to new ones
+- translate JSON or receipt payloads between old and new shapes
+- dispatch to `npm exec`, `node`, `packages/cli`, `js-bin`, or any TypeScript
+  command backend in release builds
+- expose `--js-fallback`, `RUNX_JS_FALLBACK`, or equivalent public fallback
+
+The Rust CLI owns:
+- canonical command parser and help
+- terminal and JSON presentation
+- command dispatch and exit-code mapping
+- policy/config/registry/journal/history/tool command orchestration
+- all calls into `runx-runtime`
+
+The Rust runtime owns:
+- skill and harness execution
+- harness replay and verification
+- receipt creation, signing, storage, path discovery, and safe projection
+- registry install side effects when invoked by execution
+- journal/history projections over receipt stores and ledgers
+
+## Canonical CLI Surface
+
+The accepted CLI surface is a table of simple canonical verbs maintained in the
+cutover matrix before implementation. Each action has one public spelling and
+one help entry. If a TypeScript-era command had an alias, grouped synonym, or
+hidden admin form, this spec requires an explicit decision:
+- keep one spelling as canonical
+- remove the alias from help, parser fixtures, docs, and release artifacts
+- add a migration note if external users may have depended on it
+
+Examples of prohibited compatibility behavior:
+- accepting both a top-level command and a nested `skill` synonym for the same
+  action unless one is explicitly the canonical verb and the other is removed
+- accepting old receipt-shaped `--json` output for a command that now emits the
+  canonical post-spine shape
+- accepting `v2` as a command, flag, environment switch, schema label, or
+  package channel to hide the Rust CLI behind a second public mode
+
+## Sequencing And Fallback
+
+Command-specific Rust specs may keep temporary opt-in native routing or TS
+fallback while they are in progress, but only inside the scope and acceptance
+rules of those specs. Examples include pre-cutover native `harness` routing
+behind an explicit selection signal.
+
+This cutover is the point where those sequencing aids end:
+- if any canonical command still needs TS fallback, this spec blocks
+- if any fallback branch remains in release launcher code, this spec blocks
+- if a fallback is retained only for tests, it must be behind a test-only
+  compile feature or fixture harness and absent from published npm artifacts
+- unsupported platforms fail closed with a typed launcher error; they do not
+  fall back to TypeScript
+- binary download fallback may retry approved native artifact mirrors only; it
+  must still verify the same pinned digest/signature before exec
+
+## Planned Phases
+
+Phase 1: canonical surface freeze.
+- Convert the completed parity matrix into a canonical cutover matrix.
+- Mark every TypeScript-era alias as removed or select it as the only canonical
+  spelling.
+- Add migration notes for removed aliases and legacy JSON/receipt shapes.
+- Add negative fixtures proving removed aliases fail with usage errors.
+
+Phase 2: native CLI and runtime integration.
+- Implement Rust parser/help/dispatch/presentation for every canonical command.
+- Wire harness execution to the Rust runtime harness APIs.
+- Wire registry commands through `rust-registry-client`.
+- Wire history/journal commands through `rust-journal-local`.
+- Ensure policy inspect/lint consumes the same operational policy validator and
+  redacted readback as the rest of the runtime.
+
+Phase 3: launcher replacement and distribution.
+- Replace `packages/cli/bin/runx.js` with a native binary resolver/exec shim.
+- Remove npm-exec, js-bin, and Node CLI delegation from release code.
+- Package per-platform binaries, checksums, signing metadata, and npm
+  dependency or postinstall wiring.
+- Add install, offline/cache, checksum mismatch, unsupported platform, and
+  executable permission tests.
+
+Phase 4: cutover verification.
+- Run canonical CLI fixtures against the published-package layout.
+- Run native runtime, harness, registry, journal/history, policy, and receipt
+  suites.
+- Run negative checks for legacy receipt fields, v2 modes, aliases, and JS
+  fallback.
+- Soak aster and other active dogfoods against the Rust runtime path.
+
+Phase 5: release and rollback drill.
+- Publish canary/pre-release native packages.
+- Verify install and execution across supported platforms.
+- Document the rollback command sequence and artifact quarantine process.
+- Drill rollback by republishing the previous known-good npm package in a test
+  registry or release dry run.
+
+## Acceptance Criteria
+
+- `packages/cli/bin/runx.js` is a launcher only: platform detection,
+  binary location/download, verification, exec, and exit propagation.
+- Published launcher artifacts contain no release path that invokes `npm exec`,
+  `node`, `packages/cli/src`, `packages/cli/dist`, `js-bin`, or the TS command
+  backend.
+- `runx --help` and parser fixtures expose only canonical command spellings.
+  Removed aliases fail with usage exit code `64` and a migration-safe message.
+- The canonical command matrix has no alias entries, synonym groups, hidden
+  admin spellings, or compatibility command variants.
+- No public CLI, docs, fixtures, package metadata, or release channel exposes
+  `runx v2`, `--v2`, `RUNX_V2`, `schema_version: "v2"`, or dual v1/v2 output
+  behavior for this cutover.
+- JSON outputs and receipts emitted by Rust contain only canonical
+  post-contract-spine shapes. They do not emit retired `skill_execution`,
+  `graph_execution`, pre-spine harness receipt fields, or compatibility
+  projections.
+- `runx harness <path>` executes through the Rust runtime harness runner and
+  stores/verifies canonical harness receipts through Rust receipt APIs.
+- Registry commands consume `rust-registry-client`; they do not duplicate
+  hosted namespace/trust logic or call TS registry modules.
+- History/journal commands consume `rust-journal-local` receipt-store
+  projections and do not expose absolute local receipt paths.
+- Exit codes match `docs/cli-exit-codes.md` for canonical commands.
+- Unsupported platform, missing binary, checksum mismatch, signature failure,
+  and exec permission failure produce typed launcher errors without JS fallback.
+- Aster cutover fixtures pass against the Rust runtime before the native CLI
+  package becomes the default public `runx`.
+- Rollback has been drilled and documented as an npm release rollback plus bad
+  artifact quarantine, not as a hidden runtime fallback.
+
+## Validation Commands
+
+```sh
+git diff --check -- .scafld/specs/drafts/rust-cli-rust-cutover.md
+pnpm exec tsx scripts/generate-cli-feature-parity.ts --check --canonical-only
+pnpm exec tsx scripts/generate-cli-feature-parity.ts --check-help-coverage --canonical-only
+pnpm exec tsx scripts/check-rust-cli-cutover.ts --candidate target/debug/runx --no-legacy-shapes --no-v2 --no-aliases --no-js-fallback
+cargo fmt --manifest-path crates/Cargo.toml --all --check
+cargo clippy --manifest-path crates/Cargo.toml -p runx-cli -p runx-runtime -p runx-registry-client --all-targets -- -D warnings
+cargo test --manifest-path crates/Cargo.toml -p runx-cli
+cargo test --manifest-path crates/Cargo.toml -p runx-runtime
+cargo test --manifest-path crates/Cargo.toml -p runx-runtime harness
+cargo test --manifest-path crates/Cargo.toml -p runx-registry-client
+cargo test --manifest-path crates/Cargo.toml -p runx-receipts
+pnpm exec tsx scripts/package-rust-cli.ts --check
+pnpm exec tsx scripts/check-rust-cli-release-artifacts.ts --no-js-delegation --verify-signatures
+! rg -n "npm exec|js-bin|--js-fallback|RUNX_JS_FALLBACK|packages/cli/src|packages/cli/dist" packages/cli/bin crates/runx-cli
+! rg -n "runx v2|--v2|RUNX_V2|schema_version.*v2|\"v2\"" fixtures/cli-parity fixtures/harness fixtures/runtime crates/runx-cli packages/cli
+! rg -n "skill_execution|graph_execution|pre_spine|legacy_receipt|compat_receipt" fixtures/cli-parity fixtures/harness fixtures/runtime crates/runx-cli crates/runx-runtime
+```
+
+## Rollback And Repair
+
+- Primary rollback is republishing the previous known-good npm `@runxhq/cli`
+  version and quarantining or revoking the bad native artifact. The new
+  launcher must not keep a permanent JS fallback to implement rollback.
+- The TypeScript CLI may remain publishable as a separate rollback artifact for
+  one minor cycle, but it is not bundled as a hidden backend in the cutover
+  package.
+- If a platform binary is missing or mis-signed, repair the artifact manifest
+  and republish the platform package; do not route that platform to TS.
+- If a canonical command regresses, fix the Rust command or block the release.
+  Do not restore removed aliases or old output shapes as a quick repair.
+- If receipt validation fails, repair canonical receipt generation,
+  canonicalization, path discovery, or proof verification. Do not emit legacy
+  receipt compatibility fields.
+- If harness execution regresses, rollback the npm package or fix the Rust
+  runtime harness path. Do not delegate `runx harness` to
+  `packages/runtime-local`.
+- If registry or journal behavior is incomplete, block this cutover until
+  `rust-registry-client` or `rust-journal-local` acceptance is complete.
+- If an external dogfood such as aster fails its Rust-runtime fixture, block the
+  CLI cutover even if standalone CLI tests pass.
 
 ## Open Questions
 
-- Whether the launcher keeps a `--js-fallback` flag after the cutover
-  (open question 12.1 of `plans/rust-takeover.md`). Default lean: no.
-- Whether `knowledge show` ports or retires before this cutover.
+- Whether `knowledge show` ports or retires before this cutover. It must be
+  resolved before Phase 1 canonical surface freeze.
 - Binary signing scheme (Apple notarization, Authenticode, sigstore).
   Defer to Phase 1 ingest.
+
+## Harden Notes
+
+- 2026-05-19: Reframed this as a hard cutover rather than a TS-compatible
+  launcher swap.
+- 2026-05-19: Added launcher/Rust/runtime ownership boundaries, canonical
+  simple-verb rules, fallback sequencing, no legacy shape/no v2/no alias gates,
+  validation commands, dependencies on active Rust harness/registry/journal
+  work, and rollback/repair rules.

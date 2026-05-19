@@ -820,6 +820,23 @@ export const harnessReceiptSignatureSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const fanoutReceiptSyncPointSchema = Type.Object(
+  {
+    group_id: Type.String({ minLength: 1 }),
+    strategy: stringEnum(["all", "any", "quorum"] as const),
+    decision: stringEnum(["proceed", "halt", "pause", "escalate"] as const),
+    rule_fired: Type.String({ minLength: 1 }),
+    reason: Type.String({ minLength: 1 }),
+    branch_count: Type.Integer({ minimum: 0 }),
+    success_count: Type.Integer({ minimum: 0 }),
+    failure_count: Type.Integer({ minimum: 0 }),
+    required_successes: Type.Integer({ minimum: 0 }),
+    branch_receipts: Type.Array(Type.String({ minLength: 1 })),
+    gate: Type.Optional(unknownRecordSchema()),
+  },
+  { additionalProperties: false },
+);
+
 export const harnessReceiptEnvelopeSchema = Type.Object(
   {
     schema: Type.Literal(RUNX_LOGICAL_SCHEMAS.harnessReceipt),
@@ -829,6 +846,8 @@ export const harnessReceiptEnvelopeSchema = Type.Object(
     signature: harnessReceiptSignatureSchema,
     harness: harnessSchema,
     seal: harnessSealSchema,
+    sync_points: Type.Optional(Type.Array(fanoutReceiptSyncPointSchema)),
+    metadata: Type.Optional(unknownRecordSchema()),
   },
   {
     $schema: JSON_SCHEMA_DRAFT_2020_12,
@@ -1122,6 +1141,7 @@ export type HarnessContract = DeepReadonly<Static<typeof harnessSchema>>;
 export type ArtifactContract = DeepReadonly<Static<typeof artifactSchema>>;
 export type HarnessReceiptIssuerContract = DeepReadonly<Static<typeof harnessReceiptIssuerSchema>>;
 export type HarnessReceiptSignatureContract = DeepReadonly<Static<typeof harnessReceiptSignatureSchema>>;
+export type FanoutReceiptSyncPointContract = DeepReadonly<Static<typeof fanoutReceiptSyncPointSchema>>;
 export type HarnessReceiptContract = DeepReadonly<Static<typeof harnessReceiptEnvelopeSchema>>;
 export type HarnessReceiptEnvelopeContract = HarnessReceiptContract;
 export type TargetCooldownContract = DeepReadonly<Static<typeof targetCooldownSchema>>;

@@ -43,6 +43,10 @@ import {
   validateReviewReceiptOutputContract,
   validateScopeAdmissionContract,
   validateSuppressionRecordContract,
+  validateOperationalPolicyContract,
+  validateOperationalPolicySemantics,
+  validateIssueToPrOutcomeContract,
+  validateIssueToPrOutcomeSemantics,
   validateSignalContract,
 } from "./index.js";
 
@@ -238,7 +242,123 @@ describe("@runxhq/contracts", () => {
     expect(runxGeneratedSchemaArtifacts["handoff-signal.schema.json"]).toBe(runxContractSchemas.handoffSignal);
     expect(runxGeneratedSchemaArtifacts["handoff-state.schema.json"]).toBe(runxContractSchemas.handoffState);
     expect(runxGeneratedSchemaArtifacts["suppression-record.schema.json"]).toBe(runxContractSchemas.suppressionRecord);
+    expect(runxGeneratedSchemaArtifacts["operational-policy.schema.json"]).toBe(runxContractSchemas.operationalPolicy);
+    expect(runxGeneratedSchemaArtifacts["issue-to-pr-outcome.schema.json"]).toBe(runxContractSchemas.issueToPrOutcome);
     expect(runxGeneratedSchemaArtifacts["review-receipt-output.schema.json"]).toBe(reviewReceiptOutputSchema);
+  });
+
+  it("owns operational policy for issue intake and source-thread routing", () => {
+    expect(RUNX_LOGICAL_SCHEMAS.operationalPolicy).toBe("runx.operational_policy.v1");
+    expect(RUNX_CONTRACT_IDS.operationalPolicy).toBe("https://schemas.runx.dev/runx/operational-policy/v1.json");
+    expect(runxContractSchemas.operationalPolicy.$id).toBe(RUNX_CONTRACT_IDS.operationalPolicy);
+    const policy = {
+      schema: RUNX_LOGICAL_SCHEMAS.operationalPolicy,
+      schema_version: "runx.operational_policy.v1",
+      policy_id: "example-dev-flow",
+      sources: [{
+        source_id: "bugs",
+        provider: "slack",
+        allowed_locators: ["slack://team/T123/channel/CBUGS"],
+        allowed_actions: ["issue-intake", "issue-to-pr", "manual-review"],
+        source_thread: {
+          required: true,
+          publish_mode: "reply",
+          missing_behavior: "fail_closed",
+        },
+      }],
+      runners: [{
+        runner_id: "aster-primary",
+        kind: "aster",
+        state: "available",
+        allowed_actions: ["issue-to-pr", "merge-assist"],
+        target_repos: ["example/api"],
+        scafld_required: true,
+      }],
+      owner_routes: [{
+        route_id: "api-owner",
+        owners: ["Kam"],
+        target_repos: ["example/api"],
+      }],
+      targets: [{
+        repo: "example/api",
+        runner_ids: ["aster-primary"],
+        allowed_actions: ["issue-to-pr", "merge-assist"],
+        default_owner_route: "api-owner",
+        scafld_required: true,
+      }],
+      dedupe: {
+        strategy: "source_fingerprint",
+        key_fields: ["source_locator", "target_repo"],
+        on_duplicate: "reuse",
+      },
+      outcomes: {
+        observe_provider: true,
+        verification_required: true,
+        close_source_issue: "when_verified",
+        publish_final_source_thread_update: true,
+      },
+      permissions: {
+        auto_merge: false,
+        mutate_target_repo: true,
+        require_human_merge_gate: true,
+      },
+    };
+    expect(validateOperationalPolicyContract(policy)).toMatchObject({
+      policy_id: "example-dev-flow",
+    });
+    expect(validateOperationalPolicySemantics(policy)).toMatchObject({
+      policy_id: "example-dev-flow",
+      permissions: {
+        auto_merge: false,
+      },
+    });
+  });
+
+  it("owns issue-to-PR outcome packets for post-merge observation", () => {
+    expect(RUNX_LOGICAL_SCHEMAS.issueToPrOutcome).toBe("runx.issue_to_pr_outcome.v1");
+    expect(RUNX_CONTRACT_IDS.issueToPrOutcome).toBe("https://schemas.runx.dev/runx/issue-to-pr-outcome/v1.json");
+    expect(runxContractSchemas.issueToPrOutcome.$id).toBe(RUNX_CONTRACT_IDS.issueToPrOutcome);
+    const outcome = {
+      schema: RUNX_LOGICAL_SCHEMAS.issueToPrOutcome,
+      schema_version: "runx.issue_to_pr_outcome.v1",
+      outcome_id: "outcome-1",
+      task_id: "issue-1",
+      observed_at: "2026-05-19T00:00:00.000Z",
+      provider_outcome: "merged",
+      source_thread: {
+        required: true,
+        publish_mode: "reply",
+        missing_behavior: "fail_closed",
+        thread_locator: "slack://nitrosend/CBUGS/1778834840.485629",
+      },
+      pull_request: {
+        provider: "github",
+        repo: "example/api",
+        number: 10,
+        url: "https://github.com/example/api/pull/10",
+        state: "merged",
+        merged: true,
+      },
+      verification: {
+        required: true,
+        status: "passed",
+      },
+      publish: {
+        final_source_thread_update: true,
+        close_source_issue: "when_verified",
+        close_permitted: true,
+      },
+      human_gate: {
+        required: true,
+        merged_by: "Kam",
+      },
+    };
+    expect(validateIssueToPrOutcomeContract(outcome)).toMatchObject({
+      outcome_id: "outcome-1",
+    });
+    expect(validateIssueToPrOutcomeSemantics(outcome)).toMatchObject({
+      provider_outcome: "merged",
+    });
   });
 
   it("owns the runx harness spine and retires retired central artifacts", () => {

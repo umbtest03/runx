@@ -1,22 +1,33 @@
 use std::env;
 use std::ffi::OsString;
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::process::{Command, ExitCode, Stdio};
 
-use runx_cli::launcher::{LauncherAction, plan_launcher, shim_help};
+use runx_cli::launcher::{LauncherAction, plan_launcher_with_rust_harness, shim_help};
 
 fn main() -> ExitCode {
     let args: Vec<OsString> = env::args_os().skip(1).collect();
 
-    match plan_launcher(
+    match plan_launcher_with_rust_harness(
         args,
         env::var_os("RUNX_NPM_PACKAGE"),
         env::var_os("RUNX_JS_BIN"),
+        env::var_os("RUNX_RUST_HARNESS"),
     ) {
+        LauncherAction::Error(message) => {
+            let _ignored = write_stderr_line(&format!("runx: {message}"));
+            ExitCode::from(2)
+        }
         LauncherAction::PrintHelp => write_stdout(&shim_help()),
         LauncherAction::PrintVersion => {
             write_stdout_line(&format!("runx-cli {}", env!("CARGO_PKG_VERSION")))
         }
+        LauncherAction::RunInit(plan) => runx_cli::scaffold::run_native_init(plan),
+        LauncherAction::RunNew(plan) => runx_cli::scaffold::run_native_new(plan),
+        LauncherAction::RunHistory(plan) => run_native_history(plan.args),
+        LauncherAction::RunHarness(plan) => run_native_harness(PathBuf::from(plan.fixture_path)),
+        LauncherAction::RunTool(plan) => runx_cli::tool::run_native_tool(plan),
         LauncherAction::Delegate(command) => match run_command(command) {
             Ok(code) => ExitCode::from(code),
             Err(error) => {
@@ -24,6 +35,48 @@ fn main() -> ExitCode {
                 ExitCode::from(1)
             }
         },
+    }
+}
+
+fn run_native_history(args: Vec<OsString>) -> ExitCode {
+    let cwd = match env::current_dir() {
+        Ok(cwd) => cwd,
+        Err(error) => {
+            let _ignored = write_stderr_line(&format!("runx: failed to resolve cwd: {error}"));
+            return ExitCode::from(1);
+        }
+    };
+    match runx_cli::history::run_history_command(&args, &runx_cli::history::env_map(), &cwd) {
+        Ok(output) => write_stdout(&output.output),
+        Err(runx_cli::history::HistoryCliError::InvalidArgs(message)) => {
+            let _ignored = write_stderr_line(&format!("runx: {message}"));
+            ExitCode::from(2)
+        }
+        Err(error) => {
+            let _ignored = write_stderr_line(&format!("runx: {error}"));
+            ExitCode::from(1)
+        }
+    }
+}
+
+fn run_native_harness(fixture_path: PathBuf) -> ExitCode {
+    match runx_runtime::run_harness_fixture(&fixture_path) {
+        Ok(output) => match serde_json::to_string_pretty(&output.receipt) {
+            Ok(json) => write_stdout_line(&json),
+            Err(error) => {
+                let _ignored = write_stderr_line(&format!(
+                    "runx: failed to serialize harness receipt: {error}"
+                ));
+                ExitCode::from(1)
+            }
+        },
+        Err(error) => {
+            let _ignored = write_stderr_line(&format!(
+                "runx: native harness replay failed for {}: {error}",
+                fixture_path.display()
+            ));
+            ExitCode::from(1)
+        }
     }
 }
 

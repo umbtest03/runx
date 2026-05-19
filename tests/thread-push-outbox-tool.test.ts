@@ -50,6 +50,37 @@ describe("thread.push_outbox tool", () => {
     });
   });
 
+  it("fails closed when a required source-thread message has no thread", () => {
+    const result = spawnSync("node", [toolPath], {
+      cwd: path.resolve("."),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        RUNX_INPUTS_JSON: JSON.stringify({
+          outbox_entry: {
+            entry_id: "message:fixture-task:merge_gate",
+            kind: "message",
+            status: "proposed",
+            thread_locator: "slack://team/T123/channel/CBUGS/thread/123.456",
+            metadata: {
+              schema_version: "runx.outbox-entry.feed-entry.v1",
+              body_markdown: "Human merge gate is ready.",
+              source_thread: {
+                required: true,
+                publish_mode: "reply",
+                missing_behavior: "fail_closed",
+                thread_locator: "slack://team/T123/channel/CBUGS/thread/123.456",
+              },
+            },
+          },
+        }),
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("source_thread.missing_behavior is fail_closed");
+  });
+
   it("pushes an outbox entry through the file thread adapter and returns refreshed state", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-thread-tool-"));
     const statePath = path.join(tempDir, "thread.json");

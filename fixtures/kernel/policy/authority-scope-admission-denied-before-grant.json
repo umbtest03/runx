@@ -1,0 +1,51 @@
+{
+  "$schema": "../schema/policy.schema.json",
+  "expected": {
+    "kind": "output",
+    "value": {
+      "decision_summary": "structural policy denied before grant resolution",
+      "granted_scopes": [],
+      "reasons": [
+        "structural policy denied before connected auth grant resolution"
+      ],
+      "requested_scopes": [
+        "repo:read"
+      ],
+      "status": "deny"
+    }
+  },
+  "input": {
+    "auth": {
+      "authority_kind": "read_only",
+      "provider": "github",
+      "scope_family": "github_repo",
+      "scopes": [
+        "repo:read",
+        "repo:read"
+      ],
+      "target_locator": "runxhq/aster#issue/4",
+      "target_repo": "runxhq/aster",
+      "type": "nango"
+    },
+    "grants": [
+      {
+        "authority_kind": "read_only",
+        "grant_id": "grant_expected",
+        "provider": "github",
+        "scope_family": "github_repo",
+        "scopes": [
+          "repo:read",
+          "user:read"
+        ],
+        "status": "active",
+        "target_locator": "runxhq/aster#issue/4",
+        "target_repo": "runxhq/aster"
+      }
+    ],
+    "kind": "policy.buildLocalScopeAdmission",
+    "options": {
+      "deniedBeforeGrantResolution": true
+    }
+  },
+  "name": "authority-scope-admission-denied-before-grant"
+}

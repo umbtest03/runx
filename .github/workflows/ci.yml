@@ -54,6 +54,20 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Setup Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Restore Cargo caches
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            crates/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('crates/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
       - name: Rust checks
         working-directory: crates
         run: |
@@ -61,3 +75,10 @@ jobs:
           cargo clippy --workspace --all-targets -- -D warnings
           cargo test --workspace
           cargo package -p runx-cli
+
+      - name: Install advisory Rust parity tools
+        run: cargo install cargo-deny cargo-public-api
+
+      - name: Advisory Rust kernel parity
+        continue-on-error: true # advisory check-rust-kernel-parity cargo-deny cargo public-api
+        run: node scripts/check-rust-kernel-parity.mjs

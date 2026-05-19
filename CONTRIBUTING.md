@@ -95,6 +95,22 @@ For the fast local loop:
 pnpm test:fast
 ```
 
+For Rust kernel parity work, run:
+
+```bash
+pnpm rust:check
+```
+
+This is Phase A advisory evidence while TypeScript remains the source of truth.
+It becomes blocking only after the `rust-kernel-blocking-promotion` spec
+confirms five clean kernel-touching PRs. The command uses `cargo-deny` and
+`cargo-public-api`; if they are missing, install them with:
+
+```bash
+cargo install cargo-deny cargo-public-api
+rustup toolchain install nightly --profile minimal
+```
+
 `test:fast` uses `vitest.fast.config.ts` and is intended for package-adjacent
 iteration. `pnpm test` remains the full workspace suite and includes the
 isolated CLI package contract check.

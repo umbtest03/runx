@@ -374,9 +374,11 @@ declares whether it adopts it.
 
 Once parity exists, the maintenance cost is real. The policy is staged:
 
-- **Phase A (advisory)**: Rust parity runs in CI but failure is a warning.
+- **Phase A (advisory)**: Rust parity runs in CI through
+  `scripts/check-rust-kernel-parity.mjs`, but failure is a warning.
   TypeScript developers can break fixtures and regenerate them. A failing
-  Rust check produces a CI annotation but does not block merge.
+  Rust check produces a CI annotation but does not block merge. The local
+  command is `pnpm rust:check`.
 - **Phase B (blocking)**: After 5 clean kernel-touching PRs land green in
   Phase A, Rust parity blocks merge. Every PR that touches
   `packages/core/src/state-machine/` or `packages/core/src/policy/` must
@@ -392,8 +394,8 @@ PR for the dual-tree update (TS change, fixture regen, Rust port, Rust
 clippy/proptest update, public-API snapshot bump). Budget this explicitly;
 do not pretend it is free.
 
-The transition between phases is a deliberate decision in the
-`rust-parity-ci-governance` spec, not automatic.
+The transition between phases is a deliberate decision in the follow-up
+`rust-kernel-blocking-promotion` spec, not automatic.
 
 ### TS sunset trigger
 

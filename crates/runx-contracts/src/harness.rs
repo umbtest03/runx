@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Act, Authority, ClosureDisposition, Decision, HashCommitment, ReceiptVerificationSummary,
-    Reference,
+    Act, Authority, ClosureDisposition, Decision, HashCommitment, JsonObject,
+    ReceiptVerificationSummary, Reference,
 };
 
 pub const HARNESS_RECEIPT_SCHEMA: &str = "runx.harness_receipt.v1";
@@ -27,6 +27,41 @@ pub enum HarnessState {
     TimedOut,
     Failed,
     Superseded,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FanoutReceiptStrategy {
+    All,
+    Any,
+    Quorum,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FanoutReceiptDecision {
+    Proceed,
+    Halt,
+    Pause,
+    Escalate,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FanoutReceiptSyncPoint {
+    pub group_id: String,
+    pub strategy: FanoutReceiptStrategy,
+    pub decision: FanoutReceiptDecision,
+    pub rule_fired: String,
+    pub reason: String,
+    pub branch_count: usize,
+    pub success_count: usize,
+    pub failure_count: usize,
+    pub required_successes: usize,
+    #[serde(default)]
+    pub branch_receipts: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gate: Option<JsonObject>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -179,4 +214,8 @@ pub struct HarnessReceipt {
     pub signature: ReceiptSignature,
     pub harness: Harness,
     pub seal: HarnessSeal,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sync_points: Vec<FanoutReceiptSyncPoint>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<JsonObject>,
 }

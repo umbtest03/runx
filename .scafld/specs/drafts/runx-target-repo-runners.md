@@ -63,6 +63,9 @@ Invariants:
 - Runner availability is explicit; no hidden fallback to the source repo.
 - A target repo must be scafld-ready before mutating issue-to-PR work runs.
 - Dedupe runs before creating a new PR.
+- PR packaging records `metadata.dedupe.strategy`, `metadata.dedupe.key`, and
+  `metadata.dedupe.result` so retries are auditable and provider pushers can
+  reuse an existing PR path.
 - Source issue/thread ids are carried through every milestone event.
 - Public comments use repo names and URLs, not operator-local checkout paths.
 
@@ -141,6 +144,8 @@ Required behavior:
 - [ ] Target repo without scafld readiness fails before mutation.
 - [ ] Existing open PR for the dedupe key is reused and linked instead of
   creating another PR.
+- [ ] Pull-request outbox metadata records whether the PR path was created or
+  reused for the dedupe key.
 - [ ] Source GitHub issue receives the target PR link.
 - [ ] Source Slack thread metadata survives through all outbox events.
 - [ ] Public output excludes local checkout paths and env-secret values.
@@ -185,6 +190,7 @@ Objective: Avoid duplicate PRs for the same issue/fix.
 Changes:
 - Add dedupe key generation and provider lookup.
 - Reuse/link existing PR when policy says so.
+- Preserve the dedupe decision in the pull-request outbox entry metadata.
 
 Acceptance:
 - [ ] Duplicate fixture reuses the existing PR and produces no new branch.
@@ -230,3 +236,5 @@ Source: plan
 
 - 2026-05-19: Expanded placeholder into target-repo runner contract after
   Nitrosend source-thread dogfood review.
+- 2026-05-19: Locked the PR dedupe packet shape to outbox metadata so the Rust
+  runner and provider pushers keep retry behavior observable.
