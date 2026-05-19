@@ -10,8 +10,8 @@ use aes_gcm::aead::{Aead, AeadCore, KeyInit, OsRng};
 use aes_gcm::{Aes256Gcm, Nonce};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use runx_contracts::JsonValue;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
@@ -165,16 +165,16 @@ pub fn load_runx_config_file(config_path: &Path) -> Result<RunxConfigFile, Confi
         Err(error) => return Err(ConfigError::Io(error)),
     };
     let value =
-        serde_json::from_str::<Value>(&contents).map_err(|error| ConfigError::InvalidJson {
+        serde_json::from_str::<JsonValue>(&contents).map_err(|error| ConfigError::InvalidJson {
             path: config_path.to_path_buf(),
             message: error.to_string(),
         })?;
-    if !value.is_object() {
+    if !matches!(value, JsonValue::Object(_)) {
         return Err(ConfigError::NonObjectJson {
             path: config_path.to_path_buf(),
         });
     }
-    serde_json::from_value(value).map_err(|error| ConfigError::InvalidJson {
+    serde_json::from_str(&contents).map_err(|error| ConfigError::InvalidJson {
         path: config_path.to_path_buf(),
         message: error.to_string(),
     })
@@ -354,6 +354,16 @@ struct LocalAgentKeyPayload {
     auth_tag: String,
 }
 
+#[derive(Serialize)]
+struct StoredLocalAgentKeyPayload<'a> {
+    #[serde(rename = "ref")]
+    key_ref: &'a str,
+    alg: &'static str,
+    iv: String,
+    ciphertext: String,
+    auth_tag: String,
+}
+
 fn resolve_runx_workspace_base(env: &BTreeMap<String, String>, cwd: &Path) -> PathBuf {
     env.get("RUNX_CWD")
         .map(PathBuf::from)
@@ -399,13 +409,13 @@ fn store_local_agent_api_key(config_dir: &Path, api_key: &str) -> Result<String,
             24
         )
     );
-    let payload = serde_json::json!({
-        "ref": key_ref,
-        "alg": "aes-256-gcm",
-        "iv": URL_SAFE_NO_PAD.encode(nonce),
-        "ciphertext": URL_SAFE_NO_PAD.encode(sealed),
-        "auth_tag": URL_SAFE_NO_PAD.encode(auth_tag),
-    });
+    let payload = StoredLocalAgentKeyPayload {
+        key_ref: &key_ref,
+        alg: "aes-256-gcm",
+        iv: URL_SAFE_NO_PAD.encode(nonce),
+        ciphertext: URL_SAFE_NO_PAD.encode(sealed),
+        auth_tag: URL_SAFE_NO_PAD.encode(auth_tag),
+    };
     let contents = serde_json::to_string_pretty(&payload)
         .map_err(|error| ConfigError::Crypto(error.to_string()))?;
     write_private_file(
@@ -488,17 +498,17 @@ fn read_profile_state(
     let Some(document) = read_optional_file(&path)? else {
         return Ok(None);
     };
-    let value = serde_json::from_str::<Value>(&document)
+    let value = serde_json::from_str::<JsonValue>(&document)
         .map_err(|_| ConfigError::InvalidProfileStateJson { path: path.clone() })?;
-    let Some(object) = value.as_object() else {
+    let JsonValue::Object(object) = value else {
         return Err(ConfigError::NonObjectProfileState { path });
     };
-    let Some(profile) = object.get("profile").and_then(Value::as_object) else {
+    let Some(JsonValue::Object(profile)) = object.get("profile") else {
         return Ok(None);
     };
     let Some(profile_document) = profile
         .get("document")
-        .and_then(Value::as_str)
+        .and_then(json_string)
         .filter(|value| !value.is_empty())
     else {
         return Ok(None);
@@ -581,13 +591,16 @@ fn validate_manifest_skill(
     manifest_text: &str,
     skill_name: &str,
 ) -> Result<(), ConfigError> {
-    let value = serde_norway::from_str::<Value>(manifest_text).map_err(|error| {
+    let value = serde_norway::from_str::<JsonValue>(manifest_text).map_err(|error| {
         ConfigError::InvalidJson {
             path: path.to_path_buf(),
             message: error.to_string(),
         }
     })?;
-    let manifest_skill = value.get("skill").and_then(Value::as_str);
+    let manifest_skill = match &value {
+        JsonValue::Object(object) => object.get("skill").and_then(json_string),
+        _ => None,
+    };
     if let Some(manifest_skill) = manifest_skill
         && manifest_skill != skill_name
     {
@@ -598,6 +611,17 @@ fn validate_manifest_skill(
         });
     }
     Ok(())
+}
+
+fn json_string(value: &JsonValue) -> Option<&str> {
+    match value {
+        JsonValue::String(value) => Some(value),
+        JsonValue::Null
+        | JsonValue::Bool(_)
+        | JsonValue::Number(_)
+        | JsonValue::Array(_)
+        | JsonValue::Object(_) => None,
+    }
 }
 
 fn read_optional_file(path: &Path) -> Result<Option<String>, ConfigError> {

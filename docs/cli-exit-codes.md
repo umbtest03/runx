@@ -11,7 +11,7 @@ inspection commands, the requested work or read operation succeeded.
 Common follow-up:
 
 ```bash
-runx inspect <receipt-id>
+runx skill inspect <receipt-id>
 ```
 
 ## Exit Code 1: Failure

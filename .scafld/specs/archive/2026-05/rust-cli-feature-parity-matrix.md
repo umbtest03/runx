@@ -101,8 +101,8 @@ In scope:
   `knowledge show`, `connect`, `config`, `new`, `init`, `harness`, `list`,
   `doctor`, `dev`, `mcp serve`, `tool search`, `tool inspect`, and
   `tool build`.
-- Top-level aliases and admin forms such as `runx search`, `runx add`,
-  `runx inspect`, and `runx skill <action>`.
+- Top-level aliases and admin forms such as `runx skill search`, `runx skill add`,
+  `runx skill inspect`, and `runx skill <action>`.
 - Exit codes `0`, `1`, `2`, and `64`.
 - JSON output shapes, receipt schemas, ledger/artifact references, sandbox
   metadata, signature verification, and trainable receipt export behavior.

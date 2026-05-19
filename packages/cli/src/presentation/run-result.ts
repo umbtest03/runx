@@ -187,7 +187,7 @@ function renderRunSuccess(
     if (outputDir) lines.push(`  ${t.dim}site${t.reset}      ${outputDir}`);
     if (indexPath) lines.push(`  ${t.dim}index${t.reset}     ${indexPath}`);
     if (verified) lines.push(`  ${t.dim}verify${t.reset}    ${verified}`);
-    lines.push(`  ${t.dim}inspect${t.reset}   runx inspect ${result.receipt.id}`);
+    lines.push(`  ${t.dim}inspect${t.reset}   runx skill inspect ${result.receipt.id}`);
     lines.push("");
     return lines.join("\n");
   }
@@ -211,7 +211,7 @@ function renderRunSuccess(
   if (highlights.length === 0 && result.execution.stdout.trim()) {
     lines.push(`  ${t.dim}output${t.reset}    ${truncateMultiline(result.execution.stdout, 6)}`);
   }
-  lines.push(`  ${t.dim}inspect${t.reset}   runx inspect ${result.receipt.id}`);
+  lines.push(`  ${t.dim}inspect${t.reset}   runx skill inspect ${result.receipt.id}`);
   lines.push("");
   return lines.join("\n");
 }
@@ -251,7 +251,7 @@ function renderRunFailure(
   if (errorText.trim()) {
     lines.push(`  ${t.dim}${status === "escalated" ? "reason" : "error"}${t.reset}     ${truncateMultiline(errorText, 8)}`);
   }
-  lines.push(`  ${t.dim}inspect${t.reset}   runx inspect ${result.receipt.id} --json`);
+  lines.push(`  ${t.dim}inspect${t.reset}   runx skill inspect ${result.receipt.id} --json`);
   lines.push("");
   return lines.join("\n");
 }

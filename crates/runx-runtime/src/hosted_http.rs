@@ -1,6 +1,9 @@
+// rust-style-allow: large-file because the hosted HTTP transport keeps curl
+// process execution, header validation, status parsing, and security-focused
+// unit tests in one review unit.
 use std::fmt;
 use std::io::Write;
-use std::process::{Command, Stdio};
+use std::process::{Command, Output, Stdio};
 
 use url::Url;
 
@@ -123,6 +126,37 @@ impl Default for CommandHttpTransport {
 
 impl HostedTransport for CommandHttpTransport {
     fn send(&self, request: HostedHttpRequest) -> Result<HostedHttpResponse, HostedHttpError> {
+        let output = self.run_command(request)?;
+        let stdout = self.success_stdout(output)?;
+        let (body, status) = parse_transport_output(&stdout)?;
+        Ok(HostedHttpResponse {
+            status,
+            body: body.to_owned(),
+        })
+    }
+}
+
+impl CommandHttpTransport {
+    fn run_command(&self, request: HostedHttpRequest) -> Result<Output, HostedHttpError> {
+        let mut command = self.request_command(&request)?;
+        let mut child = command
+            .spawn()
+            .map_err(|error| self.spawn_error(error.to_string()))?;
+        if let Some(body) = request.body {
+            let stdin = child
+                .stdin
+                .as_mut()
+                .ok_or_else(|| self.spawn_error("transport stdin was not available"))?;
+            stdin
+                .write_all(body.as_bytes())
+                .map_err(|error| self.spawn_error(error.to_string()))?;
+        }
+        child
+            .wait_with_output()
+            .map_err(|error| self.spawn_error(error.to_string()))
+    }
+
+    fn request_command(&self, request: &HostedHttpRequest) -> Result<Command, HostedHttpError> {
         let mut command = Command::new(&self.command);
         command
             .arg("--silent")
@@ -133,8 +167,8 @@ impl HostedTransport for CommandHttpTransport {
             .arg("-")
             .arg("--write-out")
             .arg("\n__RUNX_HTTP_STATUS__:%{http_code}");
-        for header in request.headers {
-            validate_header(&header)?;
+        for header in &request.headers {
+            validate_header(header)?;
             command.arg("--header").arg(format!(
                 "{}: {}",
                 header.name.trim(),
@@ -149,36 +183,13 @@ impl HostedTransport for CommandHttpTransport {
         }
         command
             .arg("--")
-            .arg(request.url)
+            .arg(&request.url)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        let mut child = command
-            .spawn()
-            .map_err(|error| HostedHttpError::TransportSpawn {
-                command: self.command.clone(),
-                message: error.to_string(),
-            })?;
-        if let Some(body) = request.body {
-            let stdin = child
-                .stdin
-                .as_mut()
-                .ok_or_else(|| HostedHttpError::TransportSpawn {
-                    command: self.command.clone(),
-                    message: "transport stdin was not available".to_owned(),
-                })?;
-            stdin
-                .write_all(body.as_bytes())
-                .map_err(|error| HostedHttpError::TransportSpawn {
-                    command: self.command.clone(),
-                    message: error.to_string(),
-                })?;
-        }
-        let output = child
-            .wait_with_output()
-            .map_err(|error| HostedHttpError::TransportSpawn {
-                command: self.command.clone(),
-                message: error.to_string(),
-            })?;
+        Ok(command)
+    }
+
+    fn success_stdout(&self, output: Output) -> Result<String, HostedHttpError> {
         let stderr =
             String::from_utf8(output.stderr).map_err(|error| HostedHttpError::TransportDecode {
                 message: error.to_string(),
@@ -190,25 +201,16 @@ impl HostedTransport for CommandHttpTransport {
                 stderr,
             });
         }
-        let stdout =
-            String::from_utf8(output.stdout).map_err(|error| HostedHttpError::TransportDecode {
-                message: error.to_string(),
-            })?;
-        let (body, status_text) =
-            stdout
-                .rsplit_once("\n__RUNX_HTTP_STATUS__:")
-                .ok_or_else(|| HostedHttpError::TransportDecode {
-                    message: "transport did not report an HTTP status".to_owned(),
-                })?;
-        let status = status_text.trim().parse::<u16>().map_err(|error| {
-            HostedHttpError::TransportDecode {
-                message: error.to_string(),
-            }
-        })?;
-        Ok(HostedHttpResponse {
-            status,
-            body: body.to_owned(),
+        String::from_utf8(output.stdout).map_err(|error| HostedHttpError::TransportDecode {
+            message: error.to_string(),
         })
+    }
+
+    fn spawn_error(&self, message: impl Into<String>) -> HostedHttpError {
+        HostedHttpError::TransportSpawn {
+            command: self.command.clone(),
+            message: message.into(),
+        }
     }
 }
 
@@ -337,9 +339,26 @@ fn is_header_token_byte(byte: u8) -> bool {
         )
 }
 
+fn parse_transport_output(stdout: &str) -> Result<(&str, u16), HostedHttpError> {
+    let (body, status_text) = stdout
+        .rsplit_once("\n__RUNX_HTTP_STATUS__:")
+        .ok_or_else(|| HostedHttpError::TransportDecode {
+            message: "transport did not report an HTTP status".to_owned(),
+        })?;
+    let status =
+        status_text
+            .trim()
+            .parse::<u16>()
+            .map_err(|error| HostedHttpError::TransportDecode {
+                message: error.to_string(),
+            })?;
+    Ok((body, status))
+}
+
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
+    use std::io;
     use std::io::{Read, Write};
     use std::net::TcpListener;
 
@@ -363,8 +382,18 @@ mod tests {
         }
     }
 
+    #[derive(Debug, thiserror::Error)]
+    enum HostedHttpTestError {
+        #[error(transparent)]
+        HostedHttp(#[from] HostedHttpError),
+        #[error(transparent)]
+        Io(#[from] io::Error),
+        #[error("server thread panicked")]
+        ServerThread,
+    }
+
     #[test]
-    fn client_normalizes_base_url_and_routes_requests() -> Result<(), Box<dyn std::error::Error>> {
+    fn client_normalizes_base_url_and_routes_requests() -> Result<(), HostedHttpTestError> {
         let transport = MockTransport::default();
         let client = HostedHttpClient::with_transport("https://api.example/", &transport)?;
         assert_eq!(client.base_url(), "https://api.example");
@@ -412,7 +441,7 @@ mod tests {
     }
 
     #[test]
-    fn command_transport_does_not_follow_redirects() -> Result<(), Box<dyn std::error::Error>> {
+    fn command_transport_does_not_follow_redirects() -> Result<(), HostedHttpTestError> {
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
         let server = std::thread::spawn(move || -> Result<String, std::io::Error> {
@@ -427,7 +456,9 @@ mod tests {
 
         let client = HostedHttpClient::new(format!("http://{address}"))?;
         let response = client.send(client.request(HttpMethod::Get, "/start")?)?;
-        let request = server.join().map_err(|_| "server thread panicked")??;
+        let request = server
+            .join()
+            .map_err(|_| HostedHttpTestError::ServerThread)??;
 
         assert_eq!(response.status, 302);
         assert!(request.starts_with("GET /start "));

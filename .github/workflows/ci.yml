@@ -72,8 +72,8 @@ jobs:
         working-directory: crates
         run: |
           cargo fmt --all --check
-          cargo clippy --workspace --all-targets -- -D warnings
-          cargo test --workspace
+          cargo clippy --workspace --all-targets --all-features -- -D warnings
+          cargo test --workspace --all-features
           cargo package -p runx-cli
 
       - name: Install advisory Rust parity tools

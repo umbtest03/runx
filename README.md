@@ -66,14 +66,14 @@ runx init
 runx init -g --prefetch official
 runx new docs-demo
 npm create @runxhq/skill@latest docs-demo
-runx search sourcey
+runx skill search sourcey
 runx sourcey --project .
 runx evolve
 runx issue-to-pr --fixture /path/to/repo --task-id task-123
 runx resume <run-id>
-runx inspect <receipt-id>
+runx skill inspect <receipt-id>
 runx history
-runx add sourcey/sourcey@1.0.0 --to ./skills
+runx skill add sourcey/sourcey@1.0.0 --to ./skills
 runx mcp serve ./fixtures/skills/echo
 runx design-skill --objective "build github review skill"
 runx harness ./fixtures/harness/echo-skill.yaml
@@ -254,7 +254,7 @@ policy, approvals, and resolution requests still behave the same way.
 
 ## Receipts
 
-Local receipts are append-only JSON files under `.runx/receipts` unless `RUNX_RECEIPT_DIR` is set. `runx inspect` and `runx history` verify receipt signatures and surface `verified`, `unverified`, or `invalid` status.
+Local receipts are append-only JSON files under `.runx/receipts` unless `RUNX_RECEIPT_DIR` is set. `runx skill inspect` and `runx history` verify receipt signatures and surface `verified`, `unverified`, or `invalid` status.
 
 ## Workspace Policy
 

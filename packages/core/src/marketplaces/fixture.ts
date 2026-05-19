@@ -51,7 +51,7 @@ const fixtureResults: readonly SkillSearchResult[] = [
     runner_names: ["sourcey-docs-cli"],
     profile_digest: hashString(fixtureProfileDocument),
     profile_trust_tier: "community",
-    add_command: "runx add fixture-marketplace:sourcey-docs",
+    add_command: "runx skill add fixture-marketplace:sourcey-docs",
     run_command: "runx sourcey-docs",
   },
   {
@@ -69,7 +69,7 @@ const fixtureResults: readonly SkillSearchResult[] = [
     tags: ["portable"],
     profile_mode: "portable",
     runner_names: [],
-    add_command: "runx add fixture-marketplace:marketplace-portable",
+    add_command: "runx skill add fixture-marketplace:marketplace-portable",
     run_command: "runx marketplace-portable",
   },
 ];

@@ -4,7 +4,7 @@
     "type": "file",
     "adapter_ref": "fixtures/threads/issue-to-pr-file-thread.json"
   },
-  "thread_kind": "engagement",
+  "thread_kind": "signal",
   "thread_locator": "local://fixtures/issue-to-pr/123",
   "title": "Fixture checkout validation fails",
   "canonical_uri": "local://fixtures/issue-to-pr/123",

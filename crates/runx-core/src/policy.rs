@@ -3,6 +3,7 @@ mod connected_auth;
 mod graph_scope;
 mod interpreter;
 mod local;
+mod payment_authority;
 pub(crate) mod posix_basename;
 mod public_work;
 mod retry;
@@ -16,6 +17,7 @@ pub use authority_proof::{
 };
 pub use graph_scope::admit_graph_step_scopes;
 pub use local::admit_local_skill;
+pub use payment_authority::is_payment_authority_subset;
 pub use public_work::{
     default_public_work_policy, evaluate_public_comment_opportunity,
     evaluate_public_pull_request_candidate, normalize_public_work_policy,

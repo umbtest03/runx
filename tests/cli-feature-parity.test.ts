@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { appendLedgerEntries, createRunEventEntry } from "../packages/core/src/artifacts/index.js";
 import { runCli, type CliIo } from "../packages/cli/src/index.js";
 
 interface CommandMatrix {
@@ -96,11 +97,16 @@ describe("CLI feature parity matrix", () => {
       const io: CliIo = { stdin: process.stdin, stdout, stderr };
 
       try {
-        const exitCode = await runCli(testCase.argv ?? [], io, {
+        const receiptDir = path.join(tempDir, "receipts");
+        await prepareOracleFixtures(testCase, receiptDir);
+        const argv = (testCase.argv ?? []).map((arg) =>
+          arg === "$FIXTURE_RECEIPTS" ? receiptDir : arg,
+        );
+        const exitCode = await runCli(argv, io, {
           ...process.env,
           RUNX_CWD: process.cwd(),
           RUNX_HOME: path.join(tempDir, "home"),
-          RUNX_RECEIPT_DIR: path.join(tempDir, "receipts"),
+          RUNX_RECEIPT_DIR: receiptDir,
           RUNX_BANNER: "0",
         });
 
@@ -120,6 +126,43 @@ describe("CLI feature parity matrix", () => {
     }
   }, 20_000);
 });
+
+async function prepareOracleFixtures(testCase: OracleCase, receiptDir: string): Promise<void> {
+  if (!testCase.argv?.includes("$FIXTURE_RECEIPTS")) {
+    return;
+  }
+  if (testCase.id === "history.execute") {
+    await appendLedgerEntries({
+      receiptDir,
+      runId: "gx_paused_oracle",
+      entries: [
+        createRunEventEntry({
+          runId: "gx_paused_oracle",
+          producer: { skill: "sourcey", runner: "graph" },
+          kind: "run_started",
+          status: "started",
+          createdAt: "2026-04-28T01:00:00.000Z",
+        }),
+        createRunEventEntry({
+          runId: "gx_paused_oracle",
+          stepId: "discover",
+          producer: { skill: "sourcey", runner: "graph" },
+          kind: "step_waiting_resolution",
+          status: "waiting",
+          detail: {
+            request_ids: ["agent_step.test-step.output"],
+            resolution_kinds: ["agent_act"],
+            step_ids: ["discover"],
+            step_labels: ["inspect repo"],
+            inputs: {},
+            selected_runner: "agent-step",
+          },
+          createdAt: "2026-04-28T01:00:00.000Z",
+        }),
+      ],
+    });
+  }
+}
 
 async function readOracleCases(): Promise<readonly OracleCase[]> {
   const directory = "fixtures/cli-parity/cases";

@@ -20,6 +20,7 @@ pub enum SignalType {
     ChatMessage,
     Alert,
     DeploymentEvent,
+    PaymentRequired,
     ScheduleTick,
     OperatorNote,
     SystemEvent,

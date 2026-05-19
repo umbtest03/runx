@@ -19,7 +19,7 @@ harness:
             type: github
             provider: github
             surface: issue_thread
-          thread_kind: engagement
+          thread_kind: signal
           thread_locator: github://runxhq/runx/issues/118
           entries: []
           decisions: []

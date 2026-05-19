@@ -96,6 +96,7 @@ fn invoke_local_tool(
         skill_name: resolution.tool.name,
         source,
         inputs: request.inputs.clone(),
+        resolved_inputs: request.resolved_inputs.clone(),
         skill_directory,
         env: request.env.clone(),
     };

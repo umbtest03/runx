@@ -43,7 +43,7 @@ pub use authority::{
     Authority, AuthorityApproval, AuthorityAttenuation, AuthorityBounds, AuthorityCapability,
     AuthorityCondition, AuthorityConditionPredicate, AuthorityResourceFamily,
     AuthoritySubsetComparison, AuthoritySubsetProof, AuthoritySubsetRelation,
-    AuthoritySubsetResult, AuthorityTerm, AuthorityVerb,
+    AuthoritySubsetResult, AuthorityTerm, AuthorityVerb, PaymentAuthorityBounds,
 };
 pub use decision::{
     Closure, ClosureDisposition, Decision, DecisionChoice, DecisionInputs, DecisionJustification,

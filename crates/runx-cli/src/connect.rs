@@ -37,6 +37,8 @@ impl ConnectAuthorityKind {
     }
 }
 
+// rust-style-allow: long-function because connect has one provider/list/revoke
+// grammar and shared option parsing must stay centralized during cutover.
 pub fn parse_connect_plan(args: &[OsString]) -> Result<ConnectPlan, String> {
     let command = os_arg(args, 0)?;
     if command != "connect" {

@@ -1,3 +1,6 @@
+// rust-style-allow: large-file because the launcher binary currently owns
+// native command IO, connect rendering, delegation, and exit-code mapping in
+// one audited cutover surface.
 use std::env;
 use std::ffi::OsString;
 use std::io::{self, Write};
@@ -5,6 +8,10 @@ use std::path::PathBuf;
 use std::process::{Command, ExitCode, Stdio};
 
 use runx_cli::launcher::{LauncherAction, shim_help};
+use runx_runtime::connect::{ConnectGrantStatus, ConnectReadyStatus, ConnectRevokeStatus};
+use runx_runtime::{
+    HttpConnectGrant, HttpConnectListResponse, HttpConnectReadyResponse, HttpConnectRevokeResponse,
+};
 
 fn main() -> ExitCode {
     let args: Vec<OsString> = env::args_os().skip(1).collect();
@@ -31,6 +38,7 @@ fn main() -> ExitCode {
         LauncherAction::RunHistory(plan) => run_native_history(plan.args),
         LauncherAction::RunHarness(plan) => run_native_harness(PathBuf::from(plan.fixture_path)),
         LauncherAction::RunConnect(plan) => run_native_connect(plan),
+        LauncherAction::RunConfig(plan) => run_native_config(plan),
         LauncherAction::RunTool(plan) => runx_cli::tool::run_native_tool(plan),
         LauncherAction::Delegate(command) => match run_command(command) {
             Ok(code) => ExitCode::from(code),
@@ -74,22 +82,12 @@ fn run_native_connect(plan: runx_cli::connect::ConnectPlan) -> ExitCode {
 fn execute_connect_plan(
     client: &runx_runtime::ConnectClient,
     plan: &runx_cli::connect::ConnectPlan,
-) -> Result<serde_json::Value, runx_runtime::ConnectError> {
+) -> Result<NativeConnectResult, runx_runtime::ConnectError> {
     match plan.action {
-        runx_cli::connect::ConnectAction::List => {
-            serde_json::to_value(client.list()?).map_err(|error| {
-                runx_runtime::ConnectError::Serialize {
-                    message: error.to_string(),
-                }
-            })
-        }
+        runx_cli::connect::ConnectAction::List => Ok(NativeConnectResult::List(client.list()?)),
         runx_cli::connect::ConnectAction::Revoke => {
             let grant_id = plan.grant_id.as_deref().unwrap_or_default();
-            serde_json::to_value(client.revoke(grant_id)?).map_err(|error| {
-                runx_runtime::ConnectError::Serialize {
-                    message: error.to_string(),
-                }
-            })
+            Ok(NativeConnectResult::Revoke(client.revoke(grant_id)?))
         }
         runx_cli::connect::ConnectAction::Preprovision => {
             let request = runx_runtime::HttpConnectPreprovisionRequest {
@@ -100,13 +98,17 @@ fn execute_connect_plan(
                 target_repo: plan.target_repo.clone(),
                 target_locator: plan.target_locator.clone(),
             };
-            serde_json::to_value(client.preprovision(&request)?).map_err(|error| {
-                runx_runtime::ConnectError::Serialize {
-                    message: error.to_string(),
-                }
-            })
+            Ok(NativeConnectResult::Ready(client.preprovision(&request)?))
         }
     }
+}
+
+#[derive(serde::Serialize)]
+#[serde(untagged)]
+enum NativeConnectResult {
+    List(HttpConnectListResponse),
+    Ready(HttpConnectReadyResponse),
+    Revoke(HttpConnectRevokeResponse),
 }
 
 fn runtime_authority_kind(
@@ -125,11 +127,11 @@ fn runtime_authority_kind(
     }
 }
 
-fn write_connect_json(result: &serde_json::Value) -> ExitCode {
-    match serde_json::to_string_pretty(&serde_json::json!({
-        "status": "success",
-        "connect": result,
-    })) {
+fn write_connect_json(result: &NativeConnectResult) -> ExitCode {
+    match serde_json::to_string_pretty(&ConnectJsonEnvelope {
+        status: "success",
+        connect: result,
+    }) {
         Ok(json) => write_stdout_line(&json),
         Err(error) => {
             let _ignored = write_stderr_line(&format!(
@@ -140,48 +142,58 @@ fn write_connect_json(result: &serde_json::Value) -> ExitCode {
     }
 }
 
+#[derive(serde::Serialize)]
+struct ConnectJsonEnvelope<'a> {
+    status: &'static str,
+    connect: &'a NativeConnectResult,
+}
+
 fn render_connect_result(
     plan: &runx_cli::connect::ConnectPlan,
-    result: &serde_json::Value,
+    result: &NativeConnectResult,
 ) -> String {
-    if plan.action == runx_cli::connect::ConnectAction::List {
-        return render_connect_list(result);
+    match result {
+        NativeConnectResult::List(response) => render_connect_list(response),
+        NativeConnectResult::Ready(response) => {
+            render_connect_grant(plan, &response.grant, ready_status(response.status))
+        }
+        NativeConnectResult::Revoke(response) => {
+            render_connect_grant(plan, &response.grant, revoke_status(response.status))
+        }
     }
-    let grant = result.get("grant").and_then(serde_json::Value::as_object);
+}
+
+fn render_connect_grant(
+    plan: &runx_cli::connect::ConnectPlan,
+    grant: &HttpConnectGrant,
+    status: &'static str,
+) -> String {
     let title = if plan.action == runx_cli::connect::ConnectAction::Revoke {
         "connection revoked"
     } else {
         "connection ready"
     };
-    let status = result
-        .get("status")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("success");
     let next = if plan.action == runx_cli::connect::ConnectAction::Revoke {
         "runx connect github"
     } else {
         "runx connect list"
     };
     let mut rows = vec![
-        ("provider", grant_string(grant, "provider")),
-        ("grant", grant_string(grant, "grant_id")),
+        ("provider", grant.provider.clone()),
+        ("grant", grant.grant_id.clone()),
     ];
-    if let Some(scopes) = connect_scopes(grant)
-        && !scopes.is_empty()
-    {
+    let scopes = connect_scopes(grant);
+    if !scopes.is_empty() {
         rows.push(("scopes", scopes));
     }
-    for (label, field) in [
-        ("family", "scope_family"),
-        ("authority", "authority_kind"),
-        ("repo", "target_repo"),
-        ("locator", "target_locator"),
-    ] {
-        let value = grant_string(grant, field);
-        if !value.is_empty() {
-            rows.push((label, value));
-        }
-    }
+    push_optional_row(&mut rows, "family", grant.scope_family.as_deref());
+    push_optional_row(
+        &mut rows,
+        "authority",
+        grant.authority_kind.map(connect_authority_kind),
+    );
+    push_optional_row(&mut rows, "repo", grant.target_repo.as_deref());
+    push_optional_row(&mut rows, "locator", grant.target_locator.as_deref());
     rows.push(("next", next.to_owned()));
 
     let mut lines = vec![String::new(), format!("  ✓  {title}  {status}")];
@@ -191,42 +203,34 @@ fn render_connect_result(
     lines.join("\n")
 }
 
-fn render_connect_list(result: &serde_json::Value) -> String {
-    let Some(grants) = result.get("grants").and_then(serde_json::Value::as_array) else {
-        return "\n  No connections yet.\n  start  runx connect github\n\n".to_owned();
-    };
-    if grants.is_empty() {
+fn render_connect_list(result: &HttpConnectListResponse) -> String {
+    if result.grants.is_empty() {
         return "\n  No connections yet.\n  start  runx connect github\n\n".to_owned();
     }
     let mut lines = vec![
         String::new(),
-        format!("  connections  {} grant(s)", grants.len()),
+        format!("  connections  {} grant(s)", result.grants.len()),
         String::new(),
     ];
-    for grant in grants {
-        let grant = grant.as_object();
+    for grant in &result.grants {
         lines.push(format!(
             "  {}  {}  {}",
             connect_status_icon(grant),
-            grant_string(grant, "provider"),
-            grant_string(grant, "grant_id")
+            grant.provider,
+            grant.grant_id
         ));
-        if let Some(scopes) = connect_scopes(grant) {
-            if !scopes.is_empty() {
-                lines.push(format!("  scopes  {scopes}"));
-            }
+        let scopes = connect_scopes(grant);
+        if !scopes.is_empty() {
+            lines.push(format!("  scopes  {scopes}"));
         }
-        for (label, field) in [
-            ("family", "scope_family"),
-            ("authority", "authority_kind"),
-            ("repo", "target_repo"),
-            ("locator", "target_locator"),
-        ] {
-            let value = grant_string(grant, field);
-            if !value.is_empty() {
-                lines.push(format!("  {label}  {value}"));
-            }
-        }
+        push_optional_line(&mut lines, "family", grant.scope_family.as_deref());
+        push_optional_line(
+            &mut lines,
+            "authority",
+            grant.authority_kind.map(connect_authority_kind),
+        );
+        push_optional_line(&mut lines, "repo", grant.target_repo.as_deref());
+        push_optional_line(&mut lines, "locator", grant.target_locator.as_deref());
         lines.push(String::new());
     }
     lines.join("\n")
@@ -245,33 +249,52 @@ fn render_key_value_rows(rows: &[(&str, String)]) -> Vec<String> {
         .collect()
 }
 
-fn connect_status_icon(grant: Option<&serde_json::Map<String, serde_json::Value>>) -> &'static str {
-    if grant_string(grant, "status") == "revoked" {
-        "✗"
-    } else {
-        "✓"
+fn push_optional_row(
+    rows: &mut Vec<(&'static str, String)>,
+    label: &'static str,
+    value: Option<&str>,
+) {
+    if let Some(value) = value.filter(|value| !value.is_empty()) {
+        rows.push((label, value.to_owned()));
     }
 }
 
-fn connect_scopes(grant: Option<&serde_json::Map<String, serde_json::Value>>) -> Option<String> {
-    grant
-        .and_then(|grant| grant.get("scopes"))
-        .and_then(serde_json::Value::as_array)
-        .map(|scopes| {
-            scopes
-                .iter()
-                .filter_map(serde_json::Value::as_str)
-                .collect::<Vec<_>>()
-                .join(", ")
-        })
+fn push_optional_line(lines: &mut Vec<String>, label: &str, value: Option<&str>) {
+    if let Some(value) = value.filter(|value| !value.is_empty()) {
+        lines.push(format!("  {label}  {value}"));
+    }
 }
 
-fn grant_string(grant: Option<&serde_json::Map<String, serde_json::Value>>, field: &str) -> String {
-    grant
-        .and_then(|grant| grant.get(field))
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or_default()
-        .to_owned()
+fn connect_status_icon(grant: &HttpConnectGrant) -> &'static str {
+    match grant.status {
+        ConnectGrantStatus::Revoked => "✗",
+        ConnectGrantStatus::Active => "✓",
+    }
+}
+
+fn connect_scopes(grant: &HttpConnectGrant) -> String {
+    grant.scopes.join(", ")
+}
+
+fn connect_authority_kind(kind: runx_runtime::connect::ConnectAuthorityKind) -> &'static str {
+    match kind {
+        runx_runtime::connect::ConnectAuthorityKind::ReadOnly => "read_only",
+        runx_runtime::connect::ConnectAuthorityKind::Constructive => "constructive",
+        runx_runtime::connect::ConnectAuthorityKind::Destructive => "destructive",
+    }
+}
+
+fn ready_status(status: ConnectReadyStatus) -> &'static str {
+    match status {
+        ConnectReadyStatus::Created => "created",
+        ConnectReadyStatus::Unchanged => "unchanged",
+    }
+}
+
+fn revoke_status(status: ConnectRevokeStatus) -> &'static str {
+    match status {
+        ConnectRevokeStatus::Revoked => "revoked",
+    }
 }
 
 fn run_native_history(args: Vec<OsString>) -> ExitCode {
@@ -285,6 +308,27 @@ fn run_native_history(args: Vec<OsString>) -> ExitCode {
     match runx_cli::history::run_history_command(&args, &runx_cli::history::env_map(), &cwd) {
         Ok(output) => write_stdout(&output.output),
         Err(runx_cli::history::HistoryCliError::InvalidArgs(message)) => {
+            let _ignored = write_stderr_line(&format!("runx: {message}"));
+            ExitCode::from(2)
+        }
+        Err(error) => {
+            let _ignored = write_stderr_line(&format!("runx: {error}"));
+            ExitCode::from(1)
+        }
+    }
+}
+
+fn run_native_config(plan: runx_cli::config::ConfigPlan) -> ExitCode {
+    let cwd = match env::current_dir() {
+        Ok(cwd) => cwd,
+        Err(error) => {
+            let _ignored = write_stderr_line(&format!("runx: failed to resolve cwd: {error}"));
+            return ExitCode::from(1);
+        }
+    };
+    match runx_cli::config::run_config_command(&plan, &runx_cli::history::env_map(), &cwd) {
+        Ok(output) => write_stdout(&output),
+        Err(runx_cli::config::ConfigCliError::InvalidArgs(message)) => {
             let _ignored = write_stderr_line(&format!("runx: {message}"));
             ExitCode::from(2)
         }

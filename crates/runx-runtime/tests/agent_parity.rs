@@ -1,0 +1,406 @@
+#![cfg(feature = "agent")]
+
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+
+use runx_contracts::{AgentActSourceType, JsonNumber, JsonObject, JsonValue, ResolutionRequest};
+use runx_parser::SkillSource;
+use runx_runtime::adapters::agent::{
+    AgentAdapter, AgentExecutionTelemetry, AgentResolution, AgentResolver, AgentResolverError,
+    AgentToolExecutionTrace,
+};
+use runx_runtime::{
+    InvocationStatus, ManagedAgentConfig, ManagedAgentProvider, RuntimeError, RuntimeOptions,
+    SkillAdapter, SkillInvocation, run_harness_fixture_with_adapter,
+};
+
+#[test]
+fn agent_step_invocation_id_and_envelope_shape() -> Result<(), Box<dyn std::error::Error>> {
+    let resolver = RecordingResolver::success(JsonValue::String("done".to_owned()), None);
+    let mut env = BTreeMap::new();
+    env.insert(
+        "RUNX_TOOL_ROOTS".to_owned(),
+        "/tmp/runx-tools:/opt/runx-tools".to_owned(),
+    );
+
+    let output = AgentAdapter::agent_step(config(), &resolver).invoke(SkillInvocation {
+        env,
+        ..invocation(
+            "agent-step",
+            "fixture.step",
+            source(
+                "agent-step",
+                Some("assistant"),
+                Some("draft release notes"),
+                None,
+            ),
+            JsonObject::new(),
+        )
+    })?;
+
+    assert_eq!(output.status, InvocationStatus::Success);
+    let requests = resolver.requests.borrow();
+    assert_eq!(requests.len(), 1);
+    let ResolutionRequest::AgentAct { id, invocation } = &requests[0] else {
+        return Err(std::io::Error::other("missing agent_act request").into());
+    };
+    assert_eq!(id, "agent_step.draft_release_notes.output");
+    assert_eq!(invocation.id, "agent_step.draft_release_notes.output");
+    assert_eq!(invocation.source_type, AgentActSourceType::AgentStep);
+    assert_eq!(invocation.agent.as_deref(), Some("assistant"));
+    assert_eq!(invocation.task.as_deref(), Some("draft release notes"));
+
+    let envelope = object(&invocation.envelope, "envelope")?;
+    assert_eq!(envelope.get("run_id"), Some(&string("rx_pending")));
+    assert_eq!(envelope.get("skill"), Some(&string("fixture.step")));
+    assert_eq!(envelope.get("instructions"), Some(&string("")));
+    assert_eq!(
+        envelope.get("allowed_tools"),
+        Some(&JsonValue::Array(Vec::new()))
+    );
+    assert_eq!(
+        envelope.get("current_context"),
+        Some(&JsonValue::Array(Vec::new()))
+    );
+    assert_eq!(
+        envelope.get("historical_context"),
+        Some(&JsonValue::Array(Vec::new()))
+    );
+    assert_eq!(
+        envelope.get("provenance"),
+        Some(&JsonValue::Array(Vec::new()))
+    );
+    assert!(envelope.get("trust_boundary").is_some());
+    let execution_location = object_field(envelope, "execution_location")?;
+    assert_eq!(
+        execution_location.get("skill_directory"),
+        Some(&string("/tmp/skill"))
+    );
+    assert_eq!(
+        execution_location.get("tool_roots"),
+        Some(&JsonValue::Array(vec![
+            string("/tmp/runx-tools"),
+            string("/opt/runx-tools")
+        ]))
+    );
+
+    let agent_hook = object_field(&output.metadata, "agent_hook")?;
+    assert_eq!(agent_hook.get("source_type"), Some(&string("agent-step")));
+    assert_eq!(agent_hook.get("agent"), Some(&string("assistant")));
+    assert_eq!(agent_hook.get("task"), Some(&string("draft release notes")));
+    assert_eq!(agent_hook.get("route"), Some(&string("native")));
+    assert_eq!(agent_hook.get("provider"), Some(&string("openai")));
+    assert_eq!(agent_hook.get("model"), Some(&string("gpt-test")));
+    assert_eq!(agent_hook.get("status"), Some(&string("success")));
+    Ok(())
+}
+
+#[test]
+fn agent_plain_text_success() -> Result<(), Box<dyn std::error::Error>> {
+    let telemetry = AgentExecutionTelemetry {
+        rounds: Some(2),
+        tool_calls: Some(1),
+        tools: Some(vec!["fs.read".to_owned()]),
+        tool_executions: Some(vec![AgentToolExecutionTrace {
+            tool: "fs.read".to_owned(),
+            status: "success".to_owned(),
+            receipt_id: Some("rct_1".to_owned()),
+            resolution_kind: None,
+        }]),
+    };
+    let resolver = RecordingResolver::success(
+        JsonValue::String("plain final answer".to_owned()),
+        Some(telemetry),
+    );
+
+    let output = AgentAdapter::agent(config(), &resolver).invoke(invocation(
+        "agent",
+        "fixture.agent",
+        source("agent", Some("assistant"), Some("summarize"), None),
+        JsonObject::new(),
+    ))?;
+
+    assert_eq!(output.status, InvocationStatus::Success);
+    assert_eq!(output.stdout, "plain final answer");
+    assert_eq!(output.stderr, "");
+    assert_eq!(output.exit_code, Some(0));
+    let agent_runner = object_field(&output.metadata, "agent_runner")?;
+    assert_eq!(agent_runner.get("skill"), Some(&string("fixture.agent")));
+    assert_eq!(agent_runner.get("route"), Some(&string("native")));
+    assert_eq!(agent_runner.get("provider"), Some(&string("openai")));
+    assert_eq!(agent_runner.get("model"), Some(&string("gpt-test")));
+    assert_eq!(agent_runner.get("status"), Some(&string("success")));
+    assert_eq!(
+        agent_runner.get("rounds"),
+        Some(&JsonValue::Number(JsonNumber::U64(2)))
+    );
+    assert_eq!(
+        agent_runner.get("tool_calls"),
+        Some(&JsonValue::Number(JsonNumber::U64(1)))
+    );
+    assert_eq!(
+        agent_runner.get("tools"),
+        Some(&JsonValue::Array(vec![string("fs.read")]))
+    );
+    let tool_executions = array_field(agent_runner, "tool_executions")?;
+    assert_eq!(tool_executions.len(), 1);
+    Ok(())
+}
+
+#[test]
+fn agent_step_structured_json_payload_success() -> Result<(), Box<dyn std::error::Error>> {
+    let payload = JsonValue::Object(
+        [
+            ("title".to_owned(), JsonValue::String("Release".to_owned())),
+            ("ready".to_owned(), JsonValue::Bool(true)),
+        ]
+        .into(),
+    );
+    let resolver = RecordingResolver::success(payload, None);
+    let outputs = [(
+        "schema".to_owned(),
+        JsonValue::String("acme.release_notes".to_owned()),
+    )]
+    .into();
+
+    let output = AgentAdapter::agent_step(config(), &resolver).invoke(invocation(
+        "agent-step",
+        "fixture.structured",
+        source(
+            "agent-step",
+            Some("assistant"),
+            Some("structured"),
+            Some(outputs),
+        ),
+        JsonObject::new(),
+    ))?;
+
+    assert_eq!(output.status, InvocationStatus::Success);
+    assert_eq!(output.stdout, r#"{"ready":true,"title":"Release"}"#);
+    let requests = resolver.requests.borrow();
+    let ResolutionRequest::AgentAct { invocation, .. } = &requests[0] else {
+        return Err(std::io::Error::other("missing agent_act request").into());
+    };
+    let envelope = object(&invocation.envelope, "envelope")?;
+    assert_eq!(
+        envelope.get("output"),
+        Some(&JsonValue::Object(
+            [(
+                "schema".to_owned(),
+                JsonValue::String("acme.release_notes".to_owned())
+            )]
+            .into()
+        ))
+    );
+    Ok(())
+}
+
+#[test]
+fn provider_error_failure_sanitizes_stderr_and_metadata() -> Result<(), Box<dyn std::error::Error>>
+{
+    let resolver = RecordingResolver::failure("provider leaked sk-secret-value");
+
+    let output = AgentAdapter::agent_step(config(), &resolver).invoke(invocation(
+        "agent-step",
+        "fixture.fail",
+        source("agent-step", Some("assistant"), Some("fail"), None),
+        JsonObject::new(),
+    ))?;
+
+    assert_eq!(output.status, InvocationStatus::Failure);
+    assert_eq!(output.stdout, "");
+    assert_eq!(output.stderr, "Managed agent provider request failed.");
+    assert_eq!(output.exit_code, None);
+    assert!(!format!("{output:?}").contains("sk-secret-value"));
+    let agent_hook = object_field(&output.metadata, "agent_hook")?;
+    assert_eq!(agent_hook.get("status"), Some(&string("failure")));
+    assert_eq!(agent_hook.get("route"), Some(&string("native")));
+    assert_eq!(agent_hook.get("provider"), Some(&string("openai")));
+    assert_eq!(agent_hook.get("model"), Some(&string("gpt-test")));
+    Ok(())
+}
+
+#[test]
+fn unsupported_source_type_returns_runtime_error() -> Result<(), Box<dyn std::error::Error>> {
+    let resolver = RecordingResolver::success(JsonValue::String("unused".to_owned()), None);
+    let error = AgentAdapter::agent(config(), &resolver).invoke(invocation(
+        "agent-step",
+        "fixture.unsupported",
+        source("agent-step", Some("assistant"), Some("task"), None),
+        JsonObject::new(),
+    ));
+
+    match error {
+        Err(RuntimeError::UnsupportedAdapter { adapter_type }) => {
+            assert_eq!(adapter_type, "agent-step");
+            Ok(())
+        }
+        Ok(_) => Err(std::io::Error::other("adapter unexpectedly succeeded").into()),
+        Err(other) => Err(std::io::Error::other(format!("unexpected error: {other}")).into()),
+    }
+}
+
+#[test]
+fn harness_replay_runs_agent_skill_fixture() -> Result<(), Box<dyn std::error::Error>> {
+    let resolver = RecordingResolver::success(JsonValue::String("agent replayed".to_owned()), None);
+    let temp = tempfile::tempdir()?;
+    let skill_dir = temp.path().join("skill");
+    std::fs::create_dir_all(&skill_dir)?;
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        r#"---
+name: fixture-agent
+description: Fixture agent skill.
+source:
+  type: agent
+  agent: assistant
+  task: summarize
+inputs:
+  topic:
+    type: string
+    required: true
+---
+Summarize the topic.
+"#,
+    )?;
+    let fixture_path = temp.path().join("harness.yaml");
+    std::fs::write(
+        &fixture_path,
+        r#"
+name: fixture-agent
+kind: agent
+target: skill
+inputs:
+  topic: harness replay
+expect:
+  status: success
+"#,
+    )?;
+
+    let replay = run_harness_fixture_with_adapter(
+        &fixture_path,
+        AgentAdapter::agent(config(), &resolver),
+        RuntimeOptions::default(),
+    )?;
+
+    assert_eq!(replay.status, runx_runtime::HarnessExpectedStatus::Success);
+    let output = replay
+        .skill_output
+        .ok_or_else(|| std::io::Error::other("missing replay skill output"))?;
+    assert_eq!(output.status, InvocationStatus::Success);
+    assert_eq!(output.stdout, "agent replayed");
+    let requests = resolver.requests.borrow();
+    assert_eq!(requests.len(), 1);
+    Ok(())
+}
+
+struct RecordingResolver {
+    requests: RefCell<Vec<ResolutionRequest>>,
+    result: Result<AgentResolution, AgentResolverError>,
+}
+
+impl RecordingResolver {
+    fn success(payload: JsonValue, telemetry: Option<AgentExecutionTelemetry>) -> Self {
+        Self {
+            requests: RefCell::new(Vec::new()),
+            result: Ok(AgentResolution::agent(payload, telemetry)),
+        }
+    }
+
+    fn failure(message: &str) -> Self {
+        Self {
+            requests: RefCell::new(Vec::new()),
+            result: Err(AgentResolverError::provider_error(message)),
+        }
+    }
+}
+
+impl AgentResolver for &RecordingResolver {
+    fn resolve(&self, request: ResolutionRequest) -> Result<AgentResolution, AgentResolverError> {
+        self.requests.borrow_mut().push(request);
+        self.result.clone()
+    }
+}
+
+fn invocation(
+    source_type: &str,
+    skill_name: &str,
+    source: SkillSource,
+    inputs: JsonObject,
+) -> SkillInvocation {
+    let mut request = SkillInvocation {
+        skill_name: skill_name.to_owned(),
+        source,
+        inputs,
+        resolved_inputs: JsonObject::new(),
+        skill_directory: "/tmp/skill".into(),
+        env: BTreeMap::new(),
+    };
+    request.source.source_type = source_type.to_owned();
+    request
+}
+
+fn source(
+    source_type: &str,
+    agent: Option<&str>,
+    task: Option<&str>,
+    outputs: Option<JsonObject>,
+) -> SkillSource {
+    SkillSource {
+        source_type: source_type.to_owned(),
+        command: None,
+        args: Vec::new(),
+        cwd: None,
+        timeout_seconds: None,
+        input_mode: None,
+        sandbox: None,
+        server: None,
+        catalog_ref: None,
+        tool: None,
+        arguments: None,
+        agent_card_url: None,
+        agent_identity: None,
+        agent: agent.map(str::to_owned),
+        task: task.map(str::to_owned),
+        hook: None,
+        outputs,
+        graph: None,
+        raw: JsonObject::new(),
+    }
+}
+
+fn config() -> ManagedAgentConfig {
+    ManagedAgentConfig {
+        provider: ManagedAgentProvider::OpenAi,
+        model: "gpt-test".to_owned(),
+        api_key: "sk-test".to_owned(),
+    }
+}
+
+fn object<'a>(value: &'a JsonValue, label: &str) -> Result<&'a JsonObject, std::io::Error> {
+    let JsonValue::Object(object) = value else {
+        return Err(std::io::Error::other(format!("{label} must be an object")));
+    };
+    Ok(object)
+}
+
+fn object_field<'a>(object: &'a JsonObject, key: &str) -> Result<&'a JsonObject, std::io::Error> {
+    let Some(value) = object.get(key) else {
+        return Err(std::io::Error::other(format!("{key} is missing")));
+    };
+    self::object(value, key)
+}
+
+fn array_field<'a>(
+    object: &'a JsonObject,
+    key: &str,
+) -> Result<&'a Vec<JsonValue>, std::io::Error> {
+    let Some(JsonValue::Array(value)) = object.get(key) else {
+        return Err(std::io::Error::other(format!("{key} is missing")));
+    };
+    Ok(value)
+}
+
+fn string(value: &str) -> JsonValue {
+    JsonValue::String(value.to_owned())
+}

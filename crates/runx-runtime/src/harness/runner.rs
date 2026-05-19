@@ -1,3 +1,6 @@
+// rust-style-allow: large-file because harness replay owns fixture loading,
+// adapter invocation, receipt assertion, and graph replay sealing as one
+// deterministic proof path until MCP replay creates a separate module boundary.
 use std::path::{Path, PathBuf};
 
 use runx_contracts::{ClosureDisposition, HarnessReceipt, JsonObject, JsonValue};
@@ -98,13 +101,15 @@ where
     let fixture = load_harness_fixture(fixture_path)?;
     let target_path = resolve_target_path(fixture_path, &fixture.target)?;
     let output = match fixture.kind {
-        HarnessFixtureKind::Skill => run_skill_fixture(&fixture, target_path, adapter, options)?,
+        HarnessFixtureKind::Skill | HarnessFixtureKind::A2a | HarnessFixtureKind::Agent => {
+            run_skill_fixture(&fixture, target_path, adapter, options)?
+        }
         HarnessFixtureKind::AgentStep => run_agent_step_fixture(&fixture, options)?,
         HarnessFixtureKind::Graph if is_fixture_replay_graph(&fixture) => {
             run_graph_replay_fixture(&fixture, options)?
         }
         HarnessFixtureKind::Graph => run_graph_fixture(&fixture, &target_path, adapter, options)?,
-        HarnessFixtureKind::Mcp | HarnessFixtureKind::A2a | HarnessFixtureKind::Agent => {
+        HarnessFixtureKind::Mcp => {
             return Err(HarnessReplayError::UnsupportedFixtureMode {
                 mode: fixture_kind_name(&fixture.kind).to_owned(),
                 field_path: "kind".to_owned(),
@@ -164,6 +169,8 @@ fn is_fixture_replay_graph(fixture: &HarnessFixture) -> bool {
     string_metadata(fixture, "graph_shape") == Some("fixture_replay")
 }
 
+// rust-style-allow: long-function because graph replay receipt assembly keeps
+// step runs, closure disposition, and parent receipt sealing in one invariant.
 fn run_graph_replay_fixture(
     fixture: &HarnessFixture,
     options: RuntimeOptions,
@@ -409,7 +416,6 @@ where
     A: SkillAdapter,
 {
     let skill = load_skill(&skill_dir)?;
-    reject_unsupported_source_type(&skill.source.source_type)?;
     let mut env = options.env.clone();
     env.extend(fixture.env.clone());
     let skill_name = skill.name.clone();
@@ -417,6 +423,7 @@ where
         skill_name: skill.name,
         source: skill.source,
         inputs: fixture.inputs.clone(),
+        resolved_inputs: JsonObject::new(),
         skill_directory: skill_dir,
         env,
     })?;
@@ -434,20 +441,6 @@ where
         step_receipts: Vec::new(),
         skill_output: Some(skill_output),
     })
-}
-
-fn reject_unsupported_source_type(source_type: &str) -> Result<(), HarnessReplayError> {
-    match source_type {
-        "cli-tool" | "harness-hook" => Ok(()),
-        "mcp" | "a2a" | "agent" | "agent-step" => Err(HarnessReplayError::UnsupportedFixtureMode {
-            mode: source_type.to_owned(),
-            field_path: "source.type".to_owned(),
-        }),
-        other => Err(HarnessReplayError::UnsupportedFixtureMode {
-            mode: other.to_owned(),
-            field_path: "source.type".to_owned(),
-        }),
-    }
 }
 
 fn run_graph_fixture<A>(

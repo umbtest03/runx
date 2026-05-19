@@ -30,7 +30,7 @@ describe("official skill resolution", () => {
     try {
       const env = { ...process.env, RUNX_CWD: tempDir, RUNX_HOME: path.join(tempDir, "home") };
       await expect(resolveRunnableSkillReference("definitely-not-a-real-skill", env)).rejects.toThrow(
-        "Try `runx search definitely-not-a-real-skill`",
+        "Try `runx skill search definitely-not-a-real-skill`",
       );
     } finally {
       await rm(tempDir, { recursive: true, force: true });

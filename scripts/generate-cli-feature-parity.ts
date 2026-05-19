@@ -34,6 +34,11 @@ interface OracleCase {
   readonly argv?: readonly string[];
   readonly expectedExitCode?: number;
   readonly expectJson?: boolean;
+  readonly expect?: {
+    readonly pendingRuns: number;
+    readonly firstPendingRunId: string;
+    readonly firstPendingRunStatus: string;
+  };
   readonly stdoutIncludes?: readonly string[];
   readonly stderrIncludes?: readonly string[];
   readonly proves: readonly string[];
@@ -41,6 +46,7 @@ interface OracleCase {
 
 const check = process.argv.includes("--check");
 const checkHelpCoverage = process.argv.includes("--check-help-coverage");
+const canonicalOnly = process.argv.includes("--canonical-only");
 const root = resolve(".");
 const fixturesDir = join(root, "fixtures/cli-parity");
 const casesDir = join(fixturesDir, "cases");
@@ -50,10 +56,10 @@ const exitCodes = [0, 1, 2, 64] as const;
 const commands: readonly CommandMatrixEntry[] = [
   command("cli.help", "runx --help", [], ["--help", "-h"], "none", ["cli-presentation"], ["help.top-level"]),
   command("skill.run", "runx skill <skill-ref|skill-dir|SKILL.md>", [], ["--runner", "--input", "--non-interactive", "--json", "--answers"], "local-runtime", ["skill-resolution", "graph-runtime", "receipts", "sandbox", "adapter-cli-tool", "adapter-a2a", "adapter-agent"], ["skill.run.validate"]),
-  command("skill.search", "runx skill search <query>", ["runx search <query>"], ["--source", "--registry", "--json"], "external-stub", ["registry", "cli-presentation"], ["skill.search.validate"]),
-  command("skill.add", "runx skill add <ref>", ["runx add <registry-ref>", "runx add <github-url>"], ["--version", "--to", "--registry", "--digest", "--json"], "filesystem", ["registry", "skill-resolution"], ["skill.add.validate"]),
+  command("skill.search", "runx skill search <query>", [], ["--source", "--registry", "--json"], "external-stub", ["registry", "cli-presentation"], ["skill.search.validate"]),
+  command("skill.add", "runx skill add <ref>", [], ["--version", "--to", "--registry", "--digest", "--json"], "filesystem", ["registry", "skill-resolution"], ["skill.add.validate"]),
   command("skill.publish", "runx skill publish <skill-dir|SKILL.md>", [], ["--owner", "--version", "--registry", "--json"], "external-stub", ["registry", "receipts"], ["skill.publish.validate"]),
-  command("skill.inspect", "runx skill inspect <receipt-id>", ["runx inspect <receipt-id>"], ["--receipt-dir", "--json"], "none", ["receipts", "cli-presentation"], ["skill.inspect.validate"]),
+  command("skill.inspect", "runx skill inspect <receipt-id>", [], ["--receipt-dir", "--json"], "none", ["receipts", "cli-presentation"], ["skill.inspect.validate"]),
   command("evolve", "runx evolve [objective]", [], ["--receipt", "--non-interactive", "--json", "--answers"], "local-runtime", ["graph-runtime", "receipts", "artifacts"], ["evolve.validate"]),
   command("resume", "runx resume <run-id>", [], ["--non-interactive", "--json", "--answers"], "local-runtime", ["resume-replay", "ledger", "receipts", "caller-mediated-resolution"], ["resume.validate"]),
   command("replay", "runx replay <run-id|receipt-id>", [], ["--receipt-dir", "--non-interactive", "--json", "--answers"], "local-runtime", ["resume-replay", "ledger", "receipts"], ["replay.validate"]),
@@ -67,6 +73,8 @@ const commands: readonly CommandMatrixEntry[] = [
   command("config.set", "runx config set <key> <value>", [], ["--json"], "filesystem", ["config", "cli-presentation"], ["config.set.validate"]),
   command("config.get", "runx config get <key>", [], ["--json"], "filesystem", ["config", "cli-presentation"], ["config.get.validate"]),
   command("config.list", "runx config list", [], ["--json"], "filesystem", ["config", "cli-presentation"], ["config.list.execute"]),
+  command("policy.inspect", "runx policy inspect <policy.json>", [], ["--json"], "none", ["policy", "cli-presentation"], ["policy.inspect.validate"]),
+  command("policy.lint", "runx policy lint <policy.json>", [], ["--json"], "none", ["policy", "cli-presentation"], ["policy.lint.validate"]),
   command("new", "runx new <name>", [], ["--directory", "--json"], "filesystem", ["scaffold", "cli-presentation"], ["new.validate"]),
   command("init", "runx init", [], ["-g", "--global", "--prefetch", "--json"], "filesystem", ["scaffold", "official-skills"], ["init.validate"]),
   command("harness", "runx harness <fixture.yaml|skill-dir|SKILL.md>", [], ["--json"], "local-runtime", ["harness", "receipts", "sandbox"], ["harness.execute"]),
@@ -104,6 +112,7 @@ const surfaces: readonly RuntimeSurface[] = [
   surface("knowledge", "packages/core/knowledge", "schema-exact", ["knowledge.show"], "Public projection output stays schema-exact."),
   surface("connect", "packages/cli", "stubbed", ["connect.list", "connect.revoke", "connect.preprovision"], "OAuth/provider calls are represented by stub services."),
   surface("authority", "packages/core/policy", "schema-exact", ["connect.preprovision", "skill.run"], "Grant, scope, and authority-kind parsing must remain machine-checkable."),
+  surface("policy", "packages/core/policy", "schema-exact", ["policy.inspect", "policy.lint"], "Policy inspection and linting stay machine-checkable before mutation gates run."),
   surface("caller-mediated-resolution", "packages/runtime-local", "fixture-backed", ["resume", "skill.run"], "Required input, approvals, and agent work keep the same pause/resume contract."),
   surface("scaffold", "packages/cli", "semantic", ["new", "init"], "Project and standalone package scaffolds preserve command shape and generated-file intent."),
   surface("official-skills", "packages/cli", "schema-exact", ["init"], "Prefetch and lockfile behavior stays fixture-backed before Rust cutover."),
@@ -116,6 +125,7 @@ const casesExecutedById = new Set([
   "help.top-level",
   "config.list.execute",
   "harness.execute",
+  "history.execute",
   "list.tools.execute",
 ]);
 
@@ -124,6 +134,22 @@ const cases: readonly OracleCase[] = [
   execute("usage.unsupported", "cli.help", ["not-a-command"], 64, false, [], ["Usage:"]),
   execute("config.list.execute", "config.list", ["config", "list", "--json"], 0, true, [], []),
   execute("harness.execute", "harness", ["harness", "fixtures/harness/echo-skill.yaml", "--json"], 0, true, [], []),
+  {
+    id: "history.execute",
+    commandId: "history",
+    mode: "execute",
+    argv: ["history", "--receipt-dir", "$FIXTURE_RECEIPTS", "--json"],
+    expectedExitCode: 0,
+    expectJson: true,
+    expect: {
+      pendingRuns: 1,
+      firstPendingRunId: "gx_paused_oracle",
+      firstPendingRunStatus: "paused",
+    },
+    stdoutIncludes: ["\"pendingRuns\"", "\"gx_paused_oracle\"", "\"selectedRunner\": \"agent-step\""],
+    stderrIncludes: [],
+    proves: ["history", "ledger", "receipts", "cli-presentation"],
+  },
   execute("list.tools.execute", "list", ["list", "tools", "--json"], 0, true, [], []),
   ...commands
     .filter((entry) => !entry.cases.some((caseId) => casesExecutedById.has(caseId)))
@@ -136,6 +162,10 @@ const files = new Map<string, string>([
   [join(fixturesDir, "runtime-surfaces.json"), stableJson({ schema: "runx.cli_runtime_surfaces.v1", surfaces })],
   [join(casesDir, "oracle.json"), stableJson({ schema: "runx.cli_parity_oracle_cases.v1", cases })],
 ]);
+
+if (canonicalOnly) {
+  checkCanonicalOnly();
+}
 
 if (checkHelpCoverage) {
   checkUsageCoverage();
@@ -285,16 +315,16 @@ function helpUsageCommandIds(usage: string): readonly string[] {
   if (usage.startsWith("runx skill <")) {
     return ["skill.run"];
   }
-  if (usage.startsWith("runx skill search") || usage.startsWith("runx search")) {
+  if (usage.startsWith("runx skill search")) {
     return ["skill.search"];
   }
-  if (usage.startsWith("runx skill add") || usage.startsWith("runx add")) {
+  if (usage.startsWith("runx skill add")) {
     return ["skill.add"];
   }
   if (usage.startsWith("runx skill publish")) {
     return ["skill.publish"];
   }
-  if (usage.startsWith("runx skill inspect") || usage.startsWith("runx inspect")) {
+  if (usage.startsWith("runx skill inspect")) {
     return ["skill.inspect"];
   }
   if (usage.startsWith("runx export-receipts")) {
@@ -308,6 +338,15 @@ function helpUsageCommandIds(usage: string): readonly string[] {
   }
   if (usage.startsWith("runx config ")) {
     return ["config.set", "config.get", "config.list"];
+  }
+  if (usage.startsWith("runx policy inspect|lint")) {
+    return ["policy.inspect", "policy.lint"];
+  }
+  if (usage.startsWith("runx policy inspect")) {
+    return ["policy.inspect"];
+  }
+  if (usage.startsWith("runx policy lint")) {
+    return ["policy.lint"];
   }
   if (usage.startsWith("runx mcp serve")) {
     return ["mcp.serve"];
@@ -326,6 +365,14 @@ function helpUsageCommandIds(usage: string): readonly string[] {
     return [];
   }
   return [commandName];
+}
+
+function checkCanonicalOnly(): void {
+  const aliases = commands.flatMap((entry) =>
+    (entry.aliases ?? []).map((alias) => `${entry.id}: ${alias}`));
+  if (aliases.length > 0) {
+    throw new Error(`canonical CLI matrix must not include aliases:\n${aliases.join("\n")}`);
+  }
 }
 
 function checkFiles(): void {

@@ -5,6 +5,7 @@
 //! parser/core/receipt crates stay upstream of this crate.
 
 pub mod adapter;
+pub mod approval;
 pub mod caller;
 pub mod config;
 pub mod connect;
@@ -35,6 +36,10 @@ pub mod tool_catalogs;
 pub mod adapters;
 
 pub use adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
+pub use approval::{
+    ApprovalError, ApprovalResolution, LocalApprovalGateResolver, approval_idempotency_key,
+    request_approval,
+};
 pub use caller::{Caller, NoopCaller};
 pub use config::{
     ConfigError, ConfigKey, LocalProfileSource, ManagedAgentConfig, ManagedAgentProvider,

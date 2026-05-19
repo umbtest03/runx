@@ -6,7 +6,7 @@
     "surface": "issue_thread",
     "adapter_ref": "example/repo#issue/123"
   },
-  "thread_kind": "engagement",
+  "thread_kind": "signal",
   "thread_locator": "github://example/repo/issues/123",
   "title": "Fixture checkout validation fails",
   "canonical_uri": "https://github.com/example/repo/issues/123",

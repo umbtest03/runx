@@ -4,7 +4,7 @@ task_id: rust-placeholder-crates-publish
 created: '2026-05-17T02:30:00Z'
 updated: '2026-05-19T12:11:22Z'
 status: draft
-harden_status: not_run
+harden_status: blocked
 size: small
 risk_level: high
 ---
@@ -14,15 +14,19 @@ risk_level: high
 ## Current State
 
 Status: draft
-Current phase: none
-Next: approve
-Reason: draft created
-Blockers: workspace Rust tests and cargo-deny supply-chain gates must be green;
-do not publish placeholder crates while banned dependencies, unreviewed
-licenses, or known advisories are present.
-Allowed follow-up command: `scafld harden rust-placeholder-crates-publish`
-Latest runner update: 2026-05-17T12:31:02Z - all seven crate names published and verified with cargo search.
-Review gate: not_started
+Current phase: publish-preflight
+Next: publish-dependency-chain
+Reason: reservation publish completed at `0.0.1`; API-bearing follow-up
+versions for `runx-contracts`, `runx-core`, and `runx-parser` are staged at
+`0.0.2` so packaged dependents do not resolve stale published APIs.
+Blockers: `runx-contracts` `0.0.2` must be published before `runx-core`
+and `runx-parser` package verification can resolve registry dependencies.
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-19T13:55:00Z - staged API-bearing dependency
+versions, crate graph/style gates pass, `cargo package -p runx-contracts`
+passes; dependent package checks are blocked until crates.io sees
+`runx-contracts` `0.0.2`.
+Review gate: blocked_on_publish_order
 
 ## Summary
 
@@ -55,8 +59,10 @@ Files impacted:
 Invariants:
 - Reservation publishing claims names only. It does not claim native feature
   parity or TypeScript cutover.
-- Placeholder crates use reservation version `0.0.1`. `runx-cli` remains
-  `0.1.0` because it is a usable launcher.
+- Already-published reservation crates used version `0.0.1`. API-bearing
+  follow-up publishes must not reuse that version; dependency crates publish
+  before dependents so package verification resolves the required APIs.
+  `runx-cli` remains `0.1.0` because it is a usable launcher.
 - Publish order is dependency order:
   1. `runx-contracts`
   2. `runx-core`
@@ -192,7 +198,7 @@ Validation:
 Goal: Verify placeholder crates use reservation version `0.0.1`, then verify
 package metadata, dependency order, and placeholder messaging.
 
-Status: pending
+Status: blocked
 Dependencies: `rust-contracts-bootstrap`
 
 Acceptance:
@@ -205,10 +211,10 @@ Acceptance:
   - Command: `for p in runx-contracts runx-parser runx-receipts runx-runtime runx-sdk; do rg -n 'Placeholder|placeholder' "crates/$p/README.md" >/dev/null || exit 1; done && rg -n 'state-machine parity|conformance evidence|TypeScript remains authoritative' crates/runx-core/README.md`
   - Expected kind: `exit_code_zero`
   - Status: pending
-- [ ] `ac1_3` command - publish versions are staged.
-  - Command: `for p in runx-contracts runx-core runx-parser runx-receipts runx-runtime runx-sdk; do rg -n '^version = "0\\.0\\.1"$' "crates/$p/Cargo.toml" >/dev/null || exit 1; done`
+- [x] `ac1_3` command - publish versions are staged.
+  - Command: `for p in runx-contracts runx-core runx-parser; do rg -n '^version = "0\\.0\\.2"$' "crates/$p/Cargo.toml" >/dev/null || exit 1; done && for p in runx-receipts runx-runtime runx-sdk; do rg -n '^version = "0\\.0\\.1"$' "crates/$p/Cargo.toml" >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: passed
 
 ## Phase 2: Publish preflight
 
@@ -232,8 +238,8 @@ Dependencies: Phase 2 and explicit user confirmation immediately before
 running real publish commands.
 
 Commands:
-- verify placeholder crate versions are `0.0.1`, including `crates/Cargo.toml`
-  workspace dependency versions
+- verify publish versions are staged, including `crates/Cargo.toml` workspace
+  dependency versions
 - `cargo publish -p runx-contracts --allow-dirty`
 - wait until `cargo search runx-contracts --limit 5` finds `runx-contracts`
 - `cargo publish -p runx-core --allow-dirty`
@@ -355,3 +361,8 @@ Supersession:
 - 2026-05-17T12:31:02Z: Published and verified `runx-contracts` `0.0.1`,
   `runx-core` `0.0.1`, `runx-parser` `0.0.1`, `runx-receipts` `0.0.1`,
   `runx-runtime` `0.0.1`, `runx-sdk` `0.0.1`, and `runx-cli` `0.1.0`.
+- 2026-05-19T13:55:00Z: Staged API-bearing `0.0.2` follow-up versions for
+  `runx-contracts`, `runx-core`, and `runx-parser`. `cargo package -p
+  runx-contracts --allow-dirty` passes; `runx-core` and `runx-parser`
+  package checks correctly block until crates.io resolves `runx-contracts`
+  `0.0.2`.

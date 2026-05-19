@@ -154,10 +154,10 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   }
 
   const adminOffset = command === "skill" ? 1 : 0;
-  const isSkillSearch = (command === "skill" && positionals[0] === "search") || command === "search";
-  const isSkillAdd = (command === "skill" && positionals[0] === "add") || command === "add";
+  const isSkillSearch = command === "skill" && positionals[0] === "search";
+  const isSkillAdd = command === "skill" && positionals[0] === "add";
   const isSkillPublish = command === "skill" && positionals[0] === "publish";
-  const isSkillInspect = (command === "skill" && positionals[0] === "inspect") || command === "inspect";
+  const isSkillInspect = command === "skill" && positionals[0] === "inspect";
   const isKnowledgeShow = command === "knowledge" && positionals[0] === "show";
   const isConnect = command === "connect";
   const isConfig = command === "config";
@@ -381,16 +381,16 @@ export function isSupportedCommand(parsed: ParsedArgs): boolean {
   if (parsed.command === "list" && parsed.listKind) {
     return true;
   }
-  if ((parsed.command === "skill" || parsed.command === "search") && parsed.skillAction === "search" && parsed.searchQuery) {
+  if (parsed.command === "skill" && parsed.skillAction === "search" && parsed.searchQuery) {
     return true;
   }
-  if ((parsed.command === "skill" || parsed.command === "add") && parsed.skillAction === "add" && parsed.skillRef) {
+  if (parsed.command === "skill" && parsed.skillAction === "add" && parsed.skillRef) {
     return true;
   }
   if (parsed.command === "skill" && parsed.skillAction === "publish" && parsed.publishPath) {
     return true;
   }
-  if ((parsed.command === "skill" || parsed.command === "inspect") && parsed.skillAction === "inspect" && parsed.receiptId) {
+  if (parsed.command === "skill" && parsed.skillAction === "inspect" && parsed.receiptId) {
     return true;
   }
   if (parsed.skillPath) {

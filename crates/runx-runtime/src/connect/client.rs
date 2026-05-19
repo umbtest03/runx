@@ -1,3 +1,6 @@
+// rust-style-allow: large-file because the connect client keeps OAuth polling,
+// redacted HTTP error handling, and typed response validation in one security
+// review unit until the connect module is split.
 use std::collections::BTreeMap;
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -6,6 +9,7 @@ use crate::hosted_http::{
     CommandHttpTransport, HostedHttpClient, HostedHttpError, HostedHttpHeader, HostedHttpResponse,
     HostedTransport, HttpMethod,
 };
+use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
 use super::opener::{ConnectOpener, ProcessConnectOpener};
@@ -187,11 +191,11 @@ impl<T: HostedTransport, O: ConnectOpener> ConnectClient<T, O> {
         route: &str,
         body: Option<String>,
     ) -> ConnectResult<HttpConnectStartResponse> {
-        let value = self.request_value(HttpMethod::Post, route, body)?;
-        let status = status_string(route, &value)?;
-        match status {
+        let text = self.request_text(HttpMethod::Post, route, body)?;
+        let envelope = response_envelope(route, &text)?;
+        match envelope.status.as_str() {
             "created" | "unchanged" | "oauth_required" => {
-                serde_json::from_value(value).map_err(|error| ConnectError::Contract {
+                serde_json::from_str(&text).map_err(|error| ConnectError::Contract {
                     route: safe_route(route),
                     message: error.to_string(),
                 })
@@ -204,14 +208,15 @@ impl<T: HostedTransport, O: ConnectOpener> ConnectClient<T, O> {
     }
 
     fn request_flow(&self, route: &str) -> ConnectResult<HttpConnectFlowResponse> {
-        let value = self.request_value(HttpMethod::Get, route, None)?;
-        let status = status_string(route, &value)?;
-        match status {
-            "created" | "unchanged" | "pending" | "failed" => serde_json::from_value(value)
-                .map_err(|error| ConnectError::Contract {
+        let text = self.request_text(HttpMethod::Get, route, None)?;
+        let envelope = response_envelope(route, &text)?;
+        match envelope.status.as_str() {
+            "created" | "unchanged" | "pending" | "failed" => {
+                serde_json::from_str(&text).map_err(|error| ConnectError::Contract {
                     route: safe_route(route),
                     message: error.to_string(),
-                }),
+                })
+            }
             status => Err(ConnectError::UnsupportedStatus {
                 route: safe_route(route),
                 status: redact_connect_text(status),
@@ -225,20 +230,20 @@ impl<T: HostedTransport, O: ConnectOpener> ConnectClient<T, O> {
         route: &str,
         body: Option<String>,
     ) -> ConnectResult<R> {
-        serde_json::from_value(self.request_value(method, route, body)?).map_err(|error| {
-            ConnectError::Contract {
-                route: safe_route(route),
-                message: error.to_string(),
-            }
+        let text = self.request_text(method, route, body)?;
+        validate_json(route, &text)?;
+        serde_json::from_str(&text).map_err(|error| ConnectError::Contract {
+            route: safe_route(route),
+            message: error.to_string(),
         })
     }
 
-    fn request_value(
+    fn request_text(
         &self,
         method: HttpMethod,
         route: &str,
         body: Option<String>,
-    ) -> ConnectResult<serde_json::Value> {
+    ) -> ConnectResult<String> {
         let response = self.send(method, route, body)?;
         if !(200..=299).contains(&response.status) {
             return Err(ConnectError::HttpStatus {
@@ -246,10 +251,7 @@ impl<T: HostedTransport, O: ConnectOpener> ConnectClient<T, O> {
                 message: http_error_message(response.status, &response.body),
             });
         }
-        serde_json::from_str(&response.body).map_err(|error| ConnectError::InvalidJson {
-            route: safe_route(route),
-            message: error.to_string(),
-        })
+        Ok(response.body)
     }
 
     fn send(
@@ -321,13 +323,30 @@ pub enum ConnectError {
     Serialize { message: String },
 }
 
-fn status_string<'a>(route: &str, value: &'a serde_json::Value) -> ConnectResult<&'a str> {
-    value
-        .get("status")
-        .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| ConnectError::Contract {
+#[derive(Deserialize)]
+struct ConnectStatusEnvelope {
+    status: String,
+}
+
+#[derive(Deserialize)]
+struct ConnectErrorEnvelope {
+    error: String,
+}
+
+fn response_envelope(route: &str, body: &str) -> ConnectResult<ConnectStatusEnvelope> {
+    validate_json(route, body)?;
+    serde_json::from_str(body).map_err(|error| ConnectError::Contract {
+        route: safe_route(route),
+        message: error.to_string(),
+    })
+}
+
+fn validate_json(route: &str, body: &str) -> ConnectResult<()> {
+    serde_json::from_str::<runx_contracts::JsonValue>(body)
+        .map(|_| ())
+        .map_err(|error| ConnectError::InvalidJson {
             route: safe_route(route),
-            message: "missing status".to_owned(),
+            message: error.to_string(),
         })
 }
 
@@ -335,10 +354,8 @@ fn http_error_message(status: u16, body: &str) -> String {
     if body.is_empty() {
         return format!("HTTP {status}");
     }
-    if let Ok(value) = serde_json::from_str::<serde_json::Value>(body)
-        && let Some(error) = value.get("error").and_then(serde_json::Value::as_str)
-    {
-        return redact_connect_text(error);
+    if let Ok(value) = serde_json::from_str::<ConnectErrorEnvelope>(body) {
+        return redact_connect_text(&value.error);
     }
     format!("HTTP {status} with {} byte response body", body.len())
 }

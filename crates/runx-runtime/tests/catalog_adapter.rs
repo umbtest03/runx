@@ -153,6 +153,7 @@ fn invocation_in_directory(
             raw: JsonObject::new(),
         },
         inputs,
+        resolved_inputs: JsonObject::new(),
         skill_directory,
         env,
     }

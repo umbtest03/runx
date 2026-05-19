@@ -303,7 +303,7 @@ export async function dispatchCli(
     return 0;
   }
 
-  if ((parsed.command === "skill" || parsed.command === "search") && parsed.skillAction === "search" && parsed.searchQuery) {
+  if (parsed.command === "skill" && parsed.skillAction === "search" && parsed.searchQuery) {
     const results = await runSkillSearch(parsed.searchQuery, parsed.sourceFilter, env, parsed.registryUrl);
     if (parsed.json) {
       io.stdout.write(
@@ -324,9 +324,9 @@ export async function dispatchCli(
     return 0;
   }
 
-  if ((parsed.command === "skill" || parsed.command === "add") && parsed.skillAction === "add" && parsed.skillRef && isGithubRepoUrl(parsed.skillRef)) {
+  if (parsed.command === "skill" && parsed.skillAction === "add" && parsed.skillRef && isGithubRepoUrl(parsed.skillRef)) {
     if (parsed.installTo || parsed.expectedDigest) {
-      io.stderr.write("runx add: GitHub URL indexing does not support --to or --digest. Index the URL, then install the emitted registry ref.\n");
+      io.stderr.write("runx skill add: GitHub URL indexing does not support --to or --digest. Index the URL, then install the emitted registry ref.\n");
       return 1;
     }
     try {
@@ -344,14 +344,14 @@ export async function dispatchCli(
     } catch (error) {
       if (error instanceof UrlAddCliError) {
         const detail = error.payload.hint ? `${error.payload.detail}\n  hint: ${error.payload.hint}` : error.payload.detail;
-        io.stderr.write(`runx add: ${detail}\n`);
+        io.stderr.write(`runx skill add: ${detail}\n`);
         return 1;
       }
       throw error;
     }
   }
 
-  if ((parsed.command === "skill" || parsed.command === "add") && parsed.skillAction === "add" && parsed.skillRef) {
+  if (parsed.command === "skill" && parsed.skillAction === "add" && parsed.skillRef) {
     const registryTarget = resolveRunxRegistryTarget(env, { registry: parsed.registryUrl });
     const installState = registryTarget.mode === "remote"
       ? await ensureRunxInstallState(resolveRunxGlobalHomeDir(env))
@@ -410,7 +410,7 @@ export async function dispatchCli(
     return 0;
   }
 
-  if ((parsed.command === "skill" || parsed.command === "inspect") && parsed.skillAction === "inspect" && parsed.receiptId) {
+  if (parsed.command === "skill" && parsed.skillAction === "inspect" && parsed.receiptId) {
     const inspection = await handleInspectRunCommand({
       receiptId: parsed.receiptId,
       receiptDir: parsed.receiptDir,

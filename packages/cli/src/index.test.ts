@@ -933,7 +933,7 @@ Answer the prompt directly.
     expect(stdout.contents()).toContain("runx registry");
     expect(stdout.contents()).toContain("run  ");
     expect(stdout.contents()).toContain("add  ");
-    expect(stdout.contents()).toContain("runx add acme/sourcey@1.0.0 --registry https://runx.example.test");
+    expect(stdout.contents()).toContain("runx skill add acme/sourcey@1.0.0 --registry https://runx.example.test");
     expect(stdout.contents()).toContain("runx sourcey");
   });
 
@@ -983,7 +983,7 @@ Answer the prompt directly.
     }) as typeof fetch;
 
     const exitCode = await runCli(
-      ["add", "acme/sourcey@1.0.0", "--registry", "https://runx.example.test", "--to", installDir],
+      ["skill", "add", "acme/sourcey@1.0.0", "--registry", "https://runx.example.test", "--to", installDir],
       { stdin: process.stdin, stdout, stderr },
       {
         ...process.env,
@@ -1029,7 +1029,7 @@ Answer the prompt directly.
     }) as typeof fetch;
 
     const exitCode = await runCli(
-      ["add", "github.com/kam/skills", "--version", "main", "--registry", "https://api.runx.test", "--json"],
+      ["skill", "add", "github.com/kam/skills", "--version", "main", "--registry", "https://api.runx.test", "--json"],
       { stdin: process.stdin, stdout, stderr },
       { ...process.env, RUNX_CWD: process.cwd() },
     );
@@ -1050,7 +1050,7 @@ Answer the prompt directly.
     globalThis.fetch = vi.fn() as typeof fetch;
 
     const exitCode = await runCli(
-      ["add", "github.com/kam/skills", "--to", "skills"],
+      ["skill", "add", "github.com/kam/skills", "--to", "skills"],
       { stdin: process.stdin, stdout, stderr },
       { ...process.env, RUNX_CWD: process.cwd() },
     );
@@ -1070,13 +1070,30 @@ Answer the prompt directly.
     expect(exitCode).toBe(0);
     expect(stderr.contents()).toBe("");
     expect(stdout.contents()).toContain("Core Flow:");
-    expect(stdout.contents()).toContain("runx search docs");
+    expect(stdout.contents()).toContain("runx skill search docs");
     expect(stdout.contents()).toContain("runx skill <skill-ref> --project .");
     expect(stdout.contents()).toContain("runx evolve");
-    expect(stdout.contents()).toContain("runx inspect <receipt-id>");
+    expect(stdout.contents()).toContain("runx skill inspect <receipt-id>");
     expect(stdout.contents()).toContain("runx export-receipts --trainable");
     expect(stdout.contents()).toContain("Manage Skills:");
     expect(stdout.contents()).toContain("runx skill publish");
+  });
+
+  it("rejects retired top-level skill aliases", async () => {
+    for (const argv of [
+      ["search", "docs"],
+      ["add", "acme/sourcey@1.0.0"],
+      ["inspect", "rx_123"],
+    ]) {
+      const stdout = createMemoryStream();
+      const stderr = createMemoryStream();
+
+      const exitCode = await runCli(argv, { stdin: process.stdin, stdout, stderr }, { ...process.env, RUNX_CWD: process.cwd() });
+
+      expect(exitCode).toBe(64);
+      expect(stdout.contents()).toBe("");
+      expect(stderr.contents()).toContain("Usage:");
+    }
   });
 
   it("renders a neutral empty history state", async () => {
@@ -1092,8 +1109,8 @@ Answer the prompt directly.
     expect(stderr.contents()).toBe("");
     expect(stdout.contents()).toContain("No receipts yet. Try a run first:");
     expect(stdout.contents()).toContain("runx evolve");
-    expect(stdout.contents()).toContain("runx search docs");
-    expect(stdout.contents()).not.toContain("runx search sourcey");
+    expect(stdout.contents()).toContain("runx skill search docs");
+    expect(stdout.contents()).not.toContain("runx skill search sourcey");
   });
 
   it("renders connect results as human-readable summaries", async () => {
@@ -2144,7 +2161,7 @@ expect:
     stdout.clear();
     stderr.clear();
     const inspectExitCode = await runCli(
-      ["inspect", report.receipt_id ?? "", "--receipt-dir", receiptDir, "--json"],
+      ["skill", "inspect", report.receipt_id ?? "", "--receipt-dir", receiptDir, "--json"],
       { stdin: process.stdin, stdout, stderr },
       { ...process.env, RUNX_CWD: tempDir },
     );

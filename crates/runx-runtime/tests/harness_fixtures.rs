@@ -133,7 +133,7 @@ fn rejects_unsupported_fixture_mode_with_stable_path() {
     let result = parse_harness_fixture(
         r#"
 name: old
-kind: a2a
+kind: mcp
 target: ../skills/echo
 expect:
   status: success
@@ -143,7 +143,7 @@ expect:
     assert!(matches!(
         result,
         Err(HarnessFixtureError::UnsupportedFixtureMode { mode, field_path })
-            if mode == "a2a" && field_path == "kind"
+            if mode == "mcp" && field_path == "kind"
     ));
 }
 

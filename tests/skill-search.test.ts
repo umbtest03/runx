@@ -61,7 +61,7 @@ describe("skill-search CLI", () => {
             trust_tier: "community",
             profile_mode: "portable",
             runner_names: [],
-            add_command: "runx add acme/sourcey@1.0.0 --registry https://runx.example.test",
+            add_command: "runx skill add acme/sourcey@1.0.0 --registry https://runx.example.test",
           }),
         ]),
       );

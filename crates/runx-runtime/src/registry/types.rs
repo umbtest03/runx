@@ -1,5 +1,5 @@
+use runx_contracts::JsonValue;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -37,7 +37,7 @@ pub struct RegistryAttestation {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub issued_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata: Option<Value>,
+    pub metadata: Option<JsonValue>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

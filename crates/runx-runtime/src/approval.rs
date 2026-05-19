@@ -1,0 +1,258 @@
+use std::collections::{BTreeMap, BTreeSet};
+
+use runx_contracts::{
+    ApprovalGate, ExecutionEvent, JsonObject, JsonValue, ResolutionRequest, ResolutionResponse,
+    ResolutionResponseActor,
+};
+use sha2::{Digest, Sha256};
+use thiserror::Error;
+
+use crate::{Caller, RuntimeError};
+
+#[derive(Debug, Error)]
+pub enum ApprovalError {
+    #[error(transparent)]
+    Runtime(#[from] RuntimeError),
+    #[error("approval response payload from {actor:?} must be boolean, got {payload_type}")]
+    NonBooleanPayload {
+        actor: ResolutionResponseActor,
+        payload_type: &'static str,
+    },
+    #[error("approval gate serialization failed while {context}: {source}")]
+    Json {
+        context: String,
+        #[source]
+        source: serde_json::Error,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ApprovalResolution {
+    Approved {
+        actor: ResolutionResponseActor,
+        idempotency_key: String,
+    },
+    Denied {
+        actor: ResolutionResponseActor,
+        idempotency_key: String,
+    },
+    Pending {
+        idempotency_key: String,
+    },
+}
+
+impl ApprovalResolution {
+    #[must_use]
+    pub fn approved(&self) -> Option<bool> {
+        match self {
+            Self::Approved { .. } => Some(true),
+            Self::Denied { .. } => Some(false),
+            Self::Pending { .. } => None,
+        }
+    }
+
+    #[must_use]
+    pub fn actor(&self) -> Option<&ResolutionResponseActor> {
+        match self {
+            Self::Approved { actor, .. } | Self::Denied { actor, .. } => Some(actor),
+            Self::Pending { .. } => None,
+        }
+    }
+
+    #[must_use]
+    pub fn idempotency_key(&self) -> &str {
+        match self {
+            Self::Approved {
+                idempotency_key, ..
+            }
+            | Self::Denied {
+                idempotency_key, ..
+            }
+            | Self::Pending { idempotency_key } => idempotency_key,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct LocalApprovalGateResolver {
+    requested: BTreeSet<String>,
+    resolved: BTreeMap<String, CachedApproval>,
+}
+
+impl LocalApprovalGateResolver {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn request_approval(
+        &mut self,
+        caller: &mut dyn Caller,
+        id: impl Into<String>,
+        gate: ApprovalGate,
+    ) -> Result<ApprovalResolution, ApprovalError> {
+        let id = id.into();
+        let idempotency_key = approval_idempotency_key(&gate)?;
+        if let Some(cached) = self.resolved.get(&idempotency_key) {
+            return Ok(cached.resolution(idempotency_key));
+        }
+
+        self.report_requested(caller, &id, &gate, &idempotency_key)?;
+        let response = caller.resolve(ResolutionRequest::Approval {
+            id: id.clone(),
+            gate: gate.clone(),
+        })?;
+        let Some(response) = response else {
+            return Ok(ApprovalResolution::Pending { idempotency_key });
+        };
+
+        self.resolve_response(caller, &id, &gate, idempotency_key, response)
+    }
+
+    fn report_requested(
+        &mut self,
+        caller: &mut dyn Caller,
+        id: &str,
+        gate: &ApprovalGate,
+        idempotency_key: &str,
+    ) -> Result<(), ApprovalError> {
+        if self.requested.insert(idempotency_key.to_owned()) {
+            caller.report(requested_event(id, gate, idempotency_key))?;
+        }
+        Ok(())
+    }
+
+    fn resolve_response(
+        &mut self,
+        caller: &mut dyn Caller,
+        id: &str,
+        gate: &ApprovalGate,
+        idempotency_key: String,
+        response: ResolutionResponse,
+    ) -> Result<ApprovalResolution, ApprovalError> {
+        let cached = CachedApproval::from_response(response)?;
+        caller.report(resolved_event(id, gate, &idempotency_key, &cached))?;
+        let resolution = cached.resolution(idempotency_key.clone());
+        self.resolved.insert(idempotency_key, cached);
+        Ok(resolution)
+    }
+}
+
+pub fn request_approval(
+    caller: &mut dyn Caller,
+    id: impl Into<String>,
+    gate: ApprovalGate,
+) -> Result<ApprovalResolution, ApprovalError> {
+    LocalApprovalGateResolver::new().request_approval(caller, id, gate)
+}
+
+pub fn approval_idempotency_key(gate: &ApprovalGate) -> Result<String, ApprovalError> {
+    let canonical = serde_json::to_string(gate).map_err(|source| ApprovalError::Json {
+        context: "serializing approval gate".to_owned(),
+        source,
+    })?;
+    Ok(sha256_prefixed(canonical.as_bytes()))
+}
+
+#[derive(Clone, Debug)]
+struct CachedApproval {
+    actor: ResolutionResponseActor,
+    approved: bool,
+}
+
+impl CachedApproval {
+    fn from_response(response: ResolutionResponse) -> Result<Self, ApprovalError> {
+        let payload_type = payload_type(&response.payload);
+        let JsonValue::Bool(approved) = response.payload else {
+            return Err(ApprovalError::NonBooleanPayload {
+                actor: response.actor,
+                payload_type,
+            });
+        };
+        Ok(Self {
+            actor: response.actor,
+            approved,
+        })
+    }
+
+    fn resolution(&self, idempotency_key: String) -> ApprovalResolution {
+        if self.approved {
+            ApprovalResolution::Approved {
+                actor: self.actor.clone(),
+                idempotency_key,
+            }
+        } else {
+            ApprovalResolution::Denied {
+                actor: self.actor.clone(),
+                idempotency_key,
+            }
+        }
+    }
+}
+
+fn requested_event(id: &str, gate: &ApprovalGate, idempotency_key: &str) -> ExecutionEvent {
+    ExecutionEvent::ResolutionRequested {
+        message: format!("approval {} requested", gate.id),
+        data: Some(JsonValue::Object(event_data(id, gate, idempotency_key))),
+    }
+}
+
+fn resolved_event(
+    id: &str,
+    gate: &ApprovalGate,
+    idempotency_key: &str,
+    approval: &CachedApproval,
+) -> ExecutionEvent {
+    let mut data = event_data(id, gate, idempotency_key);
+    data.insert(
+        "actor".to_owned(),
+        JsonValue::String(actor_name(&approval.actor)),
+    );
+    data.insert("approved".to_owned(), JsonValue::Bool(approval.approved));
+    let decision = if approval.approved {
+        "approved"
+    } else {
+        "denied"
+    };
+    ExecutionEvent::ResolutionResolved {
+        message: format!("approval {} {decision}", gate.id),
+        data: Some(JsonValue::Object(data)),
+    }
+}
+
+fn event_data(id: &str, gate: &ApprovalGate, idempotency_key: &str) -> JsonObject {
+    let mut data = JsonObject::new();
+    data.insert("request_id".to_owned(), JsonValue::String(id.to_owned()));
+    data.insert("gate_id".to_owned(), JsonValue::String(gate.id.clone()));
+    if let Some(gate_type) = &gate.gate_type {
+        data.insert("gate_type".to_owned(), JsonValue::String(gate_type.clone()));
+    }
+    data.insert(
+        "idempotency_key".to_owned(),
+        JsonValue::String(idempotency_key.to_owned()),
+    );
+    data
+}
+
+fn actor_name(actor: &ResolutionResponseActor) -> String {
+    match actor {
+        ResolutionResponseActor::Human => "human".to_owned(),
+        ResolutionResponseActor::Agent => "agent".to_owned(),
+    }
+}
+
+fn payload_type(payload: &JsonValue) -> &'static str {
+    match payload {
+        JsonValue::Null => "null",
+        JsonValue::Bool(_) => "boolean",
+        JsonValue::Number(_) => "number",
+        JsonValue::String(_) => "string",
+        JsonValue::Array(_) => "array",
+        JsonValue::Object(_) => "object",
+    }
+}
+
+fn sha256_prefixed(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    format!("sha256:{digest:x}")
+}

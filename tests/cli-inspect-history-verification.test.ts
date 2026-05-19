@@ -45,7 +45,7 @@ describe("CLI inspect/history receipt verification", () => {
 
       const invalidLedgerInspectStdout = createMemoryStream();
       const invalidLedgerInspectExit = await runCli(
-        ["inspect", runReport.receipt.id, "--receipt-dir", receiptDir, "--json"],
+        ["skill", "inspect", runReport.receipt.id, "--receipt-dir", receiptDir, "--json"],
         { stdin: process.stdin, stdout: invalidLedgerInspectStdout, stderr: createMemoryStream() },
         { ...process.env, RUNX_HOME: runxHome },
       );

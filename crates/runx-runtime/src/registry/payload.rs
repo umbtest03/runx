@@ -1,3 +1,5 @@
+// rust-style-allow: large-file because the registry response parser keeps
+// payload shapes next to their field-path contract errors for review.
 use serde_json::{Map, Value};
 
 use super::http::RegistryClientError;
@@ -301,7 +303,7 @@ fn attestations_field(
                 summary: string_field(item, "summary", route, &item_path)?,
                 source: optional_string_field(item, "source", route, &item_path)?,
                 issued_at: optional_string_field(item, "issued_at", route, &item_path)?,
-                metadata: item.get("metadata").cloned(),
+                metadata: optional_json_field(item, "metadata", route, &item_path)?,
             })
         })
         .collect()
@@ -351,6 +353,20 @@ fn optional_bool_field(
             .as_bool()
             .map(Some)
             .ok_or_else(|| contract_error(route, &format!("{path}.{field}"), "expected boolean")),
+    }
+}
+
+fn optional_json_field(
+    record: &Map<String, Value>,
+    field: &str,
+    route: &str,
+    path: &str,
+) -> Result<Option<runx_contracts::JsonValue>, RegistryClientError> {
+    match record.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => serde_json::from_value(value.clone())
+            .map(Some)
+            .map_err(|error| contract_error(route, &format!("{path}.{field}"), &error.to_string())),
     }
 }
 

@@ -75,6 +75,36 @@
       ]
     },
     {
+      "id": "history.execute",
+      "commandId": "history",
+      "mode": "execute",
+      "argv": [
+        "history",
+        "--receipt-dir",
+        "$FIXTURE_RECEIPTS",
+        "--json"
+      ],
+      "expectedExitCode": 0,
+      "expectJson": true,
+      "expect": {
+        "pendingRuns": 1,
+        "firstPendingRunId": "gx_paused_oracle",
+        "firstPendingRunStatus": "paused"
+      },
+      "stdoutIncludes": [
+        "\"pendingRuns\"",
+        "\"gx_paused_oracle\"",
+        "\"selectedRunner\": \"agent-step\""
+      ],
+      "stderrIncludes": [],
+      "proves": [
+        "history",
+        "ledger",
+        "receipts",
+        "cli-presentation"
+      ]
+    },
+    {
       "id": "list.tools.execute",
       "commandId": "list",
       "mode": "execute",
@@ -192,36 +222,6 @@
       ]
     },
     {
-      "id": "history.execute",
-      "commandId": "history",
-      "mode": "execute",
-      "argv": [
-        "history",
-        "--receipt-dir",
-        "$FIXTURE_RECEIPTS",
-        "--json"
-      ],
-      "expectedExitCode": 0,
-      "expectJson": true,
-      "expect": {
-        "pendingRuns": 1,
-        "firstPendingRunId": "gx_paused_oracle",
-        "firstPendingRunStatus": "paused"
-      },
-      "stdoutIncludes": [
-        "\"pendingRuns\"",
-        "\"gx_paused_oracle\"",
-        "\"selectedRunner\": \"agent-step\""
-      ],
-      "stderrIncludes": [],
-      "proves": [
-        "history",
-        "ledger",
-        "receipts",
-        "cli-presentation"
-      ]
-    },
-    {
       "id": "export-receipts.trainable.validate",
       "commandId": "export-receipts.trainable",
       "mode": "validate",
@@ -281,6 +281,24 @@
       "mode": "validate",
       "proves": [
         "config",
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "policy.inspect.validate",
+      "commandId": "policy.inspect",
+      "mode": "validate",
+      "proves": [
+        "policy",
+        "cli-presentation"
+      ]
+    },
+    {
+      "id": "policy.lint.validate",
+      "commandId": "policy.lint",
+      "mode": "validate",
+      "proves": [
+        "policy",
         "cli-presentation"
       ]
     },

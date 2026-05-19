@@ -204,7 +204,7 @@ runners:
     tags: [],
     profile_mode: "profiled",
     runner_names: ["portable-cli"],
-    add_command: "runx add invalid-x:portable",
+    add_command: "runx skill add invalid-x:portable",
     run_command: "runx portable",
   };
   return {

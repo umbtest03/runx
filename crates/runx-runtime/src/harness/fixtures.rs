@@ -230,15 +230,15 @@ fn validate_supported_fixture_kind(
     field_path: &'static str,
 ) -> Result<(), HarnessFixtureError> {
     match kind {
-        HarnessFixtureKind::Skill | HarnessFixtureKind::Graph | HarnessFixtureKind::AgentStep => {
-            Ok(())
-        }
-        HarnessFixtureKind::Mcp | HarnessFixtureKind::A2a | HarnessFixtureKind::Agent => {
-            Err(HarnessFixtureError::UnsupportedFixtureMode {
-                mode: fixture_kind_name(kind).to_owned(),
-                field_path: field_path.to_owned(),
-            })
-        }
+        HarnessFixtureKind::Skill
+        | HarnessFixtureKind::Graph
+        | HarnessFixtureKind::A2a
+        | HarnessFixtureKind::Agent
+        | HarnessFixtureKind::AgentStep => Ok(()),
+        HarnessFixtureKind::Mcp => Err(HarnessFixtureError::UnsupportedFixtureMode {
+            mode: fixture_kind_name(kind).to_owned(),
+            field_path: field_path.to_owned(),
+        }),
     }
 }
 

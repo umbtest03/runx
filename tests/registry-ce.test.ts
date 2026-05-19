@@ -57,7 +57,7 @@ describe("registry CE", () => {
         profile_digest: version.profile_digest,
         runner_names: ["agent", "sourcey"],
         source_type: "agent",
-        install_command: "runx add acme/sourcey@1.0.0 --registry https://runx.example.test",
+        install_command: "runx skill add acme/sourcey@1.0.0 --registry https://runx.example.test",
         run_command: "runx sourcey",
       });
       expect(page?.trust_signals).toEqual(trustSignals);
@@ -80,7 +80,7 @@ describe("registry CE", () => {
           profile_mode: "profiled",
           runner_names: ["agent", "sourcey"],
           profile_digest: version.profile_digest,
-          add_command: "runx add acme/sourcey@1.0.0 --registry https://runx.example.test",
+          add_command: "runx skill add acme/sourcey@1.0.0 --registry https://runx.example.test",
         }),
       ]);
 
@@ -91,7 +91,7 @@ describe("registry CE", () => {
         version: "1.0.0",
         digest: version.digest,
         registry_url: "https://runx.example.test",
-        install_command: "runx add acme/sourcey@1.0.0 --registry https://runx.example.test",
+        install_command: "runx skill add acme/sourcey@1.0.0 --registry https://runx.example.test",
         run_command: "runx sourcey",
       });
     } finally {

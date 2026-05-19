@@ -82,7 +82,7 @@ export function resolveSkillReference(ref: string, env: NodeJS.ProcessEnv): stri
   if (resolved) {
     return resolved;
   }
-  throw new Error(`Skill not found: ${ref}. Try \`runx search ${ref}\` to discover available skills.`);
+  throw new Error(`Skill not found: ${ref}. Try \`runx skill search ${ref}\` to discover available skills.`);
 }
 
 export async function resolveRunnableSkillReference(ref: string, env: NodeJS.ProcessEnv): Promise<string> {
@@ -92,7 +92,7 @@ export async function resolveRunnableSkillReference(ref: string, env: NodeJS.Pro
   }
   const official = officialSkillEntry(ref);
   if (!official) {
-    throw new Error(`Skill not found: ${ref}. Try \`runx search ${ref}\` to discover available skills.`);
+    throw new Error(`Skill not found: ${ref}. Try \`runx skill search ${ref}\` to discover available skills.`);
   }
   const globalHomeDir = resolveRunxGlobalHomeDir(env);
   const install = await ensureRunxInstallState(globalHomeDir);
@@ -225,7 +225,7 @@ async function searchBundledSkills(query: string): Promise<readonly SkillSearchR
       tags: [],
       profile_mode: hasProfile ? "profiled" : "portable",
       runner_names: [],
-      add_command: `runx add runx/${name}`,
+      add_command: `runx skill add runx/${name}`,
       run_command: preferredRunCommand(name),
     });
   }

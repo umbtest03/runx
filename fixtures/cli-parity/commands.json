@@ -78,9 +78,7 @@
     {
       "id": "skill.search",
       "usage": "runx skill search <query>",
-      "aliases": [
-        "runx search <query>"
-      ],
+      "aliases": [],
       "requiredPositionals": [
         "<query>"
       ],
@@ -112,10 +110,7 @@
     {
       "id": "skill.add",
       "usage": "runx skill add <ref>",
-      "aliases": [
-        "runx add <registry-ref>",
-        "runx add <github-url>"
-      ],
+      "aliases": [],
       "requiredPositionals": [
         "<ref>"
       ],
@@ -182,9 +177,7 @@
     {
       "id": "skill.inspect",
       "usage": "runx skill inspect <receipt-id>",
-      "aliases": [
-        "runx inspect <receipt-id>"
-      ],
+      "aliases": [],
       "requiredPositionals": [
         "<receipt-id>"
       ],
@@ -621,6 +614,66 @@
       },
       "cases": [
         "config.list.execute"
+      ]
+    },
+    {
+      "id": "policy.inspect",
+      "usage": "runx policy inspect <policy.json>",
+      "aliases": [],
+      "requiredPositionals": [
+        "<policy.json>"
+      ],
+      "flags": [
+        "--json"
+      ],
+      "exitCodes": [
+        0,
+        1,
+        2,
+        64
+      ],
+      "parity": {
+        "humanOutput": "semantic",
+        "jsonOutput": "schema-exact",
+        "receipt": "none",
+        "sideEffect": "none",
+        "surfaces": [
+          "policy",
+          "cli-presentation"
+        ]
+      },
+      "cases": [
+        "policy.inspect.validate"
+      ]
+    },
+    {
+      "id": "policy.lint",
+      "usage": "runx policy lint <policy.json>",
+      "aliases": [],
+      "requiredPositionals": [
+        "<policy.json>"
+      ],
+      "flags": [
+        "--json"
+      ],
+      "exitCodes": [
+        0,
+        1,
+        2,
+        64
+      ],
+      "parity": {
+        "humanOutput": "semantic",
+        "jsonOutput": "schema-exact",
+        "receipt": "none",
+        "sideEffect": "none",
+        "surfaces": [
+          "policy",
+          "cli-presentation"
+        ]
+      },
+      "cases": [
+        "policy.lint.validate"
       ]
     },
     {

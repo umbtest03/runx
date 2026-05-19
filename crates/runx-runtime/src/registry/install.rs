@@ -1,11 +1,14 @@
+// rust-style-allow: large-file because local registry installs keep digest
+// validation, binding checks, conflict planning, and atomic writes in one
+// transaction module.
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use runx_parser::{
-    SkillInstallOrigin, parse_runner_manifest_yaml, validate_runner_manifest,
-    validate_skill_install,
+    SkillInstallOrigin, ValidatedSkillInstall, parse_runner_manifest_yaml,
+    validate_runner_manifest, validate_skill_install,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -97,6 +100,63 @@ pub fn install_local_skill(
     candidate: &InstallCandidate,
     options: &InstallLocalSkillOptions,
 ) -> Result<InstallLocalSkillResult, InstallError> {
+    let validated = validate_install_candidate(candidate, options)?;
+    let paths = install_paths(candidate, options, &validated.install.skill.name);
+    let write_plan = prepare_install_write_plan(
+        &paths,
+        &validated.install.markdown,
+        validated.next_profile_state.as_deref(),
+    )?;
+    commit_install_write_plan(
+        &paths,
+        &write_plan,
+        &validated.install.markdown,
+        validated.next_profile_state.as_deref(),
+    )?;
+
+    Ok(InstallLocalSkillResult {
+        status: if write_plan.writes_skill || write_plan.writes_profile_state {
+            InstallStatus::Installed
+        } else {
+            InstallStatus::Unchanged
+        },
+        destination: paths.destination,
+        skill_name: validated.install.skill.name,
+        source: validated.install.origin.source,
+        source_label: validated.install.origin.source_label,
+        skill_id: validated.install.origin.skill_id,
+        version: validated.install.origin.version,
+        digest: validated.actual_digest,
+        profile_digest: validated.profile_digest,
+        profile_state_path: paths.profile_state_path,
+        runner_names: validated.runner_names,
+        trust_tier: candidate.trust_tier.clone(),
+    })
+}
+
+struct ValidatedLocalInstall {
+    actual_digest: String,
+    profile_digest: Option<String>,
+    runner_names: Vec<String>,
+    install: ValidatedSkillInstall,
+    next_profile_state: Option<String>,
+}
+
+struct InstallPaths {
+    package_root: PathBuf,
+    destination: PathBuf,
+    profile_state_path: Option<PathBuf>,
+}
+
+struct InstallWritePlan {
+    writes_skill: bool,
+    writes_profile_state: bool,
+}
+
+fn validate_install_candidate(
+    candidate: &InstallCandidate,
+    options: &InstallLocalSkillOptions,
+) -> Result<ValidatedLocalInstall, InstallError> {
     let actual_digest = sha256_prefixed(&candidate.markdown);
     let expected_digest = options
         .expected_digest
@@ -112,17 +172,7 @@ pub fn install_local_skill(
         }
     }
 
-    let origin = SkillInstallOrigin {
-        source: candidate.source.clone(),
-        source_label: candidate.source_label.clone(),
-        r#ref: candidate.r#ref.clone(),
-        skill_id: candidate.skill_id.clone(),
-        version: candidate.version.clone(),
-        digest: Some(actual_digest.clone()),
-        profile_digest: candidate.profile_digest.clone(),
-        runner_names: Some(candidate.runner_names.clone()),
-        trust_tier: candidate.trust_tier.as_ref().map(trust_tier_string),
-    };
+    let origin = install_origin(candidate, &actual_digest);
     let install = validate_skill_install(&candidate.markdown, origin)?;
     let profile_digest = candidate
         .profile_document
@@ -143,17 +193,6 @@ pub fn install_local_skill(
         candidate.profile_document.as_deref(),
         &candidate.runner_names,
     )?;
-    let package_parts = safe_skill_package_parts(&candidate.r#ref, &install.skill.name);
-    let package_root = package_parts
-        .iter()
-        .fold(options.destination_root.clone(), |path, part| {
-            path.join(part)
-        });
-    let destination = package_root.join("SKILL.md");
-    let profile_state_path = candidate
-        .profile_document
-        .as_ref()
-        .map(|_| package_root.join(".runx").join("profile.json"));
     let next_profile_state = match &candidate.profile_document {
         Some(document) => Some(profile_state(
             &install.skill.name,
@@ -165,62 +204,108 @@ pub fn install_local_skill(
         )?),
         None => None,
     };
+    Ok(ValidatedLocalInstall {
+        actual_digest,
+        profile_digest,
+        runner_names,
+        install,
+        next_profile_state,
+    })
+}
 
-    let existing = read_optional(&destination)?;
-    let existing_profile = match &profile_state_path {
+fn install_origin(candidate: &InstallCandidate, actual_digest: &str) -> SkillInstallOrigin {
+    SkillInstallOrigin {
+        source: candidate.source.clone(),
+        source_label: candidate.source_label.clone(),
+        r#ref: candidate.r#ref.clone(),
+        skill_id: candidate.skill_id.clone(),
+        version: candidate.version.clone(),
+        digest: Some(actual_digest.to_owned()),
+        profile_digest: candidate.profile_digest.clone(),
+        runner_names: Some(candidate.runner_names.clone()),
+        trust_tier: candidate.trust_tier.as_ref().map(trust_tier_string),
+    }
+}
+
+fn install_paths(
+    candidate: &InstallCandidate,
+    options: &InstallLocalSkillOptions,
+    skill_name: &str,
+) -> InstallPaths {
+    let package_parts = safe_skill_package_parts(&candidate.r#ref, skill_name);
+    let package_root = package_parts
+        .iter()
+        .fold(options.destination_root.clone(), |path, part| {
+            path.join(part)
+        });
+    let destination = package_root.join("SKILL.md");
+    let profile_state_path = candidate
+        .profile_document
+        .as_ref()
+        .map(|_| package_root.join(".runx").join("profile.json"));
+    InstallPaths {
+        package_root,
+        destination,
+        profile_state_path,
+    }
+}
+
+fn prepare_install_write_plan(
+    paths: &InstallPaths,
+    markdown: &str,
+    next_profile_state: Option<&str>,
+) -> Result<InstallWritePlan, InstallError> {
+    let existing = read_optional(&paths.destination)?;
+    let existing_profile = match &paths.profile_state_path {
         Some(path) => read_optional(path)?,
         None => None,
     };
     if let Some(existing) = &existing {
-        if sha256_prefixed(existing) != actual_digest {
-            return Err(InstallError::ConflictingSkill(destination));
+        if sha256_prefixed(existing) != sha256_prefixed(markdown) {
+            return Err(InstallError::ConflictingSkill(paths.destination.clone()));
         }
     }
-    if let (Some(path), Some(existing), Some(next)) =
-        (&profile_state_path, &existing_profile, &next_profile_state)
-    {
+    if let (Some(path), Some(existing), Some(next)) = (
+        &paths.profile_state_path,
+        &existing_profile,
+        next_profile_state,
+    ) {
         if existing != next {
             return Err(InstallError::ConflictingProfile(path.clone()));
         }
     }
-    let writes_profile_state = profile_state_path.is_some() && existing_profile.is_none();
+    Ok(InstallWritePlan {
+        writes_skill: existing.is_none(),
+        writes_profile_state: paths.profile_state_path.is_some() && existing_profile.is_none(),
+    })
+}
 
-    fs::create_dir_all(&package_root).map_err(|source| InstallError::Io {
-        path: package_root.clone(),
+fn commit_install_write_plan(
+    paths: &InstallPaths,
+    write_plan: &InstallWritePlan,
+    markdown: &str,
+    next_profile_state: Option<&str>,
+) -> Result<(), InstallError> {
+    fs::create_dir_all(&paths.package_root).map_err(|source| InstallError::Io {
+        path: paths.package_root.clone(),
         source,
     })?;
-    if existing.is_none() {
-        write_atomic(&destination, &install.markdown)?;
+    if write_plan.writes_skill {
+        write_atomic(&paths.destination, markdown)?;
     }
-    if let (Some(path), None, Some(next)) =
-        (&profile_state_path, existing_profile, next_profile_state)
-    {
-        let parent = path.parent().unwrap_or(&package_root);
+    if let (Some(path), true, Some(next)) = (
+        &paths.profile_state_path,
+        write_plan.writes_profile_state,
+        next_profile_state,
+    ) {
+        let parent = path.parent().unwrap_or(&paths.package_root);
         fs::create_dir_all(parent).map_err(|source| InstallError::Io {
             path: parent.to_path_buf(),
             source,
         })?;
-        write_atomic(path, &next)?;
+        write_atomic(path, next)?;
     }
-
-    Ok(InstallLocalSkillResult {
-        status: if existing.is_none() || writes_profile_state {
-            InstallStatus::Installed
-        } else {
-            InstallStatus::Unchanged
-        },
-        destination,
-        skill_name: install.skill.name,
-        source: install.origin.source,
-        source_label: install.origin.source_label,
-        skill_id: install.origin.skill_id,
-        version: install.origin.version,
-        digest: actual_digest,
-        profile_digest,
-        profile_state_path,
-        runner_names,
-        trust_tier: candidate.trust_tier.clone(),
-    })
+    Ok(())
 }
 
 fn validate_install_binding_manifest(

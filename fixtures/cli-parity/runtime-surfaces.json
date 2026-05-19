@@ -242,6 +242,16 @@
       "notes": "Grant, scope, and authority-kind parsing must remain machine-checkable."
     },
     {
+      "id": "policy",
+      "owner": "packages/core/policy",
+      "parityClass": "schema-exact",
+      "coveredBy": [
+        "policy.inspect",
+        "policy.lint"
+      ],
+      "notes": "Policy inspection and linting stay machine-checkable before mutation gates run."
+    },
+    {
       "id": "caller-mediated-resolution",
       "owner": "packages/runtime-local",
       "parityClass": "fixture-backed",

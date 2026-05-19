@@ -79,7 +79,7 @@ fn search_rejects_unknown_trust_tier_with_field_path() -> Result<(), Box<dyn std
             "required_scopes": [],
             "tags": [],
             "trust_tier": "owner_derived",
-            "install_command": "runx add acme/echo",
+            "install_command": "runx skill add acme/echo",
             "run_command": "runx run acme/echo"
         }]
     }));
@@ -306,7 +306,7 @@ fn search_skill(skill_id: &str, name: &str, version: &str) -> serde_json::Value 
         "required_scopes": [],
         "tags": [],
         "trust_tier": "community",
-        "install_command": format!("runx add {skill_id}"),
+        "install_command": format!("runx skill add {skill_id}"),
         "run_command": format!("runx run {skill_id}")
     })
 }

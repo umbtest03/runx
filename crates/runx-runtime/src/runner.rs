@@ -713,6 +713,7 @@ where
         skill_name: skill.name,
         source: skill.source,
         inputs,
+        resolved_inputs: JsonObject::new(),
         skill_directory: skill_dir,
         env: runtime.options.env.clone(),
     })?;

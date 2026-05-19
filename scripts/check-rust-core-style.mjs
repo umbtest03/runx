@@ -23,7 +23,7 @@ const disallowedPatterns = [
     reason: "public Rust code should use typed structs/enums, not JSON values",
   },
   {
-    pattern: /\bserde_yml::Value\b/u,
+    pattern: /\bserde_(?:norway|yml)::Value\b/u,
     reason: "public Rust code should parse YAML into typed structs or runx JSON carriers",
   },
   {

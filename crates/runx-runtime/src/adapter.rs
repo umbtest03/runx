@@ -17,6 +17,7 @@ pub struct SkillInvocation {
     pub skill_name: String,
     pub source: SkillSource,
     pub inputs: JsonObject,
+    pub resolved_inputs: JsonObject,
     pub skill_directory: PathBuf,
     pub env: BTreeMap<String, String>,
 }

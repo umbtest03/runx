@@ -11,6 +11,7 @@ pub enum AuthorityResourceFamily {
     Network,
     Deployment,
     Credential,
+    Payment,
     Artifact,
     Harness,
     Publication,
@@ -30,6 +31,10 @@ pub enum AuthorityVerb {
     Delete,
     Execute,
     Verify,
+    Quote,
+    Reserve,
+    Spend,
+    Refund,
     Publish,
     SpawnChild,
 }
@@ -45,6 +50,48 @@ pub enum AuthorityCapability {
     ProviderMutation,
     PublicPublication,
     ChildHarnessSpawn,
+    PaymentSingleUseSpend,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PaymentAuthorityBounds {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_per_call_minor: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_per_run_minor: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_per_period_minor: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub period: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rails: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub counterparty: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub operation: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quote_ttl_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval_threshold_minor: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credential_form: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub quote_required: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub reservation_required: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub idempotency_required: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub recovery_required: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub receipt_before_success: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub single_use_spend: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -65,6 +112,8 @@ pub struct AuthorityBounds {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_spend_usd: Option<JsonNumber>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub payment: Option<PaymentAuthorityBounds>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub max_runtime_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_fanout: Option<u32>,
@@ -82,6 +131,12 @@ pub enum AuthorityConditionPredicate {
     WithinTimeWindow,
     WithinBudget,
     SandboxEnforced,
+    PaymentReceiptPresent,
+    PaymentRecoveryAvailable,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

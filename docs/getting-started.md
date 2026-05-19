@@ -35,7 +35,7 @@ Receipts are written under `.runx/receipts` unless `RUNX_RECEIPT_DIR` is set.
 Use the id from the previous command:
 
 ```bash
-pnpm exec runx inspect <receipt-id>
+pnpm exec runx skill inspect <receipt-id>
 ```
 
 The inspection should show a verified `skill_execution` receipt. That receipt

@@ -1,3 +1,4 @@
+use runx_cli::config::{ConfigAction, ConfigPlan};
 use runx_cli::connect::{ConnectAction, ConnectAuthorityKind, ConnectPlan};
 use std::path::PathBuf;
 
@@ -227,6 +228,49 @@ fn connect_rejects_invalid_connect_shape() {
     assert_eq!(
         action,
         LauncherAction::Error("runx connect revoke requires exactly one grant id".to_owned())
+    );
+}
+
+#[test]
+fn config_routes_to_native_cli_even_with_js_fallback_configured() {
+    let action = plan_with_rust_cli_and_js(vec![
+        "config".into(),
+        "set".into(),
+        "agent.model".into(),
+        "gpt-test".into(),
+        "--json".into(),
+    ]);
+
+    assert_eq!(
+        action,
+        LauncherAction::RunConfig(ConfigPlan {
+            action: ConfigAction::Set,
+            key: Some("agent.model".to_owned()),
+            value: Some("gpt-test".to_owned()),
+            json: true,
+        })
+    );
+}
+
+#[test]
+fn config_delegates_without_rust_cli_signal() {
+    let action = plan_launcher(
+        vec!["config".into(), "list".into(), "--json".into()],
+        Some("@runxhq/cli@0.5.22".into()),
+        Some("/repo/oss/packages/cli/bin/runx.js".into()),
+    );
+
+    assert_eq!(
+        action,
+        LauncherAction::Delegate(CommandPlan {
+            program: node_command().into(),
+            args: vec![
+                "/repo/oss/packages/cli/bin/runx.js".into(),
+                "config".into(),
+                "list".into(),
+                "--json".into(),
+            ],
+        })
     );
 }
 

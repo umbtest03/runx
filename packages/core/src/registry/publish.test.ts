@@ -33,7 +33,7 @@ describe("publishSkillMarkdown", () => {
         registry_url: "https://runx.example.test",
       });
       expect(first.digest).toMatch(/^[a-f0-9]{64}$/);
-      expect(first.link.install_command).toBe("runx add acme/echo@1.0.0 --registry https://runx.example.test");
+      expect(first.link.install_command).toBe("runx skill add acme/echo@1.0.0 --registry https://runx.example.test");
       expect(second).toMatchObject({
         status: "unchanged",
         skill_id: "acme/echo",

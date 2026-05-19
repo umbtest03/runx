@@ -15,12 +15,21 @@ const expectedMembers = [
   "runx-sdk",
 ];
 
-const placeholderReservationCrates = new Set([
+const apiBearingPublishedCrates = new Set([
   "runx-contracts",
   "runx-core",
+  "runx-parser",
+]);
+
+const reservationVersionCrates = new Set([
   "runx-receipts",
   "runx-runtime",
   "runx-sdk",
+]);
+
+const publishableLibraryCrates = new Set([
+  ...apiBearingPublishedCrates,
+  ...reservationVersionCrates,
 ]);
 
 const allowedRunxDeps = new Map([
@@ -41,19 +50,25 @@ const requiredRunxDeps = new Map([
   ["runx-sdk", new Set(["runx-contracts"])],
 ]);
 
-const placeholderOnlyDisallowedDeps = [
+const nonCliDisallowedDeps = [
   "tokio",
-  "reqwest",
-  "hyper",
   "rmcp",
   "clap",
+];
+
+const workspaceDisallowedDeps = [
+  "reqwest",
+  "hyper",
+  "serde_yml",
 ];
 
 const findings = [];
 const workspaceManifest = await readManifest("Cargo.toml");
 const actualMembers = parseWorkspaceMembers(workspaceManifest);
+const workspaceRunxVersions = parseWorkspaceRunxDependencyVersions(workspaceManifest);
 
 checkMembers(actualMembers);
+checkDisallowedDependencies("workspace", workspaceManifest);
 
 for (const crateName of expectedMembers) {
   const manifest = await readManifest(`${crateName}/Cargo.toml`);
@@ -61,10 +76,12 @@ for (const crateName of expectedMembers) {
   if (packageName !== crateName) {
     findings.push(`${crateName}/Cargo.toml package name is ${packageName ?? "missing"}, expected ${crateName}`);
   }
+  checkWorkspaceDependencyVersion(crateName, manifest);
   checkPublishingReadiness(crateName, manifest);
   checkRunxDependencies(crateName, manifest);
   await checkRunxDependencyUsage(crateName, manifest);
   checkPrematureRuntimeDependencies(crateName, manifest);
+  checkDisallowedDependencies(crateName, manifest);
 }
 
 if (findings.length > 0) {
@@ -107,6 +124,15 @@ function parsePackageVersion(manifest) {
   return match?.[1];
 }
 
+function parseWorkspaceRunxDependencyVersions(manifest) {
+  const body = sectionBody(manifest, "workspace.dependencies");
+  const versions = new Map();
+  for (const match of body.matchAll(/^(runx-[A-Za-z0-9_-]+)\s*=\s*\{[^}]*version\s*=\s*"([^"]+)"/gmu)) {
+    versions.set(match[1], match[2]);
+  }
+  return versions;
+}
+
 function checkMembers(actualMembers) {
   const expected = [...expectedMembers].sort();
   if (actualMembers.join("\n") !== expected.join("\n")) {
@@ -117,16 +143,34 @@ function checkMembers(actualMembers) {
   }
 }
 
+function checkWorkspaceDependencyVersion(crateName, manifest) {
+  const workspaceVersion = workspaceRunxVersions.get(crateName);
+  if (!workspaceVersion) {
+    return;
+  }
+  const packageVersion = parsePackageVersion(manifest);
+  if (workspaceVersion !== packageVersion) {
+    findings.push(
+      `workspace dependency ${crateName} version ${workspaceVersion} must match ${crateName}/Cargo.toml version ${packageVersion ?? "missing"}`,
+    );
+  }
+}
+
 function checkPublishingReadiness(crateName, manifest) {
   const packageBody = sectionBody(manifest, "package");
   const hasPublishFalse = /^publish\s*=\s*false\s*$/mu.test(packageBody);
-  if (placeholderReservationCrates.has(crateName)) {
-    const version = parsePackageVersion(manifest);
+  const version = parsePackageVersion(manifest);
+  if (apiBearingPublishedCrates.has(crateName) && version === "0.0.1") {
+    findings.push(`${crateName}/Cargo.toml must not reuse the published reservation version 0.0.1 for API-bearing publishability`);
+  }
+  if (reservationVersionCrates.has(crateName)) {
     if (version !== "0.0.1") {
       findings.push(`${crateName}/Cargo.toml must use placeholder reservation version 0.0.1, found ${version ?? "missing"}`);
     }
+  }
+  if (publishableLibraryCrates.has(crateName)) {
     if (hasPublishFalse) {
-      findings.push(`${crateName}/Cargo.toml must remain publishable so the placeholder name can be reserved`);
+      findings.push(`${crateName}/Cargo.toml must remain publishable so the crates.io package can be reserved or updated`);
     }
   }
   if (crateName === "runx-cli" && hasPublishFalse) {
@@ -190,9 +234,18 @@ function checkPrematureRuntimeDependencies(crateName, manifest) {
     return;
   }
   const dependencyNames = parseDependencyNames(manifest);
-  for (const dep of placeholderOnlyDisallowedDeps) {
+  for (const dep of nonCliDisallowedDeps) {
     if (dependencyNames.includes(dep)) {
       findings.push(`${crateName} must not depend on ${dep} before its implementation spec allows it`);
+    }
+  }
+}
+
+function checkDisallowedDependencies(crateName, manifest) {
+  const dependencyNames = parseDependencyNames(manifest);
+  for (const dep of workspaceDisallowedDeps) {
+    if (dependencyNames.includes(dep)) {
+      findings.push(`${crateName} must not depend on ${dep}`);
     }
   }
 }

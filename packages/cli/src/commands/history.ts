@@ -125,7 +125,7 @@ export function renderReceiptInspection(summary: LocalReceiptSummary, env: NodeJ
   if (summary.ledgerVerification) rows.push(["ledger", `${summary.ledgerVerification.status}${summary.ledgerVerification.reason ? ` (${summary.ledgerVerification.reason})` : ""}`]);
   rows.push(["history", "runx history"]);
   rows.push(["replay", `runx replay ${summary.id}`]);
-  rows.push(["json", `runx inspect ${summary.id} --json`]);
+  rows.push(["json", `runx skill inspect ${summary.id} --json`]);
   return renderKeyValue(summary.name, summary.status, rows, t);
 }
 
@@ -140,7 +140,7 @@ export function renderHistory(
   if (totalCount === 0) {
     return query
       ? `\n  ${t.dim}No receipts matched ${t.cyan}${query}${t.reset}${t.dim}.${t.reset}\n  ${t.dim}Try ${t.cyan}runx history${t.reset}${t.dim} to see every local run.${t.reset}\n\n`
-      : `\n  ${t.dim}No receipts yet. Try a run first:${t.reset}\n  ${t.cyan}runx evolve${t.reset}\n  ${t.cyan}runx search docs${t.reset}\n\n`;
+      : `\n  ${t.dim}No receipts yet. Try a run first:${t.reset}\n  ${t.cyan}runx evolve${t.reset}\n  ${t.cyan}runx skill search docs${t.reset}\n\n`;
   }
   const now = Date.now();
   const allNames = [...receipts.map((r) => r.name), ...pendingRuns.map((r) => r.name)];
@@ -176,9 +176,9 @@ export function renderHistory(
   }
   lines.push("");
   if (pendingRuns.length > 0) {
-    lines.push(`  ${t.dim}next${t.reset}  runx resume <run-id>  ${t.dim}or${t.reset}  runx inspect <receipt-id>`);
+    lines.push(`  ${t.dim}next${t.reset}  runx resume <run-id>  ${t.dim}or${t.reset}  runx skill inspect <receipt-id>`);
   } else {
-    lines.push(`  ${t.dim}next${t.reset}  runx inspect <receipt-id>`);
+    lines.push(`  ${t.dim}next${t.reset}  runx skill inspect <receipt-id>`);
   }
   lines.push("");
   return lines.join("\n");
@@ -211,7 +211,7 @@ export function renderPausedRunInspection(
   if (summary.stepLabels.length > 0) rows.push(["label", summary.stepLabels.join(", ")]);
   if (summary.ledgerVerification) rows.push(["ledger", `${summary.ledgerVerification.status}${summary.ledgerVerification.reason ? ` (${summary.ledgerVerification.reason})` : ""}`]);
   rows.push(["resume", `runx resume ${summary.id}`]);
-  rows.push(["json", `runx inspect ${summary.id} --json`]);
+  rows.push(["json", `runx skill inspect ${summary.id} --json`]);
   return renderKeyValue(summary.name, "paused", rows, t);
 }
 

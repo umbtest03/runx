@@ -2,6 +2,7 @@
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
+use crate::config::ConfigPlan;
 use crate::connect::ConnectPlan;
 
 pub const DEFAULT_NPM_PACKAGE: &str = "@runxhq/cli@latest";
@@ -15,6 +16,7 @@ pub enum LauncherAction {
     RunHistory(HistoryPlan),
     RunHarness(HarnessPlan),
     RunConnect(ConnectPlan),
+    RunConfig(ConfigPlan),
     RunTool(ToolPlan),
     PrintHelp,
     PrintVersion,
@@ -98,6 +100,8 @@ pub struct NativeLauncherOptions {
     pub rust_harness: Option<OsString>,
 }
 
+// rust-style-allow: long-function because launcher routing is the cutover gate:
+// every native command branch and fallback delegation decision is reviewed here.
 pub fn plan_launcher_with_native_options(
     args: Vec<OsString>,
     npm_package: Option<OsString>,
@@ -120,6 +124,11 @@ pub fn plan_launcher_with_native_options(
         if first_arg_is(&args, "connect") {
             return crate::connect::parse_connect_plan(&args)
                 .map_or_else(LauncherAction::Error, LauncherAction::RunConnect);
+        }
+
+        if first_arg_is(&args, "config") {
+            return crate::config::parse_config_plan(&args)
+                .map_or_else(LauncherAction::Error, LauncherAction::RunConfig);
         }
 
         if first_arg_is(&args, "new") {
@@ -190,6 +199,7 @@ Native commands:
   runx init [-g|--global] [--prefetch official] [--json]
   runx history [query] [--skill s] [--status s] [--source s] [--actor a] [--artifact-type t] [--since iso] [--until iso] [--receipt-dir dir] [--json]
   runx connect list|revoke <grant-id>|<provider> [--scope scope] [--scope-family family] [--authority-kind read_only|constructive|destructive] [--target-repo owner/repo] [--target-locator locator] [--json]
+  runx config set|get|list [agent.provider|agent.model|agent.api_key] [value] [--json]
   runx tool build <tool-dir>|--all [--json]
   runx tool search <query> [--source source] [--json]
   runx tool inspect <ref> [--source source] [--json]

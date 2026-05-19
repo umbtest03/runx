@@ -80,7 +80,7 @@ Invariants:
 - Registry install package paths keep the `runx-runtime::registry`
   normalization: namespaced refs derive owner/name path components; bare refs
   derive from the skill name.
-- Direct `runx skill add` / `runx add` remains a local install action. When
+- Direct `runx skill add` / `runx skill add` remains a local install action. When
   registry install happens inside execution, evidence belongs to the enclosing
   sealed harness receipt or runtime ledger metadata. It does not emit retired
   `skill_execution` or `graph_execution` receipt shapes.

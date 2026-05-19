@@ -41,13 +41,13 @@
   },
   {
     "skill_id": "runx/issue-intake",
-    "version": "sha-6025894f17bd",
-    "digest": "f91fe662627287503b5dc5aae9608a66d8d8323a2a8498c580f13f9b93705be3"
+    "version": "sha-168fd6530911",
+    "digest": "b952da6c5570f3dc869c15a859d23de409cfe0858e647abc2be3be03b777fbf5"
   },
   {
     "skill_id": "runx/issue-to-pr",
-    "version": "sha-654b8c21466c",
-    "digest": "9bcf272007ed569b3bf938b1fa5e6c778ff78fa80c3335662842ee77f8aa849e"
+    "version": "sha-1152fe5800af",
+    "digest": "93cb32a0d9a8029ea265b00dbe46c8f4bf325b3d007cb6ace3c6f9e584e78cd1"
   },
   {
     "skill_id": "runx/issue-triage",
@@ -96,7 +96,7 @@
   },
   {
     "skill_id": "runx/skill-lab",
-    "version": "sha-fe23f012a7bb",
+    "version": "sha-3ec3f924068a",
     "digest": "3b07ef3260c307f34fb149a0e91d504f1fe3ab464235675bd79d6a7a9c8fffb9"
   },
   {

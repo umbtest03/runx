@@ -188,7 +188,7 @@ Payload validation is strict at the boundary:
 
 ## Receipt Integration
 
-- A direct `runx skill add` / `runx add` command remains a local install action
+- A direct `runx skill add` / `runx skill add` command remains a local install action
   and does not invent a skill-execution receipt.
 - When a graph or chain performs an install as part of execution, the Rust
   integration records the install as receipt metadata or a ledger event owned

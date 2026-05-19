@@ -1,10 +1,9 @@
 [package]
 name = "runx-parser"
-version = "0.0.1"
+version = "0.0.2"
 edition.workspace = true
 rust-version.workspace = true
 description = "Pure Rust parser parity crate for runx skills, graphs, and tool manifests."
-publish = false
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true

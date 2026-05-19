@@ -315,7 +315,7 @@ Acceptance:
 ## Open Questions
 
 - Whether `runx journal show` is still desired as a user-facing command now that
-  current TS exposes `runx history`, `runx inspect`, `runx replay`, and
+  current TS exposes `runx history`, `runx skill inspect`, `runx replay`, and
   `runx diff` but not `runx journal show`. Default: do not ship the command
   unless Phase 1 adds explicit UX and fixture coverage.
 - Whether local ledgers/checkpoints get a stable artifact-ref contract in this
