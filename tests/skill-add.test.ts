@@ -222,7 +222,7 @@ function createInvalidMarketplaceAdapter(): MarketplaceAdapter {
     profile_mode: "portable",
     runner_names: [],
     add_command: "runx skill add invalid:sourcey",
-    run_command: "runx sourcey",
+    run_command: "runx skill sourcey",
   };
 
   return {

@@ -3,9 +3,9 @@ use runx_cli::connect::{ConnectAction, ConnectAuthorityKind, ConnectPlan};
 use std::path::PathBuf;
 
 use runx_cli::launcher::{
-    CommandPlan, DEFAULT_NPM_PACKAGE, HarnessPlan, HistoryPlan, InitPlan, LauncherAction,
-    NativeLauncherOptions, NewPlan, ToolAction, ToolPlan, node_command, npm_command, plan_launcher,
-    plan_launcher_with_native_options, plan_launcher_with_rust_harness,
+    CommandPlan, DEFAULT_NPM_PACKAGE, DoctorPlan, HarnessPlan, HistoryPlan, InitPlan,
+    LauncherAction, NativeLauncherOptions, NewPlan, ToolAction, ToolPlan, node_command,
+    npm_command, plan_launcher, plan_launcher_with_native_options, plan_launcher_with_rust_harness,
 };
 
 fn plan_with_rust_cli(args: Vec<std::ffi::OsString>) -> LauncherAction {
@@ -269,6 +269,40 @@ fn config_delegates_without_rust_cli_signal() {
                 "config".into(),
                 "list".into(),
                 "--json".into(),
+            ],
+        })
+    );
+}
+
+#[test]
+fn doctor_routes_to_native_cli_even_with_js_fallback_configured() {
+    let action = plan_with_rust_cli_and_js(vec![
+        "doctor".into(),
+        "fixtures/doctor/empty-success/workspace".into(),
+        "--json".into(),
+    ]);
+
+    assert_eq!(
+        action,
+        LauncherAction::RunDoctor(DoctorPlan {
+            path: Some(PathBuf::from("fixtures/doctor/empty-success/workspace")),
+            json: true,
+        })
+    );
+}
+
+#[test]
+fn doctor_repair_semantics_still_delegate_to_js() {
+    let action = plan_with_rust_cli_and_js(vec!["doctor".into(), "--fix".into()]);
+
+    assert_eq!(
+        action,
+        LauncherAction::Delegate(CommandPlan {
+            program: node_command().into(),
+            args: vec![
+                "/repo/oss/packages/cli/bin/runx.js".into(),
+                "doctor".into(),
+                "--fix".into(),
             ],
         })
     );

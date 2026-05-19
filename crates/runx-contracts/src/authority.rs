@@ -53,11 +53,16 @@ pub enum AuthorityCapability {
     PaymentSingleUseSpend,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PaymentCredentialForm {
+    SingleUseSpendCapability,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PaymentAuthorityBounds {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub currency: Option<String>,
+    pub currency: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_per_call_minor: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -66,7 +71,6 @@ pub struct PaymentAuthorityBounds {
     pub max_per_period_minor: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub period: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rails: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm: Option<String>,
@@ -79,7 +83,7 @@ pub struct PaymentAuthorityBounds {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub approval_threshold_minor: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub credential_form: Option<String>,
+    pub credential_form: Option<PaymentCredentialForm>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub quote_required: bool,
     #[serde(default, skip_serializing_if = "is_false")]

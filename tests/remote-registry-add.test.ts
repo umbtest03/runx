@@ -132,7 +132,7 @@ describe("remote registry add", () => {
                 trust_tier: "first_party",
                 trust_signals: [],
                 install_command: "runx skill add runx/sourcey@1.0.0 --registry https://runx.example.test",
-                run_command: "runx sourcey",
+                run_command: "runx skill sourcey",
               },
             ],
           }), { status: 200 });
@@ -218,7 +218,7 @@ describe("remote registry add", () => {
               trust_tier: "first_party",
               trust_signals: [],
               install_command: "runx skill add runx/sourcey@1.0.0 --registry https://runx.example.test",
-              run_command: "runx sourcey",
+              run_command: "runx skill sourcey",
             },
             {
               skill_id: "acme/sourcey",
@@ -233,7 +233,7 @@ describe("remote registry add", () => {
               trust_tier: "community",
               trust_signals: [],
               install_command: "runx skill add acme/sourcey@1.0.0 --registry https://runx.example.test",
-              run_command: "runx sourcey",
+              run_command: "runx skill sourcey",
             },
           ],
         }), { status: 200 });

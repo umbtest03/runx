@@ -1189,6 +1189,10 @@
           "type": "string"
         },
         {
+          "const": "payment_required",
+          "type": "string"
+        },
+        {
           "const": "schedule_tick",
           "type": "string"
         },

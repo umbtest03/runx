@@ -31,7 +31,7 @@ export function runxLinkForVersion(record: RegistrySkillVersion, registryUrl?: s
     digest: record.digest,
     registry_url: registryUrl,
     install_command: `runx skill add ${ref}${registryFlag}`,
-    run_command: `runx ${record.name}`,
+    run_command: `runx skill ${record.name}`,
   };
 }
 

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.runx.dev/runx/payment/reservation/v1.json",
+  "x-runx-packet-id": "runx.payment.reservation.v1",
+  "type": "object",
+  "properties": {
+    "payment_decision": { "type": "object" },
+    "reserved_payment_authority": { "type": "object" },
+    "authority_decision": { "type": "object" },
+    "reservation": { "type": "object" },
+    "idempotency": { "type": "object" },
+    "spend_capability_ref": { "type": "string" },
+    "approval": { "type": "object" },
+    "recovery_plan": { "type": "object" }
+  },
+  "additionalProperties": true
+}

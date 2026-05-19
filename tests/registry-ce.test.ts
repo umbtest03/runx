@@ -58,7 +58,7 @@ describe("registry CE", () => {
         runner_names: ["agent", "sourcey"],
         source_type: "agent",
         install_command: "runx skill add acme/sourcey@1.0.0 --registry https://runx.example.test",
-        run_command: "runx sourcey",
+        run_command: "runx skill sourcey",
       });
       expect(page?.trust_signals).toEqual(trustSignals);
       expect(page?.versions).toEqual([
@@ -92,7 +92,7 @@ describe("registry CE", () => {
         digest: version.digest,
         registry_url: "https://runx.example.test",
         install_command: "runx skill add acme/sourcey@1.0.0 --registry https://runx.example.test",
-        run_command: "runx sourcey",
+        run_command: "runx skill sourcey",
       });
     } finally {
       await rm(tempDir, { recursive: true, force: true });

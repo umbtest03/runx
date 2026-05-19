@@ -11,6 +11,7 @@ pub const DEFAULT_NPM_PACKAGE: &str = "@runxhq/cli@latest";
 pub enum LauncherAction {
     Delegate(CommandPlan),
     Error(String),
+    RunDoctor(DoctorPlan),
     RunInit(InitPlan),
     RunNew(NewPlan),
     RunHistory(HistoryPlan),
@@ -36,6 +37,12 @@ pub struct HarnessPlan {
 #[derive(Debug, Eq, PartialEq)]
 pub struct HistoryPlan {
     pub args: Vec<OsString>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct DoctorPlan {
+    pub path: Option<PathBuf>,
+    pub json: bool,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -131,6 +138,14 @@ pub fn plan_launcher_with_native_options(
                 .map_or_else(LauncherAction::Error, LauncherAction::RunConfig);
         }
 
+        if first_arg_is(&args, "doctor") {
+            if doctor_deferred_to_js(&args) {
+                return delegate_plan(args, npm_package, js_bin);
+            }
+            return parse_doctor_plan(&args)
+                .map_or_else(LauncherAction::Error, LauncherAction::RunDoctor);
+        }
+
         if first_arg_is(&args, "new") {
             return parse_new_plan(&args)
                 .map_or_else(LauncherAction::Error, LauncherAction::RunNew);
@@ -151,6 +166,14 @@ pub fn plan_launcher_with_native_options(
         }
     }
 
+    delegate_plan(args, npm_package, js_bin)
+}
+
+fn delegate_plan(
+    args: Vec<OsString>,
+    npm_package: Option<OsString>,
+    js_bin: Option<OsString>,
+) -> LauncherAction {
     if let Some(js_bin) = non_empty_os(js_bin) {
         let mut planned_args = Vec::with_capacity(args.len() + 1);
         planned_args.push(js_bin);
@@ -200,6 +223,7 @@ Native commands:
   runx history [query] [--skill s] [--status s] [--source s] [--actor a] [--artifact-type t] [--since iso] [--until iso] [--receipt-dir dir] [--json]
   runx connect list|revoke <grant-id>|<provider> [--scope scope] [--scope-family family] [--authority-kind read_only|constructive|destructive] [--target-repo owner/repo] [--target-locator locator] [--json]
   runx config set|get|list [agent.provider|agent.model|agent.api_key] [value] [--json]
+  runx doctor [path] [--json]
   runx tool build <tool-dir>|--all [--json]
   runx tool search <query> [--source source] [--json]
   runx tool inspect <ref> [--source source] [--json]
@@ -346,6 +370,51 @@ fn parse_init_plan(args: &[OsString]) -> Result<InitPlan, String> {
         prefetch_official,
         json,
     })
+}
+
+fn doctor_deferred_to_js(args: &[OsString]) -> bool {
+    args.iter().skip(1).any(|arg| {
+        let Some(token) = arg.to_str() else {
+            return false;
+        };
+        let (flag, _inline_value) = split_flag(token);
+        matches!(
+            flag,
+            "--fix" | "--explain" | "--listDiagnostics" | "--list-diagnostics"
+        )
+    })
+}
+
+fn parse_doctor_plan(args: &[OsString]) -> Result<DoctorPlan, String> {
+    let mut path = None;
+    let mut json = false;
+    let mut index = 1;
+
+    while index < args.len() {
+        let token = os_arg(args, index, "doctor")?;
+        if !token.starts_with("--") {
+            if path.is_some() {
+                return Err("runx doctor accepts at most one path".to_owned());
+            }
+            path = Some(PathBuf::from(token));
+            index += 1;
+            continue;
+        }
+
+        let (flag, inline_value) = split_flag(token);
+        match flag {
+            "--json" => {
+                if inline_value.is_some() {
+                    return Err("--json does not take a value".to_owned());
+                }
+                json = true;
+                index += 1;
+            }
+            _ => return Err(format!("unknown doctor flag {flag}")),
+        }
+    }
+
+    Ok(DoctorPlan { path, json })
 }
 
 fn tool_subcommand_is_native(args: &[OsString]) -> bool {

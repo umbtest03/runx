@@ -1,220 +1,89 @@
-use std::collections::BTreeSet;
+use runx_contracts::{
+    AuthorityCapability, AuthorityCondition, AuthorityResourceFamily, AuthorityTerm, AuthorityVerb,
+    PaymentAuthorityBounds, PaymentCredentialForm, Reference,
+};
 
-use runx_contracts::{AuthorityResourceFamily, AuthorityTerm, AuthorityVerb};
-use serde_json::Value;
-
-const PAYMENT_CAP_KEYS: &[(&str, &[&str])] = &[
-    (
-        "quote",
-        &[
-            "quote_minor_units",
-            "quoteMinorUnits",
-            "max_quote_minor_units",
-            "maxQuoteMinorUnits",
-            "quote_minor_unit_cap",
-            "quoteMinorUnitCap",
-            "quote_minor_units_cap",
-            "quoteMinorUnitsCap",
-        ],
-    ),
-    (
-        "reserve",
-        &[
-            "reserve_minor_units",
-            "reserveMinorUnits",
-            "max_reserve_minor_units",
-            "maxReserveMinorUnits",
-            "reserve_minor_unit_cap",
-            "reserveMinorUnitCap",
-            "reserve_minor_units_cap",
-            "reserveMinorUnitsCap",
-        ],
-    ),
-    (
-        "spend",
-        &[
-            "spend_minor_units",
-            "spendMinorUnits",
-            "max_spend_minor_units",
-            "maxSpendMinorUnits",
-            "spend_minor_unit_cap",
-            "spendMinorUnitCap",
-            "spend_minor_units_cap",
-            "spendMinorUnitsCap",
-        ],
-    ),
-    (
-        "refund",
-        &[
-            "refund_minor_units",
-            "refundMinorUnits",
-            "max_refund_minor_units",
-            "maxRefundMinorUnits",
-            "refund_minor_unit_cap",
-            "refundMinorUnitCap",
-            "refund_minor_units_cap",
-            "refundMinorUnitsCap",
-        ],
-    ),
-];
-
-const SHARED_CAP_KEYS: &[&str] = &[
-    "minor_units",
-    "minorUnits",
-    "max_minor_units",
-    "maxMinorUnits",
-    "minor_unit_cap",
-    "minorUnitCap",
-    "minor_units_cap",
-    "minorUnitsCap",
-];
-
-const BOOLEAN_NARROWING_KEYS: &[&[&str]] = &[
-    &["quote_required", "quoteRequired"],
-    &["reservation_required", "reservationRequired"],
-    &["idempotency_required", "idempotencyRequired"],
-    &[
-        "recovery_by_idempotency_required",
-        "recoveryByIdempotencyRequired",
-    ],
-    &["receipt_before_success", "receiptBeforeSuccess"],
-];
-
-/// Returns true when `child` is no broader than `parent` under the pure
-/// payment authority policy.
+/// Returns true when `child` is no broader than `parent` under the pure payment
+/// authority algebra.
 ///
-/// Incomparable terms are denied by returning false.
+/// The comparator is intentionally fail-closed: missing required payment
+/// dimensions make the terms incomparable, and incomparable terms are denied by
+/// returning false.
+#[must_use]
 pub fn is_payment_authority_subset(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool {
-    if child.resource_family != AuthorityResourceFamily::Payment {
-        return false;
-    }
-    if parent.resource_family != AuthorityResourceFamily::Payment {
-        return false;
-    }
-    if !verbs_subset(&child.verbs, &parent.verbs) {
-        return false;
-    }
-
-    let Some(child_payment) = payment_bounds_value(child) else {
-        return false;
-    };
-    let Some(parent_payment) = payment_bounds_value(parent) else {
-        return false;
-    };
-
-    string_equal(&child_payment, &parent_payment, &["currency"])
-        && minor_unit_caps_subset(child, parent, &child_payment, &parent_payment)
-        && string_set_subset(&child_payment, &parent_payment, &["rails"])
-        && exact_or_narrower(&child_payment, &parent_payment, &["realm"])
-        && exact_or_narrower(&child_payment, &parent_payment, &["counterparty"])
-        && exact_or_narrower(&child_payment, &parent_payment, &["operation"])
+    child.resource_family == AuthorityResourceFamily::Payment
+        && parent.resource_family == AuthorityResourceFamily::Payment
+        && same_authority_resource(&child.resource_ref, &parent.resource_ref)
+        && verbs_subset(&child.verbs, &parent.verbs)
+        && capabilities_subset(child, parent)
+        && parent_conditions_preserved(child, parent)
+        && parent_approvals_preserved(child, parent)
         && expiry_subset(child, parent)
-        && required_booleans_subset(&child_payment, &parent_payment)
-        && optional_u64_lte_when_parent_set(
-            &child_payment,
-            &parent_payment,
-            &["quote_ttl_seconds", "quoteTtlSeconds"],
-        )
-        && optional_u64_lte_when_parent_set(
-            &child_payment,
-            &parent_payment,
-            &["approval_over_minor", "approvalOverMinor"],
-        )
-        && exact_or_narrower(
-            &child_payment,
-            &parent_payment,
-            &["credential_form", "credentialForm"],
-        )
-        && single_use_spend_capability_for_reserve_or_spend(child, &child_payment)
+        && payment_bounds_subset(child, parent)
 }
 
-fn payment_bounds_value(term: &AuthorityTerm) -> Option<Value> {
-    serde_json::to_value(&term.bounds)
-        .ok()?
-        .as_object()?
-        .get("payment")
-        .cloned()
-        .filter(|value| !value.is_null())
+fn same_authority_resource(child: &Reference, parent: &Reference) -> bool {
+    child.reference_type == parent.reference_type && child.uri == parent.uri
+}
+
+fn payment_bounds_subset(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool {
+    let Some(child_payment) = child.bounds.payment.as_ref() else {
+        return false;
+    };
+    let Some(parent_payment) = parent.bounds.payment.as_ref() else {
+        return false;
+    };
+
+    required_currency_equal(child_payment, parent_payment)
+        && minor_unit_caps_subset(child, child_payment, parent_payment)
+        && rails_subset(child_payment, parent_payment)
+        && optional_exact_or_narrower(&child_payment.realm, &parent_payment.realm)
+        && optional_exact_or_narrower(&child_payment.counterparty, &parent_payment.counterparty)
+        && optional_exact_or_narrower(&child_payment.operation, &parent_payment.operation)
+        && optional_exact_or_narrower(&child_payment.period, &parent_payment.period)
+        && required_booleans_subset(child_payment, parent_payment)
+        && optional_u64_lte_when_parent_set(child_payment.quote_ttl_ms, parent_payment.quote_ttl_ms)
+        && optional_u64_lte_when_parent_set(
+            child_payment.approval_threshold_minor,
+            parent_payment.approval_threshold_minor,
+        )
+        && optional_exact_or_narrower(
+            &child_payment.credential_form,
+            &parent_payment.credential_form,
+        )
+        && single_use_spend_capability_for_reserve_or_spend(child, parent)
 }
 
 fn verbs_subset(child: &[AuthorityVerb], parent: &[AuthorityVerb]) -> bool {
     child.iter().all(|verb| parent.contains(verb))
 }
 
-fn string_equal(child: &Value, parent: &Value, keys: &[&str]) -> bool {
-    string_value(child, keys)
-        .zip(string_value(parent, keys))
-        .is_some_and(|(child, parent)| child == parent)
+fn capabilities_subset(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool {
+    child
+        .capabilities
+        .iter()
+        .all(|capability| parent.capabilities.contains(capability))
 }
 
-fn exact_or_narrower(child: &Value, parent: &Value, keys: &[&str]) -> bool {
-    match (string_value(child, keys), string_value(parent, keys)) {
-        (_, None) => true,
-        (Some(child), Some(parent)) => child == parent,
-        (None, Some(_)) => false,
-    }
+fn parent_conditions_preserved(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool {
+    parent
+        .conditions
+        .iter()
+        .all(|condition| condition_is_preserved(condition, &child.conditions))
 }
 
-fn string_set_subset(child: &Value, parent: &Value, keys: &[&str]) -> bool {
-    let Some(child_values) = string_set(child, keys) else {
-        return false;
-    };
-    let Some(parent_values) = string_set(parent, keys) else {
-        return false;
-    };
-
-    child_values.is_subset(&parent_values)
-}
-
-fn string_set(value: &Value, keys: &[&str]) -> Option<BTreeSet<String>> {
-    let values = value_for_any_key(value, keys)?;
-    let array = values.as_array()?;
-    Some(
-        array
-            .iter()
-            .map(|value| value.as_str().map(str::to_owned))
-            .collect::<Option<BTreeSet<_>>>()?,
-    )
-}
-
-fn minor_unit_caps_subset(
-    child: &AuthorityTerm,
-    parent: &AuthorityTerm,
-    child_payment: &Value,
-    parent_payment: &Value,
+fn condition_is_preserved(
+    parent: &AuthorityCondition,
+    child_conditions: &[AuthorityCondition],
 ) -> bool {
-    payment_cap_dimensions(child)
-        .into_iter()
-        .all(|dimension| match minor_unit_cap(child_payment, dimension) {
-            Some(child_cap) => minor_unit_cap(parent_payment, dimension)
-                .is_some_and(|parent_cap| child_cap <= parent_cap),
-            None => false,
-        })
-        && payment_cap_dimensions(parent)
-            .into_iter()
-            .all(|dimension| minor_unit_cap(child_payment, dimension).is_some())
+    child_conditions.iter().any(|child| child == parent)
 }
 
-fn payment_cap_dimensions(term: &AuthorityTerm) -> BTreeSet<&'static str> {
-    term.verbs
+fn parent_approvals_preserved(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool {
+    parent
+        .approvals
         .iter()
-        .filter_map(|verb| match verb {
-            AuthorityVerb::Quote => Some("quote"),
-            AuthorityVerb::Reserve => Some("reserve"),
-            AuthorityVerb::Spend => Some("spend"),
-            AuthorityVerb::Refund => Some("refund"),
-            AuthorityVerb::Verify => None,
-            _ => None,
-        })
-        .collect()
-}
-
-fn minor_unit_cap(value: &Value, dimension: &str) -> Option<u64> {
-    PAYMENT_CAP_KEYS
-        .iter()
-        .find(|(candidate, _)| *candidate == dimension)
-        .and_then(|(_, keys)| u64_value(value, keys))
-        .or_else(|| u64_value(value, SHARED_CAP_KEYS))
+        .all(|approval| child.approvals.contains(approval))
 }
 
 fn expiry_subset(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool {
@@ -225,49 +94,116 @@ fn expiry_subset(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool {
     }
 }
 
-fn required_booleans_subset(child: &Value, parent: &Value) -> bool {
-    BOOLEAN_NARROWING_KEYS.iter().all(|keys| {
-        let parent_required = bool_value(parent, keys).unwrap_or(false);
-        !parent_required || bool_value(child, keys).unwrap_or(false)
+fn required_currency_equal(
+    child: &PaymentAuthorityBounds,
+    parent: &PaymentAuthorityBounds,
+) -> bool {
+    child.currency == parent.currency
+}
+
+fn minor_unit_caps_subset(
+    child: &AuthorityTerm,
+    child_payment: &PaymentAuthorityBounds,
+    parent_payment: &PaymentAuthorityBounds,
+) -> bool {
+    if uses_minor_units(child) && child_payment.max_per_call_minor.is_none() {
+        return false;
+    }
+    if uses_minor_units(child) && parent_payment.max_per_call_minor.is_none() {
+        return false;
+    }
+
+    optional_cap_subset(
+        child_payment.max_per_call_minor,
+        parent_payment.max_per_call_minor,
+    ) && optional_cap_subset(
+        child_payment.max_per_run_minor,
+        parent_payment.max_per_run_minor,
+    ) && optional_cap_subset(
+        child_payment.max_per_period_minor,
+        parent_payment.max_per_period_minor,
+    )
+}
+
+fn uses_minor_units(term: &AuthorityTerm) -> bool {
+    term.verbs.iter().any(|verb| {
+        matches!(
+            verb,
+            AuthorityVerb::Quote
+                | AuthorityVerb::Reserve
+                | AuthorityVerb::Spend
+                | AuthorityVerb::Refund
+        )
     })
 }
 
-fn optional_u64_lte_when_parent_set(child: &Value, parent: &Value, keys: &[&str]) -> bool {
-    match u64_value(parent, keys) {
-        Some(parent_value) => u64_value(child, keys).is_some_and(|child_value| child_value <= parent_value),
+fn optional_cap_subset(child: Option<u64>, parent: Option<u64>) -> bool {
+    match (child, parent) {
+        (Some(child), Some(parent)) => child <= parent,
+        (None, Some(_)) => false,
+        (Some(_), None) | (None, None) => true,
+    }
+}
+
+fn rails_subset(child: &PaymentAuthorityBounds, parent: &PaymentAuthorityBounds) -> bool {
+    !child.rails.is_empty()
+        && !parent.rails.is_empty()
+        && child.rails.iter().all(|rail| parent.rails.contains(rail))
+}
+
+fn optional_exact_or_narrower<T: Eq>(child: &Option<T>, parent: &Option<T>) -> bool {
+    match (child, parent) {
+        (_, None) => true,
+        (Some(child), Some(parent)) => child == parent,
+        (None, Some(_)) => false,
+    }
+}
+
+fn required_booleans_subset(
+    child: &PaymentAuthorityBounds,
+    parent: &PaymentAuthorityBounds,
+) -> bool {
+    (!parent.quote_required || child.quote_required)
+        && (!parent.reservation_required || child.reservation_required)
+        && (!parent.idempotency_required || child.idempotency_required)
+        && (!parent.recovery_required || child.recovery_required)
+        && (!parent.receipt_before_success || child.receipt_before_success)
+}
+
+fn optional_u64_lte_when_parent_set(child: Option<u64>, parent: Option<u64>) -> bool {
+    match parent {
+        Some(parent) => child.is_some_and(|child| child <= parent),
         None => true,
     }
 }
 
-fn single_use_spend_capability_for_reserve_or_spend(term: &AuthorityTerm, payment: &Value) -> bool {
-    let requires_single_use = term
-        .verbs
+fn single_use_spend_capability_for_reserve_or_spend(
+    child: &AuthorityTerm,
+    parent: &AuthorityTerm,
+) -> bool {
+    if !requires_single_use_capability(child) {
+        return true;
+    }
+    let child_payment = child.bounds.payment.as_ref();
+    let parent_payment = parent.bounds.payment.as_ref();
+    child_payment.is_some_and(|payment| payment.single_use_spend)
+        && parent_payment.is_some_and(|payment| payment.single_use_spend)
+        && child
+            .capabilities
+            .contains(&AuthorityCapability::PaymentSingleUseSpend)
+        && parent
+            .capabilities
+            .contains(&AuthorityCapability::PaymentSingleUseSpend)
+        && child
+            .bounds
+            .payment
+            .as_ref()
+            .and_then(|payment| payment.credential_form.as_ref())
+            == Some(&PaymentCredentialForm::SingleUseSpendCapability)
+}
+
+fn requires_single_use_capability(term: &AuthorityTerm) -> bool {
+    term.verbs
         .iter()
-        .any(|verb| matches!(verb, AuthorityVerb::Spend | AuthorityVerb::Reserve));
-    !requires_single_use
-        || bool_value(
-            payment,
-            &[
-                "single_use_spend_capability",
-                "singleUseSpendCapability",
-            ],
-        )
-        .unwrap_or(false)
-}
-
-fn string_value<'a>(value: &'a Value, keys: &[&str]) -> Option<&'a str> {
-    value_for_any_key(value, keys)?.as_str()
-}
-
-fn u64_value(value: &Value, keys: &[&str]) -> Option<u64> {
-    value_for_any_key(value, keys)?.as_u64()
-}
-
-fn bool_value(value: &Value, keys: &[&str]) -> Option<bool> {
-    value_for_any_key(value, keys)?.as_bool()
-}
-
-fn value_for_any_key<'a>(value: &'a Value, keys: &[&str]) -> Option<&'a Value> {
-    let object = value.as_object()?;
-    keys.iter().find_map(|key| object.get(*key))
+        .any(|verb| matches!(verb, AuthorityVerb::Spend))
 }

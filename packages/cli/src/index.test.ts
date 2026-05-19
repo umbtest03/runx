@@ -934,7 +934,7 @@ Answer the prompt directly.
     expect(stdout.contents()).toContain("run  ");
     expect(stdout.contents()).toContain("add  ");
     expect(stdout.contents()).toContain("runx skill add acme/sourcey@1.0.0 --registry https://runx.example.test");
-    expect(stdout.contents()).toContain("runx sourcey");
+    expect(stdout.contents()).toContain("runx skill sourcey");
   });
 
   it("installs registry skills from the hosted public registry", async () => {

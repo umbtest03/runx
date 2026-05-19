@@ -2072,6 +2072,10 @@
                         "type": "string"
                       },
                       {
+                        "const": "payment",
+                        "type": "string"
+                      },
+                      {
                         "const": "artifact",
                         "type": "string"
                       },
@@ -2135,6 +2139,22 @@
                           "type": "string"
                         },
                         {
+                          "const": "quote",
+                          "type": "string"
+                        },
+                        {
+                          "const": "reserve",
+                          "type": "string"
+                        },
+                        {
+                          "const": "spend",
+                          "type": "string"
+                        },
+                        {
+                          "const": "refund",
+                          "type": "string"
+                        },
+                        {
                           "const": "publish",
                           "type": "string"
                         },
@@ -2195,6 +2215,86 @@
                         "minimum": 0,
                         "type": "number"
                       },
+                      "payment": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "currency",
+                          "rails"
+                        ],
+                        "properties": {
+                          "currency": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "max_per_call_minor": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "max_per_run_minor": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "max_per_period_minor": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "period": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "rails": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "realm": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "counterparty": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "operation": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "quote_ttl_ms": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "approval_threshold_minor": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "credential_form": {
+                            "const": "single_use_spend_capability",
+                            "type": "string"
+                          },
+                          "quote_required": {
+                            "type": "boolean"
+                          },
+                          "reservation_required": {
+                            "type": "boolean"
+                          },
+                          "idempotency_required": {
+                            "type": "boolean"
+                          },
+                          "recovery_required": {
+                            "type": "boolean"
+                          },
+                          "receipt_before_success": {
+                            "type": "boolean"
+                          },
+                          "single_use_spend": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
                       "max_runtime_ms": {
                         "minimum": 0,
                         "type": "integer"
@@ -2251,6 +2351,14 @@
                             },
                             {
                               "const": "sandbox_enforced",
+                              "type": "string"
+                            },
+                            {
+                              "const": "payment_receipt_present",
+                              "type": "string"
+                            },
+                            {
+                              "const": "payment_recovery_available",
                               "type": "string"
                             }
                           ]
@@ -2871,6 +2979,10 @@
                         },
                         {
                           "const": "child_harness_spawn",
+                          "type": "string"
+                        },
+                        {
+                          "const": "payment_single_use_spend",
                           "type": "string"
                         }
                       ]

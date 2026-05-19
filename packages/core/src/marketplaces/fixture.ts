@@ -52,7 +52,7 @@ const fixtureResults: readonly SkillSearchResult[] = [
     profile_digest: hashString(fixtureProfileDocument),
     profile_trust_tier: "community",
     add_command: "runx skill add fixture-marketplace:sourcey-docs",
-    run_command: "runx sourcey-docs",
+    run_command: "runx skill sourcey-docs",
   },
   {
     skill_id: "fixture/marketplace-portable",

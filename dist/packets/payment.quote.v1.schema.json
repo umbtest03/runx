@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.runx.dev/runx/payment/quote/v1.json",
+  "x-runx-packet-id": "runx.payment.quote.v1",
+  "type": "object",
+  "properties": {
+    "payment_quote": { "type": "object" },
+    "requested_payment_authority": { "type": "object" },
+    "payment_signal": { "type": "object" },
+    "quote_preflight": { "type": "object" },
+    "risk_summary": { "type": "object" },
+    "authority_request": { "type": "object" }
+  },
+  "additionalProperties": true
+}

@@ -409,7 +409,7 @@ describe("TypeScript SDK", () => {
                 trust_tier: "first_party",
                 trust_signals: [],
                 install_command: "runx skill add runx/sourcey@1.0.0 --registry https://runx.example.test",
-                run_command: "runx sourcey",
+                run_command: "runx skill sourcey",
               },
             ],
           }), { status: 200 });

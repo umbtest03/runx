@@ -57,6 +57,7 @@ export const signalTypes = [
   "chat_message",
   "alert",
   "deployment_event",
+  "payment_required",
   "schedule_tick",
   "operator_note",
   "system_event",
@@ -166,6 +167,7 @@ export const authorityResourceFamilies = [
   "network",
   "deployment",
   "credential",
+  "payment",
   "artifact",
   "harness",
   "publication",
@@ -183,6 +185,10 @@ export const authorityVerbs = [
   "delete",
   "execute",
   "verify",
+  "quote",
+  "reserve",
+  "spend",
+  "refund",
   "publish",
   "spawn_child",
 ] as const;
@@ -196,6 +202,7 @@ export const authorityCapabilities = [
   "provider_mutation",
   "public_publication",
   "child_harness_spawn",
+  "payment_single_use_spend",
 ] as const;
 
 export const authorityConditionPredicates = [
@@ -206,6 +213,12 @@ export const authorityConditionPredicates = [
   "within_time_window",
   "within_budget",
   "sandbox_enforced",
+  "payment_receipt_present",
+  "payment_recovery_available",
+] as const;
+
+export const paymentCredentialForms = [
+  "single_use_spend_capability",
 ] as const;
 
 export const redactionCommitmentAlgorithms = [
@@ -229,6 +242,7 @@ export const authorityResourceFamilySchema = stringEnum(authorityResourceFamilie
 export const authorityVerbSchema = stringEnum(authorityVerbs);
 export const authorityCapabilitySchema = stringEnum(authorityCapabilities);
 export const authorityConditionPredicateSchema = stringEnum(authorityConditionPredicates);
+export const paymentCredentialFormSchema = stringEnum(paymentCredentialForms);
 export const redactionCommitmentAlgorithmSchema = stringEnum(redactionCommitmentAlgorithms);
 
 export const referenceSchema = Type.Object(
@@ -355,6 +369,30 @@ export const signalSchema = Type.Object(
   },
 );
 
+export const paymentAuthorityBoundsSchema = Type.Object(
+  {
+    currency: Type.String({ minLength: 1 }),
+    max_per_call_minor: Type.Optional(Type.Integer({ minimum: 0 })),
+    max_per_run_minor: Type.Optional(Type.Integer({ minimum: 0 })),
+    max_per_period_minor: Type.Optional(Type.Integer({ minimum: 0 })),
+    period: Type.Optional(Type.String({ minLength: 1 })),
+    rails: Type.Array(Type.String({ minLength: 1 }), { minItems: 1 }),
+    realm: Type.Optional(Type.String({ minLength: 1 })),
+    counterparty: Type.Optional(Type.String({ minLength: 1 })),
+    operation: Type.Optional(Type.String({ minLength: 1 })),
+    quote_ttl_ms: Type.Optional(Type.Integer({ minimum: 0 })),
+    approval_threshold_minor: Type.Optional(Type.Integer({ minimum: 0 })),
+    credential_form: Type.Optional(paymentCredentialFormSchema),
+    quote_required: Type.Optional(Type.Boolean()),
+    reservation_required: Type.Optional(Type.Boolean()),
+    idempotency_required: Type.Optional(Type.Boolean()),
+    recovery_required: Type.Optional(Type.Boolean()),
+    receipt_before_success: Type.Optional(Type.Boolean()),
+    single_use_spend: Type.Optional(Type.Boolean()),
+  },
+  { additionalProperties: false },
+);
+
 export const authorityBoundsSchema = Type.Object(
   {
     repo_path_globs: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
@@ -364,6 +402,7 @@ export const authorityBoundsSchema = Type.Object(
     deployment_environments: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
     token_audiences: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
     max_spend_usd: Type.Optional(Type.Number({ minimum: 0 })),
+    payment: Type.Optional(paymentAuthorityBoundsSchema),
     max_runtime_ms: Type.Optional(Type.Integer({ minimum: 0 })),
     max_fanout: Type.Optional(Type.Integer({ minimum: 0 })),
     max_child_depth: Type.Optional(Type.Integer({ minimum: 0 })),
@@ -1101,6 +1140,7 @@ export type AuthorityResourceFamilyContract = DeepReadonly<Static<typeof authori
 export type AuthorityVerbContract = DeepReadonly<Static<typeof authorityVerbSchema>>;
 export type AuthorityCapabilityContract = DeepReadonly<Static<typeof authorityCapabilitySchema>>;
 export type AuthorityConditionPredicateContract = DeepReadonly<Static<typeof authorityConditionPredicateSchema>>;
+export type PaymentCredentialFormContract = DeepReadonly<Static<typeof paymentCredentialFormSchema>>;
 export type ReferenceContract = DeepReadonly<Static<typeof referenceSchema>>;
 export type ActReferenceContract = DeepReadonly<Static<typeof actReferenceSchema>>;
 export type HashCommitmentContract = DeepReadonly<Static<typeof hashCommitmentSchema>>;
@@ -1109,6 +1149,7 @@ export type FingerprintContract = DeepReadonly<Static<typeof fingerprintSchema>>
 export type LinksContract = DeepReadonly<Static<typeof linksSchema>>;
 export type SignalAuthenticityContract = DeepReadonly<Static<typeof signalAuthenticitySchema>>;
 export type SignalContract = DeepReadonly<Static<typeof signalSchema>>;
+export type PaymentAuthorityBoundsContract = DeepReadonly<Static<typeof paymentAuthorityBoundsSchema>>;
 export type AuthorityBoundsContract = DeepReadonly<Static<typeof authorityBoundsSchema>>;
 export type AuthorityConditionContract = DeepReadonly<Static<typeof authorityConditionSchema>>;
 export type AuthorityApprovalContract = DeepReadonly<Static<typeof authorityApprovalSchema>>;

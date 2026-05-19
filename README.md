@@ -55,8 +55,8 @@ Then invoke `runx` from anywhere:
 
 ```bash
 runx --help
-runx ./oss/fixtures/skills/echo --message hello --json
-runx design-skill --objective "build sourcey docs skill" --json
+runx skill ./oss/fixtures/skills/echo --message hello --json
+runx skill design-skill --objective "build sourcey docs skill" --json
 ```
 
 Recommended flows:
@@ -67,15 +67,15 @@ runx init -g --prefetch official
 runx new docs-demo
 npm create @runxhq/skill@latest docs-demo
 runx skill search sourcey
-runx sourcey --project .
+runx skill sourcey --project .
 runx evolve
-runx issue-to-pr --fixture /path/to/repo --task-id task-123
+runx skill issue-to-pr --fixture /path/to/repo --task-id task-123
 runx resume <run-id>
 runx skill inspect <receipt-id>
 runx history
 runx skill add sourcey/sourcey@1.0.0 --to ./skills
 runx mcp serve ./fixtures/skills/echo
-runx design-skill --objective "build github review skill"
+runx skill design-skill --objective "build github review skill"
 runx harness ./fixtures/harness/echo-skill.yaml
 runx config set agent.provider openai
 runx config set agent.model gpt-5.1
@@ -139,7 +139,7 @@ The intended extension model is:
   execution envelope, while the thread stays the review/control object
 
 Sourcey is the reference shape for this model: from inside the Sourcey repo,
-`runx outreach --runner status --issue ...` resolves the local
+`runx skill ./skills/outreach --runner status --issue ...` resolves the local
 `skills/outreach` capability pack. `outreach` is not a privileged engine
 command, and there is no privileged `runx docs ...` path inside the engine.
 

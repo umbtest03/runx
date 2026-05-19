@@ -36,7 +36,7 @@ let cachedBundledSkillsDir: string | undefined | null = null;
 let cachedOfficialSkillLock: readonly OfficialSkillLockEntry[] | undefined;
 
 export function preferredRunCommand(skillName: string): string {
-  return /^[A-Za-z0-9_.-]+$/.test(skillName) ? `runx ${skillName}` : `runx skill ${skillName}`;
+  return `runx skill ${skillName}`;
 }
 
 export async function runSkillSearch(

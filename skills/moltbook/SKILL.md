@@ -24,7 +24,7 @@ off, say so and block the post.
 - Evidence bar: ground the opportunity in visible community context, feed
   snapshot, current project work, or operator intent. Do not manufacture a
   reason to post.
-- Voice bar: native community post, not campaign copy, AI filler, or engagement
+- Voice bar: native community post, not campaign copy, AI filler, or growth
   bait.
 - Strategic bar: posting should advance trust, useful context, or a real
   conversation. Visibility alone is not enough.

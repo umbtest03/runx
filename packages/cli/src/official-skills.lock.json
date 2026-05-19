@@ -60,6 +60,31 @@
     "digest": "7b3fc15ae4943333a2c7f2812da1f58e05092ccbd17f318ac246bad3f2f00dfa"
   },
   {
+    "skill_id": "runx/payment-authorize-reserve",
+    "version": "sha-22eb1321c206",
+    "digest": "03a0decebb8be126dc819139ca3384bd52b0c05f8c5fe0117486737b56143fcc"
+  },
+  {
+    "skill_id": "runx/payment-execute",
+    "version": "sha-1a6ebff06e1d",
+    "digest": "77cc223562b1057ce6b38113762f91f02f748eb1831cf72db744863da08678c5"
+  },
+  {
+    "skill_id": "runx/payment-fulfill-rail",
+    "version": "sha-c3c0b9023906",
+    "digest": "7a86af9483175376f1a9fee770f587040123e45bc647c6344e60e083334404cb"
+  },
+  {
+    "skill_id": "runx/payment-quote-preflight",
+    "version": "sha-423861a5257d",
+    "digest": "b177986fcc62a1e6d4452204029a20afc4ab7c9b3d496d69cbd0f09f014c171b"
+  },
+  {
+    "skill_id": "runx/payment-recover-inspect",
+    "version": "sha-735c0325a01e",
+    "digest": "aca3a9f37e62fd55f5abf6a8cd39029450505de46724826bb1e16ad0897a2f4d"
+  },
+  {
     "skill_id": "runx/prior-art",
     "version": "sha-98c8fad5fb22",
     "digest": "e47ac38e83f07db2b90a9c4b60f03287e6fdc20c45749144a42034386baa037b"
