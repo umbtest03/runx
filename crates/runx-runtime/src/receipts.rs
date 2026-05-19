@@ -1,12 +1,13 @@
 // rust-style-allow: large-file because receipt construction and local proof
 // sealing stay together until the runtime receipt builder is split out.
 use runx_contracts::{
-    Act, ActForm, Authority, AuthorityAttenuation, Closure, ClosureDisposition, CriterionBinding,
-    Decision, DecisionChoice, DecisionInputs, DecisionJustification, FanoutReceiptSyncPoint,
-    Harness, HarnessEnforcement, HarnessIdempotency, HarnessReceipt, HarnessReceiptSchema,
-    HarnessRevision, HarnessSandbox, HarnessSeal, HarnessState, Intent, JsonObject, JsonValue,
-    ReceiptIssuer, ReceiptIssuerType, ReceiptVerificationSummary, Reference, ReferenceType,
-    SealCriterion, SignatureAlgorithm, SuccessCriterion,
+    Act, ActForm, Authority, AuthorityAttenuation, AuthoritySubsetResult, Closure,
+    ClosureDisposition, CriterionBinding, Decision, DecisionChoice, DecisionInputs,
+    DecisionJustification, FanoutReceiptSyncPoint, Harness, HarnessEnforcement, HarnessIdempotency,
+    HarnessReceipt, HarnessReceiptSchema, HarnessRevision, HarnessSandbox, HarnessSeal,
+    HarnessState, Intent, JsonObject, JsonValue, ReceiptIssuer, ReceiptIssuerType,
+    ReceiptVerificationSummary, Reference, ReferenceType, SealCriterion, SignatureAlgorithm,
+    SuccessCriterion,
 };
 use runx_receipts::{
     ReceiptProofContext, ReceiptSignature, SignatureVerificationFailure, SignatureVerifier,
@@ -310,7 +311,7 @@ fn seal(
         verification_summary: Some(ReceiptVerificationSummary {
             signature_valid: true,
             hash_commitments_valid: true,
-            authority_attenuation_valid: true,
+            authority_attenuation_valid: false,
             criteria_bound: true,
             redaction_valid: true,
             external_attestations_present: false,
@@ -582,6 +583,7 @@ fn placeholder_signature() -> ReceiptSignature {
 }
 
 fn seal_receipt(receipt: &mut HarnessReceipt) -> Result<(), RuntimeError> {
+    sync_verification_summary(receipt);
     let digest =
         canonical_receipt_body_digest(receipt).map_err(|error| RuntimeError::ReceiptInvalid {
             message: error.to_string(),
@@ -593,13 +595,17 @@ fn seal_receipt(receipt: &mut HarnessReceipt) -> Result<(), RuntimeError> {
     receipt.signature.value = format!("sig:{digest}");
 
     let verifier = LocalHarnessSignatureVerifier;
-    validate_harness_receipt_proof(receipt, &proof_context(&verifier)).map_err(receipt_error)
+    validate_harness_receipt_proof(receipt, &proof_context(&verifier, receipt))
+        .map_err(receipt_error)
 }
 
-pub(crate) fn proof_context(verifier: &LocalHarnessSignatureVerifier) -> ReceiptProofContext<'_> {
+pub(crate) fn proof_context<'a>(
+    verifier: &'a LocalHarnessSignatureVerifier,
+    receipt: &HarnessReceipt,
+) -> ReceiptProofContext<'a> {
     ReceiptProofContext {
         signature_verifier: Some(verifier),
-        authority_verified: true,
+        authority_verified: authority_attenuation_verified(&receipt.harness.authority.attenuation),
         external_attestations_verified: true,
         verified_redaction_refs: std::collections::BTreeSet::new(),
         verified_hash_commitments: std::collections::BTreeSet::new(),
@@ -620,6 +626,30 @@ impl SignatureVerifier for LocalHarnessSignatureVerifier {
         } else {
             Err(SignatureVerificationFailure::SignatureMismatch)
         }
+    }
+}
+
+fn sync_verification_summary(receipt: &mut HarnessReceipt) {
+    let authority_attenuation_valid =
+        authority_attenuation_verified(&receipt.harness.authority.attenuation);
+    if let Some(summary) = receipt.seal.verification_summary.as_mut() {
+        summary.authority_attenuation_valid = authority_attenuation_valid;
+    }
+    if let Some(harness_seal) = receipt.harness.seal.as_mut() {
+        if let Some(summary) = harness_seal.verification_summary.as_mut() {
+            summary.authority_attenuation_valid = authority_attenuation_valid;
+        }
+    }
+}
+
+fn authority_attenuation_verified(attenuation: &AuthorityAttenuation) -> bool {
+    match (&attenuation.parent_authority_ref, &attenuation.subset_proof) {
+        (Some(parent), Some(proof)) => {
+            proof.parent_authority_ref == *parent
+                && matches!(proof.result, AuthoritySubsetResult::Subset)
+        }
+        (Some(_), None) | (None, Some(_)) => false,
+        (None, None) => false,
     }
 }
 

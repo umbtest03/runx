@@ -165,7 +165,7 @@ fn assert_receipt_digests(
 
 fn assert_receipt_proof(receipt: &HarnessReceipt) -> Result<(), HarnessReplayError> {
     let verifier = LocalHarnessSignatureVerifier;
-    let context = proof_context(&verifier);
+    let context = proof_context(&verifier, receipt);
     validate_harness_receipt_proof(receipt, &context).map_err(|verification| {
         HarnessReplayError::ReceiptProofInvalid {
             receipt_id: receipt.id.clone(),

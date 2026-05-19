@@ -1,7 +1,8 @@
 use std::collections::BTreeSet;
 
 use runx_contracts::{
-    HarnessReceipt, HashCommitment, ReceiptVerificationSummary, Reference, SignatureAlgorithm,
+    AuthorityAttenuation, AuthoritySubsetResult, HarnessReceipt, HashCommitment,
+    ReceiptVerificationSummary, Reference, SignatureAlgorithm,
 };
 
 use crate::canonical_receipt_body_digest;
@@ -154,17 +155,15 @@ impl ProofVerifier<'_> {
         if !summary.authority_attenuation_valid {
             return;
         }
-        let authority_claims = receipt
-            .harness
-            .authority
-            .attenuation
-            .parent_authority_ref
-            .is_some()
-            || receipt.harness.authority.attenuation.subset_proof.is_some()
-            || !receipt.harness.authority.authority_proof_refs.is_empty()
-            || !receipt.harness.authority.scope_refs.is_empty()
-            || !receipt.harness.authority.grant_refs.is_empty();
-        if authority_claims && !self.context.authority_verified {
+        if !has_verified_attenuation_shape(&receipt.harness.authority.attenuation) {
+            self.push(
+                ReceiptFindingCode::VerificationSummaryInvalid,
+                "seal.verification_summary.authority_attenuation_valid",
+                "authority_attenuation_valid cannot be true without a matching subset proof",
+            );
+            return;
+        }
+        if !self.context.authority_verified {
             self.push(
                 ReceiptFindingCode::AuthorityProofMissing,
                 "seal.verification_summary.authority_attenuation_valid",
@@ -265,6 +264,16 @@ impl ProofVerifier<'_> {
             message: message.into(),
         });
     }
+}
+
+fn has_verified_attenuation_shape(attenuation: &AuthorityAttenuation) -> bool {
+    let (Some(parent), Some(proof)) = (
+        attenuation.parent_authority_ref.as_ref(),
+        attenuation.subset_proof.as_ref(),
+    ) else {
+        return false;
+    };
+    proof.parent_authority_ref == *parent && matches!(proof.result, AuthoritySubsetResult::Subset)
 }
 
 fn redaction_refs(receipt: &HarnessReceipt) -> Vec<(String, &Reference)> {

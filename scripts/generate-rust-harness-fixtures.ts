@@ -256,7 +256,7 @@ function seal(disposition: string, reasonCode: string, summary: string): Record<
     verification_summary: {
       signature_valid: true,
       hash_commitments_valid: true,
-      authority_attenuation_valid: true,
+      authority_attenuation_valid: false,
       criteria_bound: true,
       redaction_valid: true,
       external_attestations_present: false,

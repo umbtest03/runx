@@ -351,6 +351,34 @@ fn strict_proof_requires_signature_verifier() -> Result<(), serde_json::Error> {
 }
 
 #[test]
+fn strict_proof_rejects_root_authority_attenuation_claim() -> Result<(), serde_json::Error> {
+    let mut receipt = proof_receipt()?;
+    receipt.harness.authority.attenuation.parent_authority_ref = None;
+    receipt.harness.authority.attenuation.subset_proof = None;
+    receipt.harness.authority.authority_proof_refs.clear();
+    receipt.harness.authority.grant_refs.clear();
+    receipt.harness.authority.scope_refs.clear();
+    if let Some(summary) = receipt.seal.verification_summary.as_mut() {
+        summary.authority_attenuation_valid = true;
+    }
+    if let Some(seal) = receipt.harness.seal.as_mut() {
+        if let Some(summary) = seal.verification_summary.as_mut() {
+            summary.authority_attenuation_valid = true;
+        }
+    }
+    refresh_proof_digest_and_signature(&mut receipt)?;
+    let verifier = FixtureSignatureVerifier;
+
+    let verification = verify_harness_receipt_proof(&receipt, &proof_context(&verifier));
+
+    assert_finding(
+        &verification,
+        ReceiptFindingCode::VerificationSummaryInvalid,
+    );
+    Ok(())
+}
+
+#[test]
 fn strict_proof_rejects_tampered_signature() -> Result<(), serde_json::Error> {
     let mut receipt = proof_receipt()?;
     receipt.signature.value = "sig:tampered".to_owned();
