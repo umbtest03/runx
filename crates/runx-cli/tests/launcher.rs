@@ -4,8 +4,9 @@ use std::path::PathBuf;
 
 use runx_cli::launcher::{
     CommandPlan, DEFAULT_NPM_PACKAGE, DoctorPlan, HarnessPlan, HistoryPlan, InitPlan,
-    LauncherAction, NativeLauncherOptions, NewPlan, ToolAction, ToolPlan, node_command,
-    npm_command, plan_launcher, plan_launcher_with_native_options, plan_launcher_with_rust_harness,
+    LauncherAction, ListKind, ListPlan, NativeLauncherOptions, NewPlan, ToolAction, ToolPlan,
+    node_command, npm_command, plan_launcher, plan_launcher_with_native_options,
+    plan_launcher_with_rust_harness,
 };
 
 fn plan_with_rust_cli(args: Vec<std::ffi::OsString>) -> LauncherAction {
@@ -329,6 +330,64 @@ fn history_routes_to_native_cli_even_with_js_fallback_configured() {
                 ".runx/receipts".into(),
             ],
         })
+    );
+}
+
+#[test]
+fn list_routes_native_supported_shape_even_with_js_fallback_configured() {
+    let action = plan_with_rust_cli_and_js(vec![
+        "list".into(),
+        "packets".into(),
+        "--ok-only".into(),
+        "--json".into(),
+    ]);
+
+    assert_eq!(
+        action,
+        LauncherAction::RunList(ListPlan {
+            kind: ListKind::Packets,
+            ok_only: true,
+            invalid_only: false,
+            json: true,
+        })
+    );
+}
+
+#[test]
+fn list_delegates_unsupported_shape() {
+    let action = plan_with_rust_cli_and_js(vec![
+        "list".into(),
+        "skills".into(),
+        "--source".into(),
+        "registry".into(),
+    ]);
+
+    assert_eq!(
+        action,
+        LauncherAction::Delegate(CommandPlan {
+            program: node_command().into(),
+            args: vec![
+                "/repo/oss/packages/cli/bin/runx.js".into(),
+                "list".into(),
+                "skills".into(),
+                "--source".into(),
+                "registry".into(),
+            ],
+        })
+    );
+}
+
+#[test]
+fn list_rejects_conflicting_status_filters() {
+    let action = plan_with_rust_cli(vec![
+        "list".into(),
+        "--ok-only".into(),
+        "--invalid-only".into(),
+    ]);
+
+    assert_eq!(
+        action,
+        LauncherAction::Error("runx list accepts either --ok-only or --invalid-only".to_owned())
     );
 }
 

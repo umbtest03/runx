@@ -1,10 +1,24 @@
+// rust-style-allow: large-file because sandbox planning owns both process and
+// MCP environment/cwd policy plus the audit metadata emitted with each plan.
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use runx_contracts::{JsonObject, JsonValue};
-use runx_parser::{SkillSandbox, SkillSource};
+use runx_parser::{SkillMcpServer, SkillSandbox, SkillSource};
 
 use crate::RuntimeError;
+
+const DEFAULT_ENV_ALLOWLIST: [&str; 9] = [
+    "PATH",
+    "HOME",
+    "TMPDIR",
+    "TMP",
+    "TEMP",
+    "SystemRoot",
+    "WINDIR",
+    "COMSPEC",
+    "PATHEXT",
+];
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SandboxPlan {
@@ -40,15 +54,42 @@ pub fn prepare_process_sandbox(
     })
 }
 
+pub fn prepare_mcp_process_sandbox(
+    source: &SkillSource,
+    server: &SkillMcpServer,
+    skill_directory: &Path,
+    base_env: &BTreeMap<String, String>,
+) -> Result<SandboxPlan, RuntimeError> {
+    let sandbox = source.sandbox.as_ref();
+    validate_sandbox(sandbox)?;
+    let cwd = resolve_cwd_value(server.cwd.as_deref(), sandbox, skill_directory)?;
+    let env = allowed_base_env(sandbox, base_env);
+    Ok(SandboxPlan {
+        command: server.command.clone(),
+        args: server.args.clone(),
+        cwd,
+        env,
+        metadata: sandbox_metadata(sandbox),
+    })
+}
+
 fn resolve_cwd(
     source: &SkillSource,
+    sandbox: Option<&SkillSandbox>,
+    skill_directory: &Path,
+) -> Result<PathBuf, RuntimeError> {
+    resolve_cwd_value(source.cwd.as_deref(), sandbox, skill_directory)
+}
+
+fn resolve_cwd_value(
+    source_cwd: Option<&str>,
     sandbox: Option<&SkillSandbox>,
     skill_directory: &Path,
 ) -> Result<PathBuf, RuntimeError> {
     let policy = sandbox
         .and_then(|sandbox| sandbox.cwd_policy.as_deref())
         .unwrap_or("skill-directory");
-    match (policy, source.cwd.as_deref()) {
+    match (policy, source_cwd) {
         ("custom", Some(cwd)) => Ok(resolve_path(skill_directory, cwd)),
         ("workspace", Some(cwd)) => Ok(resolve_path(skill_directory, cwd)),
         ("workspace", None) => std::env::current_dir()
@@ -86,13 +127,13 @@ fn allowed_base_env(
     sandbox: Option<&SkillSandbox>,
     base_env: &BTreeMap<String, String>,
 ) -> BTreeMap<String, String> {
-    let mut allowed = ["PATH", "SystemRoot", "PATHEXT"]
-        .into_iter()
+    let mut allowed = DEFAULT_ENV_ALLOWLIST
+        .iter()
         .filter_map(|key| {
             base_env
-                .get(key)
+                .get(*key)
                 .cloned()
-                .map(|value| (key.to_owned(), value))
+                .map(|value| ((*key).to_owned(), value))
         })
         .collect::<BTreeMap<_, _>>();
     if let Some(env_allowlist) = sandbox.and_then(|sandbox| sandbox.env_allowlist.as_ref()) {
@@ -189,13 +230,151 @@ fn resolve_template(template: &str, inputs: &JsonObject) -> String {
     resolved
 }
 
-fn sandbox_metadata(sandbox: Option<&SkillSandbox>) -> JsonObject {
+pub fn sandbox_metadata(sandbox: Option<&SkillSandbox>) -> JsonObject {
     let mut metadata = JsonObject::new();
     if let Some(sandbox) = sandbox {
         metadata.insert(
             "profile".to_owned(),
             JsonValue::String(sandbox.profile.clone()),
         );
+        if let Some(cwd_policy) = &sandbox.cwd_policy {
+            metadata.insert(
+                "cwd_policy".to_owned(),
+                JsonValue::String(cwd_policy.clone()),
+            );
+        }
+        metadata.insert(
+            "env".to_owned(),
+            JsonValue::Object(sandbox_env_metadata(sandbox)),
+        );
+        insert_network_metadata(&mut metadata, sandbox);
+        insert_writable_paths_metadata(&mut metadata, sandbox);
+        metadata.insert(
+            "require_enforcement".to_owned(),
+            JsonValue::Bool(sandbox.require_enforcement.unwrap_or(false)),
+        );
+        insert_filesystem_metadata(&mut metadata, sandbox);
+        insert_approval_metadata(&mut metadata, sandbox);
+        insert_runtime_metadata(&mut metadata);
     }
     metadata
+}
+
+fn sandbox_env_metadata(sandbox: &SkillSandbox) -> JsonObject {
+    let allowlist = sandbox.env_allowlist.clone().unwrap_or_else(|| {
+        DEFAULT_ENV_ALLOWLIST
+            .into_iter()
+            .map(str::to_owned)
+            .collect()
+    });
+    [
+        (
+            "mode".to_owned(),
+            JsonValue::String(if sandbox.env_allowlist.is_some() {
+                "allowlist".to_owned()
+            } else {
+                "default-allowlist".to_owned()
+            }),
+        ),
+        (
+            "allowlist".to_owned(),
+            JsonValue::Array(allowlist.into_iter().map(JsonValue::String).collect()),
+        ),
+    ]
+    .into()
+}
+
+fn insert_network_metadata(metadata: &mut JsonObject, sandbox: &SkillSandbox) {
+    metadata.insert(
+        "network".to_owned(),
+        JsonValue::Object(
+            [
+                (
+                    "declared".to_owned(),
+                    JsonValue::Bool(sandbox.network.unwrap_or(false)),
+                ),
+                (
+                    "enforcement".to_owned(),
+                    JsonValue::String("not-enforced-local".to_owned()),
+                ),
+            ]
+            .into(),
+        ),
+    );
+}
+
+fn insert_writable_paths_metadata(metadata: &mut JsonObject, sandbox: &SkillSandbox) {
+    metadata.insert(
+        "writable_paths".to_owned(),
+        JsonValue::Array(
+            sandbox
+                .writable_paths
+                .iter()
+                .cloned()
+                .map(JsonValue::String)
+                .collect(),
+        ),
+    );
+}
+
+fn insert_filesystem_metadata(metadata: &mut JsonObject, sandbox: &SkillSandbox) {
+    metadata.insert(
+        "filesystem".to_owned(),
+        JsonValue::Object(
+            [
+                (
+                    "enforcement".to_owned(),
+                    JsonValue::String("not-enforced-local".to_owned()),
+                ),
+                (
+                    "readonly_paths".to_owned(),
+                    JsonValue::Bool(sandbox.profile != "unrestricted-local-dev"),
+                ),
+                ("writable_paths_enforced".to_owned(), JsonValue::Bool(false)),
+                ("private_tmp".to_owned(), JsonValue::Bool(false)),
+            ]
+            .into(),
+        ),
+    );
+}
+
+fn insert_approval_metadata(metadata: &mut JsonObject, sandbox: &SkillSandbox) {
+    metadata.insert(
+        "approval".to_owned(),
+        JsonValue::Object(
+            [
+                (
+                    "required".to_owned(),
+                    JsonValue::Bool(sandbox.profile == "unrestricted-local-dev"),
+                ),
+                (
+                    "approved".to_owned(),
+                    JsonValue::Bool(sandbox.approved_escalation.unwrap_or(false)),
+                ),
+            ]
+            .into(),
+        ),
+    );
+}
+
+fn insert_runtime_metadata(metadata: &mut JsonObject) {
+    metadata.insert(
+        "runtime".to_owned(),
+        JsonValue::Object(
+            [
+                (
+                    "enforcer".to_owned(),
+                    JsonValue::String("declared-policy-only".to_owned()),
+                ),
+                (
+                    "reason".to_owned(),
+                    JsonValue::String(
+                        "local sandbox isolation is not enforced by the runtime skeleton"
+                            .to_owned(),
+                    ),
+                ),
+            ]
+            .into(),
+        ),
+    );
 }

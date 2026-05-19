@@ -36,6 +36,7 @@ fn main() -> ExitCode {
         LauncherAction::RunInit(plan) => runx_cli::scaffold::run_native_init(plan),
         LauncherAction::RunNew(plan) => runx_cli::scaffold::run_native_new(plan),
         LauncherAction::RunHistory(plan) => run_native_history(plan.args),
+        LauncherAction::RunList(plan) => run_native_list(plan),
         LauncherAction::RunHarness(plan) => run_native_harness(PathBuf::from(plan.fixture_path)),
         LauncherAction::RunConnect(plan) => run_native_connect(plan),
         LauncherAction::RunConfig(plan) => run_native_config(plan),
@@ -312,6 +313,23 @@ fn run_native_history(args: Vec<OsString>) -> ExitCode {
             let _ignored = write_stderr_line(&format!("runx: {message}"));
             ExitCode::from(2)
         }
+        Err(error) => {
+            let _ignored = write_stderr_line(&format!("runx: {error}"));
+            ExitCode::from(1)
+        }
+    }
+}
+
+fn run_native_list(plan: runx_cli::launcher::ListPlan) -> ExitCode {
+    let cwd = match env::current_dir() {
+        Ok(cwd) => cwd,
+        Err(error) => {
+            let _ignored = write_stderr_line(&format!("runx: failed to resolve cwd: {error}"));
+            return ExitCode::from(1);
+        }
+    };
+    match runx_cli::list::run_list_command(&plan, &cwd) {
+        Ok(output) => write_stdout(&output),
         Err(error) => {
             let _ignored = write_stderr_line(&format!("runx: {error}"));
             ExitCode::from(1)

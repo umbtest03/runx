@@ -1,7 +1,9 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { authorityTermSchema } from "@runxhq/contracts";
 import { describe, expect, it } from "vitest";
+import { Value } from "@sinclair/typebox/value";
 
 import { buildRegistrySkillVersion } from "@runxhq/core/registry";
 import {
@@ -12,6 +14,7 @@ import {
 } from "@runxhq/core/parser";
 
 const paymentSecretKeyPattern = /(?:^|_)(?:pan|cvv|cvc|card_number|cardnumber|account_number|routing_number|private_key|seed_phrase|mnemonic|secret_key)(?:$|_)/i;
+const retiredReceiptFields = new Set(["kind", "status", "skill_name", "source_type"]);
 
 describe("payment skill execution profiles", () => {
   it("parse payment profiles and ingest packaged skills without raw payment credential fields", async () => {
@@ -42,7 +45,47 @@ describe("payment skill execution profiles", () => {
       }
     }
   });
+
+  it("keeps payment graph references, packet ids, receipts, and authority examples coherent", async () => {
+    const skillDirs = await discoverPaymentSkillDirs();
+    const packetIds = await loadDeclaredPacketIds();
+
+    for (const skillDir of skillDirs) {
+      const skillName = path.basename(skillDir);
+      const profileDocument = await readFile(path.join(skillDir, "X.yaml"), "utf8");
+      const manifest = validateRunnerManifest(parseRunnerManifestYaml(profileDocument));
+
+      expect(findRetiredReceiptFields(manifest.raw.document), `${skillName} retired receipt fields`).toEqual([]);
+      expect(findInvalidPaymentAuthorityTerms(manifest.raw.document), `${skillName} payment authority term examples`).toEqual([]);
+
+      for (const [runnerName, runner] of Object.entries(manifest.runners)) {
+        expect(findUnknownPacketRefs(runner.raw, packetIds), `${skillName}.${runnerName} payment packet refs`).toEqual([]);
+        const graph = runner.source.graph;
+        if (!graph) {
+          continue;
+        }
+        const outputDeclarations = new Map<string, Readonly<Record<string, OutputDeclaration>>>();
+        for (const step of graph.steps) {
+          if (step.skill) {
+            const nested = await loadNestedRunner(skillDir, step.skill, step.runner);
+            expect(nested.error, `${skillName}.${runnerName}.${step.id} nested runner`).toBeUndefined();
+          }
+          outputDeclarations.set(step.id, await loadStepOutputDeclarations(skillDir, step));
+        }
+
+        for (const transition of graph.policy?.transitions ?? []) {
+          const result = validateGraphFieldReference(transition.field, outputDeclarations, packetIds);
+          expect(result, `${skillName}.${runnerName} transition ${transition.field}`).toBeUndefined();
+        }
+      }
+    }
+  });
 });
+
+interface OutputDeclaration {
+  readonly packet?: string;
+  readonly packetDataShape: "payload" | "packet";
+}
 
 async function discoverPaymentSkillDirs(): Promise<readonly string[]> {
   const skillsRoot = path.resolve("skills");
@@ -88,6 +131,148 @@ function findPaymentSecretFields(value: unknown, pathParts: readonly string[] = 
     const current = paymentSecretKeyPattern.test(key) ? [fieldPath.join(".")] : [];
     return [...current, ...findPaymentSecretFields(entry, fieldPath)];
   });
+}
+
+function findRetiredReceiptFields(value: unknown, pathParts: readonly string[] = []): readonly string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry, index) => findRetiredReceiptFields(entry, [...pathParts, `[${index}]`]));
+  }
+  if (!isRecord(value)) {
+    return [];
+  }
+  const inExpectedReceipt = pathParts.at(-1) === "receipt" && pathParts.includes("expect");
+  return Object.entries(value).flatMap(([key, entry]) => {
+    const fieldPath = [...pathParts, key];
+    const current = inExpectedReceipt && retiredReceiptFields.has(key) ? [fieldPath.join(".")] : [];
+    return [...current, ...findRetiredReceiptFields(entry, fieldPath)];
+  });
+}
+
+function findInvalidPaymentAuthorityTerms(value: unknown, pathParts: readonly string[] = []): readonly string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry, index) => findInvalidPaymentAuthorityTerms(entry, [...pathParts, `[${index}]`]));
+  }
+  if (!isRecord(value)) {
+    return [];
+  }
+  const entries = Object.entries(value);
+  const currentKey = pathParts.at(-1);
+  const isFixtureAuthority =
+    currentKey?.endsWith("payment_authority") === true
+    && !pathParts.includes("runx")
+    && !("authority_ref" in value);
+  const current = isFixtureAuthority && hasInlinePaymentAuthorityShape(value) && !Value.Check(authorityTermSchema, value)
+    ? [`${pathParts.join(".")}: ${[...Value.Errors(authorityTermSchema, value)].map((error) => error.path || error.message).join(", ")}`]
+    : [];
+  return [
+    ...current,
+    ...entries.flatMap(([key, entry]) => findInvalidPaymentAuthorityTerms(entry, [...pathParts, key])),
+  ];
+}
+
+function hasInlinePaymentAuthorityShape(value: Readonly<Record<string, unknown>>): boolean {
+  return value.resource_family === "payment" || (isRecord(value.bounds) && isRecord(value.bounds.payment));
+}
+
+function findUnknownPacketRefs(value: unknown, packetIds: ReadonlySet<string>, pathParts: readonly string[] = []): readonly string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry, index) => findUnknownPacketRefs(entry, packetIds, [...pathParts, `[${index}]`]));
+  }
+  if (!isRecord(value)) {
+    return [];
+  }
+  return Object.entries(value).flatMap(([key, entry]) => {
+    const fieldPath = [...pathParts, key];
+    const current = key === "packet" && typeof entry === "string" && entry.startsWith("runx.payment.") && !packetIds.has(entry)
+      ? [`${fieldPath.join(".")}: ${entry}`]
+      : [];
+    return [...current, ...findUnknownPacketRefs(entry, packetIds, fieldPath)];
+  });
+}
+
+async function loadDeclaredPacketIds(): Promise<ReadonlySet<string>> {
+  const packetDir = path.resolve("dist", "packets");
+  const entries = await readdir(packetDir, { withFileTypes: true });
+  const ids = await Promise.all(
+    entries
+      .filter((entry) => entry.isFile() && entry.name.startsWith("payment.") && entry.name.endsWith(".schema.json"))
+      .map(async (entry) => {
+        const schema = JSON.parse(await readFile(path.join(packetDir, entry.name), "utf8")) as unknown;
+        return isRecord(schema) && typeof schema["x-runx-packet-id"] === "string" ? schema["x-runx-packet-id"] : undefined;
+      }),
+  );
+  return new Set(ids.filter((id): id is string => id !== undefined));
+}
+
+async function loadNestedRunner(
+  skillDir: string,
+  skillRef: string,
+  runnerName: string | undefined,
+): Promise<{ readonly error?: string; readonly runner?: ReturnType<typeof validateRunnerManifest>["runners"][string] }> {
+  const profilePath = resolveNestedProfilePath(skillDir, skillRef);
+  if (!profilePath) {
+    return { error: `missing profile for ${skillRef}` };
+  }
+  const manifest = validateRunnerManifest(parseRunnerManifestYaml(await readFile(profilePath, "utf8")));
+  const runner = runnerName ? manifest.runners[runnerName] : Object.values(manifest.runners).find((candidate) => candidate.default) ?? Object.values(manifest.runners)[0];
+  return runner ? { runner } : { error: `missing runner ${runnerName ?? "(default)"}` };
+}
+
+async function loadStepOutputDeclarations(
+  skillDir: string,
+  step: { readonly skill?: string; readonly run?: Readonly<Record<string, unknown>>; readonly runner?: string; readonly artifacts?: Readonly<Record<string, unknown>> },
+): Promise<Readonly<Record<string, OutputDeclaration>>> {
+  if (step.skill) {
+    const nested = await loadNestedRunner(skillDir, step.skill, step.runner);
+    return nested.runner ? outputDeclarationsFromArtifacts(nested.runner.raw) : {};
+  }
+  return outputDeclarationsFromArtifacts({ ...(step.run ?? {}), artifacts: step.artifacts });
+}
+
+function outputDeclarationsFromArtifacts(raw: Readonly<Record<string, unknown>>): Readonly<Record<string, OutputDeclaration>> {
+  const artifacts = isRecord(raw.artifacts) ? raw.artifacts : {};
+  const wrapAs = typeof artifacts.wrap_as === "string" ? artifacts.wrap_as : undefined;
+  if (!wrapAs) {
+    return {};
+  }
+  return {
+    [wrapAs]: {
+      packet: typeof artifacts.packet === "string" ? artifacts.packet : undefined,
+      packetDataShape: "payload",
+    },
+  };
+}
+
+function validateGraphFieldReference(
+  field: string,
+  outputs: ReadonlyMap<string, Readonly<Record<string, OutputDeclaration>>>,
+  packetIds: ReadonlySet<string>,
+): string | undefined {
+  const [stepId, outputName, dataSegment, ...payloadPath] = field.split(".");
+  if (!stepId || !outputName) {
+    return "field must start with step.output";
+  }
+  const stepOutputs = outputs.get(stepId);
+  const declaration = stepOutputs?.[outputName];
+  if (!declaration) {
+    return `unknown output ${stepId}.${outputName}`;
+  }
+  if (dataSegment !== "data") {
+    return `field must reference ${stepId}.${outputName}.data before payload fields`;
+  }
+  if (declaration.packet?.startsWith("runx.payment.") && !packetIds.has(declaration.packet)) {
+    return `unknown packet ${declaration.packet}`;
+  }
+  if (declaration.packet === "runx.payment.approval.v1" && payloadPath[0] !== "approved") {
+    return `approval transition must read approved from ${stepId}.${outputName}.data.approved`;
+  }
+  return undefined;
+}
+
+function resolveNestedProfilePath(skillDir: string, ref: string): string | undefined {
+  const resolved = path.resolve(skillDir, ref);
+  const directory = path.basename(resolved).toLowerCase() === "skill.md" ? path.dirname(resolved) : resolved;
+  return path.join(directory, "X.yaml");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

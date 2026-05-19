@@ -9,3 +9,6 @@ pub mod agent;
 
 #[cfg(feature = "catalog")]
 pub mod catalog;
+
+#[cfg(feature = "mcp")]
+pub mod mcp;

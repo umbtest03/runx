@@ -16,6 +16,7 @@ mod graph;
 pub mod harness;
 pub mod hosted_http;
 pub mod journal;
+pub mod list;
 pub mod receipt_paths;
 pub mod receipt_store;
 pub mod receipt_tree;
@@ -64,6 +65,11 @@ pub use harness::{
     run_harness_fixture_with_adapter,
 };
 pub use journal::{ExecutionJournal, JournalEntry};
+pub use list::{
+    RunxListEmit, RunxListItem, RunxListItemKind, RunxListOptions, RunxListReport,
+    RunxListRequestedKind, RunxListSource, RunxListStatus, default_list_options,
+    list_authoring_primitives,
+};
 pub use receipt_paths::{
     INIT_CWD_ENV, RUNTIME_RECEIPTS_DIR_CONFIG_KEY, RUNX_CWD_ENV, RUNX_PROJECT_DIR_ENV,
     RUNX_RECEIPT_DIR_ENV, ReceiptPathInputs, ReceiptPathSource, ReceiptStoreLabel,

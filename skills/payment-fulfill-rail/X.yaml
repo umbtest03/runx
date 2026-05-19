@@ -17,9 +17,18 @@ harness:
           amount_minor: 125
           currency: USD
         reserved_payment_authority:
+          term_id: authority-term:payment:reserve-demo-001
+          principal_ref:
+            type: host
+            uri: principal:operator:test
+          resource_ref:
+            type: surface
+            uri: merchant:demo
           resource_family: payment
           verbs:
             - spend
+          capabilities:
+            - payment_single_use_spend
           bounds:
             payment:
               currency: USD
@@ -30,6 +39,11 @@ harness:
               operation: search.paid
               single_use_spend: true
               credential_form: single_use_spend_capability
+          conditions: []
+          approvals: []
+          issued_by_ref:
+            type: host
+            uri: authority:payment:test
         spend_capability_ref: capability:payment:demo-search-001
         rail_profile_ref: rail-profile:mock:test
         idempotency:
@@ -58,10 +72,10 @@ harness:
       expect:
         status: success
         receipt:
-          kind: skill_execution
-          status: success
-          skill_name: payment-fulfill-rail
-          source_type: agent-step
+          schema: runx.harness_receipt.v1
+          state: sealed
+          disposition: closed
+          reason_code: payment_rail_closed
 
 runners:
   mock:

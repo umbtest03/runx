@@ -33,6 +33,13 @@ harness:
               operation: search.paid
               expires_at: "2026-05-20T01:00:00Z"
             requested_payment_authority:
+              term_id: authority-term:payment:quote-demo-001
+              principal_ref:
+                type: host
+                uri: principal:operator:test
+              resource_ref:
+                type: surface
+                uri: merchant:demo
               resource_family: payment
               verbs:
                 - reserve
@@ -49,6 +56,12 @@ harness:
                   idempotency_required: true
                   recovery_required: true
                   receipt_before_success: true
+              conditions: []
+              approvals: []
+              capabilities: []
+              issued_by_ref:
+                type: host
+                uri: authority:payment:test
             challenge_evidence:
               source_refs:
                 - signal:ch_mock_001
@@ -57,10 +70,10 @@ harness:
       expect:
         status: success
         receipt:
-          kind: skill_execution
-          status: success
-          skill_name: payment-quote-preflight
-          source_type: agent-step
+          schema: runx.harness_receipt.v1
+          state: sealed
+          disposition: closed
+          reason_code: payment_quote_closed
 
 runners:
   quote:

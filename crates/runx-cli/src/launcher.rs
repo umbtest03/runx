@@ -13,6 +13,7 @@ pub enum LauncherAction {
     Error(String),
     RunDoctor(DoctorPlan),
     RunInit(InitPlan),
+    RunList(ListPlan),
     RunNew(NewPlan),
     RunHistory(HistoryPlan),
     RunHarness(HarnessPlan),
@@ -43,6 +44,24 @@ pub struct HistoryPlan {
 pub struct DoctorPlan {
     pub path: Option<PathBuf>,
     pub json: bool,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct ListPlan {
+    pub kind: ListKind,
+    pub ok_only: bool,
+    pub invalid_only: bool,
+    pub json: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ListKind {
+    All,
+    Tools,
+    Skills,
+    Graphs,
+    Packets,
+    Overlays,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -146,6 +165,14 @@ pub fn plan_launcher_with_native_options(
                 .map_or_else(LauncherAction::Error, LauncherAction::RunDoctor);
         }
 
+        if first_arg_is(&args, "list") {
+            if !list_shape_is_native(&args) {
+                return delegate_plan(args, npm_package, js_bin);
+            }
+            return parse_list_plan(&args)
+                .map_or_else(LauncherAction::Error, LauncherAction::RunList);
+        }
+
         if first_arg_is(&args, "new") {
             return parse_new_plan(&args)
                 .map_or_else(LauncherAction::Error, LauncherAction::RunNew);
@@ -221,6 +248,7 @@ Native commands:
   runx new <name> [--directory dir] [--json]
   runx init [-g|--global] [--prefetch official] [--json]
   runx history [query] [--skill s] [--status s] [--source s] [--actor a] [--artifact-type t] [--since iso] [--until iso] [--receipt-dir dir] [--json]
+  runx list [tools|skills|graphs|packets|overlays] [--ok-only|--invalid-only] [--json]
   runx connect list|revoke <grant-id>|<provider> [--scope scope] [--scope-family family] [--authority-kind read_only|constructive|destructive] [--target-repo owner/repo] [--target-locator locator] [--json]
   runx config set|get|list [agent.provider|agent.model|agent.api_key] [value] [--json]
   runx doctor [path] [--json]
@@ -415,6 +443,92 @@ fn parse_doctor_plan(args: &[OsString]) -> Result<DoctorPlan, String> {
     }
 
     Ok(DoctorPlan { path, json })
+}
+
+fn list_shape_is_native(args: &[OsString]) -> bool {
+    let mut positionals = 0;
+    for arg in args.iter().skip(1) {
+        let Some(token) = arg.to_str() else {
+            return true;
+        };
+        if !token.starts_with("--") {
+            positionals += 1;
+            if positionals > 1 || parse_list_kind(token).is_none() {
+                return false;
+            }
+            continue;
+        }
+
+        let (flag, inline_value) = split_flag(token);
+        if inline_value.is_some() {
+            return false;
+        }
+        if !matches!(
+            flag,
+            "--json" | "--ok-only" | "--okOnly" | "--invalid-only" | "--invalidOnly"
+        ) {
+            return false;
+        }
+    }
+    true
+}
+
+fn parse_list_plan(args: &[OsString]) -> Result<ListPlan, String> {
+    let mut kind = ListKind::All;
+    let mut ok_only = false;
+    let mut invalid_only = false;
+    let mut json = false;
+    let mut saw_kind = false;
+    let mut index = 1;
+
+    while index < args.len() {
+        let token = os_arg(args, index, "list")?;
+        if !token.starts_with("--") {
+            if saw_kind {
+                return Err("runx list accepts at most one kind".to_owned());
+            }
+            kind = parse_list_kind(token).ok_or_else(|| {
+                "runx list kind must be tools, skills, graphs, packets, or overlays".to_owned()
+            })?;
+            saw_kind = true;
+            index += 1;
+            continue;
+        }
+
+        let (flag, inline_value) = split_flag(token);
+        if inline_value.is_some() {
+            return Err(format!("{flag} does not take a value"));
+        }
+        match flag {
+            "--json" => json = true,
+            "--ok-only" | "--okOnly" => ok_only = true,
+            "--invalid-only" | "--invalidOnly" => invalid_only = true,
+            _ => return Err(format!("unknown list flag {flag}")),
+        }
+        index += 1;
+    }
+
+    if ok_only && invalid_only {
+        return Err("runx list accepts either --ok-only or --invalid-only".to_owned());
+    }
+
+    Ok(ListPlan {
+        kind,
+        ok_only,
+        invalid_only,
+        json,
+    })
+}
+
+fn parse_list_kind(value: &str) -> Option<ListKind> {
+    match value {
+        "tools" => Some(ListKind::Tools),
+        "skills" => Some(ListKind::Skills),
+        "graphs" => Some(ListKind::Graphs),
+        "packets" => Some(ListKind::Packets),
+        "overlays" => Some(ListKind::Overlays),
+        _ => None,
+    }
 }
 
 fn tool_subcommand_is_native(args: &[OsString]) -> bool {
