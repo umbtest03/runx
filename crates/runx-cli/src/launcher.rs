@@ -13,6 +13,7 @@ use crate::skill::SkillPlan;
 #[derive(Debug, PartialEq)]
 pub enum LauncherAction {
     Error(String),
+    RunDev(DevPlan),
     RunDoctor(DoctorPlan),
     RunInit(InitPlan),
     RunList(ListPlan),
@@ -29,6 +30,13 @@ pub enum LauncherAction {
     RunTool(ToolPlan),
     PrintHelp,
     PrintVersion,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct DevPlan {
+    pub root: Option<PathBuf>,
+    pub lane: Option<String>,
+    pub json: bool,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -136,6 +144,10 @@ pub fn plan_launcher(args: Vec<OsString>) -> LauncherAction {
             .map_or_else(LauncherAction::Error, LauncherAction::RunDoctor);
     }
 
+    if first_arg_is(&args, "dev") {
+        return parse_dev_plan(&args).map_or_else(LauncherAction::Error, LauncherAction::RunDev);
+    }
+
     if first_arg_is(&args, "list") {
         return parse_list_plan(&args).map_or_else(LauncherAction::Error, LauncherAction::RunList);
     }
@@ -198,6 +210,7 @@ Commands:
   runx policy inspect|lint <policy.json> [--json]
   runx kernel eval --input <file|-> --json
   runx doctor [path] [--json]
+  runx dev [root] [--lane lane] [--json]
   runx mcp serve <skill-ref...> [--receipt-dir dir]
   runx skill <skill-ref|skill-dir|SKILL.md> [--input k=v] [--receipt-dir dir] [--run-id id] [--answers file] [--json]
   runx harness <fixture.yaml|skill-dir|SKILL.md> [--json]
@@ -359,6 +372,47 @@ fn parse_init_plan(args: &[OsString]) -> Result<InitPlan, String> {
         prefetch_official,
         json,
     })
+}
+
+fn parse_dev_plan(args: &[OsString]) -> Result<DevPlan, String> {
+    let mut root = None;
+    let mut lane = None;
+    let mut json = false;
+    let mut index = 1;
+
+    while index < args.len() {
+        let token = os_arg(args, index, "dev")?;
+        if !token.starts_with("--") {
+            if root.is_some() {
+                return Err("runx dev accepts at most one root path".to_owned());
+            }
+            root = Some(PathBuf::from(token));
+            index += 1;
+            continue;
+        }
+
+        let (flag, inline_value) = split_flag(token);
+        match flag {
+            "--json" => {
+                if inline_value.is_some() {
+                    return Err("--json does not take a value".to_owned());
+                }
+                json = true;
+                index += 1;
+            }
+            "--lane" => {
+                let (value, next_index) = flag_value(args, index, flag, inline_value, "dev")?;
+                if value.is_empty() {
+                    return Err("--lane must not be empty".to_owned());
+                }
+                lane = Some(value);
+                index = next_index;
+            }
+            _ => return Err(format!("unknown dev flag {flag}")),
+        }
+    }
+
+    Ok(DevPlan { root, lane, json })
 }
 
 fn parse_doctor_plan(args: &[OsString]) -> Result<DoctorPlan, String> {

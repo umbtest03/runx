@@ -2,8 +2,8 @@ use runx_cli::config::{ConfigAction, ConfigPlan};
 use runx_cli::connect::{ConnectAction, ConnectAuthorityKind, ConnectPlan};
 use runx_cli::kernel::{KernelInputSource, KernelPlan};
 use runx_cli::launcher::{
-    DoctorPlan, HarnessPlan, HistoryPlan, InitPlan, LauncherAction, ListKind, ListPlan, NewPlan,
-    ToolAction, ToolPlan, help_text, plan_launcher,
+    DevPlan, DoctorPlan, HarnessPlan, HistoryPlan, InitPlan, LauncherAction, ListKind, ListPlan,
+    NewPlan, ToolAction, ToolPlan, help_text, plan_launcher,
 };
 use runx_cli::mcp::McpPlan;
 use runx_cli::policy::{PolicyAction, PolicyPlan};
@@ -275,6 +275,42 @@ fn routes_doctor_history_list_new_and_init_to_native_plans() {
             prefetch_official: true,
             json: true,
         })
+    );
+}
+
+#[test]
+fn routes_dev_to_native_plan_with_scaffolded_lane_shape() {
+    assert_eq!(
+        plan(&["dev", "--lane", "deterministic", "--json"]),
+        LauncherAction::RunDev(DevPlan {
+            root: None,
+            lane: Some("deterministic".to_owned()),
+            json: true,
+        })
+    );
+    assert_eq!(
+        plan(&["dev", "packages/demo", "--lane=all"]),
+        LauncherAction::RunDev(DevPlan {
+            root: Some(PathBuf::from("packages/demo")),
+            lane: Some("all".to_owned()),
+            json: false,
+        })
+    );
+}
+
+#[test]
+fn dev_rejects_unknown_shapes_without_delegating() {
+    assert_eq!(
+        plan(&["dev", "--lane"]),
+        LauncherAction::Error("--lane requires a value".to_owned())
+    );
+    assert_eq!(
+        plan(&["dev", "--watch"]),
+        LauncherAction::Error("unknown dev flag --watch".to_owned())
+    );
+    assert_eq!(
+        plan(&["dev", "one", "two"]),
+        LauncherAction::Error("runx dev accepts at most one root path".to_owned())
     );
 }
 

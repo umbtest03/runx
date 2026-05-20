@@ -38,6 +38,7 @@ fn main() -> ExitCode {
         LauncherAction::RunRegistry(plan) => runx_cli::registry::run_native_registry(plan),
         LauncherAction::RunSkill(plan) => runx_cli::skill::run_native_skill(plan),
         LauncherAction::RunDoctor(plan) => runx_cli::doctor::run_native_doctor(plan),
+        LauncherAction::RunDev(plan) => runx_cli::dev::run_native_dev(plan),
         LauncherAction::RunTool(plan) => runx_cli::tool::run_native_tool(plan),
     }
 }
