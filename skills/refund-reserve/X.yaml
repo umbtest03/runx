@@ -1,0 +1,127 @@
+skill: refund-reserve
+version: "0.1.0"
+
+catalog:
+  kind: skill
+  audience: operator
+  visibility: public
+
+harness:
+  cases:
+    - name: refund-reserve-selected
+      runner: reserve
+      inputs:
+        refund_quote_packet:
+          refund_quote:
+            quote_id: refund_quote_demo_001
+            original_receipt_ref: receipt:charge:mock:paid-search-001
+            amount_minor: 125
+            currency: USD
+            reason: operator_refund
+          refundable_bounds:
+            remaining_minor: 125
+            max_refund_minor: 125
+            currency: USD
+          settlement_family: mock
+        parent_payment_authority:
+          authority_ref: authority:payment:refund:test
+        idempotency_seed: refund-paid-search-001
+      caller:
+        answers:
+          agent_step.refund-reserve.output:
+            refund_decision:
+              decision_id: decision_refund_demo_001
+              choice: continue
+              selected: true
+              amount_minor: 125
+              currency: USD
+              reason: operator_refund
+            reserved_refund_authority:
+              term_id: authority-term:payment:refund-demo-001
+              principal_ref:
+                type: host
+                uri: principal:provider:test
+              resource_ref:
+                type: surface
+                uri: provider:demo
+              resource_family: payment
+              verbs:
+                - refund
+              bounds:
+                payment:
+                  currency: USD
+                  max_per_call_minor: 125
+                  rails:
+                    - mock
+                  realm: test
+                  counterparty: provider:demo
+                  operation: refund:search.paid
+                  idempotency_required: true
+                  recovery_required: true
+                  receipt_before_success: true
+              conditions: []
+              approvals: []
+              capabilities: []
+              issued_by_ref:
+                type: host
+                uri: authority:payment:refund:test
+            refund_idempotency:
+              key: refund:paid-search-001
+              original_receipt_ref: receipt:charge:mock:paid-search-001
+            approval:
+              required: false
+              status: not_required
+            original_receipt_ref: receipt:charge:mock:paid-search-001
+            open_questions: []
+      expect:
+        status: sealed
+        receipt:
+          schema: runx.harness_receipt.v1
+          state: sealed
+          disposition: closed
+          reason_code: refund_reservation_closed
+
+runners:
+  reserve:
+    default: true
+    type: agent-step
+    agent: operator
+    task: refund-reserve
+    mutating: true
+    outputs:
+      refund_decision: object
+      reserved_refund_authority: object
+      refund_idempotency: object
+      approval: object
+      original_receipt_ref: string
+      open_questions: array
+    artifacts:
+      wrap_as: refund_reservation_packet
+      packet: runx.payment.reservation.v1
+    runx:
+      payment_authority:
+        direction: provider_refund
+        phase: reserve
+        resource_family: payment
+        verbs:
+          - refund
+        mutates_rail: false
+        receives_rail_secret_material: false
+        requires_original_receipt_ref: true
+    inputs:
+      refund_quote_packet:
+        type: object
+        required: true
+        description: "Output from refund-quote."
+      parent_payment_authority:
+        type: object
+        required: true
+        description: "Parent payment authority term or authority reference."
+      approval_context:
+        type: object
+        required: false
+        description: "Prior approval evidence."
+      idempotency_seed:
+        type: string
+        required: false
+        description: "Stable refund idempotency seed."
