@@ -3,7 +3,7 @@
   "version": "0.1.2",
   "description": "Optional LangChain bridge for runx tool catalogs and governed workflow tools.",
   "private": false,
-  "license": "Apache-2.0",
+  "license": "MIT",
   "type": "module",
   "homepage": "https://github.com/runxhq/runx",
   "bugs": {

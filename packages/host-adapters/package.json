@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "description": "Thin host response adapters over the runx host protocol.",
   "private": false,
-  "license": "Apache-2.0",
+  "license": "MIT",
   "type": "module",
   "publishConfig": {
     "access": "public"

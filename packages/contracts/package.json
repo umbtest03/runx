@@ -3,7 +3,7 @@
   "version": "0.2.5",
   "description": "Runx machine-facing JSON contracts: doctor, dev, list, receipt, fixture, tool manifest, packet index.",
   "private": false,
-  "license": "Apache-2.0",
+  "license": "MIT",
   "type": "module",
   "homepage": "https://github.com/runxhq/runx/tree/main/packages/contracts",
   "bugs": {

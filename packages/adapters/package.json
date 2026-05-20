@@ -3,7 +3,7 @@
   "version": "0.1.5",
   "description": "Runx concrete runtime adapters.",
   "private": false,
-  "license": "Apache-2.0",
+  "license": "MIT",
   "type": "module",
   "publishConfig": {
     "access": "public"

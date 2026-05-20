@@ -3,7 +3,7 @@
   "version": "0.1.4",
   "description": "Runx authoring SDK — defineTool, definePacket, typed input parsers, harness runtime.",
   "private": false,
-  "license": "Apache-2.0",
+  "license": "MIT",
   "type": "module",
   "homepage": "https://github.com/runxhq/runx/tree/main/packages/authoring",
   "bugs": {

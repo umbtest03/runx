@@ -3,7 +3,7 @@
   "version": "0.1.6",
   "description": "Runx trusted kernel domains: parser, state machine, policy, registry, knowledge, config, and artifacts.",
   "private": false,
-  "license": "Apache-2.0",
+  "license": "MIT",
   "type": "module",
   "publishConfig": {
     "access": "public"
