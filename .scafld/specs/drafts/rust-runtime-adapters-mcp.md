@@ -2,9 +2,9 @@
 spec_version: '2.0'
 task_id: rust-runtime-adapters-mcp
 created: '2026-05-18T00:00:00Z'
-updated: '2026-05-19T12:11:22Z'
+updated: '2026-05-20T00:16:14Z'
 status: draft
-harden_status: passed
+harden_status: blocked
 size: extra_large
 risk_level: very_high
 ---
@@ -14,18 +14,41 @@ risk_level: very_high
 ## Current State
 
 Status: draft
-Current phase: hardened
-Next: approve after the lower-risk runtime adapters are complete
-Reason: draft created under `plans/rust-takeover.md`. The hardest adapter
-port; section 13 of `docs/rust-kernel-architecture.md` calls out rmcp +
-tokio + sandbox + spawn semantics as the highest-risk cross-language
-surface.
-Blockers: `runx-contract-spine-hard-cutover`, post-cutover harness receipt
-proof/tree APIs, `rust-runtime-skeleton`, `rust-runtime-adapters-agent`, and
-at least one other adapter to validate the trait shape.
-Allowed follow-up command: `scafld handoff rust-runtime-adapters-mcp`
-Latest runner update: none
-Review gate: hardened_spec_ready
+Current phase: implementation gap review
+Next: implement the missing MCP lifecycle slices before handoff or review
+Reason: local Rust code contains a partial feature-gated MCP client adapter,
+but the lifecycle required by this spec is not implemented or fixture-proven.
+`crates/runx-runtime/src/adapters/mcp.rs` has `McpAdapter`,
+`ProcessMcpTransport`, argument mapping, stdio framing, response size checks,
+timeouts, sanitized transport errors, result stringification, and sandbox-plan
+metadata. The client path initializes and calls a tool, but does not prove
+`tools/list` parity. It does not implement the Rust MCP server lifecycle
+required for `runx mcp serve`, `runx_resume`, duplicate tool-name rejection,
+JSON-RPC server error parity, or approval/resume result conversion.
+Blockers:
+- No Rust CLI MCP command is present under `crates/runx-cli/src`; the checked
+  `rg` query over `crates/runx-cli/src` and `crates/runx-cli/Cargo.toml`
+  returned no matches.
+- No MCP server test file exists; the checked test-file query finds only
+  `crates/runx-runtime/tests/mcp_adapter.rs`.
+- Current Rust MCP test coverage is limited to
+  `mcp_argument_templates_map_structured_and_embedded_values`; it does not
+  cover client echo, sanitized tool errors, sandbox env enforcement, timeouts,
+  malformed JSON, missing metadata, size bounds, child termination, server
+  initialize/list/call, resume, duplicate tool names, or JSON-RPC server
+  errors.
+- `fixtures/runtime/adapters/mcp` does not exist, and no
+  `scripts/generate-runtime-mcp-oracles.ts` or
+  `scripts/check-runtime-mcp-oracles.sh` exists in this checkout.
+- `crates/runx-runtime/Cargo.toml` has `default = []` and `mcp = []`, so the
+  feature boundary exists, but there is no rmcp dependency or recorded library
+  decision yet.
+Allowed follow-up command: none until implementation and parity fixtures land
+Latest runner update: 2026-05-20 local refresh. Checked
+`cargo test --manifest-path crates/Cargo.toml -p runx-runtime mcp --features
+mcp -- --nocapture`; it passed, exercising one MCP adapter test and two MCP
+tool-catalog tests matched by the filter.
+Review gate: blocked_missing_mcp_lifecycle_evidence
 
 ## Summary
 

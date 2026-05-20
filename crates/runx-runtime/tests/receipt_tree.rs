@@ -31,11 +31,24 @@ fn runtime_resolver_verifies_graph_receipt_with_children() -> Result<(), Box<dyn
 }
 
 #[test]
-fn runtime_resolver_accepts_exact_child_id_refs() -> Result<(), Box<dyn std::error::Error>> {
+fn runtime_tree_rejects_structurally_valid_root_ref_tamper()
+-> Result<(), Box<dyn std::error::Error>> {
     let (mut root, children) = graph_with_steps("tree_runtime_exact", &["child"])?;
     root.harness.child_harness_receipt_refs[0].uri = children[0].id.clone();
 
-    assert!(validate_runtime_receipt_tree(&root, children, ReceiptTreeConfig::default()).is_ok());
+    assert!(runx_receipts::verify_receipt_tree(&root, &children).valid);
+    let verification = verify_runtime_receipt_tree(&root, children, ReceiptTreeConfig::default());
+
+    assert_finding(
+        &verification,
+        ReceiptFindingCode::SealDigestMismatch,
+        "seal.digest",
+    );
+    assert_finding(
+        &verification,
+        ReceiptFindingCode::SignatureInvalid,
+        "signature.value",
+    );
     Ok(())
 }
 
@@ -92,6 +105,28 @@ fn runtime_fanout_receipt_tree_uses_explicit_receipts() -> Result<(), Box<dyn st
 
     assert_eq!(root.sync_points, vec![sync_point]);
     assert!(validate_runtime_receipt_tree(&root, children, ReceiptTreeConfig::default()).is_ok());
+    Ok(())
+}
+
+#[test]
+fn runtime_tree_rejects_structurally_valid_child_proof_tamper()
+-> Result<(), Box<dyn std::error::Error>> {
+    let (root, mut children) = graph_with_steps("tree_runtime_child_tamper", &["child"])?;
+    children[0].harness.acts[0].summary = "tampered child proof body".to_owned();
+
+    assert!(runx_receipts::verify_receipt_tree(&root, &children).valid);
+    let verification = verify_runtime_receipt_tree(&root, children, ReceiptTreeConfig::default());
+
+    assert_finding(
+        &verification,
+        ReceiptFindingCode::SealDigestMismatch,
+        "runtime_receipts[0].seal.digest",
+    );
+    assert_finding(
+        &verification,
+        ReceiptFindingCode::SignatureInvalid,
+        "runtime_receipts[0].signature.value",
+    );
     Ok(())
 }
 

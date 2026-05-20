@@ -59,6 +59,7 @@
       ],
       "target_repos": [
         "nitrosend/nitrosend",
+        "nitrosend/api",
         "nitrosend/app"
       ],
       "scafld_required": true
@@ -72,6 +73,7 @@
       ],
       "target_repos": [
         "nitrosend/nitrosend",
+        "nitrosend/api",
         "nitrosend/app"
       ],
       "labels": [
@@ -84,6 +86,20 @@
   "targets": [
     {
       "repo": "nitrosend/nitrosend",
+      "runner_ids": [
+        "aster-production"
+      ],
+      "allowed_actions": [
+        "issue-intake",
+        "issue-to-pr",
+        "pr-review"
+      ],
+      "default_owner_route": "product-surface",
+      "scafld_required": true,
+      "base_branch": "main"
+    },
+    {
+      "repo": "nitrosend/api",
       "runner_ids": [
         "aster-production"
       ],

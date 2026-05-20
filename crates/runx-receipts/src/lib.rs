@@ -16,8 +16,10 @@ pub use runx_contracts::{
     ReceiptIssuer, ReceiptIssuerType, ReceiptSignature, SealCriterion, SignatureAlgorithm,
 };
 pub use tree::{
-    ReceiptResolveResult, ReceiptResolver, ReceiptTreeConfig, ResolvedReceipt,
-    validate_receipt_tree, validate_receipt_tree_with_resolver, verify_receipt_tree,
+    ReceiptProofContextProvider, ReceiptResolveResult, ReceiptResolver, ReceiptTreeConfig,
+    ResolvedReceipt, validate_receipt_tree, validate_receipt_tree_proof,
+    validate_receipt_tree_proof_with_resolver, validate_receipt_tree_with_resolver,
+    verify_receipt_tree, verify_receipt_tree_proof, verify_receipt_tree_proof_with_resolver,
     verify_receipt_tree_with_resolver,
 };
 pub use verify::{

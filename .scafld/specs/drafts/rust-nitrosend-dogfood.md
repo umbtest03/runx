@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-nitrosend-dogfood
 created: '2026-05-18T00:00:00Z'
-updated: '2026-05-20T00:00:00Z'
+updated: '2026-05-20T00:21:00Z'
 status: draft
 harden_status: not_run
 size: medium
@@ -14,17 +14,18 @@ risk_level: medium
 ## Current State
 
 Status: draft
-Current phase: plan-refresh
-Next: approve
+Current phase: policy fixture gap closed; external replay pending
+Next: add external-shaped Nitrosend fixture only after reusable target runner
+and post-merge observer gates are ready
 Reason: refreshed against the current local OSS checkout. This is a plan spec,
-not an implementation pass.
+with the Nitrosend-like policy fixture gap now closed.
 Blockers: `runx-target-repo-runners` and
-`runx-post-merge-outcome-observer` are still draft. The local
-Nitrosend-like operational policy fixture also does not yet include the
-`nitrosend/api` target required by the real Nitrosend shape.
+`runx-post-merge-outcome-observer` are still draft. No external-shaped
+Nitrosend replay fixture exists in this checkout yet.
 Allowed follow-up command: none during this refresh; do not run
 `scafld harden rust-nitrosend-dogfood`.
-Latest runner update: none
+Latest runner update: 2026-05-20 nitrosend/api policy fixture coverage added;
+Rust and TypeScript policy validation passed.
 Review gate: not_started
 
 ## Summary
@@ -42,8 +43,8 @@ Current local facts:
   `packages/cli/src/commands/policy.ts` and schemas/fixtures under
   `schemas/operational-policy.schema.json` and `fixtures/operational-policy/`.
 - `fixtures/operational-policy/nitrosend-like.json` is present, but it is only
-  Nitrosend-like. It currently includes `nitrosend/nitrosend` and
-  `nitrosend/app`; it does not include the real `nitrosend/api` target.
+  Nitrosend-like. It now includes `nitrosend/nitrosend`, `nitrosend/api`, and
+  `nitrosend/app` so policy lint/inspect cover the real target set.
 - No external-shaped Nitrosend replay fixture exists in this checkout:
   `fixtures/external/nitrosend/**` is absent.
 - The current reusable follow-on work is not complete: target-repo runner
@@ -82,8 +83,6 @@ Missing local surfaces this plan must create or wait for:
 
 - `fixtures/external/nitrosend/issue-intake/**`
 - `crates/runx-runtime/tests/external/nitrosend_issue_intake.rs`
-- A Nitrosend-like policy fixture that covers the `nitrosend/api` target as
-  well as workspace and app targets.
 - Target PR creation through the reusable target-repo runner contract.
 - Post-merge/provider observation through sealed closure/proof receipts.
 
@@ -129,7 +128,7 @@ Missing local surfaces this plan must create or wait for:
 In scope:
 
 - Plan and fixture contract for Nitrosend-shaped issue intake.
-- Policy fixture gap for `nitrosend/api`.
+- Policy fixture coverage for `nitrosend/api`.
 - Runtime parity expectations for canonical harness receipts.
 - Explicit dependency on target-repo runner and post-merge closure observer
   work.
@@ -203,7 +202,7 @@ cargo test --manifest-path crates/Cargo.toml -p runx-receipts
 
 - Before any Nitrosend launcher flip, rollback is to keep the existing
   production path unchanged and disable Rust side-by-side validation.
-- If the Nitrosend-like policy fixture omits a real target such as
+- If the Nitrosend-like policy fixture later omits a real target such as
   `nitrosend/api`, repair the policy fixture and policy admission tests rather
   than adding special-case runtime routing.
 - If an external-shaped fixture is accidentally generated from live traffic,
