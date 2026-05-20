@@ -35,31 +35,38 @@ authority and a single-use spend capability.
 
 ## Skill Set
 
-`payment-quote`
+`pay-quote`
 : Turns a `payment_required` signal, MCP payment challenge, invoice request, or
 operator intent into a quote packet plus requested payment authority bounds.
-It is non-mutating and receives no rail secrets.
+Settlement-agnostic; non-mutating; receives no rail secrets.
 
-`payment-reserve`
+`pay-reserve`
 : Selects or declines the payment intent. The output is a Decision-shaped
 reservation packet containing payment bounds, idempotency key, approval status,
-and the child authority term that may be passed to a rail harness. It does not
-call a rail.
+and the child authority term that may be passed to a settlement step.
+Settlement-agnostic; does not settle.
 
-`payment-rail-*`
-: Fulfills one protocol or provider family under an already reserved child
-payment authority term. Each rail skill receives a challenge, a redacted rail
-profile ref, and a single-use spend capability ref. It returns a rail proof
-payload/ref suitable for sealing into the child harness receipt.
+`pay-recover`
+: Reconciles an idempotency key after crash, timeout, retry, or ambiguous
+settlement state. Must query by idempotency key before any repeat mutation and
+returns a recovered proof, a safe retry recommendation, or an escalation.
 
-`payment-recover`
-: Reconciles an idempotency key after crash, timeout, retry, or ambiguous rail
-state. It must query by idempotency key before any repeat mutation and returns a
-recovered proof, a safe retry recommendation, or an escalation.
+`stripe-pay`, `mpp-pay`, `mock-pay`
+: Settlement-pinned graph marquees. Each composes quote, reserve, optional
+approval, and the named settlement family, then hands off to recover on
+ambiguity. Each receives an already-reserved child authority term and a
+single-use spend capability ref. Each returns a settlement proof payload/ref
+suitable for sealing into the child harness receipt.
 
-`payment-execute`
-: The graph profile that composes quote, reserve, approval, rail fulfillment,
-and recovery handoff. It is the first "seamless agent payments" surface: a
+`crypto-pay`
+: Reserved placeholder for on-chain settlement. Documented for naming
+continuity so the slot is not reused later. Not exposed in the registry; no
+SKILL.md, no X.yaml profile, and no harness case in this iteration.
+
+`x402-pay`
+: The unpinned graph marquee. Same composition as the settlement-pinned
+marquees, but the settlement family is selected from policy and the inbound
+challenge at runtime. This is the first "seamless agent payments" surface: a
 paid tool call can enter as one request and leave as a sealed payment receipt
 without hiding the governance steps.
 
@@ -75,11 +82,13 @@ without hiding the governance steps.
 ## Core-Owned Rules
 
 - Core compares child and parent `AuthorityTerm` values with the payment
-authority partial order before rail execution starts.
-- Core reserves budget atomically by idempotency key before the rail skill runs.
+authority partial order before settlement starts.
+- Core reserves budget atomically by idempotency key before settlement runs.
 - Core derives or validates the single-use spend capability for `spend`.
-- Core performs idempotency recovery before retrying a mutating rail call.
-- Core refuses success until the child harness receipt carries the rail proof.
+- Core performs idempotency recovery before retrying a mutating settlement
+call.
+- Core refuses success until the child harness receipt carries the settlement
+proof.
 
 ## Skill-Owned Rules
 
@@ -87,18 +96,22 @@ authority partial order before rail execution starts.
 payment bounds, but it cannot authorize spend.
 - A reserve skill may present the human-readable decision record, but it cannot
 mint broader authority than core admits.
-- A rail skill may adapt one payment protocol/provider, but it cannot set caps,
-read raw wallet secrets, or decide approval.
-- A recovery skill may inspect idempotency state and rail proof refs, but it
-cannot hide an ambiguous spend as success.
+- A settlement marquee may adapt one payment protocol/provider, but it cannot
+set caps, read raw wallet secrets, or decide approval.
+- A recovery skill may inspect idempotency state and settlement proof refs, but
+it cannot hide an ambiguous spend as success.
 
-## Initial Rail Families
+## Initial Settlement Families
 
-- `payment-rail-mock`: deterministic local rail for harnesses, demos, and
-contract tests.
-- `payment-rail-x402`: HTTP payment challenge/credential exchange.
-- `payment-rail-mpp`: multi-party payment protocol family.
-- `payment-rail-stripe-spt`: Stripe session/payment token family.
+- `mock-pay`: deterministic local settlement for harnesses, demos, and contract
+tests.
+- `stripe-pay`: Stripe session/payment token settlement family.
+- `mpp-pay`: multi-party payment protocol settlement family.
+- `crypto-pay`: on-chain settlement family. Reserved placeholder, not exposed
+or harnessed in this iteration.
+
+`x402-pay` is the unpinned graph marquee that selects one of the above at
+runtime from policy and the inbound challenge.
 
 These names are first-party skill packages, not hardcoded core concepts. Core
 only sees payment authority terms, idempotency keys, child harnesses, and
@@ -106,13 +119,17 @@ receipt proof refs.
 
 ## Acceptance Criteria
 
-- Each payment skill has a human-readable `SKILL.md`.
-- Each payment skill has an `X.yaml` profile with concrete inputs, outputs,
-artifacts, and harness cases.
-- The graph profile makes the authority transition visible:
-  quote -> reserve -> optional approval -> rail fulfill.
-- Rail profiles declare payment authority metadata under `runx` and never
-declare raw secret inputs.
+- Each first-party payment skill except the `crypto-pay` placeholder has a
+human-readable `SKILL.md`.
+- Each first-party payment skill except the `crypto-pay` placeholder has an
+`X.yaml` profile with concrete inputs, outputs, artifacts, and harness cases.
+- Graph profiles (`x402-pay`, `stripe-pay`, `mpp-pay`, `mock-pay`) make the
+authority transition visible: quote -> reserve -> optional approval ->
+settlement.
+- Settlement profiles declare payment authority metadata under `runx` and
+never declare raw secret inputs.
 - Existing profile parsing validates all new payment X.yaml files.
+- The `crypto-pay` slot is documented but neither installable nor harnessed in
+this iteration.
 - No runtime or CLI payment behavior is claimed until the runtime harness owns
-reserve-before-rail and receipt-before-success enforcement.
+reserve-before-settlement and receipt-before-success enforcement.
