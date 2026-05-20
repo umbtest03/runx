@@ -42,46 +42,35 @@ pub use receipts::tree as receipt_tree;
 pub mod adapters;
 
 pub use adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
-pub use approval::{
-    ApprovalError, ApprovalResolution, LocalApprovalGateResolver, approval_idempotency_key,
-    request_approval,
-};
-pub use caller::{Caller, NoopCaller};
+pub use approval::{ApprovalError, LocalApprovalGateResolver, request_approval};
+pub use caller::Caller;
 pub use config::{
     ConfigError, ConfigKey, LocalProfileSource, ManagedAgentConfig, ManagedAgentProvider,
-    ResolvedLocalProfile, RunxAgentConfig, RunxConfigFile, load_local_agent_api_key,
-    load_managed_agent_config, load_runx_config_file, lookup_runx_config_value,
-    mask_runx_config_file, parse_config_key, resolve_local_skill_profile,
-    resolve_path_from_user_input, resolve_runx_global_home_dir, resolve_runx_home_dir,
-    update_runx_config_value, write_runx_config_file,
+    RunxAgentConfig, RunxConfigFile, load_local_agent_api_key, load_managed_agent_config,
+    load_runx_config_file, lookup_runx_config_value, mask_runx_config_file, parse_config_key,
+    resolve_local_skill_profile, resolve_path_from_user_input, resolve_runx_global_home_dir,
+    resolve_runx_home_dir, update_runx_config_value, write_runx_config_file,
 };
 pub use connect::{
-    ConnectClient, ConnectClientOptions, ConnectError, ConnectOpener, ConnectResult,
-    HttpConnectGrant, HttpConnectListResponse, HttpConnectPreprovisionRequest,
-    HttpConnectReadyResponse, HttpConnectRevokeResponse, ProcessConnectOpener,
+    ConnectClient, ConnectError, ConnectOpener, HttpConnectGrant, HttpConnectListResponse,
+    HttpConnectPreprovisionRequest, HttpConnectReadyResponse, HttpConnectRevokeResponse,
     load_connect_options_from_env,
 };
 pub use dev::{
-    DEFAULT_DEV_WATCH_DEBOUNCE_MS, DevError, DevFixtureAssertion, DevFixtureAssertionKind,
-    DevFixtureExecutionRoots, DevFixtureExecutor, DevFixtureResult, DevFixtureStatus, DevLane,
-    DevLoopOptions, DevRenderTheme, DevReport, DevReportStatus, DevWatchError, DevWatchEvent,
-    DevWatchEventKind, DevWatchOptions, DevWatchSnapshot, DevWatchTrigger, LocalDevFixtureExecutor,
-    ParsedDevFixture, PollingDevWatcher, PreparedDevFixtureWorkspace, collect_watch_snapshot,
-    dev_receipt_metadata, discover_fixture_paths, render_dev_result, render_dev_result_with_theme,
-    run_dev_once, run_dev_once_with_executor, should_ignore_dev_watch_path,
+    DevFixtureResult, DevFixtureStatus, DevLoopOptions, DevReport, DevReportStatus,
+    DevWatchOptions, DevWatchTrigger, PollingDevWatcher, dev_receipt_metadata,
+    discover_fixture_paths, render_dev_result, run_dev_once, should_ignore_dev_watch_path,
 };
 pub use doctor::{DoctorOptions, default_doctor_options, run_doctor};
 pub use error::RuntimeError;
 pub use harness::{
-    HarnessExpectedStatus, HarnessFixture, HarnessFixtureError, HarnessFixtureKind,
-    HarnessReceiptExpectation, HarnessReplayError, HarnessReplayOutput, HarnessReplayReceipt,
-    load_harness_fixture, parse_harness_fixture, run_harness_fixture,
+    HarnessExpectedStatus, HarnessFixtureError, HarnessFixtureKind, HarnessReplayError,
+    HarnessReplayOutput, load_harness_fixture, parse_harness_fixture, run_harness_fixture,
     run_harness_fixture_with_adapter,
 };
-pub use journal::{ExecutionJournal, JournalEntry};
+pub use journal::ExecutionJournal;
 pub use list::{
-    RunxListEmit, RunxListItem, RunxListItemKind, RunxListOptions, RunxListReport,
-    RunxListRequestedKind, RunxListSource, RunxListStatus, default_list_options,
+    RunxListItem, RunxListItemKind, RunxListOptions, RunxListRequestedKind, RunxListStatus,
     list_authoring_primitives,
 };
 pub use receipts::paths::{
@@ -108,12 +97,10 @@ pub use runx_core::policy::{
     payment_authority_spends,
 };
 pub use scaffold::{
-    InitAction, InitGeneratedValues, RunxInitOptions, RunxInitResult, RunxInstallState,
-    RunxNewOptions, RunxNewResult, RunxProjectState, ScaffoldError, ensure_runx_install_state,
-    ensure_runx_project_state, packet_namespace_for_name, runx_init, sanitize_runx_package_name,
-    scaffold_runx_package,
+    InitAction, InitGeneratedValues, RunxInitOptions, RunxInitResult, RunxNewOptions,
+    RunxNewResult, ScaffoldError, runx_init, sanitize_runx_package_name, scaffold_runx_package,
 };
-pub use skill_run::{SkillRunError, SkillRunRequest, execute_skill_run};
+pub use skill_run::{SkillRunRequest, execute_skill_run};
 pub use tool_catalogs::{
     ToolBuildOptions, ToolCatalogError, ToolInspectOptions, ToolSearchOptions, build_tool_catalogs,
     inspect_tool, search_tools,
