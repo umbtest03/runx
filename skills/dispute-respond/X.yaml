@@ -1,0 +1,92 @@
+skill: dispute-respond
+version: "0.1.0"
+
+catalog:
+  kind: skill
+  audience: operator
+  visibility: public
+
+harness:
+  cases:
+    - name: dispute-respond-prepares-evidence
+      runner: respond
+      inputs:
+        dispute_event:
+          dispute_id: dispute_mock_001
+          settlement_family: mock
+          reason: payer_claimed_not_received
+        original_receipt_ref: receipt:charge:mock:paid-search-001
+        prior_refund_receipt_refs: []
+        evidence_refs:
+          - receipt:charge:mock:paid-search-001
+      caller:
+        answers:
+          agent_step.dispute-respond.output:
+            dispute_response:
+              dispute_id: dispute_mock_001
+              original_receipt_ref: receipt:charge:mock:paid-search-001
+              response_status: ready
+            dispute_evidence:
+              evidence_refs:
+                - receipt:charge:mock:paid-search-001
+              prior_refund_receipt_refs: []
+            linked_receipts:
+              original_receipt_ref: receipt:charge:mock:paid-search-001
+              prior_refund_receipt_refs: []
+            posture:
+              action: respond_with_evidence
+            open_questions: []
+      expect:
+        status: sealed
+        receipt:
+          schema: runx.harness_receipt.v1
+          state: sealed
+          disposition: closed
+          reason_code: dispute_response_closed
+
+runners:
+  respond:
+    default: true
+    type: agent-step
+    agent: operator
+    task: dispute-respond
+    outputs:
+      dispute_response: object
+      dispute_evidence: object
+      linked_receipts: object
+      posture: object
+      open_questions: array
+    artifacts:
+      wrap_as: dispute_response_artifact
+    runx:
+      payment_authority:
+        direction: provider_dispute
+        phase: dispute_response
+        resource_family: payment
+        verbs:
+          - verify
+        mutates_rail: false
+        receives_rail_secret_material: false
+        requires_original_receipt_ref: true
+        settles_dispute: false
+    inputs:
+      dispute_event:
+        type: object
+        required: true
+        description: "Provider-initiated dispute or chargeback event."
+      original_receipt_ref:
+        type: string
+        required: true
+        description: "Linked sealed charge receipt reference."
+      prior_refund_receipt_refs:
+        type: json
+        required: false
+        description: "Prior refund receipt references."
+      evidence_refs:
+        type: json
+        required: false
+        description: "Provider evidence references."
+      operator_posture:
+        type: string
+        required: false
+        description: "Requested response posture."

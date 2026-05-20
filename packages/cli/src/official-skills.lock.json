@@ -30,6 +30,11 @@
     "digest": "ea05e016f4dde64f2c61a64c131d6b1b911dadc7ddb76b08bb660c1654c686ac"
   },
   {
+    "skill_id": "runx/dispute-respond",
+    "version": "sha-115adaf641de",
+    "digest": "5a748768e428c369db6b827ad925f0c322cfa9f6d9eb2467ca7f2d7040a9b2ab"
+  },
+  {
     "skill_id": "runx/draft-content",
     "version": "sha-9911c6d53efa",
     "digest": "f4cc92b95c71d5d3f553ea115e7f8520f0613c24de8a4aad378e32700c7274b2"
@@ -138,6 +143,21 @@
     "skill_id": "runx/reflect-digest",
     "version": "sha-adb5d0d92613",
     "digest": "b4c3cff90454e143b454c5ae804bbb94879b8d2d8d2315ce269a3ddb5e0cf275"
+  },
+  {
+    "skill_id": "runx/refund-quote",
+    "version": "sha-b91ac1e0127d",
+    "digest": "775829281b2ed4ad5f578cc1269bad1de18dd5eed46b7df5cdbed5b62ed4919a"
+  },
+  {
+    "skill_id": "runx/refund-recover",
+    "version": "sha-7167ff438118",
+    "digest": "1eec7aad633befa5e609a27ae718266c02ed0ea9e6586d0b5cd36771adeb4054"
+  },
+  {
+    "skill_id": "runx/refund-reserve",
+    "version": "sha-118229eb111a",
+    "digest": "cb96c3f57787a08c83ef6c1396a18ac17f5bae5cf5bf4e7c932624f93361744a"
   },
   {
     "skill_id": "runx/release",
