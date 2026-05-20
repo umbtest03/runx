@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-nitrosend-dogfood
 created: '2026-05-18T00:00:00Z'
-updated: '2026-05-20T02:42:00Z'
+updated: '2026-05-21T00:31:00+10:00'
 status: draft
 harden_status: not_run
 size: medium
@@ -29,11 +29,14 @@ fixtures replay through the Rust binary, but no live target-runner/observer
 external replay has been added.
 Allowed follow-up command: none during this refresh; do not run
 `scafld harden rust-nitrosend-dogfood`.
-Latest runner update: 2026-05-20 added Rust contract request-admission coverage
-for the Nitrosend-like policy. The new Rust API admits
+Latest runner update: 2026-05-21 closed the Segment dogfood evidence gap:
+`segment-from-prose` now rejects non-`runx.harness_receipt.v1` evidence and
+returns the sealed `receipt_id` to callers. 2026-05-20 added Rust contract
+request-admission coverage for the Nitrosend-like policy. The Rust API admits
 `nitrosend/nitrosend`, `nitrosend/api`, and `nitrosend/app` through the
-policy-backed source, target, runner, owner, dedupe, and outcome surface, and
-denies unknown target repos and missing source-thread routing before mutation.
+policy-backed source, target, runner, owner, dedupe, and closure/proof surface,
+and denies unknown target repos and missing source-thread routing before
+mutation.
 Runtime skill fixtures are present; `fixtures/external/nitrosend/issue-intake`
 now contains the sanitized `api-source-thread.json` fixture; the Nitrosend-like
 policy fixture covers workspace, API, and app target routing; contract policy
@@ -263,7 +266,7 @@ Validation:
 - `/Users/kam/dev/runx/runx/oss/crates/target/debug/runx policy inspect config/runx-issue-flow.json --json`
   passed in the Nitrosend repo and redacted raw locators via counts.
 - `RUNX_BIN=/Users/kam/dev/runx/runx/oss/crates/target/debug/runx node --test scripts/onboarding.test.mjs scripts/segment-from-prose.test.mjs scripts/issue-intake.test.mjs scripts/github-issue-thread.test.mjs scripts/post-issue-intake-comments.test.mjs scripts/runx-target-outcome.test.mjs scripts/scafld-command-review.test.mjs scripts/runx-harness.test.mjs`
-  passed in the Nitrosend repo: 127 tests, 0 skipped.
+  passed in the Nitrosend repo: 128 tests, 0 skipped.
 - `cargo test --manifest-path crates/Cargo.toml -p runx-contracts` passed in
   runx OSS.
 - `! rg -n "needs_resolution|runx\\.issue_to_pr_outcome\\.v1|issue_to_pr_outcome|verification[_-]report|target[_-]?effect|\"effect\"\\s*:|RUNX_JS_BIN|RUNX_NPM_PACKAGE|target_repositories|allowed_repositories|route_hints" scripts config fixtures/runx .github/workflows/issue-intake.yml .github/workflows/wrapper-ci.yml`
@@ -278,6 +281,16 @@ Remaining blocker:
 - Live target PR creation and final post-merge/provider observation still depend
   on the reusable `runx-target-repo-runners` and
   `runx-post-merge-outcome-observer` work. No external replay was added here.
+
+2026-05-21 Segment dogfood evidence verification:
+
+- `scripts/segment-from-prose.mjs` now validates the returned sealed Runx
+  result contains an embedded `runx.harness_receipt.v1` receipt and returns
+  `receipt_id` to success and rejection callers.
+- `scripts/segment-from-prose.test.mjs` now asserts the surfaced `receipt_id`
+  and rejects non-harness receipt evidence.
+- `RUNX_BIN=/Users/kam/dev/runx/runx/oss/crates/target/debug/runx node --test scripts/segment-from-prose.test.mjs scripts/runx-harness.test.mjs`
+  passed in the Nitrosend repo: 12 tests, 0 skipped.
 
 2026-05-20 narrow policy-fixture slice verification:
 

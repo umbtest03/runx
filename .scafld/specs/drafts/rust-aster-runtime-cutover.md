@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-aster-runtime-cutover
 created: '2026-05-18T00:00:00Z'
-updated: '2026-05-20T00:00:00Z'
+updated: '2026-05-21T00:31:00+10:00'
 status: draft
 harden_status: not_run
 size: large
@@ -14,25 +14,31 @@ risk_level: high
 ## Current State
 
 Status: draft
-Current phase: external-runtime-fixture
-Next: cloud-tree binding pass when a checkout with `cloud/**` is available
-Reason: added an OSS-local external Aster agent-step replay fixture grounded in
-the Aster repo's current Rust bridge scripts and README contract.
-Blockers: the cloud tree is not present in this OSS checkout, so hosted/cloud
-binding details cannot be verified locally.
+Current phase: external-runtime-fixture plus external Aster dogfood smoke
+Next: cloud-tree binding pass against the sibling `../cloud` workspace, without
+guessing cloud package internals from the OSS crate
+Reason: the OSS-local external Aster agent-step replay fixture is grounded in
+the Aster repo's current Rust bridge scripts, and the live Aster checkout now
+passes its local Rust-binary proving-ground smoke.
+Blockers: cloud package binding is still unverified by this draft because
+`cloud/**` is not part of the OSS crate checkout. The full workspace contains a
+sibling cloud repo, but the cloud binding needs its own inspected pass.
 Allowed follow-up command: none during this refresh; do not run
 `scafld harden rust-aster-runtime-cutover`.
-Latest runner update: `fixtures/external/aster/agent-step/rust-bridge-sealed-skill.yaml`
-and `crates/runx-runtime/tests/external/aster_agent_step.rs` added.
+Latest runner update: 2026-05-21 Aster checkout validation passed
+`npm run check`, targeted bridge tests, Rust `runx --version`, and the minimal
+proving-ground harness smoke. The smoke produced two sealed
+`runx.harness_receipt.v1` receipts through the Rust binary.
 Review gate: not_started
 
 ## Summary
 
-Plan the Aster runtime cutover from the local OSS state that is actually
-available. This checkout does not include `cloud/**`, so the spec cannot claim
-verified cloud package paths, UI paths, hosted agent adapter files, or cloud DB
-approval routing. Those bindings stay deferred until the cloud tree is
-available to the worker executing that phase.
+Plan the Aster runtime cutover from the local OSS state plus the adjacent Aster
+checkout that is actually available. The OSS crate checkout does not include
+`cloud/**`, so this spec cannot claim verified cloud package paths, UI paths,
+hosted agent adapter files, or cloud DB approval routing. The full workspace
+does include a sibling cloud repo, but those bindings stay deferred until a
+dedicated pass inspects that tree and records exact paths.
 
 Current local facts:
 
@@ -57,6 +63,8 @@ Current local facts:
   `scripts/runx-agent-bridge.mjs`; the accepted terminal skill report is
   `runx.skill_run.v1` with `status: "sealed"` and a stored
   `runx.harness_receipt.v1` receipt id.
+- The Aster checkout dogfoods the Rust binary directly for harness execution;
+  it does not invoke a JS/npm Runx CLI bridge for the proving-ground path.
 - `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test external
   aster_agent_step` passes for the new fixture replay.
 
@@ -212,6 +220,24 @@ ruby -ryaml -e 'YAML.load_file("fixtures/external/aster/agent-step/rust-bridge-s
 
 ! rg -n "runId|receiptId|issue_to_pr_outcome|verification[_-]report|verificationReport|target[_-]?effect|\"effect\"\\s*:|\"outcome\"\\s*:|/Users/kam" fixtures/external/aster/agent-step/rust-bridge-sealed-skill.yaml
 # passed: no matches
+```
+
+2026-05-21 Aster dogfood validation:
+
+```sh
+cd /Users/kam/dev/runx/aster
+npm run check
+# passed: aster check passed
+
+node --test scripts/runx-agent-bridge.test.mjs scripts/run-issue-triage-workers.test.mjs scripts/promote-aster-state.test.mjs
+# passed: 28 tests
+
+/Users/kam/dev/runx/runx/oss/crates/target/debug/runx --version
+# passed: runx-cli 0.1.0
+
+RUNX_ROOT=/Users/kam/dev/runx/runx/oss ARTIFACT_DIR="$(mktemp -d /tmp/aster-proving-ground.XXXXXX)" PROVING_GROUND_PROFILE=minimal bash scripts/proving-ground.sh
+node scripts/summarize-proving-ground.mjs "$ARTIFACT_DIR"
+# passed: echo-skill and sequential-graph produced sealed runx.harness_receipt.v1 receipts
 ```
 
 ## Rollback And Repair
