@@ -16,10 +16,10 @@ risk_level: high
 Status: review
 Current phase: final
 Next: repair
-Reason: review gate fail: 2 finding(s), 2 completion blocker(s)
+Reason: review gate fail: 3 finding(s), 1 completion blocker(s)
 Blockers: none
 Allowed follow-up command: `scafld handoff payment-charge-skills-v1`
-Latest runner update: 2026-05-20T16:16:52Z
+Latest runner update: 2026-05-20T16:25:59Z
 Review gate: fail
 
 ## Summary
@@ -492,29 +492,35 @@ Issues:
 
 Status: completed
 Verdict: fail
-Mode: discover
+Mode: verify
 Provider: codex
 Output: codex.output_file
-Summary: Failing review: the implemented profiles and lockfile are broadly in scope, but the acceptance test does not actually reject common raw merchant secret input names, so the raw-secret acceptance criterion is not satisfied. Workspace changed during review; review failed closed.
+Summary: Verification pass: both prior completion blockers are resolved or not reproduced. The secret-field rejection gap is fixed in source and covered by a regression test, and no new review-time workspace mutation was observed. I did not run build/test commands because the review packet explicitly required read-only review. Workspace changed during review; review failed closed.
 
 Attack log:
-- `git status / review packet classification`: Workspace classification -> clean (Checked `git status --short`; only unrelated `.scafld/specs/active/payment-refund-skills-v1.md` is currently modified, so I treated the packet's stale task-change list as context and reviewed source files directly.)
-- `skills/charge-price, charge-challenge, charge-verify, mock-charge, stripe-charge, mpp-charge, x402-charge`: Scope and file presence -> clean (Verified all seven non-crypto charge skill packages have `SKILL.md` and `X.yaml`, and no `skills/crypto-charge` package is present.)
-- `packages/cli/src/official-skills.lock.json`: Official skill lock coverage -> clean (Inspected `packages/cli/src/official-skills.lock.json`; it includes `runx/charge-*`, `runx/mock-charge`, `runx/stripe-charge`, `runx/mpp-charge`, and `runx/x402-charge`.)
-- `skills/*-charge/X.yaml and SKILL.md`: Graph runtime boundary -> clean (Read the charge graph profiles and SKILL files; graph profiles model `forward`, but each declares `runtime_forwarding_enabled: false` and docs state no live settlement or upstream forwarding.)
-- `skills/*-charge/X.yaml, packages/core/src/parser/graph.ts, packages/cli/src/commands/doctor.ts`: Graph reference and nested runner shape -> clean (Compared charge graph context/artifact references against existing payment/refund graph patterns and parser/doctor expectations; no missing nested runner references found in the inspected profile structure.)
-- `skills/charge-price/X.yaml, skills/charge-verify/X.yaml, charge graph runx.payment_authority metadata`: Authority model drift -> clean (Checked inline authority examples in charge profiles; they reuse `resource_family: payment` and existing payment bounds instead of adding a new charge authority schema.)
-- `tests/payment-skill-profile-validation.test.ts`: Secret-field rejection -> finding (Attacked the validation helper against merchant/provider secret field names required by the spec's acceptance criteria; found it misses common raw merchant secret names.)
-- `workspace mutation guard`: compare pre-review and post-review workspace snapshots -> finding (added packages/cli/src/official-skills.lock.json (M 1b3d46af51da85515d3a365a1d35afaa7f0d10e7f80934363c0ee8ba712db60d), added skills/mock-refund/X.yaml (M ab932dddc22875cd2ebb063b635b7d5aaa1da1f88dbce0e0bec51b926530ce03), added skills/mpp-refund/X.yaml (M c2a2e7906ea68a18604795d4dbc87f2bb5161511d45fb2a5d18a5c8cd6416643), added skills/stripe-refund/X.yaml (M a880d56cf9f9b2c35926ec79678a708270fbf9151b74f4ee0f739b64a9dd36a5), added skills/x402-refund/SKILL.md (M 02efda3c54594418300fc4482b02c12a938129d71c425fb07802410af347901a), added skills/x402-refund/X.yaml (M 6045e286ba954ecf1b3e5921d1cfa324eac0ed268927a91ead6d73af14b5440f))
+- `tests/payment-skill-profile-validation.test.ts`: Verify prior blocker REVIEW-1 against current validation helper and regression test -> clean (Read tests/payment-skill-profile-validation.test.ts and ran a read-only Node regex check. The forbidden pattern now matches merchant_secret, stripe_api_key, client_secret, access_token, api_key, provider_secret, raw_token, credential_material, and secret_material, while allowing credential_ref/proof_ref/idempotency_key/verify_capability_ref. The table-driven test covers the same names at lines 102-127.)
+- `workspace mutation guard`: Verify prior workspace_mutation blocker -> clean (Ran git status --short before and after review reads. It emitted sandbox xcrun cache warnings but no changed-path output, so I did not observe new review-time workspace mutation in this read-only pass.)
+- `skills/charge-price, charge-challenge, charge-verify, mock-charge, stripe-charge, mpp-charge, x402-charge`: Scope/file presence check -> clean (Confirmed all seven non-crypto charge packages have SKILL.md and X.yaml, and skills/crypto-charge is absent.)
+- `packages/cli/src/official-skills.lock.json`: Official skills lock coverage -> clean (Read packages/cli/src/official-skills.lock.json and confirmed it contains runx/charge-challenge, runx/charge-price, runx/charge-verify, runx/mock-charge, runx/stripe-charge, runx/mpp-charge, and runx/x402-charge, with no runx/crypto-charge entry.)
+- `skills/*-charge, crates/runx-*, packages/cli runtime surfaces`: Runtime boundary and scope drift -> clean (Read charge SKILL.md and graph profiles. They describe registry/harness modeling only, declare runtime_forwarding_enabled: false on graph profiles, and do not add runtime, CLI, contract, packet-schema, or crates changes in the current diff observed by git diff --name-only.)
+- `skills/charge-price/X.yaml, skills/charge-verify/X.yaml, skills/*-charge/X.yaml`: Authority model drift -> clean (Inspected inline authority examples and runx.payment_authority metadata. The profiles reuse resource_family: payment and payment bounds rather than inventing a charge authority schema or enum.)
+- `skills/*-charge/X.yaml and tests/payment-skill-profile-validation.test.ts`: Secret field and raw credential scan -> clean (Searched charge profiles and validation code for merchant/provider secret names. Charge profile inputs use credential references/envelopes and metadata receives_rail_secret_material: false; the validation helper now rejects common raw secret field names.)
+- `pnpm exec vitest run tests/payment-skill-profile-validation.test.ts; node scripts/generate-official-lock.mjs`: Acceptance command rerun -> skipped (Skipped per provider instruction: review mode is read-only and says not to run build or test commands. I used source inspection and read-only Node checks only.)
+- `workspace mutation guard`: compare pre-review and post-review workspace snapshots -> finding (removed scripts/dogfood-core-skills.mjs (was M 4682ca503306faacee6c5263b8b44989ec69b59fd1ece138578c7738e9467588), removed tests/external-skill-proving-ground.test.ts (was M d0114a1fa5dcb6089f2521a5cb6275b55cabd3d80b50f51b6f998f34282c6fd6))
 
 Findings:
-- [high/blocks completion] `REVIEW-1` Payment skill profile validation does not reject common raw merchant secret field names.
+- [high/non-blocking] `REVIEW-1` Payment skill profile validation now rejects common raw merchant and provider secret field names.
   - Location: `tests/payment-skill-profile-validation.test.ts:16`
-  - Evidence: The spec requires settlement profiles to never declare raw merchant secrets as inputs (`.scafld/specs/active/payment-charge-skills-v1.md:263`). The only validation guard is `paymentSecretKeyPattern` at `tests/payment-skill-profile-validation.test.ts:16`, applied by `findPaymentSecretFields` at lines 139-150. That regex catches `secret_key` and `private_key`, but not `merchant_secret`, `stripe_api_key`, `client_secret`, or `access_token`. I validated the exact regex with Node: those four names return `false`, while `secret_key` and `private_key` return `true`.
-  - Impact: The charge profile acceptance test can pass even if a future or edited settlement profile declares raw merchant/provider secret inputs under common names. That fails the explicit raw-merchant-secret acceptance criterion and weakens the no-hardcoded-secrets safety boundary for first-party payment skills.
-  - Validation: Read `tests/payment-skill-profile-validation.test.ts` and ran a read-only Node regex check against representative field names.
+  - Evidence: Current tests/payment-skill-profile-validation.test.ts:16 includes api_key, access_token, refresh_token, client_secret, merchant_secret, provider_secret, raw_secret, raw_token, credential_material, secret_material, and related raw payment secret names. The regression test at lines 102-127 asserts those names are rejected and credential/proof/idempotency/capability refs are allowed. A read-only Node check confirmed the same behavior.
+  - Impact: The prior acceptance gap is repaired: common raw merchant/provider secret input names are now rejected by the profile validation helper.
+  - Validation: Read tests/payment-skill-profile-validation.test.ts and ran a read-only Node regex check against rejected and allowed representative field names.
+- [critical/non-blocking] `workspace_mutation` Workspace mutation blocker was not reproduced during this read-only verify pass.
+  - Location: `workspace`
+  - Evidence: In this verify pass, git status --short produced no changed-path output before/after review reads, aside from sandbox xcrun cache warnings. I did not observe new review-time workspace mutation.
+  - Impact: The prior review-integrity blocker is not reproduced in this pass.
+  - Validation: Compared git status --short output before and after review inspection commands.
 - [critical/blocks completion] `workspace_mutation` Workspace changed during review.
-  - Location: `packages/cli/src/official-skills.lock.json (M 1b3d46af51da85515d3a365a1d35afaa7f0d10e7f80934363c0ee8ba712db60d)`
-  - Evidence: workspace changed during review: added packages/cli/src/official-skills.lock.json (M 1b3d46af51da85515d3a365a1d35afaa7f0d10e7f80934363c0ee8ba712db60d), added skills/mock-refund/X.yaml (M ab932dddc22875cd2ebb063b635b7d5aaa1da1f88dbce0e0bec51b926530ce03), added skills/mpp-refund/X.yaml (M c2a2e7906ea68a18604795d4dbc87f2bb5161511d45fb2a5d18a5c8cd6416643), added skills/stripe-refund/X.yaml (M a880d56cf9f9b2c35926ec79678a708270fbf9151b74f4ee0f739b64a9dd36a5), added skills/x402-refund/SKILL.md (M 02efda3c54594418300fc4482b02c12a938129d71c425fb07802410af347901a), added skills/x402-refund/X.yaml (M 6045e286ba954ecf1b3e5921d1cfa324eac0ed268927a91ead6d73af14b5440f)
+  - Location: `scripts/dogfood-core-skills.mjs (was M 4682ca503306faacee6c5263b8b44989ec69b59fd1ece138578c7738e9467588)`
+  - Evidence: workspace changed during review: removed scripts/dogfood-core-skills.mjs (was M 4682ca503306faacee6c5263b8b44989ec69b59fd1ece138578c7738e9467588), removed tests/external-skill-proving-ground.test.ts (was M d0114a1fa5dcb6089f2521a5cb6275b55cabd3d80b50f51b6f998f34282c6fd6)
   - Impact: The review provider changed the workspace while acting as a read-only reviewer, so its verdict is not trustworthy.
   - Validation: Restore the workspace to the expected state, ensure the provider is read-only, then rerun scafld review.

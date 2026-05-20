@@ -15,12 +15,12 @@ risk_level: high
 
 Status: review
 Current phase: final
-Next: repair
-Reason: review gate fail: 1 finding(s), 1 completion blocker(s)
+Next: complete
+Reason: review gate pass: 2 finding(s), 0 completion blocker(s)
 Blockers: none
-Allowed follow-up command: `scafld handoff payment-refund-skills-v1`
-Latest runner update: 2026-05-20T16:24:19Z
-Review gate: fail
+Allowed follow-up command: `scafld complete payment-refund-skills-v1`
+Latest runner update: 2026-05-20T16:27:02Z
+Review gate: pass
 
 ## Summary
 
@@ -593,28 +593,33 @@ Issues:
 ## Review
 
 Status: completed
-Verdict: fail
+Verdict: pass
 Mode: verify
 Provider: codex
 Output: codex.output_file
-Summary: Verification passes. The prior raw-secret blocker is repaired with expanded detection plus direct regression coverage, and the prior workspace-mutation blocker is not present in task scope for this read-only review. Scope, packet boundary, runtime boundary, x402 static-profile behavior, discovery coverage, and lockfile coverage all held under the reviewed attacks. Workspace changed during review; review failed closed.
+Summary: Verification passes. The prior workspace-mutation blocker was not reproduced in this read-only pass, and the raw merchant/provider secret validation gap remains fixed with direct regression coverage. Scope, packet boundary, runtime boundary, graph linkage, validation discovery, and lockfile coverage held under the reviewed attacks. Test/build commands were not rerun because the provider instruction required read-only review.
 
 Attack log:
-- `tests/payment-skill-profile-validation.test.ts`: Known blocker verification: raw merchant secret validation -> clean (Read tests/payment-skill-profile-validation.test.ts. The regex now includes api_key, access_token, client_secret, merchant_secret, provider_secret, raw_token, credential_material, and secret_material, and the test at lines 102-128 directly asserts those names are rejected while credential/proof/idempotency reference fields remain allowed. A read-only Node check confirmed the previously missed names now match.)
-- `workspace status`: Known blocker verification: workspace mutation guard -> clean (Current git status shows only scripts/dogfood-core-skills.mjs and tests/external-skill-proving-ground.test.ts dirty. Those are outside the declared refund task scope and were present before my review commands; no task-scoped review self-mutation was observed.)
-- `skills/{refund-quote,refund-reserve,refund-recover,mock-refund,stripe-refund,mpp-refund,x402-refund,dispute-respond,crypto-refund}`: Scope coverage -> clean (Confirmed all eight in-scope non-crypto refund/dispute skill directories have SKILL.md and X.yaml. Confirmed skills/crypto-refund is absent.)
-- `skills/{mock-refund,stripe-refund,mpp-refund,x402-refund}/X.yaml`: Graph receipt-link propagation -> clean (Checked settlement graphs for quote -> reserve -> approval -> settlement. Quote receives original_receipt_ref, reserve consumes the quote packet, and approval/settlement carry reservation and idempotency objects whose harness outputs include original_receipt_ref.)
-- `skills/x402-refund/X.yaml`: x402 dynamic dispatch removal -> clean (Searched x402-refund for dispatch_source and original_receipt.settlement_family templates. None remain; the profile is a static example with runtime_refund_enabled: false.)
-- `skills/*refund and skills/dispute-respond`: Packet boundary -> clean (Searched refund/dispute profiles for runx.payment.refund.* and runx.payment.dispute.* packet IDs. Profiles use the allowed existing payment packet IDs or profile-local dispute artifacts without new packet IDs.)
-- `skills/*refund and skills/dispute-respond`: Runtime and live-money scope drift -> clean (Searched task files for runtime_refund_enabled: true, mutates_rail: true, receives_rail_secret_material: true, and new runtime/CLI claims. The inspected profiles remain registry/profile-only and mark runtime refund execution disabled.)
-- `tests/payment-skill-profile-validation.test.ts`: Validation discovery coverage -> clean (Read explicitGovernedPaymentSkillNames and discovery logic. The set includes all eight refund/dispute skill names, so the validation test will parse and ingest them even when directory names do not include payment.)
-- `packages/cli/src/official-skills.lock.json`: Official skill lock coverage -> clean (Inspected official-skills.lock.json and found entries for dispute-respond, mock-refund, mpp-refund, refund-quote, refund-recover, refund-reserve, stripe-refund, and x402-refund.)
-- `workspace mutation guard`: compare pre-review and post-review workspace snapshots -> finding (added scripts/dogfood-core-skills.mjs (M 4682ca503306faacee6c5263b8b44989ec69b59fd1ece138578c7738e9467588), added tests/external-skill-proving-ground.test.ts (M d0114a1fa5dcb6089f2521a5cb6275b55cabd3d80b50f51b6f998f34282c6fd6))
+- `tests/payment-skill-profile-validation.test.ts`: Known blocker verification: raw merchant/provider secret validation -> clean (Read tests/payment-skill-profile-validation.test.ts. The forbidden key pattern includes api_key, access_token, client_secret, merchant_secret, provider_secret, raw_token, credential_material, secret_material, and related raw payment secret names, with direct regression coverage for those names at lines 102-128.)
+- `workspace status`: Known blocker verification: workspace mutation guard -> clean (Ran git status --short before review inspection. It emitted sandbox xcrun cache warnings but no changed-path output, and all subsequent commands were read-only inspections. The prior workspace_mutation blocker was not reproduced.)
+- `skills/{refund-quote,refund-reserve,refund-recover,mock-refund,stripe-refund,mpp-refund,x402-refund,dispute-respond,crypto-refund}`: Scope coverage -> clean (Confirmed all eight in-scope non-crypto refund/dispute skill directories exist with SKILL.md and X.yaml, and skills/crypto-refund is absent.)
+- `skills/*refund and skills/dispute-respond`: Packet boundary -> clean (Searched refund/dispute profiles for new runx.payment.refund.* and runx.payment.dispute.* packet IDs. The profiles use only allowed existing packet IDs: runx.payment.quote.v1, runx.payment.reservation.v1, runx.payment.recovery.v1, and runx.payment.rail.v1; dispute-respond uses a profile-local artifact without a packet field.)
+- `skills/*refund and skills/dispute-respond`: Runtime and live-money scope drift -> clean (Searched task files for runtime_refund_enabled: true, mutates_rail: true, receives_rail_secret_material: true, dynamic dispatch markers, and CLI/runtime claims. The inspected profiles remain registry/profile-only and declare runtime_refund_enabled: false where applicable.)
+- `skills/{mock-refund,stripe-refund,mpp-refund,x402-refund}/X.yaml`: Graph receipt-link propagation -> clean (Inspected settlement graph profiles. The quote step receives original_receipt_ref, reserve consumes the quote packet, approval carries reservation/idempotency context, and settlement carries reservation/idempotency/authority context whose harness outputs include original_receipt_ref.)
+- `tests/payment-skill-profile-validation.test.ts`: Validation discovery coverage -> clean (Read explicitGovernedPaymentSkillNames and discovery logic. The set includes dispute-respond, mock-refund, mpp-refund, refund-quote, refund-recover, refund-reserve, stripe-refund, and x402-refund, so the validation test discovers them even when directory names do not include payment.)
+- `packages/cli/src/official-skills.lock.json`: Official skill lock coverage -> clean (Inspected official-skills.lock.json and found entries for all eight refund/dispute skills: dispute-respond, mock-refund, mpp-refund, refund-quote, refund-recover, refund-reserve, stripe-refund, and x402-refund.)
+- `payment-charge-skills-v1`: Dependency timing check -> clean (Checked payment-charge-skills-v1 lifecycle state with scafld status --json. It is in review, meaning it passed approval/build entry; refund Phase 2 did not proceed before charge approval lifecycle state existed.)
+- `pnpm exec vitest run tests/payment-skill-profile-validation.test.ts; node scripts/generate-official-lock.mjs`: Acceptance command rerun -> skipped (Skipped per provider instruction: review mode is read-only and explicitly says not to run build, test, or mutation commands. I used source inspection only.)
 
 Findings:
-- [critical/blocks completion] `workspace_mutation` Workspace changed during review.
-  - Location: `scripts/dogfood-core-skills.mjs (M 4682ca503306faacee6c5263b8b44989ec69b59fd1ece138578c7738e9467588)`
-  - Evidence: workspace changed during review: added scripts/dogfood-core-skills.mjs (M 4682ca503306faacee6c5263b8b44989ec69b59fd1ece138578c7738e9467588), added tests/external-skill-proving-ground.test.ts (M d0114a1fa5dcb6089f2521a5cb6275b55cabd3d80b50f51b6f998f34282c6fd6)
-  - Impact: The review provider changed the workspace while acting as a read-only reviewer, so its verdict is not trustworthy.
-  - Validation: Restore the workspace to the expected state, ensure the provider is read-only, then rerun scafld review.
+- [critical/non-blocking] `workspace_mutation` Prior workspace mutation blocker was not reproduced during this read-only verification.
+  - Location: `workspace`
+  - Evidence: git status --short --untracked-files=all emitted sandbox xcrun cache warnings but no changed-path output in this verify pass. I performed only read-only commands: scafld status, git status, rg, and sed.
+  - Impact: The prior review-integrity blocker is not reproduced, so it should not block completion in this verify pass.
+  - Validation: Compared current git status output with the review packet's expected clean/no-drift baseline; no task-scoped or ambient changed paths were reported.
+- [high/non-blocking] `raw_secret_field_validation` Raw merchant/provider secret field rejection is covered by the validation helper and regression test.
+  - Location: `tests/payment-skill-profile-validation.test.ts:16`
+  - Evidence: tests/payment-skill-profile-validation.test.ts:16 includes common raw merchant/provider secret names in paymentSecretKeyPattern, and lines 102-128 directly assert merchant_secret, stripe_api_key, client_secret, access_token, api_key, provider_secret, raw_token, credential_material, and secret_material are rejected while credential/proof/idempotency/capability references remain allowed.
+  - Impact: The prior raw-secret validation gap is repaired and has direct regression coverage.
+  - Validation: Read the current validation helper and searched refund/dispute profiles; the only secret-related profile fields found are receives_rail_secret_material: false metadata entries.
 
