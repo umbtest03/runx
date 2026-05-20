@@ -3,10 +3,12 @@
 use std::collections::BTreeSet;
 
 use runx_contracts::{
-    HarnessReceipt, PostMergeObserverPlanError, PostMergeObserverPublicationProjection,
+    HarnessReceipt, OperationalPolicy, PostMergeObserverPlan, PostMergeObserverPlanError,
+    PostMergeObserverPlanRequest, PostMergeObserverPublicationProjection,
     PostMergeObserverRuntimeDecision, PostMergeObserverRuntimeDedupePlan,
-    PostMergeSourceIssueDisposition, Reference, ReferenceType,
-    project_post_merge_observer_publication_from_receipt,
+    PostMergeObserverSignalSource, PostMergePullRequestObservation,
+    PostMergeSourceIssueDisposition, PostMergeVerificationObservation, Reference, ReferenceType,
+    plan_post_merge_observer_closure, project_post_merge_observer_publication_from_receipt,
 };
 use serde::Serialize;
 use thiserror::Error;
@@ -48,6 +50,43 @@ pub struct PostMergeObserverPublicationRuntime {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct PostMergeObserverLivePublicationRequest {
+    pub source_id: Option<String>,
+    pub source_issue_ref: Reference,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_thread_ref: Option<Reference>,
+    pub pull_request_ref: Reference,
+    pub signal_source: PostMergeObserverSignalSource,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct PostMergeObserverPullRequestObservationRequest {
+    pub source_id: Option<String>,
+    pub source_issue_ref: Reference,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_thread_ref: Option<Reference>,
+    pub pull_request_ref: Reference,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct PostMergeObserverVerificationObservationRequest {
+    pub source_id: Option<String>,
+    pub source_issue_ref: Reference,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_thread_ref: Option<Reference>,
+    pub pull_request: PostMergePullRequestObservation,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct PostMergeObserverLivePublication {
+    pub pull_request: PostMergePullRequestObservation,
+    pub verification: PostMergeVerificationObservation,
+    pub closure_plan: PostMergeObserverPlan,
+    pub dedupe: PostMergeObserverRuntimeDedupePlan,
+    pub publication: PostMergeObserverPublicationRuntime,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PostMergeObserverPublicationCommand {
     SourceIssueComment {
@@ -70,10 +109,54 @@ pub enum PostMergeObserverPublicationCommand {
     },
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PostMergeObserverAdapterError {
+    pub operation: &'static str,
+    pub message: String,
+}
+
+impl PostMergeObserverAdapterError {
+    pub fn new(operation: &'static str, message: impl Into<String>) -> Self {
+        Self {
+            operation,
+            message: message.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for PostMergeObserverAdapterError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{} failed: {}", self.operation, self.message)
+    }
+}
+
+impl std::error::Error for PostMergeObserverAdapterError {}
+
+pub trait PostMergeObserverAdapter {
+    fn observe_pull_request(
+        &mut self,
+        request: &PostMergeObserverPullRequestObservationRequest,
+    ) -> Result<PostMergePullRequestObservation, PostMergeObserverAdapterError>;
+
+    fn observe_verification(
+        &mut self,
+        request: &PostMergeObserverVerificationObservationRequest,
+    ) -> Result<PostMergeVerificationObservation, PostMergeObserverAdapterError>;
+}
+
 #[derive(Debug, Error)]
 pub enum PostMergeObserverRuntimeError {
-    #[error("post-merge publication projection failed: {0}")]
+    #[error("{0}")]
+    Adapter(#[from] PostMergeObserverAdapterError),
+    #[error("post-merge observer planning or projection failed: {0}")]
     Projection(#[from] PostMergeObserverPlanError),
+    #[error(
+        "observed closure reason '{observed_reason_code}' does not match sealed receipt reason '{receipt_reason_code}'"
+    )]
+    ObservedClosureMismatch {
+        observed_reason_code: String,
+        receipt_reason_code: String,
+    },
     #[error(
         "dedupe plan receipt id '{dedupe_receipt_id}' does not match sealed receipt '{receipt_id}'"
     )]
@@ -92,6 +175,57 @@ pub enum PostMergeObserverRuntimeError {
     MissingSourceThreadTarget,
     #[error("post-merge source-thread publication requires provider and locator metadata")]
     MissingSourceThreadMetadata,
+}
+
+pub fn execute_post_merge_observer_with_adapter<A: PostMergeObserverAdapter>(
+    policy: &OperationalPolicy,
+    request: &PostMergeObserverLivePublicationRequest,
+    sealed_receipt: &HarnessReceipt,
+    adapter: &mut A,
+    ledger: &mut PostMergeObserverPublicationLedger,
+) -> Result<PostMergeObserverLivePublication, PostMergeObserverRuntimeError> {
+    let pull_request =
+        adapter.observe_pull_request(&PostMergeObserverPullRequestObservationRequest {
+            source_id: request.source_id.clone(),
+            source_issue_ref: request.source_issue_ref.clone(),
+            source_thread_ref: request.source_thread_ref.clone(),
+            pull_request_ref: request.pull_request_ref.clone(),
+        })?;
+    let verification =
+        adapter.observe_verification(&PostMergeObserverVerificationObservationRequest {
+            source_id: request.source_id.clone(),
+            source_issue_ref: request.source_issue_ref.clone(),
+            source_thread_ref: request.source_thread_ref.clone(),
+            pull_request: pull_request.clone(),
+        })?;
+    let closure_plan = plan_post_merge_observer_closure(
+        policy,
+        &PostMergeObserverPlanRequest {
+            source_id: request.source_id.clone(),
+            source_issue_ref: request.source_issue_ref.clone(),
+            source_thread_ref: request.source_thread_ref.clone(),
+            pull_request: pull_request.clone(),
+            verification: verification.clone(),
+        },
+    )?;
+    if closure_plan.reason_code != sealed_receipt.seal.reason_code {
+        return Err(PostMergeObserverRuntimeError::ObservedClosureMismatch {
+            observed_reason_code: closure_plan.reason_code,
+            receipt_reason_code: sealed_receipt.seal.reason_code.clone(),
+        });
+    }
+
+    let dedupe = sealed_receipt_dedupe_plan(sealed_receipt, request.signal_source);
+    let publication =
+        project_post_merge_observer_publication_commands(&dedupe, sealed_receipt, ledger)?;
+
+    Ok(PostMergeObserverLivePublication {
+        pull_request,
+        verification,
+        closure_plan,
+        dedupe,
+        publication,
+    })
 }
 
 pub fn project_post_merge_observer_publication_commands(
@@ -134,6 +268,35 @@ pub fn project_post_merge_observer_publication_commands(
         receipt_ref: projection.harness_receipt_ref,
         commands,
     })
+}
+
+fn sealed_receipt_dedupe_plan(
+    sealed_receipt: &HarnessReceipt,
+    signal_source: PostMergeObserverSignalSource,
+) -> PostMergeObserverRuntimeDedupePlan {
+    PostMergeObserverRuntimeDedupePlan {
+        decision: PostMergeObserverRuntimeDecision::SealAndPublish,
+        signal_source,
+        lock_key: format!(
+            "post-merge-observer:{}",
+            sealed_receipt.harness.idempotency.content_hash
+        ),
+        receipt_id: sealed_receipt.id.clone(),
+        receipt_ref: Reference {
+            reference_type: ReferenceType::HarnessReceipt,
+            uri: format!("runx:harness_receipt:{}", sealed_receipt.id),
+            provider: None,
+            locator: Some(sealed_receipt.seal.digest.clone()),
+            label: Some("post-merge observer harness receipt".to_owned()),
+            observed_at: Some(sealed_receipt.seal.closed_at.clone()),
+        },
+        publication_key: format!(
+            "post-merge-publication:{}:{}",
+            sealed_receipt.harness.idempotency.intent_key,
+            sealed_receipt.harness.idempotency.content_hash
+        ),
+        content_hash: sealed_receipt.harness.idempotency.content_hash.clone(),
+    }
 }
 
 fn publication_commands(

@@ -1,16 +1,25 @@
 use runx_contracts::{
     ActForm, ClosureDisposition, HarnessReceipt, PostMergeObserverRuntimeDecision,
-    PostMergeObserverRuntimeDedupePlan, PostMergeObserverSignalSource, Reference, ReferenceType,
+    PostMergeObserverRuntimeDedupePlan, PostMergeObserverSignalSource, PostMergeProvider,
+    PostMergePullRequestObservation, PostMergePullRequestState, PostMergeVerificationObservation,
+    PostMergeVerificationStatus, Reference, ReferenceType,
 };
 use runx_runtime::post_merge_observer::{
-    PostMergeObserverPublicationCommand, PostMergeObserverPublicationLedger,
-    PostMergeObserverPublicationRuntimeDecision, PostMergeObserverRuntimeError,
+    PostMergeObserverAdapter, PostMergeObserverAdapterError,
+    PostMergeObserverLivePublicationRequest, PostMergeObserverPublicationCommand,
+    PostMergeObserverPublicationLedger, PostMergeObserverPublicationRuntimeDecision,
+    PostMergeObserverPullRequestObservationRequest, PostMergeObserverRuntimeError,
+    PostMergeObserverVerificationObservationRequest, execute_post_merge_observer_with_adapter,
     project_post_merge_observer_publication_commands,
 };
 
 const POST_MERGE_OBSERVER_FIXTURE: &str = include_str!(
     "../../../fixtures/contracts/harness-spine/post-merge-observer-merged-verified.json"
 );
+const NITROSEND_LIKE: &str =
+    include_str!("../../../fixtures/operational-policy/nitrosend-like.json");
+const OBSERVED_AT: &str = "2026-05-20T04:55:00Z";
+const VERIFIED_AT: &str = "2026-05-20T04:55:30Z";
 
 #[test]
 fn sealed_receipt_projects_publication_commands_and_dedupes_publication_key()
@@ -166,6 +175,67 @@ fn closed_unmerged_projection_publishes_without_source_issue_close()
     Ok(())
 }
 
+#[test]
+fn live_adapter_projects_observed_closure_into_publication_commands_without_network()
+-> Result<(), Box<dyn std::error::Error>> {
+    let policy: runx_contracts::OperationalPolicy = serde_json::from_str(NITROSEND_LIKE)?;
+    let receipt = post_merge_observer_receipt()?;
+    let mut adapter = FakePostMergeObserverAdapter { events: Vec::new() };
+    let mut ledger = PostMergeObserverPublicationLedger::new();
+
+    let live = execute_post_merge_observer_with_adapter(
+        &policy,
+        &PostMergeObserverLivePublicationRequest {
+            source_id: Some("bugs-fixes".to_owned()),
+            source_issue_ref: fixture_source_issue_ref(),
+            source_thread_ref: Some(fixture_source_thread_ref()),
+            pull_request_ref: fixture_pull_request_ref(),
+            signal_source: PostMergeObserverSignalSource::Webhook,
+        },
+        &receipt,
+        &mut adapter,
+        &mut ledger,
+    )?;
+
+    assert_eq!(adapter.events, vec!["pull_request", "verification"]);
+    assert_eq!(live.pull_request.provider, PostMergeProvider::Github);
+    assert_eq!(live.pull_request.repo, "runxhq/nitrosend");
+    assert_eq!(live.pull_request.number, 188);
+    assert!(live.pull_request.merged);
+    assert_eq!(
+        live.verification.status,
+        PostMergeVerificationStatus::Passed
+    );
+    assert_eq!(live.verification.evidence_refs.len(), 1);
+    assert_eq!(
+        live.verification.evidence_refs[0].reference_type,
+        ReferenceType::Deployment
+    );
+    assert_eq!(live.closure_plan.reason_code, receipt.seal.reason_code);
+    assert_eq!(
+        live.publication.decision,
+        PostMergeObserverPublicationRuntimeDecision::Publish
+    );
+    assert_eq!(live.publication.commands.len(), 3);
+    assert_eq!(
+        live.publication.receipt_ref.uri,
+        format!("runx:harness_receipt:{}", receipt.id)
+    );
+    assert!(ledger.contains(&live.dedupe.publication_key));
+    assert!(matches!(
+        &live.publication.commands[0],
+        PostMergeObserverPublicationCommand::SourceIssueComment { target, .. }
+            if target.reference_type == ReferenceType::GithubIssue
+                && target.provider.as_deref() == Some("github")
+    ));
+    assert!(matches!(
+        &live.publication.commands[2],
+        PostMergeObserverPublicationCommand::SourceIssueClose { target, .. }
+            if target.reference_type == ReferenceType::GithubIssue
+    ));
+    Ok(())
+}
+
 fn post_merge_observer_receipt() -> Result<HarnessReceipt, serde_json::Error> {
     #[derive(serde::Deserialize)]
     struct Fixture {
@@ -245,4 +315,111 @@ fn strip_slack_thread_metadata(receipt: &mut HarnessReceipt) {
         }
     }
     receipt.harness.seal = Some(receipt.seal.clone());
+}
+
+struct FakePostMergeObserverAdapter {
+    events: Vec<&'static str>,
+}
+
+impl PostMergeObserverAdapter for FakePostMergeObserverAdapter {
+    fn observe_pull_request(
+        &mut self,
+        request: &PostMergeObserverPullRequestObservationRequest,
+    ) -> Result<PostMergePullRequestObservation, PostMergeObserverAdapterError> {
+        self.events.push("pull_request");
+        assert_eq!(request.source_id.as_deref(), Some("bugs-fixes"));
+        assert_eq!(
+            request.pull_request_ref.reference_type,
+            ReferenceType::GithubPullRequest
+        );
+        assert_eq!(request.pull_request_ref.provider.as_deref(), Some("github"));
+        Ok(PostMergePullRequestObservation {
+            provider: PostMergeProvider::Github,
+            repo: "runxhq/nitrosend".to_owned(),
+            number: 188,
+            uri: request.pull_request_ref.uri.clone(),
+            state: PostMergePullRequestState::Closed,
+            merged: true,
+            merge_sha: Some("9f14c0ffee1234567890abcdef1234567890abcd".to_owned()),
+            observed_at: OBSERVED_AT.to_owned(),
+            closed_at: Some(OBSERVED_AT.to_owned()),
+            actor: Some("github:user:human-reviewer".to_owned()),
+        })
+    }
+
+    fn observe_verification(
+        &mut self,
+        request: &PostMergeObserverVerificationObservationRequest,
+    ) -> Result<PostMergeVerificationObservation, PostMergeObserverAdapterError> {
+        self.events.push("verification");
+        assert!(request.pull_request.merged);
+        assert_eq!(
+            request.source_thread_ref.as_ref().map(|reference| {
+                (
+                    reference.reference_type.clone(),
+                    reference.provider.as_deref(),
+                    reference.locator.as_deref(),
+                )
+            }),
+            Some((
+                ReferenceType::SlackThread,
+                Some("slack"),
+                Some("T01NITRO/C02DOGFOOD/1716180900.000100")
+            ))
+        );
+        Ok(PostMergeVerificationObservation {
+            status: PostMergeVerificationStatus::Passed,
+            summary: Some("Dogfood smoke check passed from sanitized metadata.".to_owned()),
+            verification_ref: Some(Reference {
+                reference_type: ReferenceType::Verification,
+                uri: "runx:verification:nitrosend-dogfood-smoke".to_owned(),
+                provider: None,
+                locator: None,
+                label: Some("Nitrosend dogfood smoke".to_owned()),
+                observed_at: Some(VERIFIED_AT.to_owned()),
+            }),
+            evidence_refs: vec![Reference {
+                reference_type: ReferenceType::Deployment,
+                uri: "deploy://nitrosend/dogfood/2026-05-20T04-52Z".to_owned(),
+                provider: Some("nitrosend".to_owned()),
+                locator: None,
+                label: Some("Nitrosend dogfood deploy".to_owned()),
+                observed_at: Some(VERIFIED_AT.to_owned()),
+            }],
+            verified_at: Some(VERIFIED_AT.to_owned()),
+        })
+    }
+}
+
+fn fixture_source_issue_ref() -> Reference {
+    Reference {
+        reference_type: ReferenceType::GithubIssue,
+        uri: "github://runxhq/nitrosend/issues/77".to_owned(),
+        provider: Some("github".to_owned()),
+        locator: Some("runxhq/nitrosend#77".to_owned()),
+        label: Some("Nitrosend dogfood issue".to_owned()),
+        observed_at: None,
+    }
+}
+
+fn fixture_source_thread_ref() -> Reference {
+    Reference {
+        reference_type: ReferenceType::SlackThread,
+        uri: "slack://T01NITRO/C02DOGFOOD/p1716180900.000100".to_owned(),
+        provider: Some("slack".to_owned()),
+        locator: Some("T01NITRO/C02DOGFOOD/1716180900.000100".to_owned()),
+        label: Some("Nitrosend source thread".to_owned()),
+        observed_at: None,
+    }
+}
+
+fn fixture_pull_request_ref() -> Reference {
+    Reference {
+        reference_type: ReferenceType::GithubPullRequest,
+        uri: "github://runxhq/nitrosend/pulls/188".to_owned(),
+        provider: Some("github".to_owned()),
+        locator: Some("runxhq/nitrosend#188".to_owned()),
+        label: Some("human-merged PR".to_owned()),
+        observed_at: Some(OBSERVED_AT.to_owned()),
+    }
 }
