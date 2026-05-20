@@ -4,6 +4,7 @@ use runx_cli::kernel::{KernelInputSource, KernelPlan};
 use runx_cli::mcp::McpPlan;
 use runx_cli::policy::{PolicyAction, PolicyPlan};
 use runx_cli::registry::{RegistryAction, RegistryPlan};
+use runx_cli::skill::SkillPlan;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -439,7 +440,7 @@ fn rust_harness_zero_and_empty_signals_still_delegate_to_js() {
 }
 
 #[test]
-fn rust_cli_signal_leaves_unknown_commands_delegated() {
+fn rust_cli_signal_rejects_legacy_skill_run_alias() {
     let action = plan_with_rust_cli_and_js(vec![
         "skill".into(),
         "run".into(),
@@ -449,16 +450,116 @@ fn rust_cli_signal_leaves_unknown_commands_delegated() {
 
     assert_eq!(
         action,
-        LauncherAction::Delegate(CommandPlan {
-            program: node_command().into(),
-            args: vec![
-                "/repo/oss/packages/cli/bin/runx.js".into(),
-                "skill".into(),
-                "run".into(),
-                "sourcey".into(),
-                "--json".into(),
-            ],
+        LauncherAction::Error(
+            "runx skill runs a skill package path directly; runx skill run is not supported"
+                .to_owned()
+        )
+    );
+}
+
+#[test]
+fn rust_cli_signal_rejects_bare_legacy_skill_run_alias() {
+    let action = plan_with_rust_cli_and_js(vec!["skill".into(), "run".into(), "--json".into()]);
+
+    assert_eq!(
+        action,
+        LauncherAction::Error(
+            "runx skill runs a skill package path directly; runx skill run is not supported"
+                .to_owned()
+        )
+    );
+}
+
+#[test]
+fn rust_cli_signal_routes_canonical_skill_run_to_native_plan() {
+    let action = plan_with_rust_cli(vec![
+        "skill".into(),
+        "skills/issue-intake".into(),
+        "--receipt-dir".into(),
+        ".runx/receipts".into(),
+        "--run-id".into(),
+        "run_agent_step.issue-intake.output".into(),
+        "--answers".into(),
+        "/tmp/answers.json".into(),
+        "--json".into(),
+        "--non-interactive".into(),
+        "--thread-title".into(),
+        "Docs bug".into(),
+    ]);
+
+    assert_eq!(
+        action,
+        LauncherAction::RunSkill(SkillPlan {
+            skill_path: PathBuf::from("skills/issue-intake"),
+            receipt_dir: Some(PathBuf::from(".runx/receipts")),
+            run_id: Some("run_agent_step.issue-intake.output".to_owned()),
+            answers: Some(PathBuf::from("/tmp/answers.json")),
+            json: true,
+            inputs: [(
+                "thread_title".to_owned(),
+                runx_contracts::JsonValue::String("Docs bug".to_owned()),
+            )]
+            .into_iter()
+            .collect(),
         })
+    );
+}
+
+#[test]
+fn rust_cli_signal_rejects_legacy_skill_receipt_resume_flag() {
+    let action = plan_with_rust_cli_and_js(vec![
+        "skill".into(),
+        "skills/issue-intake".into(),
+        "--receipt".into(),
+        "run_123".into(),
+        "--answers".into(),
+        "/tmp/answers.json".into(),
+    ]);
+
+    assert_eq!(
+        action,
+        LauncherAction::Error("runx skill uses --run-id; --receipt is not supported".to_owned())
+    );
+}
+
+#[test]
+fn rust_cli_signal_rejects_legacy_skill_camelcase_receipt_dir_flag() {
+    let action = plan_with_rust_cli_and_js(vec![
+        "skill".into(),
+        "skills/issue-intake".into(),
+        "--receiptDir=.runx/receipts".into(),
+    ]);
+
+    assert_eq!(
+        action,
+        LauncherAction::Error(
+            "runx skill uses --receipt-dir; --receiptDir is not supported".to_owned()
+        )
+    );
+}
+
+#[test]
+fn rust_cli_signal_rejects_partial_skill_continuation_shape() {
+    let run_id_only = plan_with_rust_cli_and_js(vec![
+        "skill".into(),
+        "skills/issue-intake".into(),
+        "--run-id".into(),
+        "run_123".into(),
+    ]);
+    let answers_only = plan_with_rust_cli_and_js(vec![
+        "skill".into(),
+        "skills/issue-intake".into(),
+        "--answers".into(),
+        "/tmp/answers.json".into(),
+    ]);
+
+    assert_eq!(
+        run_id_only,
+        LauncherAction::Error("runx skill --run-id requires --answers".to_owned())
+    );
+    assert_eq!(
+        answers_only,
+        LauncherAction::Error("runx skill --answers requires --run-id".to_owned())
     );
 }
 

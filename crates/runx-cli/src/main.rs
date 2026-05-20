@@ -44,6 +44,7 @@ fn main() -> ExitCode {
         LauncherAction::RunConfig(plan) => run_native_config(plan),
         LauncherAction::RunPolicy(plan) => runx_cli::policy::run_native_policy(plan),
         LauncherAction::RunRegistry(plan) => runx_cli::registry::run_native_registry(plan),
+        LauncherAction::RunSkill(plan) => runx_cli::skill::run_native_skill(plan),
         LauncherAction::RunDoctor(plan) => runx_cli::doctor::run_native_doctor(plan),
         LauncherAction::RunTool(plan) => runx_cli::tool::run_native_tool(plan),
         LauncherAction::Delegate(command) => match run_command(command) {

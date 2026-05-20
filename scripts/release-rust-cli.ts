@@ -1,0 +1,183 @@
+import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const workspaceRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
+const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+
+interface Options {
+  readonly artifactDir: string;
+  readonly binary: string;
+  readonly dryRun: boolean;
+  readonly publish: boolean;
+  readonly signatureManifest: string | null;
+  readonly tag: string;
+}
+
+const options = parseArgs(process.argv.slice(2));
+
+if (!options.signatureManifest) {
+  throw new Error("--signature-manifest is required so release artifacts can pass signature verification");
+}
+
+run(pnpm, [
+  "exec",
+  "tsx",
+  "scripts/package-rust-cli.ts",
+  "--binary",
+  options.binary,
+  "--out-dir",
+  options.artifactDir,
+  "--signature-manifest",
+  options.signatureManifest,
+]);
+run(pnpm, [
+  "exec",
+  "tsx",
+  "scripts/check-rust-cli-release-artifacts.ts",
+  "--artifact-dir",
+  options.artifactDir,
+  "--no-js-delegation",
+  "--verify-signatures",
+]);
+
+if (!options.publish) {
+  console.log(JSON.stringify({
+    status: "prepared",
+    artifact_dir: options.artifactDir,
+    dry_run: options.dryRun,
+    publish: false,
+  }, null, 2));
+  process.exit(0);
+}
+
+if (!options.dryRun && !process.env.NPM_TOKEN) {
+  throw new Error("NPM_TOKEN is required for Rust CLI release publishing");
+}
+
+const publishTargets = packageDirs(path.resolve(workspaceRoot, options.artifactDir));
+assertPublishTargets(publishTargets);
+for (const packageDir of publishTargets) {
+  run(npm, ["publish", options.dryRun ? "--dry-run" : "", "--access", "public", "--tag", options.tag].filter(Boolean), {
+    cwd: packageDir,
+  });
+}
+
+console.log(JSON.stringify({
+  status: options.dryRun ? "dry_run_published" : "published",
+  artifact_dir: options.artifactDir,
+  tag: options.tag,
+}, null, 2));
+
+function parseArgs(argv: readonly string[]): Options {
+  let artifactDir = ".runx/rust-cli-artifacts";
+  let binary = "target/debug/runx";
+  let dryRun = true;
+  let publish = false;
+  let signatureManifest: string | null = null;
+  let tag = "next";
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--artifact-dir") {
+      artifactDir = argv[index + 1] ?? "";
+      index += 1;
+      continue;
+    }
+    if (arg === "--publish") {
+      publish = true;
+      continue;
+    }
+    if (arg === "--binary") {
+      binary = argv[index + 1] ?? "";
+      index += 1;
+      continue;
+    }
+    if (arg === "--signature-manifest") {
+      signatureManifest = argv[index + 1] ?? "";
+      index += 1;
+      continue;
+    }
+    if (arg === "--no-dry-run") {
+      dryRun = false;
+      continue;
+    }
+    if (arg === "--tag") {
+      tag = argv[index + 1] ?? "";
+      index += 1;
+      continue;
+    }
+    if (arg === "--help" || arg === "-h") {
+      printUsage();
+      process.exit(0);
+    }
+    throw new Error(`unknown argument: ${arg}`);
+  }
+
+  if (!artifactDir) {
+    throw new Error("--artifact-dir requires a path");
+  }
+  if (!binary) {
+    throw new Error("--binary requires a path");
+  }
+  if (signatureManifest === "") {
+    throw new Error("--signature-manifest requires a path");
+  }
+  if (!publish && !dryRun) {
+    throw new Error("--no-dry-run requires --publish");
+  }
+  if (!tag) {
+    throw new Error("--tag requires a value");
+  }
+  return { artifactDir, binary, dryRun, publish, signatureManifest, tag };
+}
+
+function packageDirs(root: string): readonly string[] {
+  const rootManifest = path.join(root, "package.json");
+  if (existsSync(rootManifest)) {
+    return [root];
+  }
+  const dirs = readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(path.join(root, entry.name, "package.json")))
+    .map((entry) => path.join(root, entry.name))
+    .sort();
+  if (dirs.length === 0) {
+    throw new Error(`release artifact directory contains no package.json files: ${root}`);
+  }
+  return dirs;
+}
+
+function assertPublishTargets(packageDirs: readonly string[]): void {
+  const seen = new Set<string>();
+  for (const packageDir of packageDirs) {
+    const manifest = JSON.parse(readFileSync(path.join(packageDir, "package.json"), "utf8")) as {
+      readonly name?: string;
+      readonly version?: string;
+    };
+    const key = `${manifest.name ?? "<missing-name>"}@${manifest.version ?? "<missing-version>"}`;
+    if (seen.has(key)) {
+      throw new Error(`duplicate npm publish target: ${key}`);
+    }
+    seen.add(key);
+  }
+}
+
+function run(command: string, args: readonly string[], options: { readonly cwd?: string } = {}): void {
+  const result = spawnSync(command, args, {
+    cwd: options.cwd ?? workspaceRoot,
+    stdio: "inherit",
+    env: process.env,
+  });
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    throw new Error(`${command} ${args.join(" ")} exited with ${result.status}`);
+  }
+}
+
+function printUsage(): void {
+  console.log("Usage: pnpm exec tsx scripts/release-rust-cli.ts [--artifact-dir .runx/rust-cli-artifacts] [--binary target/debug/runx] --signature-manifest native/signatures.json [--publish] [--no-dry-run] [--tag next]");
+}

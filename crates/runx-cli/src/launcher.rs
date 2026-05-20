@@ -8,10 +8,11 @@ use crate::kernel::{KernelInputSource, KernelPlan};
 use crate::mcp::McpPlan;
 use crate::policy::{PolicyAction, PolicyPlan};
 use crate::registry::{RegistryAction, RegistryPlan};
+use crate::skill::SkillPlan;
 
 pub const DEFAULT_NPM_PACKAGE: &str = "@runxhq/cli@latest";
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum LauncherAction {
     Delegate(CommandPlan),
     Error(String),
@@ -27,6 +28,7 @@ pub enum LauncherAction {
     RunConfig(ConfigPlan),
     RunPolicy(PolicyPlan),
     RunRegistry(RegistryPlan),
+    RunSkill(SkillPlan),
     RunTool(ToolPlan),
     PrintHelp,
     PrintVersion,
@@ -226,6 +228,11 @@ pub fn plan_launcher_with_native_options(
         if first_arg_is(&args, "registry") && registry_subcommand_is_native(&args) {
             return parse_registry_plan(&args)
                 .map_or_else(LauncherAction::Error, LauncherAction::RunRegistry);
+        }
+
+        if first_arg_is(&args, "skill") {
+            return crate::skill::parse_skill_plan(&args)
+                .map_or_else(LauncherAction::Error, LauncherAction::RunSkill);
         }
     }
 

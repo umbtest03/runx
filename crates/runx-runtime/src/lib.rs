@@ -5,6 +5,7 @@
 //! parser/core/receipt crates stay upstream of this crate.
 
 pub mod adapter;
+mod agent_invocation;
 pub mod approval;
 pub mod caller;
 pub mod config;
@@ -27,6 +28,7 @@ pub mod registry;
 pub mod runner;
 pub mod sandbox;
 pub mod scaffold;
+pub mod skill_run;
 pub mod target_runner;
 pub mod tool_catalogs;
 
@@ -102,6 +104,7 @@ pub use scaffold::{
     ensure_runx_project_state, packet_namespace_for_name, runx_init, sanitize_runx_package_name,
     scaffold_runx_package,
 };
+pub use skill_run::{SkillRunError, SkillRunRequest, execute_skill_run};
 pub use tool_catalogs::{
     ToolBuildOptions, ToolCatalogError, ToolInspectOptions, ToolSearchOptions, build_tool_catalogs,
     inspect_tool, search_tools,

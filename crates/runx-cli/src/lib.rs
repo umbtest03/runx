@@ -9,4 +9,5 @@ pub mod mcp;
 pub mod policy;
 pub mod registry;
 pub mod scaffold;
+pub mod skill;
 pub mod tool;

@@ -4,15 +4,16 @@
 use std::time::Instant;
 
 use runx_contracts::{
-    AgentActInvocation, AgentActSourceType, JsonNumber, JsonObject, JsonValue, ResolutionRequest,
-    ResolutionResponse, ResolutionResponseActor,
+    AgentActInvocation, JsonNumber, JsonObject, JsonValue, ResolutionRequest, ResolutionResponse,
+    ResolutionResponseActor,
 };
 
 use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
+use crate::agent_invocation::{
+    AgentActInvocationSourceType, agent_act_resolution_request, build_agent_act_invocation,
+};
 use crate::config::{ManagedAgentConfig, ManagedAgentProvider};
-
-const TRUST_BOUNDARY: &str = "native-managed: runx executes the model and tool loop directly, receipts the result, and only yields to a surface for explicit human resolution outside this path";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AgentAdapterSourceType {
@@ -29,10 +30,10 @@ impl AgentAdapterSourceType {
         }
     }
 
-    const fn contract_source_type(self) -> AgentActSourceType {
+    const fn invocation_source_type(self) -> AgentActInvocationSourceType {
         match self {
-            Self::Agent => AgentActSourceType::Agent,
-            Self::AgentStep => AgentActSourceType::AgentStep,
+            Self::Agent => AgentActInvocationSourceType::Agent,
+            Self::AgentStep => AgentActInvocationSourceType::AgentStep,
         }
     }
 }
@@ -150,10 +151,8 @@ where
             });
         }
 
-        let resolution_request = ResolutionRequest::AgentAct {
-            id: invocation_id(&request, self.source_type),
-            invocation: build_managed_agent_act_invocation(&request, self.source_type),
-        };
+        let resolution_request =
+            agent_act_resolution_request(&request, self.source_type.invocation_source_type());
         match self.resolver.resolve(resolution_request) {
             Ok(resolution) => {
                 let metadata = native_agent_metadata(
@@ -179,88 +178,7 @@ pub fn build_managed_agent_act_invocation(
     request: &SkillInvocation,
     source_type: AgentAdapterSourceType,
 ) -> AgentActInvocation {
-    AgentActInvocation {
-        id: invocation_id(request, source_type),
-        source_type: source_type.contract_source_type(),
-        agent: request.source.agent.clone(),
-        task: request.source.task.clone(),
-        envelope: JsonValue::Object(envelope(request, source_type)),
-    }
-}
-
-fn invocation_id(request: &SkillInvocation, source_type: AgentAdapterSourceType) -> String {
-    let skill_name = skill_name(request, source_type);
-    match source_type {
-        AgentAdapterSourceType::Agent => {
-            format!("agent.{}.output", normalize_request_id(&skill_name))
-        }
-        AgentAdapterSourceType::AgentStep => {
-            let name = request.source.task.as_deref().unwrap_or(&skill_name);
-            format!("agent_step.{}.output", normalize_request_id(name))
-        }
-    }
-}
-
-fn envelope(request: &SkillInvocation, source_type: AgentAdapterSourceType) -> JsonObject {
-    let mut envelope = JsonObject::new();
-    envelope.insert(
-        "run_id".to_owned(),
-        JsonValue::String("rx_pending".to_owned()),
-    );
-    envelope.insert(
-        "skill".to_owned(),
-        JsonValue::String(skill_name(request, source_type)),
-    );
-    envelope.insert("instructions".to_owned(), JsonValue::String(String::new()));
-    envelope.insert(
-        "inputs".to_owned(),
-        JsonValue::Object(request.inputs.clone()),
-    );
-    envelope.insert("allowed_tools".to_owned(), JsonValue::Array(Vec::new()));
-    envelope.insert("current_context".to_owned(), JsonValue::Array(Vec::new()));
-    envelope.insert(
-        "historical_context".to_owned(),
-        JsonValue::Array(Vec::new()),
-    );
-    envelope.insert("provenance".to_owned(), JsonValue::Array(Vec::new()));
-    envelope.insert(
-        "execution_location".to_owned(),
-        JsonValue::Object(execution_location(request)),
-    );
-    envelope.insert(
-        "trust_boundary".to_owned(),
-        JsonValue::String(TRUST_BOUNDARY.to_owned()),
-    );
-    if let Some(output) = &request.source.outputs {
-        envelope.insert("output".to_owned(), JsonValue::Object(output.clone()));
-    }
-    envelope
-}
-
-fn execution_location(request: &SkillInvocation) -> JsonObject {
-    let mut location = JsonObject::new();
-    location.insert(
-        "skill_directory".to_owned(),
-        JsonValue::String(request.skill_directory.to_string_lossy().into_owned()),
-    );
-    let tool_roots = parse_configured_tool_roots(&request.env);
-    if !tool_roots.is_empty() {
-        location.insert(
-            "tool_roots".to_owned(),
-            JsonValue::Array(tool_roots.into_iter().map(JsonValue::String).collect()),
-        );
-    }
-    location
-}
-
-fn parse_configured_tool_roots(env: &std::collections::BTreeMap<String, String>) -> Vec<String> {
-    let Some(value) = env.get("RUNX_TOOL_ROOTS") else {
-        return Vec::new();
-    };
-    std::env::split_paths(value)
-        .filter(|path| !path.as_os_str().is_empty())
-        .map(|path| path.to_string_lossy().into_owned())
-        .collect()
+    build_agent_act_invocation(request, source_type.invocation_source_type())
 }
 
 fn skill_name(request: &SkillInvocation, source_type: AgentAdapterSourceType) -> String {
@@ -271,21 +189,6 @@ fn skill_name(request: &SkillInvocation, source_type: AgentAdapterSourceType) ->
         };
     }
     request.skill_name.clone()
-}
-
-fn normalize_request_id(value: &str) -> String {
-    let mut normalized = String::new();
-    let mut replaced = false;
-    for character in value.chars() {
-        if character.is_ascii_alphanumeric() || matches!(character, '_' | '.' | '-') {
-            normalized.push(character);
-            replaced = false;
-        } else if !replaced {
-            normalized.push('_');
-            replaced = true;
-        }
-    }
-    normalized
 }
 
 fn success_output(

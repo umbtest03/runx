@@ -222,7 +222,9 @@ fn render_history(
     if history.pending_runs.is_empty() {
         lines.push("  next  runx skill inspect <receipt-id>".to_owned());
     } else {
-        lines.push("  next  runx resume <run-id>  or  runx skill inspect <receipt-id>".to_owned());
+        lines.push(
+            "  next  rerun the paused runx skill <path> with --run-id and --answers".to_owned(),
+        );
     }
     lines.push(String::new());
     lines.join("\n")
