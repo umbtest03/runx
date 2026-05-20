@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-kernel-blocking-promotion
 created: '2026-05-17T00:30:00Z'
-updated: '2026-05-20T00:00:00Z'
+updated: '2026-05-20T00:21:00Z'
 status: draft
 harden_status: not_run
 size: medium
@@ -17,12 +17,14 @@ Status: draft
 Current phase: evidence script landed; soak evidence pending
 Next: record advisory-start evidence, then run the clean-kernel counter against
 live GitHub metadata or an audited operator fixture
-Reason: CI still marks Rust kernel parity advisory. The clean-PR counting script
-and fixture tests now exist, but advisory-start evidence, five qualifying
-post-advisory PRs, and kernel orchestration receipts are still missing.
-Blockers: `rust-kernel-port-orchestration` must complete or be superseded with
-audited receipts; advisory start timestamp must be recorded; 5 clean
-kernel-touching PRs must land while Rust kernel parity checks are advisory
+Reason: CI still marks Rust kernel parity advisory. The obsolete umbrella
+orchestration spec has been superseded by narrow slices, and the clean-PR
+counting script plus fixture tests exist. Advisory-start evidence, five
+qualifying post-advisory PRs, and clean-counter semantics review are still
+missing.
+Blockers: `rust-kernel-clean-pr-counter-semantics` complete; advisory start
+timestamp recorded; 5 clean kernel-touching PRs landed while Rust kernel parity
+checks are advisory
 Allowed follow-up command: run the evidence script against audited evidence; do
 not run `scafld harden rust-kernel-blocking-promotion`.
 Latest runner update: 2026-05-20 clean-kernel counter fixture slice landed
@@ -87,6 +89,7 @@ Related docs:
 - `docs/rust-kernel-architecture.md`
 - `docs/trusted-kernel-package-truth.md`
 - `.scafld/specs/drafts/rust-kernel-port-orchestration.md`
+- `.scafld/specs/drafts/rust-kernel-clean-pr-counter-semantics.md`
 - `.scafld/specs/drafts/rust-parity-ci-governance.md`
 
 ## Objectives
@@ -115,7 +118,9 @@ Out of scope:
 
 ## Dependencies
 
-- `rust-kernel-port-orchestration` completed.
+- `rust-kernel-port-orchestration` marked obsolete as written and superseded
+  by fresh executable slices.
+- `rust-kernel-clean-pr-counter-semantics` completed.
 - `rust-parity-ci-governance` completed with advisory CI checks present.
 - GitHub CLI or equivalent CI metadata access is available for counting merged
   PRs. If not available, the operator must provide audited PR evidence and the
@@ -123,10 +128,11 @@ Out of scope:
 
 ## Assumptions
 
-- The advisory start timestamp should be recorded in
-  `rust-kernel-port-orchestration` Phase 5 receipt or in a replacement audited
-  evidence block. If neither exists, the script must refuse to infer it from
-  file timestamps or git history alone.
+- The advisory start timestamp should be recorded in a replacement audited
+  evidence block. The obsolete `rust-kernel-port-orchestration` file has no
+  valid Phase Receipts and must not be backfilled. If audited evidence does not
+  exist, the script must refuse to infer it from file timestamps or git history
+  alone.
 - The CI workflow names for Rust kernel parity checks are stable enough for
   `scripts/count-clean-kernel-prs.ts` to identify them.
 - Some qualifying PRs may include fixture refreshes. That is acceptable only if
@@ -165,8 +171,9 @@ Observed current state:
 ## Gate Classification
 
 Blocking before this spec may promote CI:
-- `rust-kernel-port-orchestration` must have valid completion evidence, or a
-  replacement audit must explicitly supersede it.
+- `rust-kernel-clean-pr-counter-semantics` must lock the counter's
+  advisory-start, qualification, passing-check, and fixture-mode audit
+  semantics.
 - The advisory start point must be recorded as explicit evidence.
 - `scripts/count-clean-kernel-prs.ts` must verify at least five qualifying
   post-advisory PRs from live metadata or audited evidence.

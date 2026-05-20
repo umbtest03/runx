@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-ts-sunset-receipts
 created: '2026-05-18T00:00:00Z'
-updated: '2026-05-19T16:34:06Z'
+updated: '2026-05-20T00:21:00Z'
 status: draft
 harden_status: not_run
 size: medium
@@ -14,21 +14,22 @@ risk_level: high
 ## Current State
 
 Status: draft
-Current phase: strict Rust receipt acceptance landed; tree/importer work pending
-Next: wire strict proof acceptance through parent/child receipt trees and audit
-the remaining TS receipt importers
+Current phase: strict Rust receipt and tree proof acceptance landed; importer
+work pending
+Next: audit the remaining TS receipt importers and record the production
+signature verifier decision
 Reason: draft created under `plans/rust-takeover.md`. Fifth TS sunset,
 refreshed after the harness receipt shape was ratified. The sunset is not yet
-ready to delete TS receipt code because parent/child tree verification is still
-structural and TS receipt importers remain live.
+ready to delete TS receipt code because TS receipt importers remain live and
+the runtime pseudo-signature path still needs a production verifier decision.
 Blockers: `rust-ts-sunset-executor` complete,
 `runx-contract-spine-hard-cutover` complete, `rust-receipts-parity` complete
-against post-cutover harness receipts, strict parent/child receipt proof
-acceptance complete, and TS receipt importer migration complete.
+against post-cutover harness receipts, production signature verifier decision
+recorded, and TS receipt importer migration complete.
 Allowed follow-up command: inspect tree/importer drift; do not run
 `scafld harden rust-ts-sunset-receipts`.
-Latest runner update: 2026-05-20 strict store/journal/history proof acceptance
-landed
+Latest runner update: 2026-05-20 strict store/journal/history and
+parent/child tree proof acceptance landed
 Review gate: not_started
 
 ## Summary
@@ -41,10 +42,10 @@ receipt that links child harness receipt refs and verifies recursive integrity
 through `runx-receipts`.
 
 This spec no longer proposes immediate deletion of `packages/core/src/receipts/`.
-Deletion is unsafe until parent/child tree acceptance is strict on proof, not
-merely strict on JSON shape, and until every live TS receipt importer has
-migrated. The store, journal, and history proof acceptance slice has landed;
-the next safe slice is strict parent/child proof acceptance plus importer audit.
+Deletion is unsafe until every live TS receipt importer has migrated and the
+runtime pseudo-signature path has an explicit production-verifier decision. The
+store, journal, history, and parent/child tree proof acceptance slices have
+landed; the next safe slice is importer audit and production verifier policy.
 
 No production caller may continue importing, emitting, reading, adapting, or
 aliasing the old TS receipt model after the deletion phase. Verification and
@@ -86,10 +87,12 @@ Current Rust sources:
   body digest, signature verifier input, verification summary claims,
   authority proof presence, redaction refs, hash commitments, and external
   attestations.
-- `crates/runx-receipts/src/tree.rs` validates parent/child receipt trees, but
-  currently composes structural receipt verification for root and children.
+- `crates/runx-receipts/src/tree.rs` exposes strict parent/child receipt tree
+  proof verification APIs in addition to structural tree checks.
 - `crates/runx-runtime/src/receipts.rs` constructs sealed harness receipts and
   validates them with strict proof using a runtime-local verifier.
+- `crates/runx-runtime/src/receipt_tree.rs` verifies runtime receipt trees
+  through strict parent/child proof acceptance.
 - `crates/runx-runtime/src/receipt_store.rs` reads and lists harness receipt
   files by schema and serde shape, checks file-name/id integrity, and rejects
   proof-invalid receipts with `ReceiptProofInvalid`.
@@ -128,10 +131,6 @@ Receipt model:
   as `sig:{digest}` with `LocalHarnessSignatureVerifier` and issuer
   `runtime-skeleton`. This proves the strict proof path is wired, but it is not
   an Ed25519-backed production signature acceptance model.
-- Structural tree validation:
-  `runx-receipts` tree verification checks child refs, missing/malformed child
-  links, duplicates, orphans, and parent links, but it composes structural
-  receipt verification rather than strict proof verification for the tree.
 - TS receipt imports still live:
   active source still imports TS receipt helpers, types, hash utilities, and
   local receipt contracts from `packages/core/src/receipts/**` or the
@@ -141,8 +140,8 @@ Receipt model:
 
 - Live governed paths use only post-cutover harness receipts once this sunset
   reaches deletion.
-- TS receipt deletion must not proceed until Rust runtime parent/child graph
-  paths reject receipt trees that fail strict proof acceptance.
+- TS receipt deletion must not proceed unless Rust runtime parent/child graph
+  paths continue to reject receipt trees that fail strict proof acceptance.
 - Existing pre-cutover receipts on disk are either migrated, archived, or read
   through an explicitly offline archival verifier. They are not accepted by
   live runtime, CLI, cloud, or receipt-store paths after this sunset.
@@ -180,9 +179,9 @@ Receipt model:
 - Byte-identical does not mean retired TS local receipt bytes equal Rust
   harness receipt bytes across the hard cutover. The cutover intentionally
   changes the contract shape.
-- The next slice is strict parent/child proof acceptance and importer audit. It
-  is not broad deletion, not compatibility scaffolding, and not a revival of
-  retired TS local receipt bytes.
+- The next slice is importer audit plus production verifier policy. It is not
+  broad deletion, not compatibility scaffolding, and not a revival of retired
+  TS local receipt bytes.
 - TS deletion starts only after every live producer and consumer has already
   moved to the post-cutover harness receipt contract and Rust persistence
   paths fail closed on proof failures. If any live caller still needs retired
@@ -217,8 +216,8 @@ Receipt model:
 - Record the runtime pseudo-signature as a test/development bridge and block
   production acceptance on a real Ed25519-backed verifier or injected verifier
   policy.
-- Keep parent/child tree validation visible as remaining drift until strict
-  tree proof acceptance is wired through runtime graph projections.
+- Keep parent/child tree proof acceptance as a non-regression gate for runtime
+  graph projections.
 - Enumerate every importer of `packages/core/src/receipts/**` and retire or
   migrate it before deletion.
 - Prove live receipt producers emit sealed harness receipts for both leaf
@@ -232,11 +231,6 @@ Receipt model:
 ## Scope
 
 In scope for the next implementation slice:
-- Moving parent/child tree verification from structural acceptance to strict
-  proof acceptance wherever graph parent receipts are accepted as verified.
-- Adding negative tests where structurally valid parent receipts fail because
-  child receipt refs are missing, malformed, duplicated, orphaned, or
-  digest/proof-mismatched.
 - Auditing active TS receipt importers and classifying each as migrated,
   deletion blocker, archived fixture, generated stale artifact, or false
   positive.
@@ -300,13 +294,15 @@ Status: completed 2026-05-20.
   verifier scaffolding, not production Ed25519 acceptance.
 
 Phase 2: parent/child proof and fixture handoff.
+Status: completed 2026-05-20 for strict runtime tree proof acceptance; fixture
+catalogue handoff remains in later phases.
 - Confirm leaf skill and graph parent harness receipt fixtures exist and
   validate through strict `runx-receipts` proof paths.
 - Confirm approval round-trip, graph fanout, replay, child harness, abnormal
   seal, digest tamper, signature tamper, redaction mismatch, malformed child
   ref, and external proof-missing cases are covered by Rust validation.
-- Move tree verification from structural-only acceptance to strict proof
-  acceptance where graph parent receipts are accepted as verified.
+- Runtime graph parent receipt verification now uses strict proof acceptance
+  where graph parent receipts are accepted as verified.
 - Move or rewrite any active TS fixture expectations that still assert retired
   receipt fields.
 
@@ -389,6 +385,7 @@ Strict Rust proof acceptance slice:
 cargo test --manifest-path crates/Cargo.toml -p runx-receipts
 cargo test --manifest-path crates/Cargo.toml -p runx-runtime receipt_store
 cargo test --manifest-path crates/Cargo.toml -p runx-runtime journal_history
+cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test receipt_tree
 rg -n "verify_harness_receipt\\(" crates/runx-runtime/src/journal.rs crates/runx-runtime/src/receipt_store.rs && exit 1 || exit 0
 rg -n "sig:\\{digest\\}|sig:pending|runtime-skeleton" crates/runx-runtime/src/receipts.rs
 ```
@@ -448,9 +445,8 @@ test ! -d ../cloud || pnpm --dir ../cloud test -- receipts harness
 - What production verifier should replace the runtime pseudo-signature path:
   local Ed25519 key material, hosted verifier injection, or a runtime verifier
   trait supplied by the caller?
-- Should strict tree proof acceptance live in `runx-receipts` as a parallel API
-  to structural tree validation, or should runtime compose strict per-node proof
-  checks around the existing resolver?
+- Whether the structural-only tree APIs should remain public after importer
+  deletion, or become explicitly archival/debug-only.
 - Whether cloud receipts-store gets its own Rust port before this sunset.
   If yes, that is an additional cloud spec; if no, the cloud-side must keep a
   contract-typed post-cutover harness receipt view via `runx-contracts`.
