@@ -87,7 +87,7 @@ Relevant existing local surfaces:
 - `fixtures/operational-policy/nitrosend-like.json` as the current
   operational-policy readback proof point, not as an Aster runtime fixture.
 - `.scafld/specs/drafts/runx-target-repo-runners.md`
-- `.scafld/specs/drafts/runx-post-merge-outcome-observer.md`
+- `.scafld/specs/drafts/runx-post-merge-closure-observer.md`
 
 Surfaces not present in this checkout:
 
@@ -131,7 +131,7 @@ Surfaces not present in this checkout:
   runtime-to-host interaction.
 - Defer cloud package binding details until the cloud tree is available.
 - Ensure Aster-run issue-to-PR and post-merge paths use
-  `runx-target-repo-runners` and `runx-post-merge-outcome-observer` when those
+  `runx-target-repo-runners` and `runx-post-merge-closure-observer` when those
   contracts exist, with final state represented as sealed closure/proof
   receipts.
 
@@ -162,7 +162,7 @@ Out of scope:
   `rust-receipt-tree-resolution`, and `rust-receipt-proof-verification`.
 - `runx-operational-policy-config` for policy/admin readback.
 - `runx-target-repo-runners` for Aster-scheduled source-to-target PR flows.
-- `runx-post-merge-outcome-observer` for final closure/proof observation and
+- `runx-post-merge-closure-observer` for final closure/proof observation and
   source-thread updates.
 - A future cloud-tree binding pass that can inspect the real `cloud/**`
   implementation.

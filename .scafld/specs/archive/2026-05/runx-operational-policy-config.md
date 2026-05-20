@@ -107,7 +107,7 @@ In scope:
 Out of scope:
 - Secrets management implementation.
 - Actual target-repo runner execution; owned by `runx-target-repo-runners`.
-- Post-merge deploy observation; owned by `runx-post-merge-outcome-observer`.
+- Post-merge deploy observation; owned by `runx-post-merge-closure-observer`.
 - Nitrosend-specific copy, labels, and channel names beyond fixtures.
 - YAML policy loading, legacy policy aliases, or runtime fallback parsing for
   adopter-specific policy files. One-off conversion scripts or fixtures are
@@ -116,7 +116,7 @@ Out of scope:
 ## Dependencies
 
 - Coordinates with `runx-target-repo-runners`.
-- Coordinates with `runx-post-merge-outcome-observer`.
+- Coordinates with `runx-post-merge-closure-observer`.
 - Feeds `rust-nitrosend-dogfood` and `rust-aster-runtime-cutover`.
 
 ## Assumptions

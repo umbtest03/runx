@@ -1,6 +1,6 @@
 ---
 spec_version: '2.0'
-task_id: runx-post-merge-outcome-observer
+task_id: runx-post-merge-closure-observer
 created: '2026-05-19T02:08:02Z'
 updated: '2026-05-20T10:27:24Z'
 status: draft
@@ -25,7 +25,7 @@ context from `runx-target-repo-runners` including source issue ref,
 source-thread ref, target PR ref, merge SHA, runner verification hook/deploy
 context, and cross-repo dedupe identity; policy source configuration from
 `runx-operational-policy-config` for source-thread publication and close mode.
-Allowed follow-up command: `scafld harden runx-post-merge-outcome-observer --mark-passed`
+Allowed follow-up command: `scafld harden runx-post-merge-closure-observer --mark-passed`
 Latest runner update: 2026-05-20 added closed-unmerged sealed receipt
 publication projection without fabricating verification proof or issuing a
 source issue close command. Earlier local slices added Rust contract-level

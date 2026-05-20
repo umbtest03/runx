@@ -61,7 +61,7 @@ Out of scope:
 
 ## Dependencies
 
-- `.scafld/specs/drafts/runx-post-merge-outcome-observer.md`
+- `.scafld/specs/drafts/runx-post-merge-closure-observer.md`
 - `.scafld/specs/archive/2026-05/runx-post-merge-observer-harness-fixture.md`
 - Existing `runx.operational_policy.v1` Rust contract.
 

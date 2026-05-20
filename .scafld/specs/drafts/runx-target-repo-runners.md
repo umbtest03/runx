@@ -101,7 +101,7 @@ In scope:
 
 Out of scope:
 - Post-merge deployment observation and source closure publication; owned by
-  `runx-post-merge-outcome-observer`, which now seals closure/proof as harness
+  `runx-post-merge-closure-observer`, which now seals closure/proof as harness
   receipts rather than a peer terminal packet.
 - Slack-specific event listener implementation.
 - Auto-merge behavior.
