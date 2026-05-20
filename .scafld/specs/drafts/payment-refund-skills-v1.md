@@ -2,9 +2,9 @@
 spec_version: '2.0'
 task_id: payment-refund-skills-v1
 created: '2026-05-21T00:00:00Z'
-updated: '2026-05-20T15:45:59Z'
+updated: '2026-05-20T16:07:15Z'
 status: draft
-harden_status: needs_revision
+harden_status: in_progress
 size: medium
 risk_level: high
 ---
@@ -16,9 +16,9 @@ risk_level: high
 Status: draft
 Current phase: planning
 Next: harden
-Reason: lockfile scope patched; remaining hardening issues still need revision
-Blockers: check needs revision: command audit; check needs revision: recovery surface; check needs revision: partial-refund depth; check needs revision: static refund dispatch
-Allowed follow-up command: `edit the draft, then run scafld harden payment-refund-skills-v1 --provider <provider>`
+Reason: external hardening provider running
+Blockers: provider hardening not yet recorded
+Allowed follow-up command: `scafld harden payment-refund-skills-v1 --provider <provider>`
 Latest runner update: none
 Review gate: not_started
 
@@ -115,16 +115,37 @@ refund receipts per original receipt. A third refund attempt is modeled as
 `unsupported_partial_refund_depth` even when amount remains. Broader
 partial-refund accounting is deferred.
 
+## Artifact Packet Boundary
+
+Refund v1 does not introduce new public packet ids. Profiles may reuse existing
+payment packet ids only where the packet semantics are already correct:
+
+- `refund-quote` may use `runx.payment.quote.v1`.
+- `refund-reserve` may use `runx.payment.reservation.v1`.
+- `mock-refund`, `stripe-refund`, and `mpp-refund` may use
+  `runx.payment.rail.v1` for the settlement proof artifact.
+- `refund-recover` may use `runx.payment.recovery.v1`.
+- `dispute-respond` must use profile-local artifact names in v1, such as
+  `dispute_response` or `dispute_evidence`, with no `runx.payment.*` packet id
+  unless a follow-up packet-schema spec adds one.
+
+The refund profiles must not reference new ids such as
+`runx.payment.refund.*` or `runx.payment.dispute.*` in this iteration.
+
 ## Planned Phases
 
-1. Scaffold refund and dispute skill profiles:
-   create the eight non-crypto skill directories and author human-readable
-   `SKILL.md` files plus `X.yaml` profiles with concrete inputs, outputs,
-   artifacts, and harness cases. Graph profiles must show
+1. Scaffold non-settlement refund and dispute profiles:
+   create `refund-quote`, `refund-reserve`, `refund-recover`, and
+   `dispute-respond` with human-readable `SKILL.md` files plus `X.yaml`
+   profiles. These profiles may rely on profile payload fields for original
+   receipt links, refundable bounds, recovery closure states, and dispute posture.
+2. Scaffold settlement marquees after charge approval:
+   create `mock-refund`, `stripe-refund`, `mpp-refund`, and `x402-refund`
+   only after `payment-charge-skills-v1` is approved. Graph profiles must show
    quote -> reserve -> optional approval -> settlement while carrying the
-   original receipt link at every stage. `dispute-respond` has no settlement
-   step.
-2. Validate profile coverage:
+   original receipt link at every stage. `x402-refund` stays static profile
+   metadata; no dynamic dispatch is introduced.
+3. Validate profile coverage:
    update the payment profile validation test to discover the declared refund
    and dispute skill names explicitly and run
    `pnpm exec vitest run tests/payment-skill-profile-validation.test.ts`.
@@ -137,11 +158,19 @@ partial-refund accounting is deferred.
 `x402-refund`, `stripe-refund`, `mpp-refund`, and `mock-refund` are graph
 profile contracts in this v1. They may show the desired refund sequence,
 same-family refusal, open-dispute refusal, receipt-before-success invariant,
-and recovery outcomes, but they must not claim that `runx` can execute a
+and recovery closure states, but they must not claim that `runx` can execute a
 refund rail mutation, repair an ambiguous refund, or enforce refund admission
 at runtime. A later runtime spec must own link-before-quote,
 receipt-before-success for `payment:refund`, same-family enforcement, and
 crash-safe recovery before these profiles become operational behavior.
+
+## Lifecycle Command Note
+
+This checkout is the runx repository, not the scafld source repository. It
+does not contain `./bin/scafld` or `cmd/scafld`. Lifecycle commands for this
+draft use the configured `scafld` binary on `PATH`; in this environment that is
+`/opt/homebrew/bin/scafld`. The source-checkout warning in `AGENTS.md` applies
+when working inside the scafld source repository itself.
 
 Three flows live in this family and are intentionally separated:
 
@@ -194,8 +223,9 @@ cross-family refunds are refused in profile examples.
 `dispute-respond`
 : Receives a provider-initiated dispute event (e.g. Stripe chargeback),
 attaches the linked sealed charge receipt and any prior refund receipts, and
-emits a governed response packet. Does not settle. The dispute closure is
-itself a separate sealed receipt produced by the underlying rail.
+emits a governed profile-local response artifact. Does not settle. The future
+dispute closure is itself a separate sealed receipt produced by the underlying
+rail.
 
 ## Concept Boundaries
 
@@ -265,17 +295,21 @@ flow. They are not implemented by this profile-only v1.
 - `crypto-refund`: on-chain refund. Reserved placeholder, not exposed or
   harnessed in this iteration.
 
-`x402-refund` is the proposed unpinned graph marquee that resolves to one of
-the above based on the linked original receipt's settlement family.
+`x402-refund` is the proposed unpinned graph profile that documents how the
+future runtime should resolve to one of the above based on the linked original
+receipt's settlement family.
 
 ## Dependencies
 
 - `payment-execution-skills-v1` supplies the consumer-side credential,
   idempotency, and authority-term wire shape.
 - `payment-charge-skills-v1` supplies the provider-side charge receipt and
-  settlement-family vocabulary this spec references. Refund profiles must stay
-  aligned to that draft/accepted shape, but they do not require charge runtime
-  execution.
+  settlement-family vocabulary this spec references. Phase 2 settlement
+  marquee work (`mock-refund`, `stripe-refund`, `mpp-refund`, and
+  `x402-refund`) must not start until `payment-charge-skills-v1` is approved.
+  Phase 1 non-settlement refund/dispute profiles may be drafted before charge
+  approval because they carry receipt linkage as profile payload conventions,
+  not executable settlement-family behavior.
 - `payment-authority-term-v1` supplies the existing `payment` authority
   contract reused by refund profile examples.
 - `x402-pay-dogfood-v1` is not a prerequisite for profile scaffolding in this
@@ -316,14 +350,24 @@ the above based on the linked original receipt's settlement family.
 - `node scripts/generate-official-lock.mjs` refreshes
   `packages/cli/src/official-skills.lock.json`, and a second run leaves the
   lockfile unchanged.
+- Refund profiles reference only the existing packet ids listed in Artifact
+  Packet Boundary, or profile-local artifact names with no `packet` field.
+- Scope audit passes with no task changes outside:
+  `skills/refund-quote/`, `skills/refund-reserve/`,
+  `skills/refund-recover/`, `skills/mock-refund/`,
+  `skills/stripe-refund/`, `skills/mpp-refund/`,
+  `skills/x402-refund/`, `skills/dispute-respond/`,
+  `tests/payment-skill-profile-validation.test.ts`,
+  `packages/cli/src/official-skills.lock.json`, and this spec file.
 - `dispute-respond` has a SKILL.md and an X.yaml profile, but no settlement
-  step of its own; its output is an evidence packet plus a posture.
+  step of its own; its output is a profile-local evidence artifact plus a
+  posture.
 - The `crypto-refund` slot is documented but neither installable nor
   harnessed in this iteration.
 - No new refund authority schema, public packet schema, runtime behavior,
   durable refund index, or CLI refund command is introduced or claimed.
 - Runtime repair for ambiguous refund attempts is deferred. `refund-recover`
-  may report modeled outcomes such as `seal_recovered_proof`,
+  may report modeled closure states such as `seal_recovered_proof`,
   `retry_same_key`, `decline`, or `escalate`, but it does not repair durable
   receipt state in v1.
 
@@ -444,3 +488,85 @@ Issues:
   - Question: Should `x402-refund` be a static graph profile with explicit mocked family branches, or does this task introduce dynamic settlement-family dispatch in graph execution?
   - Recommended answer: Make `x402-refund` a static profile that carries the desired dispatch metadata and refuses cross-family examples; dynamic runtime dispatch belongs in a later graph-runtime spec.
   - If unanswered: Default to a static graph profile with explicit transitions/refusals, not dynamic skill loading.
+
+### round-2
+
+Status: error
+Started: 2026-05-20T15:53:45Z
+Ended: 2026-05-20T15:53:45Z
+Summary: provider error: provider failed: process idle timeout: ... s supported path=/Users/kam/.codex/.tmp/plugins/plugins/twilio-developer-kit/.codex-plugin/plugin.json
+
+Checks:
+- none
+
+Issues:
+- none
+
+### round-3
+
+Status: needs_revision
+Started: 2026-05-20T15:56:54Z
+Ended: 2026-05-20T15:57:20Z
+Verdict: needs_revision
+Provider: manual
+Summary: Manual hardening confirms the content gaps from round 1 have been
+repaired and the command-source concern is documented. One approval-order
+blocker remains: the refund settlement marquees depend on
+`payment-charge-skills-v1`, which is harden-passed but not yet approved.
+
+Checks:
+- scope/migration audit
+  - Grounded in: code:.scafld/specs/drafts/payment-refund-skills-v1.md:65
+  - Result: passed
+  - Evidence: Scope now declares all refund/dispute skill directories, the
+    validation test, and the official skills lockfile, while excluding runtime,
+    contract, durable-index, live-money, and packet-schema changes.
+- path audit
+  - Grounded in: code:.scafld/specs/drafts/payment-refund-skills-v1.md:69
+  - Result: passed
+  - Evidence: The future `SKILL.md` and `X.yaml` paths are explicit for
+    `refund-quote`, `refund-reserve`, `refund-recover`, `mock-refund`,
+    `stripe-refund`, `mpp-refund`, `x402-refund`, and `dispute-respond`.
+- command audit
+  - Grounded in: code:.scafld/specs/drafts/payment-refund-skills-v1.md:158
+  - Result: passed
+  - Evidence: The draft documents that this runx checkout uses the configured
+    `scafld` binary on `PATH`; `scafld validate payment-refund-skills-v1
+    --json` passes.
+- acceptance timing audit
+  - Grounded in: code:.scafld/specs/drafts/payment-refund-skills-v1.md:142
+  - Result: failed
+  - Evidence: Phase 2 settlement marquees are explicitly gated on
+    `payment-charge-skills-v1` approval, and charge is currently only
+    harden-passed with next command `scafld approve payment-charge-skills-v1`.
+- rollback/repair audit
+  - Grounded in: code:.scafld/specs/drafts/payment-refund-skills-v1.md:366
+  - Result: passed
+  - Evidence: Rollback is mechanical deletion of the added skill directories,
+    reverting validation changes, and regenerating or reverting the official
+    skills lockfile. Runtime repair remains out of scope.
+- design challenge
+  - Grounded in: code:.scafld/specs/drafts/payment-refund-skills-v1.md:56
+  - Result: passed
+  - Evidence: The spec distinguishes refund, reversal, and dispute response as
+    receipt-linked after-the-fact flows and keeps executable runtime behavior
+    deferred.
+
+Issues:
+- [high/blocks approval] `HARDEN-9` dependency_timing_gap - Refund settlement
+  profiles depend on a charge spec that is not yet approved.
+  - Status: open
+  - Grounded in: code:.scafld/specs/drafts/payment-refund-skills-v1.md:142
+  - Evidence: The refund draft now gates `mock-refund`, `stripe-refund`,
+    `mpp-refund`, and `x402-refund` on `payment-charge-skills-v1` approval.
+    `scafld status payment-charge-skills-v1 --json` reports the charge spec is
+    still draft with next command `scafld approve payment-charge-skills-v1`.
+  - Recommendation: Approve `payment-charge-skills-v1` first, then rerun
+    refund hardening; otherwise split this spec so Phase 1 non-settlement
+    refund/dispute profiles proceed now and settlement marquees move to a
+    follow-up spec.
+  - Question: Should refund wait for charge approval, or should settlement
+    refund marquees be split out?
+  - Recommended answer: Wait for charge approval, preserving the operator's
+    requested refund marquee surface without splitting the spec.
+  - If unanswered: Default to blocking refund approval until charge approval.
