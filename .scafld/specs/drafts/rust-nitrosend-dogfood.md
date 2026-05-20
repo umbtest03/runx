@@ -23,7 +23,7 @@ Nitrosend repo. Nitrosend now uses `runx.operational_policy.v1` for its
 repo-local issue-intake policy and the Rust harness receipt contract in its
 dogfood fixtures.
 Blockers: `runx-target-repo-runners` and
-`runx-post-merge-outcome-observer` are still draft for live external replay.
+`runx-post-merge-closure-observer` are still draft for live external replay.
 A sanitized external-shaped fixture contract exists and Nitrosend local wrapper
 fixtures replay through the Rust binary, but no live target-runner/observer
 external replay has been added.
@@ -96,7 +96,7 @@ Relevant existing local surfaces:
 - `schemas/operational-policy.schema.json`
 - `packages/cli/src/commands/policy.ts`
 - `.scafld/specs/drafts/runx-target-repo-runners.md`
-- `.scafld/specs/drafts/runx-post-merge-outcome-observer.md`
+- `.scafld/specs/drafts/runx-post-merge-closure-observer.md`
 
 Missing local surfaces this plan must create or wait for:
 
@@ -136,7 +136,7 @@ Missing local surfaces this plan must create or wait for:
   Nitrosend-like policy without leaking raw provider locators.
 - Coordinate with `runx-target-repo-runners` so target PR creation, dedupe, and
   source-thread metadata are reusable core behavior.
-- Coordinate with `runx-post-merge-outcome-observer` so merge/close/deploy
+- Coordinate with `runx-post-merge-closure-observer` so merge/close/deploy
   observation, final publication, and source issue closure are sealed
   closure/proof receipts, not a Nitrosend-only observer path.
 - Add Rust runtime replay coverage only after the external-shaped fixture and
@@ -169,7 +169,7 @@ Out of scope:
   `rust-runtime-receipt-path-discovery`.
 - `runx-operational-policy-config` as the completed policy contract.
 - `runx-target-repo-runners` before target dispatch parity can pass.
-- `runx-post-merge-outcome-observer` before final closure/proof parity can
+- `runx-post-merge-closure-observer` before final closure/proof parity can
   pass.
 
 ## Acceptance Criteria
@@ -185,7 +185,7 @@ Out of scope:
 - [ ] Target PR creation uses `runx-target-repo-runners`; dedupe is represented
   in pull-request outbox `metadata.dedupe` and in the sealed receipt proof path.
 - [ ] Target completion and final publication use
-  `runx-post-merge-outcome-observer` only through closure/proof on sealed
+  `runx-post-merge-closure-observer` only through closure/proof on sealed
   harness receipts.
 - [ ] No fixture, schema id, persisted receipt, or replay expectation uses
   retired peer terminal artifacts, legacy outcome/effect packet fields, or
@@ -280,7 +280,7 @@ Remaining blocker:
 
 - Live target PR creation and final post-merge/provider observation still depend
   on the reusable `runx-target-repo-runners` and
-  `runx-post-merge-outcome-observer` work. No external replay was added here.
+  `runx-post-merge-closure-observer` work. No external replay was added here.
 
 2026-05-21 Segment dogfood evidence verification:
 

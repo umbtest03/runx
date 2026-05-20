@@ -39,7 +39,7 @@ behavior.
   delivery timestamps produce the same idempotency identity.
 - Preserve distinct idempotency content for materially different closure states
   such as failed verification.
-- Update the parent `runx-post-merge-outcome-observer` draft to record this
+- Update the parent `runx-post-merge-closure-observer` draft to record this
   completed contract-level slice while leaving live observer work open.
 
 ## Scope
@@ -47,7 +47,7 @@ behavior.
 In scope:
 - `crates/runx-contracts/src/post_merge_observer.rs`
 - `crates/runx-contracts/tests/post_merge_observer.rs`
-- `.scafld/specs/drafts/runx-post-merge-outcome-observer.md`
+- `.scafld/specs/drafts/runx-post-merge-closure-observer.md`
 
 Out of scope:
 - Registry files, executor files, runtime provider adapters, live GitHub API
@@ -58,7 +58,7 @@ Out of scope:
 
 - Completed `runx-post-merge-observer-closure-planner` and
   `runx-post-merge-observer-harness-fixture` slices.
-- The parent `runx-post-merge-outcome-observer` draft remains the broad
+- The parent `runx-post-merge-closure-observer` draft remains the broad
   runtime/publication blocker.
 
 ## Assumptions
@@ -90,8 +90,8 @@ Profile: standard
 Validation:
 - `cargo test --manifest-path crates/Cargo.toml -p runx-contracts --test post_merge_observer -- --nocapture`
 - `cargo fmt --manifest-path crates/Cargo.toml --all --check`
-- `git diff --check -- crates/runx-contracts/src/post_merge_observer.rs crates/runx-contracts/tests/post_merge_observer.rs .scafld/specs/drafts/runx-post-merge-outcome-observer.md .scafld/specs/active/runx-post-merge-observer-idempotency-contract.md`
-- `! printf '%s\n' crates/runx-contracts/src/post_merge_observer.rs crates/runx-contracts/tests/post_merge_observer.rs .scafld/specs/drafts/runx-post-merge-outcome-observer.md | rg '(^|/)(registry|executor)(/|\\.|$)'`
+- `git diff --check -- crates/runx-contracts/src/post_merge_observer.rs crates/runx-contracts/tests/post_merge_observer.rs .scafld/specs/drafts/runx-post-merge-closure-observer.md .scafld/specs/active/runx-post-merge-observer-idempotency-contract.md`
+- `! printf '%s\n' crates/runx-contracts/src/post_merge_observer.rs crates/runx-contracts/tests/post_merge_observer.rs .scafld/specs/drafts/runx-post-merge-closure-observer.md | rg '(^|/)(registry|executor)(/|\\.|$)'`
 
 ## Phase 1: Implementation
 
@@ -103,7 +103,7 @@ Objective: Expose and test repeated observer signal idempotency at the Rust
 Changes:
 - `crates/runx-contracts/src/post_merge_observer.rs` (partial, exclusive) - Include closure key and act forms in the idempotency plan.
 - `crates/runx-contracts/tests/post_merge_observer.rs` (partial, exclusive) - Prove repeated signal stability and changed-state separation.
-- `.scafld/specs/drafts/runx-post-merge-outcome-observer.md` (partial, shared) - Record the completed contract-level idempotency proof.
+- `.scafld/specs/drafts/runx-post-merge-closure-observer.md` (partial, shared) - Record the completed contract-level idempotency proof.
 
 Acceptance:
 - [x] `ac1` command - focused post-merge observer tests pass.
@@ -119,13 +119,13 @@ Acceptance:
   - Evidence: exit code was 0
   - Source event: entry-7
 - [x] `ac3` command - scoped diff has no whitespace errors.
-  - Command: `git diff --check -- crates/runx-contracts/src/post_merge_observer.rs crates/runx-contracts/tests/post_merge_observer.rs .scafld/specs/drafts/runx-post-merge-outcome-observer.md .scafld/specs/active/runx-post-merge-observer-idempotency-contract.md`
+  - Command: `git diff --check -- crates/runx-contracts/src/post_merge_observer.rs crates/runx-contracts/tests/post_merge_observer.rs .scafld/specs/drafts/runx-post-merge-closure-observer.md .scafld/specs/active/runx-post-merge-observer-idempotency-contract.md`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
   - Source event: entry-8
 - [x] `ac4` command - implementation scope avoids registry/executor paths.
-  - Command: `! printf '%s\n' crates/runx-contracts/src/post_merge_observer.rs crates/runx-contracts/tests/post_merge_observer.rs .scafld/specs/drafts/runx-post-merge-outcome-observer.md | rg '(^|/)(registry|executor)(/|\\.|$)'`
+  - Command: `! printf '%s\n' crates/runx-contracts/src/post_merge_observer.rs crates/runx-contracts/tests/post_merge_observer.rs .scafld/specs/drafts/runx-post-merge-closure-observer.md | rg '(^|/)(registry|executor)(/|\\.|$)'`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
