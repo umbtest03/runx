@@ -1,21 +1,39 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
+const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const cargo = process.platform === "win32" ? "cargo.exe" : "cargo";
+const rustKernelBin = path.join(
+  workspaceRoot,
+  "crates",
+  "target",
+  "debug",
+  process.platform === "win32" ? "runx.exe" : "runx",
+);
+const dogfoodEnv = { ...process.env, RUNX_KERNEL_EVAL_BIN: rustKernelBin };
 const steps = [
   {
+    label: "build rust kernel eval binary",
+    command: cargo,
+    args: ["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"],
+  },
+  {
     label: "build workspace packages",
-    command: "pnpm",
+    command: pnpm,
     args: ["build"],
   },
   {
     label: "run workspace doctor",
-    command: "pnpm",
+    command: pnpm,
     args: ["exec", "tsx", "packages/cli/src/index.ts", "doctor", "--json"],
   },
   {
     label: "prove official skills with a fresh caller",
-    command: "pnpm",
+    command: pnpm,
     args: ["exec", "vitest", "run", "tests/external-skill-proving-ground.test.ts"],
   },
 ];
@@ -25,7 +43,8 @@ for (const step of steps) {
   const result = spawnSync(step.command, step.args, {
     stdio: "inherit",
     shell: false,
-    env: process.env,
+    cwd: workspaceRoot,
+    env: dogfoodEnv,
   });
   if (result.status === 0) {
     continue;

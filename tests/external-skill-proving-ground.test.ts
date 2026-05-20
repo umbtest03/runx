@@ -153,7 +153,7 @@ const harnessScenarios: readonly HarnessProvingGroundScenario[] = [
   {
     skillName: "work-plan",
     expectation: {
-      requestId: "agent_step.invocation-plan.output",
+      requestId: "agent_step.work-plan.output",
       inputKeys: ["objective", "project_context", "change_set"],
       sourceType: "agent-step",
     },
@@ -161,7 +161,7 @@ const harnessScenarios: readonly HarnessProvingGroundScenario[] = [
   {
     skillName: "design-skill",
     expectation: {
-      requestId: "agent_step.invocation-plan.output",
+      requestId: "agent_step.work-plan.output",
       inputKeys: ["objective", "project_context"],
       sourceType: "agent-step",
     },
@@ -169,7 +169,7 @@ const harnessScenarios: readonly HarnessProvingGroundScenario[] = [
   {
     skillName: "skill-lab",
     expectation: {
-      requestId: "agent_step.invocation-plan.output",
+      requestId: "agent_step.work-plan.output",
       inputKeys: ["objective", "project_context", "thread_locator", "thread"],
       sourceType: "agent-step",
     },
@@ -237,7 +237,7 @@ const harnessScenarios: readonly HarnessProvingGroundScenario[] = [
     skillName: "issue-intake",
     expectation: {
       requestId: "agent_step.issue-intake.output",
-      inputKeys: ["thread_title", "thread_body", "thread_locator", "outbox_entry", "product_context", "operator_context"],
+      inputKeys: ["thread_title", "thread_body", "thread_locator", "outbox_entry", "artifact", "product_context", "operator_context"],
       sourceType: "agent-step",
     },
   },
