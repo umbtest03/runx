@@ -1,6 +1,5 @@
 // rust-style-allow: large-file - authority-proof parity keeps the TS oracle mapping in one reviewable module.
-use runx_contracts::{JsonObject, JsonValue};
-use sha2::{Digest, Sha256};
+use runx_contracts::{JsonObject, JsonValue, sha256_hex};
 
 use super::{
     LocalAdmissionGrant, LocalScopeAdmissionOptions, ScopeAdmission, ScopeAdmissionStatus,
@@ -329,7 +328,7 @@ fn resolved_credential_material(
         connection_id: Some(credential.connection_id.clone()),
         scopes: Some(credential.scopes.clone()),
         grant_reference: credential.grant_reference.clone(),
-        material_ref_hash: Some(sha256_hex(&credential.material_ref)),
+        material_ref_hash: Some(sha256_hex(credential.material_ref.as_bytes())),
         ..empty_credential_material()
     }
 }
@@ -624,17 +623,3 @@ fn bool_field(object: Option<&JsonObject>, field: &str) -> Option<bool> {
     }
 }
 
-fn sha256_hex(value: &str) -> String {
-    let digest = Sha256::digest(value.as_bytes());
-    hex_lower(&digest)
-}
-
-fn hex_lower(bytes: &[u8]) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut output = String::with_capacity(bytes.len() * 2);
-    for byte in bytes {
-        output.push(char::from(HEX[(byte >> 4) as usize]));
-        output.push(char::from(HEX[(byte & 0x0f) as usize]));
-    }
-    output
-}

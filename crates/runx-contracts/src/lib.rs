@@ -61,7 +61,7 @@ pub use execution::{
     ExecutionSemantics, GovernedDisposition, InputContextCapture, OutcomeState, ReceiptOutcome,
     ReceiptSurfaceRef,
 };
-pub use fingerprint::{Fingerprint, FingerprintAlgorithm};
+pub use fingerprint::{Fingerprint, FingerprintAlgorithm, hex_lower, sha256_hex, sha256_prefixed};
 pub use harness::{
     FanoutReceiptDecision, FanoutReceiptStrategy, FanoutReceiptSyncPoint, HARNESS_RECEIPT_SCHEMA,
     Harness, HarnessEnforcement, HarnessIdempotency, HarnessReceipt, HarnessReceiptSchema,
