@@ -34,7 +34,7 @@ fn dev_runs_deterministic_tool_fixtures_and_skips_excluded_lanes()
 
     assert_eq!(report.schema, "runx.dev.v1");
     assert_eq!(report.status, DevReportStatus::Success);
-    assert_eq!(report.fixtures.len(), 2);
+    assert_eq!(report.fixtures.len(), 3);
     assert_eq!(report.fixtures[0].name, "echo-agent");
     assert_eq!(report.fixtures[0].status, DevFixtureStatus::Skipped);
     assert_eq!(
@@ -48,6 +48,8 @@ fn dev_runs_deterministic_tool_fixtures_and_skips_excluded_lanes()
         nested_string(report.fixtures[1].output.as_ref(), &["message"]),
         Some("hello")
     );
+    assert_eq!(report.fixtures[2].name, "executable-workspace-file");
+    assert_eq!(report.fixtures[2].status, DevFixtureStatus::Success);
     Ok(())
 }
 
@@ -99,6 +101,25 @@ fn dev_runs_native_repo_integration_skill_with_fixture_cwd()
     assert_eq!(
         nested_string(report.fixtures[0].output.as_ref(), &["contents"]),
         Some("hello from repo integration\n")
+    );
+    Ok(())
+}
+
+#[test]
+fn dev_marks_workspace_executable_files_executable() -> Result<(), Box<dyn std::error::Error>> {
+    let root = fixture_root()?;
+    let mut options = DevLoopOptions::new(&root);
+    options.unit_path = Some(root.join("tools/acme/executable"));
+
+    let report = run_dev_once(&options)?;
+
+    assert_eq!(report.status, DevReportStatus::Success);
+    assert_eq!(report.fixtures.len(), 1);
+    assert_eq!(report.fixtures[0].name, "executable-workspace-file");
+    assert_eq!(report.fixtures[0].status, DevFixtureStatus::Success);
+    assert_eq!(
+        nested_string(report.fixtures[0].output.as_ref(), &["mode"]),
+        Some("executable")
     );
     Ok(())
 }

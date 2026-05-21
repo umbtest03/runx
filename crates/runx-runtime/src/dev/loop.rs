@@ -230,18 +230,21 @@ pub(super) fn prepare_fixture_workspace(
         object_field(workspace, "files"),
         &tokens,
         false,
+        FixtureFileMode::Regular,
     )?;
     write_fixture_file_map(
         &fixture_root,
         object_field(workspace, "json_files"),
         &tokens,
         true,
+        FixtureFileMode::Regular,
     )?;
     write_fixture_file_map(
         &fixture_root,
         object_field(workspace, "executable_files"),
         &tokens,
         false,
+        FixtureFileMode::Executable,
     )?;
     Ok(PreparedDevFixtureWorkspace {
         root: Some(fixture_root),
@@ -249,11 +252,18 @@ pub(super) fn prepare_fixture_workspace(
     })
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FixtureFileMode {
+    Regular,
+    Executable,
+}
+
 fn write_fixture_file_map(
     root: &Path,
     files: Option<&JsonObject>,
     tokens: &BTreeMap<String, String>,
     force_json: bool,
+    mode: FixtureFileMode,
 ) -> Result<(), DevError> {
     let Some(files) = files else {
         return Ok(());
@@ -294,10 +304,40 @@ fn write_fixture_file_map(
             )
         };
         fs::write(&target_path, contents).map_err(|source| DevError::Io {
-            path: target_path,
+            path: target_path.clone(),
             source,
         })?;
+        apply_fixture_file_mode(&target_path, mode)?;
     }
+    Ok(())
+}
+
+fn apply_fixture_file_mode(path: &Path, mode: FixtureFileMode) -> Result<(), DevError> {
+    if mode != FixtureFileMode::Executable {
+        return Ok(());
+    }
+    apply_executable_fixture_file_mode(path)
+}
+
+#[cfg(unix)]
+fn apply_executable_fixture_file_mode(path: &Path) -> Result<(), DevError> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut permissions = fs::metadata(path)
+        .map_err(|source| DevError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(path, permissions).map_err(|source| DevError::Io {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+#[cfg(not(unix))]
+fn apply_executable_fixture_file_mode(_path: &Path) -> Result<(), DevError> {
     Ok(())
 }
 

@@ -1,0 +1,15 @@
+name: executable-workspace-file
+lane: deterministic
+target:
+  kind: tool
+  ref: acme.executable
+workspace:
+  executable_files:
+    run.sh: |
+      #!/bin/sh
+      printf '{"mode":"executable"}\n'
+expect:
+  status: success
+  output:
+    subset:
+      mode: executable

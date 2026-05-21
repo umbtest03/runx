@@ -1,0 +1,20 @@
+{
+  "name": "acme.executable",
+  "source": {
+    "type": "cli-tool",
+    "command": "sh",
+    "args": [
+      "-c",
+      "\"$RUNX_FIXTURE_ROOT/run.sh\""
+    ]
+  },
+  "runtime": {
+    "command": "sh",
+    "args": [
+      "-c",
+      "\"$RUNX_FIXTURE_ROOT/run.sh\""
+    ]
+  },
+  "inputs": {},
+  "output": {}
+}
