@@ -239,6 +239,30 @@ pub fn target_repo_runner_provider_dedupe_lookup_command(
     lookup: &TargetRepoRunnerDedupeLookupPlan,
 ) -> Result<TargetRepoRunnerProviderDedupeLookupCommand, TargetRepoRunnerRuntimeError> {
     let repository = github_repository(&lookup.target_repo, "provider_dedupe_lookup")?;
+    validate_provider_dedupe_lookup(lookup)?;
+    let terms = provider_dedupe_lookup_terms(&repository, lookup);
+    let query = terms.join(" ");
+
+    Ok(TargetRepoRunnerProviderDedupeLookupCommand {
+        provider: lookup.provider,
+        target_repo: lookup.target_repo.clone(),
+        repository,
+        dedupe_key: lookup.key.clone(),
+        result_limit: lookup.query.result_limit,
+        query: TargetRepoRunnerGithubPullRequestSearchCommand {
+            repo: lookup.target_repo.clone(),
+            state: TargetRepoRunnerGithubPullRequestSearchState::Open,
+            query,
+            terms,
+        },
+        markers: lookup.query.markers.clone(),
+        required_refs: lookup.query.required_refs.clone(),
+    })
+}
+
+fn validate_provider_dedupe_lookup(
+    lookup: &TargetRepoRunnerDedupeLookupPlan,
+) -> Result<(), TargetRepoRunnerRuntimeError> {
     if lookup.query.result_limit == 0 {
         return Err(TargetRepoRunnerRuntimeError::CommandValidation {
             operation: "provider_dedupe_lookup",
@@ -263,7 +287,13 @@ pub fn target_repo_runner_provider_dedupe_lookup_command(
     for reference in &lookup.query.required_refs {
         validate_provider_lookup_term(&reference.uri, "source reference")?;
     }
+    Ok(())
+}
 
+fn provider_dedupe_lookup_terms(
+    repository: &TargetRepoRunnerGithubRepository,
+    lookup: &TargetRepoRunnerDedupeLookupPlan,
+) -> Vec<String> {
     let mut terms = vec![
         format!("repo:{}", repository.full_name),
         "is:pr".to_owned(),
@@ -283,23 +313,7 @@ pub fn target_repo_runner_provider_dedupe_lookup_command(
             .iter()
             .map(|reference| github_search_exact_term(&reference.uri)),
     );
-    let query = terms.join(" ");
-
-    Ok(TargetRepoRunnerProviderDedupeLookupCommand {
-        provider: lookup.provider,
-        target_repo: lookup.target_repo.clone(),
-        repository,
-        dedupe_key: lookup.key.clone(),
-        result_limit: lookup.query.result_limit,
-        query: TargetRepoRunnerGithubPullRequestSearchCommand {
-            repo: lookup.target_repo.clone(),
-            state: TargetRepoRunnerGithubPullRequestSearchState::Open,
-            query,
-            terms,
-        },
-        markers: lookup.query.markers.clone(),
-        required_refs: lookup.query.required_refs.clone(),
-    })
+    terms
 }
 
 pub fn target_repo_runner_provider_dedupe_observation_from_pull_requests(

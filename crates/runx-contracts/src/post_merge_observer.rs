@@ -1,19 +1,15 @@
 //! Post-merge observer closure planning contracts.
-//
-// Type definitions live here; planning logic (closure plan, runtime dedupe,
-// publication projection) lives in the private `plan` submodule.
-
-use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ActForm, ClosureDisposition, CriterionStatus, OperationalPolicyError,
-    OperationalPolicyPublishMode, Reference,
+    ActForm, ClosureDisposition, CriterionStatus, OperationalPolicyPublishMode, Reference,
 };
 
+mod error;
 mod plan;
 
+pub use error::PostMergeObserverPlanError;
 pub use plan::{
     normalize_post_merge_observer_command, plan_post_merge_observer_closure,
     plan_post_merge_observer_runtime_dedupe, project_post_merge_observer_publication_from_receipt,
@@ -249,145 +245,4 @@ pub struct PostMergeObserverPublicationProjection {
     pub verification_criterion_id: Option<String>,
     pub source_issue_disposition: PostMergeSourceIssueDisposition,
     pub close_authorized: bool,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum PostMergeObserverPlanError {
-    Policy(OperationalPolicyError),
-    ProviderObservationDisabled,
-    SourceRequired,
-    UnknownSource(String),
-    ProviderStateNotTerminal,
-    MissingSourceThread {
-        source_id: String,
-    },
-    MissingObserverSignal {
-        signal_source: PostMergeObserverSignalSource,
-    },
-    InvalidObserverCommandReference {
-        field: &'static str,
-        expected: &'static str,
-    },
-    MissingObserverCommandReferenceMetadata {
-        field: &'static str,
-    },
-    UnsupportedObserverCommandProvider {
-        field: &'static str,
-        provider: String,
-    },
-    VerificationRequired,
-    InconsistentObservation(String),
-    ReceiptNotSealed,
-    ReceiptNotPostMergeObserver,
-    MissingReceiptCriterion(String),
-    MissingReceiptReference(&'static str),
-    MissingReceiptMetadata(&'static str),
-    ReceiptPublicationNotAuthorized(String),
-}
-
-impl fmt::Display for PostMergeObserverPlanError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Policy(error) => write!(formatter, "operational policy error: {error}"),
-            Self::ProviderObservationDisabled => {
-                formatter.write_str("post-merge observer planning requires observe_provider=true")
-            }
-            Self::SourceRequired => {
-                formatter.write_str("post-merge observer planning requires a source_id")
-            }
-            Self::UnknownSource(source_id) => {
-                write!(
-                    formatter,
-                    "post-merge observer planning references unknown source '{source_id}'"
-                )
-            }
-            Self::ProviderStateNotTerminal => {
-                formatter.write_str("post-merge observer planning requires terminal PR state")
-            }
-            Self::MissingSourceThread { source_id } => {
-                write!(
-                    formatter,
-                    "source '{source_id}' requires a source-thread target before final publication"
-                )
-            }
-            Self::MissingObserverSignal { signal_source } => {
-                write!(
-                    formatter,
-                    "post-merge observer {signal_source:?} command requires a signal reference"
-                )
-            }
-            Self::InvalidObserverCommandReference { field, expected } => {
-                write!(
-                    formatter,
-                    "post-merge observer command field '{field}' must be a {expected} reference"
-                )
-            }
-            Self::MissingObserverCommandReferenceMetadata { field } => {
-                write!(
-                    formatter,
-                    "post-merge observer command field '{field}' requires provider and locator metadata"
-                )
-            }
-            Self::UnsupportedObserverCommandProvider { field, provider } => {
-                write!(
-                    formatter,
-                    "post-merge observer command field '{field}' has unsupported provider '{provider}'"
-                )
-            }
-            Self::VerificationRequired => {
-                formatter.write_str("merged post-merge observer planning requires verification")
-            }
-            Self::InconsistentObservation(message) => formatter.write_str(message),
-            Self::ReceiptNotSealed => {
-                formatter.write_str("post-merge publication requires a sealed harness receipt")
-            }
-            Self::ReceiptNotPostMergeObserver => {
-                formatter.write_str("sealed harness receipt is not a post-merge observer closure")
-            }
-            Self::MissingReceiptCriterion(criterion_id) => {
-                write!(
-                    formatter,
-                    "sealed post-merge receipt is missing required criterion '{criterion_id}'"
-                )
-            }
-            Self::MissingReceiptReference(kind) => {
-                write!(
-                    formatter,
-                    "sealed post-merge receipt is missing required {kind} reference"
-                )
-            }
-            Self::MissingReceiptMetadata(kind) => {
-                write!(
-                    formatter,
-                    "sealed post-merge receipt is missing required {kind} metadata"
-                )
-            }
-            Self::ReceiptPublicationNotAuthorized(message) => formatter.write_str(message),
-        }
-    }
-}
-
-impl std::error::Error for PostMergeObserverPlanError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Policy(error) => Some(error),
-            Self::ProviderObservationDisabled
-            | Self::SourceRequired
-            | Self::UnknownSource(_)
-            | Self::ProviderStateNotTerminal
-            | Self::MissingSourceThread { .. }
-            | Self::MissingObserverSignal { .. }
-            | Self::InvalidObserverCommandReference { .. }
-            | Self::MissingObserverCommandReferenceMetadata { .. }
-            | Self::UnsupportedObserverCommandProvider { .. }
-            | Self::VerificationRequired
-            | Self::InconsistentObservation(_)
-            | Self::ReceiptNotSealed
-            | Self::ReceiptNotPostMergeObserver
-            | Self::MissingReceiptCriterion(_)
-            | Self::MissingReceiptReference(_)
-            | Self::MissingReceiptMetadata(_)
-            | Self::ReceiptPublicationNotAuthorized(_) => None,
-        }
-    }
 }
