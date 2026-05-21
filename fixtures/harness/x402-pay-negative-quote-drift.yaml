@@ -1,0 +1,12 @@
+name: x402-pay-negative-quote-drift
+kind: graph
+target: ../graphs/payment/x402-pay-negative-quote-drift.yaml
+caller:
+  approvals:
+    spend-approval: true
+expect:
+  status: failure
+  steps:
+    - quote
+    - reserve
+    - approve-spend
