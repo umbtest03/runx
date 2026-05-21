@@ -390,6 +390,7 @@ fn write_framed_json(output: &mut impl Write, message: &JsonValue) -> Result<(),
     })?;
     write!(output, "Content-Length: {}\r\n\r\n", body.len())
         .and_then(|()| output.write_all(&body))
+        .and_then(|()| output.flush())
         .map_err(|error| McpServerError::new(format!("MCP response write failed: {error}")))
 }
 
