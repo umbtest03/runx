@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-aster-runtime-cutover
 created: '2026-05-18T00:00:00Z'
-updated: '2026-05-21T00:31:00+10:00'
+updated: '2026-05-21T11:55:00+10:00'
 status: draft
 harden_status: not_run
 size: large
@@ -42,10 +42,11 @@ dedicated pass inspects that tree and records exact paths.
 
 Current local facts:
 
-- `crates/runx-runtime/src/hosted_http.rs` is the hosted boundary visible in
-  this checkout. It defines `HostedHttpClient`, `HostedTransport`, request and
-  response types, header validation, curl-backed transport, and redacted debug
-  behavior.
+- `crates/runx-runtime/src/runtime_http.rs` is the hosted transport boundary
+  visible in this checkout. It defines `HostedHttpClient`, `HostedTransport`,
+  request and response types, header validation, reqwest/rustls-backed
+  transport under the `async-http` feature, redirect suppression, bounded
+  request/connect timeouts, and redacted debug behavior.
 - Aster contract types exist in `crates/runx-contracts/src/aster.rs`.
 - The contracts crate exports Aster control objects from
   `crates/runx-contracts/src/lib.rs`.
@@ -79,7 +80,7 @@ CWD: `.` (runx OSS workspace)
 
 Relevant existing local surfaces:
 
-- `crates/runx-runtime/src/hosted_http.rs`
+- `crates/runx-runtime/src/runtime_http.rs`
 - `crates/runx-contracts/src/aster.rs`
 - `crates/runx-contracts/src/lib.rs`
 - `fixtures/contracts/aster-control/public-feed-proof.json`
@@ -113,9 +114,10 @@ Surfaces not present in this checkout:
 - Aster must not read receipts through private local file paths in public or
   hosted projections; receipt access goes through runtime/store APIs or a
   documented hosted boundary.
-- `hosted_http.rs` is the current local hosted boundary. Any future cloud
-  binding should either use this boundary or explicitly replace it in a
-  separate reviewed change.
+- `runtime_http.rs` is the current local hosted transport boundary. Any future
+  cloud binding should either use this boundary through the public
+  connect/registry re-exports or explicitly replace it in a separate reviewed
+  change.
 - No legacy/compat outcome, effect, verification proof alias, or Aster-only terminal
   packet is introduced.
 
@@ -127,8 +129,8 @@ Surfaces not present in this checkout:
   `fixtures/external/aster/agent-step/**`.
 - Add a Rust runtime replay test only after the fixture exists:
   `crates/runx-runtime/tests/external/aster_agent_step.rs`.
-- Use `hosted_http.rs` as the locally verified hosted boundary for any OSS-side
-  runtime-to-host interaction.
+- Use `runtime_http.rs` as the locally verified hosted transport boundary for
+  any OSS-side runtime-to-host interaction.
 - Defer cloud package binding details until the cloud tree is available.
 - Ensure Aster-run issue-to-PR and post-merge paths use
   `runx-target-repo-runners` and `runx-post-merge-closure-observer` when those
@@ -141,7 +143,7 @@ In scope:
 
 - OSS-local plan for Aster contract preservation.
 - External Aster runtime fixture definition.
-- Hosted boundary notes grounded in `hosted_http.rs`.
+- Hosted boundary notes grounded in `runtime_http.rs`.
 - Dependency sequencing for target-runner and post-merge observer flows.
 
 Out of scope:
@@ -178,7 +180,7 @@ Out of scope:
   `crates/runx-runtime/tests/external/aster_agent_step.rs` is added only after
   the external fixture exists.
 - [x] The OSS-hosted boundary is documented against
-  `crates/runx-runtime/src/hosted_http.rs` or a reviewed replacement.
+  `crates/runx-runtime/src/runtime_http.rs` or a reviewed replacement.
 - [x] Cloud binding details are marked deferred until `cloud/**` is available
   locally; no acceptance depends on absent cloud paths.
 - [x] Aster contract and runtime artifacts use harness receipt closure and
@@ -194,7 +196,7 @@ Current local discovery/guard commands:
 
 ```sh
 test ! -d cloud
-test -f crates/runx-runtime/src/hosted_http.rs
+test -f crates/runx-runtime/src/runtime_http.rs
 test -f crates/runx-contracts/src/aster.rs
 test -f fixtures/contracts/aster-control/public-feed-proof.json
 test -f fixtures/external/aster/agent-step/rust-bridge-sealed-skill.yaml
@@ -247,7 +249,7 @@ node scripts/summarize-proving-ground.mjs "$ARTIFACT_DIR"
   paths in this OSS-only spec.
 - If the external runtime fixture is missing, keep Aster cutover blocked rather
   than treating the Aster control contract fixture as runtime execution proof.
-- If a future binding bypasses `hosted_http.rs`, require an explicit reviewed
+- If a future binding bypasses `runtime_http.rs`, require an explicit reviewed
   replacement boundary and update this spec.
 - If retired artifact fields appear in Aster fixtures or runtime output, repair
   the producer and expected sealed receipts. Do not add compatibility shims.
