@@ -1,14 +1,9 @@
-#[cfg(feature = "mcp-rmcp")]
 use std::future::Future;
-#[cfg(feature = "mcp-rmcp")]
 use std::marker::PhantomData;
-#[cfg(feature = "mcp-rmcp")]
 use std::sync::{Arc, Mutex};
 
-#[cfg(feature = "mcp-rmcp")]
 use super::framing::{content_length, find_header_end};
 
-#[cfg(feature = "mcp-rmcp")]
 pub(super) struct RmcpContentLengthTransport<R, W, Role> {
     read: R,
     write: Arc<tokio::sync::Mutex<W>>,
@@ -18,13 +13,11 @@ pub(super) struct RmcpContentLengthTransport<R, W, Role> {
     role: PhantomData<Role>,
 }
 
-#[cfg(feature = "mcp-rmcp")]
 #[derive(Clone, Default)]
 pub(super) struct RmcpTransportErrorState {
     message: Arc<Mutex<Option<String>>>,
 }
 
-#[cfg(feature = "mcp-rmcp")]
 impl RmcpTransportErrorState {
     pub(super) fn record(&self, error: std::io::Error) {
         if let Ok(mut message) = self.message.lock() {
@@ -40,7 +33,6 @@ impl RmcpTransportErrorState {
     }
 }
 
-#[cfg(feature = "mcp-rmcp")]
 impl<R, W, Role> RmcpContentLengthTransport<R, W, Role> {
     pub(super) fn new(
         read: R,
@@ -59,7 +51,6 @@ impl<R, W, Role> RmcpContentLengthTransport<R, W, Role> {
     }
 }
 
-#[cfg(feature = "mcp-rmcp")]
 impl<R, W, Role> rmcp::transport::Transport<Role> for RmcpContentLengthTransport<R, W, Role>
 where
     R: tokio::io::AsyncRead + Send + Unpin + 'static,
@@ -106,7 +97,6 @@ where
     }
 }
 
-#[cfg(feature = "mcp-rmcp")]
 async fn next_rmcp_framed_message<R, Role>(
     read: &mut R,
     buffer: &mut Vec<u8>,
@@ -135,7 +125,6 @@ where
     }
 }
 
-#[cfg(feature = "mcp-rmcp")]
 fn parse_next_rmcp_framed_message<Role>(
     buffer: &mut Vec<u8>,
     max_message_bytes: usize,

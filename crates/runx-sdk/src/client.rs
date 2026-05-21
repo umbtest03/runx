@@ -68,17 +68,6 @@ pub struct SkillSearchResult {
     pub run_command: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ConnectionSummary {
-    pub id: String,
-    pub grant_id: Option<String>,
-    pub connection_id: Option<String>,
-    pub principal_id: Option<String>,
-    pub provider: Option<String>,
-    pub status: Option<String>,
-    pub scopes: Vec<String>,
-}
-
 impl RunxClient {
     pub fn new() -> Self {
         Self::with_options(RunxClientOptions::default())
@@ -150,12 +139,6 @@ impl RunxClient {
         );
         let _ignored = fs::remove_file(&answers_path);
         Ok(RunxJsonReport::new(result?))
-    }
-
-    pub fn connect_list(&self) -> RunxResult<Vec<ConnectionSummary>> {
-        let payload = self.run_json(vec!["connect".to_owned(), "list".to_owned()], None)?;
-        let grants = connect_grants(&payload)?;
-        grants.iter().map(connection_from_json).collect()
     }
 
     pub fn run_json(&self, args: Vec<String>, stdin: Option<String>) -> RunxResult<JsonObject> {
@@ -267,37 +250,6 @@ fn search_result_from_json(value: &JsonValue) -> RunxResult<SkillSearchResult> {
     })
 }
 
-fn connection_from_json(value: &JsonValue) -> RunxResult<ConnectionSummary> {
-    let object = json_object(value, "connections[]")?;
-    let grant_id = optional_string(object, "grant_id")?;
-    let connection_id = optional_string(object, "connection_id")?;
-    let explicit_id = optional_string(object, "id")?;
-    let id = connection_id
-        .clone()
-        .or_else(|| grant_id.clone())
-        .or(explicit_id)
-        .ok_or(RunxError::MissingField { field: "id" })?;
-    Ok(ConnectionSummary {
-        id,
-        grant_id,
-        connection_id,
-        principal_id: optional_string(object, "principal_id")?,
-        provider: optional_string(object, "provider")?,
-        status: optional_string(object, "status")?,
-        scopes: optional_string_array(object, "scopes")?,
-    })
-}
-
-fn connect_grants(payload: &JsonObject) -> RunxResult<&Vec<JsonValue>> {
-    if let Some(JsonValue::Array(connections)) = payload.get("connections") {
-        return Ok(connections);
-    }
-    if let Some(JsonValue::Object(connect)) = payload.get("connect") {
-        return optional_array(connect, "grants");
-    }
-    Ok(empty_json_values())
-}
-
 fn required_array<'a>(
     object: &'a JsonObject,
     field: &'static str,
@@ -306,17 +258,6 @@ fn required_array<'a>(
         Some(JsonValue::Array(values)) => Ok(values),
         Some(_) => Err(RunxError::InvalidField { field }),
         None => Err(RunxError::MissingField { field }),
-    }
-}
-
-fn optional_array<'a>(
-    object: &'a JsonObject,
-    field: &'static str,
-) -> RunxResult<&'a Vec<JsonValue>> {
-    match object.get(field) {
-        Some(JsonValue::Array(values)) => Ok(values),
-        Some(_) => Err(RunxError::InvalidField { field }),
-        None => Ok(empty_json_values()),
     }
 }
 
@@ -359,9 +300,4 @@ fn json_string(value: &JsonValue) -> RunxResult<String> {
         JsonValue::String(value) => Ok(value.clone()),
         _ => Err(RunxError::InvalidField { field: "array[]" }),
     }
-}
-
-fn empty_json_values() -> &'static Vec<JsonValue> {
-    static EMPTY: std::sync::OnceLock<Vec<JsonValue>> = std::sync::OnceLock::new();
-    EMPTY.get_or_init(Vec::new)
 }

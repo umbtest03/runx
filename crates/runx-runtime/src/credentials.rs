@@ -386,7 +386,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn optional_env_binding_is_skipped_when_material_role_is_missing() {
+    fn optional_env_binding_is_skipped_when_material_role_is_missing()
+    -> Result<(), CredentialDeliveryError> {
         let profile = CredentialDeliveryProfile {
             provider: "github".to_owned(),
             auth_mode: "oauth_bearer".to_owned(),
@@ -401,9 +402,10 @@ mod tests {
             values: BTreeMap::new(),
         };
 
-        let env = apply_profile(&profile, &material).expect("optional binding should be skipped");
+        let env = apply_profile(&profile, &material)?;
 
         assert!(env.is_empty());
+        Ok(())
     }
 
     #[test]

@@ -12,9 +12,12 @@
   "input": {
     "kind": "policy.admitLocalSkill",
     "options": {
+      "connectedAuthCheckedAt": "2026-05-22T00:00:00Z",
       "connectedGrants": [
         {
+          "expires_at": "2026-05-23T00:00:00Z",
           "grant_id": "grant_wildcard",
+          "not_before": "2026-05-21T00:00:00Z",
           "provider": "github",
           "scopes": [
             "repo:*"

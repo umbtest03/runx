@@ -70,8 +70,8 @@ pub fn run_native_mcp(plan: McpPlan) -> ExitCode {
             }
         };
     match runx_runtime::adapters::mcp::serve_mcp_json_rpc(
-        std::io::stdin().lock(),
-        std::io::stdout().lock(),
+        std::io::stdin(),
+        std::io::stdout(),
         options,
     ) {
         Ok(()) => ExitCode::SUCCESS,

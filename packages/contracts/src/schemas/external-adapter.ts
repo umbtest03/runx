@@ -14,6 +14,9 @@ import { referenceSchema } from "./spine.js";
 
 export const externalAdapterProtocolVersion = "runx.external_adapter.v1" as const;
 
+// Process transport v1 is deliberately small: the Rust supervisor writes one
+// invocation JSON document to stdin, accepts exactly one response JSON document
+// on stdout, and treats stderr as diagnostic text only.
 const externalAdapterTransports = ["process", "http"] as const;
 const externalAdapterStatuses = [
   "completed",

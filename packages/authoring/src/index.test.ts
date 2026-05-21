@@ -1,11 +1,32 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { execFile as execFileCallback } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 
 import { Type } from "@sinclair/typebox";
+import { validateExternalAdapterResponseContract } from "@runxhq/contracts";
 import { describe, expect, it } from "vitest";
 
-import { artifact, definePacket, defineTool, failure, firstNonEmptyString, parseInputs, prune, resolveInsideRepo, resolveRepoRoot, stringInput } from "./index.js";
+import {
+  artifact,
+  createExternalAdapterResponse,
+  defineExternalAdapter,
+  definePacket,
+  defineTool,
+  failure,
+  firstNonEmptyString,
+  parseExternalAdapterInvocationJson,
+  parseInputs,
+  prune,
+  resolveInsideRepo,
+  resolveRepoRoot,
+  stringInput,
+} from "./index.js";
+
+const execFile = promisify(execFileCallback);
+const externalAdapterConformanceRoot = path.join(process.cwd(), "fixtures", "external-adapter-conformance");
+const externalAdapterInvocationPath = path.join(externalAdapterConformanceRoot, "invocation.json");
 
 describe("@runxhq/authoring", () => {
   it("defines packets as durable schema objects", () => {
@@ -154,6 +175,101 @@ describe("@runxhq/authoring", () => {
       expect(parseInputs(undefined, inputsPath)).toEqual({ message: "from-file" });
     } finally {
       await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("runs a TypeScript external adapter against the conformance invocation fixture", async () => {
+    const invocation = parseExternalAdapterInvocationJson(
+      await readFile(externalAdapterInvocationPath, "utf8"),
+    );
+    const adapter = defineExternalAdapter({
+      adapterId: "adapter.conformance.echo",
+      invoke({ invocation }) {
+        return createExternalAdapterResponse(invocation, {
+          stdout: JSON.stringify({ message: invocation.inputs.message }),
+          stderr: "",
+          exitCode: 0,
+          output: {
+            adapter_language: "typescript",
+            message: invocation.inputs.message,
+            count: invocation.inputs.count,
+          },
+          observedAt: "2026-05-21T15:00:00.000Z",
+        });
+      },
+    });
+
+    const response = await adapter.runWith(invocation);
+
+    expect(validateExternalAdapterResponseContract(response)).toMatchObject({
+      schema: "runx.external_adapter.response.v1",
+      protocol_version: "runx.external_adapter.v1",
+      invocation_id: invocation.invocation_id,
+      adapter_id: invocation.adapter_id,
+      status: "completed",
+      output: {
+        adapter_language: "typescript",
+        message: "hello from fixture",
+        count: 2,
+      },
+    });
+  });
+
+  it("validates a non-TypeScript adapter response from the same conformance invocation fixture", async () => {
+    const { stdout } = await execFile("python3", [
+      path.join(externalAdapterConformanceRoot, "python_echo_adapter.py"),
+      externalAdapterInvocationPath,
+    ]);
+    const response = validateExternalAdapterResponseContract(JSON.parse(stdout));
+
+    expect(response).toMatchObject({
+      schema: "runx.external_adapter.response.v1",
+      protocol_version: "runx.external_adapter.v1",
+      invocation_id: "external_inv_conformance_001",
+      adapter_id: "adapter.conformance.echo",
+      status: "completed",
+      output: {
+        adapter_language: "python",
+        message: "hello from fixture",
+        count: 2,
+      },
+    });
+  });
+
+  it("fails closed when a prebuilt adapter response changes invocation identity", async () => {
+    const invocation = parseExternalAdapterInvocationJson(
+      await readFile(externalAdapterInvocationPath, "utf8"),
+    );
+    const adapter = defineExternalAdapter({
+      adapterId: "adapter.conformance.echo",
+      invoke() {
+        return createExternalAdapterResponse({
+          invocation_id: "external_inv_other",
+          adapter_id: "adapter.conformance.echo",
+        });
+      },
+    });
+
+    await expect(adapter.runWith(invocation)).resolves.toMatchObject({
+      schema: "runx.external_adapter.response.v1",
+      protocol_version: "runx.external_adapter.v1",
+      invocation_id: invocation.invocation_id,
+      adapter_id: invocation.adapter_id,
+      status: "failed",
+      exit_code: 1,
+      errors: [{
+        code: "adapter_error",
+        retryable: false,
+      }],
+    });
+  });
+
+  it("keeps external adapter authoring helpers protocol-only", async () => {
+    const source = await readFile(new URL("./index.ts", import.meta.url), "utf8");
+    const forbiddenPackages = ["runtime-local", "adapters"].map((name) => `@runxhq/${name}`);
+
+    for (const packageName of forbiddenPackages) {
+      expect(source).not.toContain(packageName);
     }
   });
 });

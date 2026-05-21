@@ -5,6 +5,7 @@ use std::fmt;
 #[cfg(feature = "async-http")]
 use std::time::Duration;
 
+#[cfg(any(feature = "async-http", test))]
 use url::Url;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -173,11 +174,15 @@ impl HostedTransport for ReqwestHttpTransport {
 }
 
 #[derive(Clone, Debug)]
+#[cfg(any(feature = "async-http", test))]
+#[allow(dead_code)]
 pub struct HostedHttpClient<T = ReqwestHttpTransport> {
     base_url: String,
     transport: T,
 }
 
+#[cfg(any(feature = "async-http", test))]
+#[allow(dead_code)]
 impl<T: HostedTransport> HostedHttpClient<T> {
     pub fn with_transport(
         base_url: impl AsRef<str>,
@@ -236,6 +241,8 @@ pub enum HostedHttpError {
     InvalidHeaderValue { name: String, message: String },
 }
 
+#[cfg(any(feature = "async-http", test))]
+#[allow(dead_code)]
 fn strip_one_trailing_slash(value: &str) -> String {
     value.strip_suffix('/').unwrap_or(value).to_owned()
 }
@@ -267,6 +274,8 @@ fn validate_header(header: &HostedHttpHeader) -> Result<(), HostedHttpError> {
     Ok(())
 }
 
+#[cfg(any(feature = "async-http", test))]
+#[allow(dead_code)]
 fn validate_http_url(value: &str) -> Result<(), HostedHttpError> {
     let url = Url::parse(value)?;
     match url.scheme() {

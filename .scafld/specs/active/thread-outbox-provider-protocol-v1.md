@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: thread-outbox-provider-protocol-v1
 created: '2026-05-22T01:16:00+10:00'
-updated: '2026-05-22T02:26:40+10:00'
-status: active
+updated: '2026-05-21T16:52:24Z'
+status: review
 harden_status: not_run
 size: large
 risk_level: high
@@ -13,32 +13,13 @@ risk_level: high
 
 ## Current State
 
-Status: active
-Current phase: Phase 2A contract-only provider frames completed
-Next: add one Rust-supervised provider fixture adapter and prove idempotent
-push/readback receipt shaping before any live GitHub, Slack, or support-channel
-outbox adapter is enabled
-Reason: thread/outbox provider writes are a distinct extension lane. They must
-not be smuggled through `external-adapter-plugin-protocol-v1`, revived through
-`@runxhq/runtime-local`, or implemented as hidden `@runxhq/core` provider
-mutations. The only implemented outbox pusher today is the local file-thread
-adapter, which is credential-free.
-Blockers: runtime provider supervision and real provider fixtures remain the
-next blocker. Contract frames now exist in Rust, TypeScript, generated schemas,
-and fixtures. This lane is still not hosted execution or skill execution.
-Allowed follow-up command: `scafld handoff thread-outbox-provider-protocol-v1`
-Latest runner update: 2026-05-22T02:26:40+10:00 implemented Phase 2A:
-`runx-contracts` and `@runxhq/contracts` now define manifest, push, fetch, and
-observation frames; generated JSON Schemas and shared fixtures validate across
-Rust and TypeScript. v1 transport is process-only until HTTP has explicit auth,
-retry, idempotency, and secret-delivery semantics.
-Previous update: 2026-05-22T02:07:19+10:00 scoped the next buildable slice
-to contract-only provider frames and fixtures. `credential-broker-delivery-contract-v1`
-is completed, so this spec can reference credential delivery refs/observations
-without designing a private secret channel.
-Previous update: 2026-05-22T01:16:00+10:00 created the missing owning spec and
-updated the local file-thread skip path to fail closed for provider adapters
-until this protocol consumes Rust-supervised `CredentialDelivery`.
+Status: review
+Current phase: final
+Next: review
+Reason: build completed; ready for review
+Blockers: none
+Allowed follow-up command: `scafld review thread-outbox-provider-protocol-v1`
+Latest runner update: 2026-05-21T16:52:24Z
 Review gate: not_started
 
 ## Summary
@@ -111,8 +92,10 @@ Out of scope:
 - `packages/core/src/knowledge/thread.ts`
 - `docs/ts-interop-boundary.md`
 - `docs/thread-story-contract.md`
-- future `crates/runx-contracts` outbox provider contract module
-- future Rust runtime provider adapter supervisor or CLI command surface
+- `crates/runx-contracts/src/thread_outbox_provider.rs`
+- future `crates/runx-runtime/src/outbox_provider.rs` or equivalent provider
+  supervisor module
+- future Rust runtime provider adapter CLI command surface
 
 ## Risks
 
@@ -251,13 +234,30 @@ Negative contract rules:
 
 ## Phase 3: Provider Fixture
 
-Status: pending
+Status: completed
 Dependencies: Phase 2
 
+Objective: Complete this phase.
+
 Changes:
+- Add a narrow Rust `ThreadOutboxProviderProcessSupervisor` that is not a `SkillAdapter` and is not `ExternalAdapterProcessSupervisor`.
+- Invoke provider adapters with a strict process protocol: `ThreadOutboxProviderFetch` JSON frame; protocol version, and manifest-supported operation before accepting output.
+- Define timeout, output-size, cwd, command/args, and cancellation defaults in the supervisor rather than leaving provider fixtures to invent them.
+- Reject raw secret-like fields and redact credential material from stdout, stderr, metadata, errors, and observations before any receipt projection.
 - Add one provider fixture adapter under Rust supervision.
 - Prove idempotent push and readback receipt shaping.
 - Prove secrets are redacted from observations and receipts.
+- `crates/runx-runtime/src/outbox_provider.rs` or `crates/runx-runtime/src/adapters/thread_outbox_provider.rs`
+- `crates/runx-runtime/src/lib.rs`
+- `crates/runx-runtime/tests/thread_outbox_provider.rs`
+- `fixtures/runtime/thread-outbox-provider/**`
+- this spec evidence fields
+- No live GitHub, Slack, or support-channel network mutation.
+- No reuse of `external-adapter-plugin-protocol-v1` as a provider queue.
+- No `@runxhq/core`, `@runxhq/runtime-local`, or `@runxhq/adapters` provider mutation fallback.
+
+Acceptance:
+- none
 
 ## Rollback
 

@@ -58,23 +58,6 @@ fn continue_run_writes_answers_file_for_canonical_skill_rerun()
     Ok(())
 }
 
-#[test]
-fn connect_list_reads_grant_projection() -> Result<(), Box<dyn std::error::Error>> {
-    let fixture = CliFixture::create()?;
-    let client = fixture.client();
-
-    let connections = client.connect_list()?;
-
-    assert_eq!(connections[0].id, "conn_123");
-    assert_eq!(connections[0].grant_id.as_deref(), Some("grant_123"));
-    assert_eq!(
-        connections[0].principal_id.as_deref(),
-        Some("principal_123")
-    );
-    assert_eq!(connections[0].scopes, vec!["repo:read".to_owned()]);
-    Ok(())
-}
-
 struct CliFixture {
     root: PathBuf,
     command: PathBuf,
@@ -151,8 +134,6 @@ if [ "$1" = "skill" ] && [ "$2" = "search" ]; then
 elif [ "$1" = "skill" ] && [ "$3" = "--run-id" ]; then
   cat "$6" > "$RUNX_SDK_STDIN"
   printf '%s\n' '{"status":"sealed","args":["skill"]}'
-elif [ "$1" = "connect" ] && [ "$2" = "list" ]; then
-  printf '%s\n' '{"status":"success","connect":{"grants":[{"grant_id":"grant_123","principal_id":"principal_123","provider":"github","scopes":["repo:read"],"connection_id":"conn_123","status":"active"}]}}'
 else
   printf '%s\n' '{"status":"success","args":["skill"]}'
 fi

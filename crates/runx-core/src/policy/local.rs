@@ -132,7 +132,13 @@ fn collect_connected_auth_reasons(
     };
     let grants = options.connected_grants.as_deref().unwrap_or_default();
 
-    if find_matching_grant(&requirement, grants).is_none() {
+    if find_matching_grant(
+        &requirement,
+        grants,
+        options.connected_auth_checked_at.as_deref(),
+    )
+    .is_none()
+    {
         reasons.push(format!(
             "connected auth grant required for provider '{}'",
             requirement.provider
