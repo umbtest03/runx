@@ -10,6 +10,9 @@ use runx_runtime::{
     should_ignore_dev_watch_path,
 };
 
+#[cfg(feature = "cli-tool")]
+use runx_runtime::dev::types::DevLane;
+
 #[test]
 fn dev_discovers_direct_unit_fixtures_before_workspace_tool_fixtures()
 -> Result<(), Box<dyn std::error::Error>> {
@@ -70,6 +73,32 @@ fn dev_runs_native_skill_and_graph_fixtures() -> Result<(), Box<dyn std::error::
     assert_eq!(
         report.fixtures[1].output,
         Some(JsonValue::String("hello from dev skill".to_owned()))
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(feature = "cli-tool")]
+fn dev_runs_native_repo_integration_skill_with_fixture_cwd()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = fixture_root()?;
+    let mut options = DevLoopOptions::new(&root);
+    options.unit_path = Some(root.join("units/native-repo"));
+    options.lane = DevLane::RepoIntegration;
+
+    let report = run_dev_once(&options)?;
+
+    assert_eq!(report.status, DevReportStatus::Success);
+    assert_eq!(report.fixtures.len(), 1);
+    assert_eq!(report.fixtures[0].name, "native-repo-skill");
+    assert_eq!(report.fixtures[0].status, DevFixtureStatus::Success);
+    assert_eq!(
+        nested_string(report.fixtures[0].output.as_ref(), &["path"]),
+        Some("README.md")
+    );
+    assert_eq!(
+        nested_string(report.fixtures[0].output.as_ref(), &["contents"]),
+        Some("hello from repo integration\n")
     );
     Ok(())
 }

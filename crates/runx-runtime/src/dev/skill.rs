@@ -30,9 +30,6 @@ pub(super) fn run_skill_or_graph_fixture(
     let Some(target_path) = resolve_target_path(root, kind, reference) else {
         return Ok(unknown_target_ref(fixture, started, kind, reference));
     };
-    if fixture.lane != "deterministic" {
-        return Ok(unsupported_native_lane(fixture, started));
-    }
     let workspace = prepare_fixture_workspace(root, &fixture.path, &fixture.document)?;
     let result =
         run_skill_or_graph_fixture_inner(root, fixture, kind, &target_path, &workspace, started);
@@ -325,22 +322,6 @@ fn unknown_target_ref(
             actual: Some(JsonValue::String(reference.to_owned())),
             kind: DevFixtureAssertionKind::ExactMismatch,
             message: format!("{kind} {reference} was not found."),
-        }],
-    )
-}
-
-fn unsupported_native_lane(fixture: &ParsedDevFixture, started: Instant) -> DevFixtureResult {
-    failed_fixture(
-        fixture,
-        started,
-        vec![DevFixtureAssertion {
-            path: "lane".to_owned(),
-            expected: Some(JsonValue::String("deterministic".to_owned())),
-            actual: Some(JsonValue::String(fixture.lane.clone())),
-            kind: DevFixtureAssertionKind::ExactMismatch,
-            message:
-                "Native skill and graph dev fixtures currently require the deterministic lane."
-                    .to_owned(),
         }],
     )
 }

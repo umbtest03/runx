@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-dev
 created: '2026-05-18T00:00:00Z'
-updated: '2026-05-21T00:45:45Z'
+updated: '2026-05-21T00:51:14Z'
 status: draft
 harden_status: in_progress
 size: medium
@@ -14,24 +14,22 @@ risk_level: medium
 ## Current State
 
 Status: draft
-Current phase: deterministic native skill/graph fixture execution implemented
-Next: wire repo-integration cwd semantics for native skill/graph fixtures and
-CLI watch/presentation cutover
+Current phase: native skill/graph fixture execution implemented
+Next: CLI watch/presentation cutover
 Reason: a narrow Rust runtime slice now exists for dev fixture discovery,
 deterministic tool fixture execution, polling watch debounce, presentation, and
-dev-mode receipt metadata tagging. Deterministic `target.kind: skill` and
-`target.kind: graph` fixtures now execute through the Rust harness replay path
-and validate against the dev fixture expectation engine. This is not complete
-`runx dev` parity yet.
-Blockers: repo-integration skill/graph fixtures are intentionally rejected until
-the Rust sandbox/runtime can bind workspace cwd without process-global cwd
-mutation; the Rust CLI dev command is owned by the CLI cutover worker; the TS
+dev-mode receipt metadata tagging. `target.kind: skill` and `target.kind:
+graph` fixtures now execute through the Rust harness replay path and validate
+against the dev fixture expectation engine. Repo-integration skill fixtures bind
+workspace cwd through `RUNX_CWD` instead of process-global cwd mutation. This is
+not complete `runx dev` parity yet.
+Blockers: the Rust CLI dev command is owned by the CLI cutover worker; the TS
 command currently parses `--watch` but does not run a watch loop, so CLI-level
 watch parity still needs an owning cutover decision.
-Allowed follow-up command: implement native repo-integration cwd plumbing for
-skill/graph fixtures, then rerun runtime dev validation; do not mark passed
-until the remaining blockers are closed.
-Latest runner update: 2026-05-21T00:45:45Z
+Allowed follow-up command: wire CLI watch/presentation cutover, then rerun
+runtime and CLI dev validation; do not mark passed until the remaining blockers
+are closed.
+Latest runner update: 2026-05-21T00:51:14Z
 Review gate: not_started
 
 ## Summary
@@ -109,7 +107,8 @@ Checks:
 - `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test dev -- --nocapture`:
   passed with 5 tests in the default feature set.
 - `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool --test dev -- --nocapture`:
-  passed with 6 tests, including deterministic native skill and graph fixtures.
+  passed with 7 tests, including deterministic native skill/graph fixtures and
+  repo-integration workspace cwd binding.
 - `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool --tests`:
   passed.
 - `cargo clippy --manifest-path crates/Cargo.toml -p runx-runtime --all-targets`:
@@ -126,6 +125,6 @@ Issues:
   deterministic tool fixture execution only.
 - Deterministic native skill/graph dev fixture execution is implemented through
   the Rust harness replay path with stable fixture output projection.
-- Native skill/graph repo-integration fixtures remain explicit failure metadata
-  until sandbox cwd semantics are wired without process-global cwd mutation.
+- Native skill/graph repo-integration fixtures bind workspace cwd through
+  `RUNX_CWD` without process-global cwd mutation.
 - CLI dev routing and release presentation cutover intentionally untouched.

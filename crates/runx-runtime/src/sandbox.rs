@@ -7,6 +7,7 @@ use runx_contracts::{JsonObject, JsonValue};
 use runx_parser::{SkillMcpServer, SkillSandbox, SkillSource};
 
 use crate::RuntimeError;
+use crate::receipts::paths::{INIT_CWD_ENV, RUNX_CWD_ENV};
 
 const DEFAULT_ENV_ALLOWLIST: [&str; 9] = [
     "PATH",
@@ -38,7 +39,8 @@ pub fn prepare_process_sandbox(
     let command = source.command.clone().ok_or(RuntimeError::MissingCommand)?;
     let sandbox = source.sandbox.as_ref();
     validate_sandbox(sandbox)?;
-    let cwd = resolve_cwd(source, sandbox, skill_directory)?;
+    let workspace_cwd = workspace_cwd(base_env)?;
+    let cwd = resolve_cwd(source, sandbox, skill_directory, workspace_cwd.as_deref())?;
     let env = child_env(sandbox, base_env, inputs)?;
     let args = source
         .args
@@ -62,7 +64,13 @@ pub fn prepare_mcp_process_sandbox(
 ) -> Result<SandboxPlan, RuntimeError> {
     let sandbox = source.sandbox.as_ref();
     validate_sandbox(sandbox)?;
-    let cwd = resolve_cwd_value(server.cwd.as_deref(), sandbox, skill_directory)?;
+    let workspace_cwd = workspace_cwd(base_env)?;
+    let cwd = resolve_cwd_value(
+        server.cwd.as_deref(),
+        sandbox,
+        skill_directory,
+        workspace_cwd.as_deref(),
+    )?;
     let env = allowed_base_env(sandbox, base_env);
     Ok(SandboxPlan {
         command: server.command.clone(),
@@ -77,25 +85,51 @@ fn resolve_cwd(
     source: &SkillSource,
     sandbox: Option<&SkillSandbox>,
     skill_directory: &Path,
+    workspace_cwd: Option<&Path>,
 ) -> Result<PathBuf, RuntimeError> {
-    resolve_cwd_value(source.cwd.as_deref(), sandbox, skill_directory)
+    resolve_cwd_value(
+        source.cwd.as_deref(),
+        sandbox,
+        skill_directory,
+        workspace_cwd,
+    )
 }
 
 fn resolve_cwd_value(
     source_cwd: Option<&str>,
     sandbox: Option<&SkillSandbox>,
     skill_directory: &Path,
+    workspace_cwd: Option<&Path>,
 ) -> Result<PathBuf, RuntimeError> {
     let policy = sandbox
         .and_then(|sandbox| sandbox.cwd_policy.as_deref())
         .unwrap_or("skill-directory");
     match (policy, source_cwd) {
         ("custom", Some(cwd)) => Ok(resolve_path(skill_directory, cwd)),
-        ("workspace", Some(cwd)) => Ok(resolve_path(skill_directory, cwd)),
-        ("workspace", None) => std::env::current_dir()
-            .map_err(|source| RuntimeError::io("resolving workspace cwd", source)),
+        ("workspace", Some(cwd)) => Ok(resolve_path(workspace_cwd.unwrap_or(skill_directory), cwd)),
+        ("workspace", None) => workspace_cwd.map(Path::to_path_buf).map_or_else(
+            || {
+                std::env::current_dir()
+                    .map_err(|source| RuntimeError::io("resolving workspace cwd", source))
+            },
+            Ok,
+        ),
         (_, Some(cwd)) => Ok(resolve_path(skill_directory, cwd)),
         _ => Ok(skill_directory.to_path_buf()),
+    }
+}
+
+fn workspace_cwd(env: &BTreeMap<String, String>) -> Result<Option<PathBuf>, RuntimeError> {
+    let Some(path) = env.get(RUNX_CWD_ENV).or_else(|| env.get(INIT_CWD_ENV)) else {
+        return Ok(None);
+    };
+    let path = PathBuf::from(path);
+    if path.is_absolute() {
+        Ok(Some(path))
+    } else {
+        std::env::current_dir()
+            .map(|cwd| Some(cwd.join(path)))
+            .map_err(|source| RuntimeError::io("resolving relative workspace cwd", source))
     }
 }
 

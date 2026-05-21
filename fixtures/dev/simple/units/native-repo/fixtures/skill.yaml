@@ -1,0 +1,18 @@
+name: native-repo-skill
+lane: repo-integration
+target:
+  kind: skill
+  ref: workspace-read
+repo:
+  files:
+    README.md: |
+      hello from repo integration
+inputs:
+  path: README.md
+expect:
+  status: success
+  output:
+    subset:
+      path: README.md
+      contents: |
+        hello from repo integration
