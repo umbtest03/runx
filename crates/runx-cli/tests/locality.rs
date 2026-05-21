@@ -18,6 +18,7 @@
 //! from the receipt crate and kept out of the runtime's default features.
 
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 const HTTP_CLIENTS: &[&str] = &[
@@ -83,14 +84,14 @@ fn dependency_names(manifest: &str) -> Vec<String> {
     names
 }
 
-fn read_manifest(crate_dir: &str) -> String {
+fn read_manifest(crate_dir: &str) -> io::Result<String> {
     let path = sibling(crate_dir).join("Cargo.toml");
-    fs::read_to_string(&path).unwrap_or_else(|err| panic!("read {}: {err}", path.display()))
+    fs::read_to_string(path)
 }
 
 #[test]
-fn receipts_crate_has_no_network_client() {
-    let manifest = read_manifest("runx-receipts");
+fn receipts_crate_has_no_network_client() -> Result<(), Box<dyn std::error::Error>> {
+    let manifest = read_manifest("runx-receipts")?;
     for dep in dependency_names(&manifest) {
         let lower = dep.to_lowercase();
         assert!(
@@ -100,17 +101,18 @@ fn receipts_crate_has_no_network_client() {
              must not be able to transmit it. See the 'runs stay local' doctrine.",
         );
     }
+    Ok(())
 }
 
 #[test]
-fn runtime_network_is_opt_in() {
-    let manifest = read_manifest("runx-runtime");
+fn runtime_network_is_opt_in() -> Result<(), Box<dyn std::error::Error>> {
+    let manifest = read_manifest("runx-runtime")?;
 
     let reqwest = manifest
         .lines()
         .map(str::trim_start)
         .find(|line| line.starts_with("reqwest"))
-        .expect("runx-runtime is expected to declare reqwest");
+        .ok_or_else(|| io::Error::other("runx-runtime is expected to declare reqwest"))?;
     assert!(
         reqwest.contains("optional = true"),
         "runx-runtime's reqwest must be `optional = true` so network access is \
@@ -121,7 +123,9 @@ fn runtime_network_is_opt_in() {
         .lines()
         .map(str::trim_start)
         .find(|line| line.starts_with("default ="))
-        .expect("runx-runtime [features] is expected to declare `default`");
+        .ok_or_else(|| {
+            io::Error::other("runx-runtime [features] is expected to declare `default`")
+        })?;
     assert!(
         !default.contains("async-http")
             && !default.contains("cli-tool")
@@ -129,14 +133,15 @@ fn runtime_network_is_opt_in() {
         "runx-runtime default features must not enable network (async-http). \
          Network stays opt-in. Got: {default}",
     );
+    Ok(())
 }
 
 #[test]
-fn cli_declares_no_direct_network_client() {
+fn cli_declares_no_direct_network_client() -> Result<(), Box<dyn std::error::Error>> {
     // The CLI may reach the registry transitively (install/acquire is the one
     // public signal), but it should not declare its own HTTP client — that
     // would be the seam where a usage ping gets bolted on.
-    let manifest = read_manifest("runx-cli");
+    let manifest = read_manifest("runx-cli")?;
     for dep in dependency_names(&manifest) {
         let lower = dep.to_lowercase();
         assert!(
@@ -145,6 +150,7 @@ fn cli_declares_no_direct_network_client() {
              See the 'runs stay local' doctrine.",
         );
     }
+    Ok(())
 }
 
 /// Sanity: the sibling crates resolve where the guard expects them.
