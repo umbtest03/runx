@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: rust-mcp-rmcp-cutover
 created: '2026-05-21T00:00:00Z'
-updated: '2026-05-21T00:00:00Z'
-status: draft
+updated: '2026-05-21T10:51:57Z'
+status: active
 harden_status: not_run
 size: large
 risk_level: high
@@ -13,21 +13,15 @@ risk_level: high
 
 ## Current State
 
-Status: draft
-Current phase: not started
-Next: pin the reviewed `rmcp` release and land Stage 1 (feature flag, no behavior change)
-Reason: the design-and-baseline predecessor
-[`rust-mcp-rmcp-adoption`](../archive/2026-05/rust-mcp-rmcp-adoption.md)
-completed and passed review. It recorded the stdio wire-contract baseline, the
-replacement map, the staged plan, the wire-diff envelope, and the deletion
-gate, then handed the actual migration to this spec. Its one hard blocker,
-`rust-async-http-layer` (tokio/reqwest in the adapter tier), has since landed:
-`runx-runtime` now builds `reqwest` + `tokio` behind the `async-http` feature
-([`runx-runtime/Cargo.toml`](../../crates/runx-runtime/Cargo.toml)). The
-sequencing constraint from `plans/rust-takeover.md` §9 ("MCP is last") is the
-remaining reason this had not started; the customer-surface parity matrix work
-ahead of it does not block authoring or Stage 1.
-Blockers: none. The `rmcp` version is pinned (see Dependency pin).
+Status: active
+Current phase: stage-2 client transport
+Next: stage-3 server transport
+Reason: disjoint `mcp-rmcp` feature/dependency-policy scaffold landed and
+`ProcessMcpTransport` can call/list tools through rmcp over stdio while the
+legacy `mcp` feature remains byte-compatible.
+Blockers: none
+Allowed follow-up command: `scafld handoff rust-mcp-rmcp-cutover`
+Latest runner update: 2026-05-21T10:58:27Z
 Review gate: not_started
 
 ## Why this exists
@@ -38,9 +32,10 @@ hand-rolls the MCP protocol: Content-Length framing, JSON-RPC request/response
 correlation, the stdio client transport, and the stdio server loop. The
 predecessor spec established that the upstream `rmcp` crate should own that
 protocol surface, that the runx-specific surfaces stay, and that the cutover
-must preserve the recorded byte-shape contract. `rmcp` is still banned in
-[`crates/deny.toml`](../../crates/deny.toml) precisely because this cutover has
-not run. This spec runs it.
+must preserve the recorded byte-shape contract. `rmcp` started banned in
+[`crates/deny.toml`](../../crates/deny.toml) precisely because this cutover had
+not run; Stage 1 converts that to a package-scoped `runx-runtime` exception
+while the staged feature exists. This spec runs it.
 
 This spec does not re-decide design. Where this file and
 `rust-mcp-rmcp-adoption` differ, the predecessor wins. This file is the
@@ -55,6 +50,28 @@ envelope, then delete the hand-rolled protocol modules and remove the
 `deny.toml` ban. The runx-specific surfaces (skill execution under MCP,
 argument templating, sandbox metadata, the `runx:` host-result projection,
 receipt sealing) are not touched.
+
+## Runner note: 2026-05-21T10:58:27Z
+
+Stage 1 and Stage 2 are represented by a compile-gated rmcp client path:
+`mcp-rmcp` is a disjoint feature that enables the exact pinned `rmcp = "=1.7.0"`
+dependency via `async-http`; `mcp` plus `mcp-rmcp` fails with the intentional
+mutual-exclusion compile error. `ProcessMcpTransport::list_tools` and
+`ProcessMcpTransport::call_tool` use rmcp behind `mcp-rmcp`, while
+`FixtureMcpTransport`, templates, sandbox metadata, and receipt projection stay
+unchanged. The scoped dependency-policy exception remains package-bound to
+`runx-runtime`; full removal of the rmcp ban is still reserved for Stage 5
+after wire parity and the deletion gate.
+
+Validation reached both sides of the staged client cutover:
+`cargo check -p runx-runtime --features mcp-rmcp`, `cargo test -p
+runx-runtime --features mcp-rmcp --test mcp_adapter`, `cargo test -p
+runx-runtime --features mcp --test mcp_server
+mcp_server_matches_recorded_stdio_wire_contract`, `cargo test -p runx-runtime
+--features mcp --test mcp_adapter`, `cargo clippy -p runx-runtime
+--all-targets --features mcp-rmcp -- -D warnings`, `cargo deny check bans`, and
+`cargo deny check licenses` pass. `cargo check -p runx-runtime --features mcp,mcp-rmcp` fails
+with the expected mutual-exclusion compile error.
 
 ## Context
 
@@ -79,8 +96,12 @@ Current sources (runx-specific, must stay unchanged):
 Files impacted:
 - `crates/runx-runtime/Cargo.toml` (features, optional `rmcp` dep)
 - `crates/Cargo.lock` (committed with the dependency review)
-- `crates/deny.toml` (remove the `rmcp` ban after the cutover)
-- `crates/runx-runtime/src/lib.rs` (mutual-exclusion `compile_error!`)
+- `crates/deny.toml` (scope the `rmcp` exception during the cutover; remove the
+  ban after Stage 5)
+- `crates/runx-runtime/src/lib.rs` and `src/adapters.rs` (feature exposure)
+- `crates/runx-runtime/src/adapters/mcp.rs` (mutual-exclusion `compile_error!`)
+- `crates/runx-runtime/src/adapters/mcp/{transport,jsonrpc}.rs` (client
+  transport gating during Stage 2)
 
 Baseline already in repo (reuse, do not rewrite):
 - `fixtures/runtime/adapters/mcp/wire-contract/basic-lifecycle.{requests,responses}.jsonl`
@@ -130,10 +151,11 @@ Stages and their per-stage acceptance gates are defined in
 `rust-mcp-rmcp-adoption` and not restated here. Execution order:
 
 1. Pull `rmcp = "=1.7.0"` behind `mcp-rmcp = ["dep:rmcp", "async-http"]` (no
-   `"mcp"` in the list) with a `compile_error!` if both features are set. No
-   behavior change.
-2. Behind `#[cfg(feature = "mcp-rmcp")]`, swap `ProcessMcpTransport::call_tool`
-   to the rmcp client. `FixtureMcpTransport` unchanged.
+   `"mcp"` in the list) with a `compile_error!` if both features are set.
+   **Done.**
+2. Behind `#[cfg(feature = "mcp-rmcp")]`, swap `ProcessMcpTransport` tool
+   listing and calls to the rmcp client. `FixtureMcpTransport` unchanged.
+   **Done for the process client path.**
 3. Behind `mcp-rmcp`, swap the `serve_mcp_json_rpc` stdio loop for the rmcp
    server, wrapping `McpServerState` in an rmcp `ServerHandler`.
 4. Diff the rmcp server's framed output against the recorded `*.responses.jsonl`
@@ -156,12 +178,32 @@ Stages and their per-stage acceptance gates are defined in
 `rmcp = "=1.7.0"` (exact pin). Verified as the latest stable release on
 crates.io on 2026-05-21 (`max_stable_version` 1.7.0). The predecessor was
 written against a pre-1.0 `rmcp` and listed "pre-1.0 churn" as a risk; rmcp has
-since reached a stable 1.x line, which removes that risk. Use `default-features
-= false` with only the `transport-io` (and `macros` if needed) features to keep
-the tokio surface narrow and `cargo deny check licenses` clean. At Stage 1, run
-`cargo update -p rmcp`, confirm the resolved version is still 1.7.0 (or bump the
-pin to the then-current latest and re-review), and commit the `Cargo.lock` diff
-with the dependency review.
+since reached a stable 1.x line, which removes that risk. Use
+`default-features = false` with the `client` feature for the Stage 2 client
+path, keep the tokio surface bounded to the runtime adapter tier, and keep
+`cargo deny check licenses` clean. At Stage 1, run `cargo update -p rmcp`,
+confirm the resolved version is still 1.7.0 (or bump the pin to the
+then-current latest and re-review), and commit the `Cargo.lock` diff with the
+dependency review.
+
+## Validation
+
+- [x] `cargo check --manifest-path crates/Cargo.toml -p runx-runtime --features mcp-rmcp`
+  passes.
+- [x] `cargo check --manifest-path crates/Cargo.toml -p runx-runtime --features mcp,mcp-rmcp`
+  fails with the intentional mutual-exclusion `compile_error!`.
+- [x] `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test mcp_adapter --features mcp -- --nocapture`
+  passes.
+- [x] `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test mcp_adapter --features mcp-rmcp -- --nocapture`
+  passes.
+- [x] `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features mcp --test mcp_server -- --nocapture`
+  passes.
+- [x] `cargo clippy --manifest-path crates/Cargo.toml -p runx-runtime --all-targets --features cli-tool,mcp -- -D warnings`
+  passes.
+- [x] `cargo clippy --manifest-path crates/Cargo.toml -p runx-runtime --all-targets --features mcp-rmcp -- -D warnings`
+  passes.
+- [x] From `crates/`, `cargo deny check bans` and `cargo deny check licenses`
+  pass.
 
 ## Open Questions
 

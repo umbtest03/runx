@@ -1,5 +1,8 @@
-use runx_contracts::{JsonNumber, JsonObject, JsonValue};
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
+use runx_contracts::JsonObject;
+use runx_contracts::{JsonNumber, JsonValue};
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 use super::types::McpToolDescriptor;
 
 pub(super) const PROTOCOL_VERSION: &str = "2025-06-18";
@@ -35,6 +38,7 @@ pub(super) fn json_rpc_error(id: JsonValue, code: i64, message: &str) -> JsonVal
     )
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 pub(super) fn json_rpc_request(id: i64, method: &str, params: JsonObject) -> JsonValue {
     JsonValue::Object(
         [
@@ -47,6 +51,7 @@ pub(super) fn json_rpc_request(id: i64, method: &str, params: JsonObject) -> Jso
     )
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 pub(super) fn initialize_request(id: i64) -> JsonValue {
     json_rpc_request(
         id,
@@ -75,6 +80,7 @@ pub(super) fn initialize_request(id: i64) -> JsonValue {
     )
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 pub(super) fn initialized_notification() -> JsonValue {
     JsonValue::Object(
         [
@@ -89,6 +95,7 @@ pub(super) fn initialized_notification() -> JsonValue {
     )
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 pub(super) fn tool_call_request(id: i64, tool: &str, arguments: &JsonObject) -> JsonValue {
     json_rpc_request(
         id,
@@ -101,10 +108,12 @@ pub(super) fn tool_call_request(id: i64, tool: &str, arguments: &JsonObject) -> 
     )
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 pub(super) fn tools_list_request(id: i64) -> JsonValue {
     json_rpc_request(id, "tools/list", JsonObject::new())
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 pub(super) fn parse_mcp_tools_list(result: JsonValue) -> Vec<McpToolDescriptor> {
     let JsonValue::Object(record) = result else {
         return Vec::new();
@@ -137,6 +146,7 @@ pub(super) fn parse_mcp_tools_list(result: JsonValue) -> Vec<McpToolDescriptor> 
         .collect()
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 fn input_schema(tool: &JsonObject) -> Option<JsonObject> {
     match tool.get("inputSchema").or_else(|| tool.get("input_schema")) {
         Some(JsonValue::Object(schema)) => Some(schema.clone()),

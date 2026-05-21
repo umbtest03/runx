@@ -1,28 +1,47 @@
 // rust-style-allow: large-file because the client-side transport keeps stdio
 // framing, response buffering, and bounded read/write helpers adjacent to the
 // transport implementations they coordinate.
+#[cfg(feature = "mcp-rmcp")]
+use std::future::Future;
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 use std::io::{Read, Write};
-use std::process::{Child, ChildStdin, Command, Stdio};
+#[cfg(any(feature = "mcp", feature = "mcp-rmcp"))]
+use std::process::Stdio;
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
+use std::process::{Child, ChildStdin, Command};
+#[cfg(feature = "mcp-rmcp")]
+use std::sync::Arc;
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
+use std::time::Instant;
 
-use runx_contracts::{JsonNumber, JsonObject, JsonValue};
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
+use runx_contracts::JsonNumber;
+use runx_contracts::{JsonObject, JsonValue};
 
 use crate::credentials::SecretEnv;
 use crate::sandbox::SandboxPlan;
 
+#[cfg(any(feature = "mcp", feature = "mcp-rmcp"))]
 use super::framing::{content_length, find_header_end};
+use super::jsonrpc::text_content;
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 use super::jsonrpc::{
-    initialize_request, initialized_notification, parse_mcp_tools_list, text_content,
-    tool_call_request, tools_list_request,
+    initialize_request, initialized_notification, parse_mcp_tools_list, tool_call_request,
+    tools_list_request,
 };
 use super::templates::js_string;
 use super::types::{
     McpListToolsRequest, McpToolCallRequest, McpToolDescriptor, McpTransport, McpTransportError,
 };
 
+#[cfg(any(feature = "mcp", feature = "mcp-rmcp"))]
 const MAX_CLIENT_RESPONSE_BYTES: usize = 1024 * 1024;
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -73,21 +92,343 @@ impl ProcessMcpTransport {
         &self,
         request: McpListToolsRequest,
     ) -> Result<Vec<McpToolDescriptor>, McpTransportError> {
-        let mut client =
-            initialize_mcp_client(&request.sandbox, &SecretEnv::default(), request.timeout)?;
-        let result = client.request(2, &tools_list_request(2))?;
-        Ok(parse_mcp_tools_list(result))
+        #[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
+        {
+            let mut client =
+                initialize_mcp_client(&request.sandbox, &SecretEnv::default(), request.timeout)?;
+            let result = client.request(2, &tools_list_request(2))?;
+            Ok(parse_mcp_tools_list(result))
+        }
+        #[cfg(all(feature = "mcp-rmcp", not(feature = "mcp")))]
+        {
+            list_tools_with_rmcp(request)
+        }
+        #[cfg(all(feature = "mcp", feature = "mcp-rmcp"))]
+        {
+            let _ = &request;
+            Err(McpTransportError::failed(
+                "features `mcp` and `mcp-rmcp` are mutually exclusive",
+            ))
+        }
     }
 }
 
 impl McpTransport for ProcessMcpTransport {
     fn call_tool(&self, request: McpToolCallRequest) -> Result<JsonValue, McpTransportError> {
-        let mut client =
-            initialize_mcp_client(&request.sandbox, &request.secret_env, request.timeout)?;
-        client.request(2, &tool_call_request(2, &request.tool, &request.arguments))
+        #[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
+        {
+            let mut client =
+                initialize_mcp_client(&request.sandbox, &request.secret_env, request.timeout)?;
+            client.request(2, &tool_call_request(2, &request.tool, &request.arguments))
+        }
+        #[cfg(all(feature = "mcp-rmcp", not(feature = "mcp")))]
+        {
+            call_tool_with_rmcp(request)
+        }
+        #[cfg(all(feature = "mcp", feature = "mcp-rmcp"))]
+        {
+            let _ = &request;
+            Err(McpTransportError::failed(
+                "features `mcp` and `mcp-rmcp` are mutually exclusive",
+            ))
+        }
     }
 }
 
+#[cfg(feature = "mcp-rmcp")]
+fn list_tools_with_rmcp(
+    request: McpListToolsRequest,
+) -> Result<Vec<McpToolDescriptor>, McpTransportError> {
+    block_on_rmcp(list_tools_with_rmcp_async(request))
+}
+
+#[cfg(feature = "mcp-rmcp")]
+fn call_tool_with_rmcp(request: McpToolCallRequest) -> Result<JsonValue, McpTransportError> {
+    block_on_rmcp(call_tool_with_rmcp_async(request))
+}
+
+#[cfg(feature = "mcp-rmcp")]
+fn block_on_rmcp<T>(
+    future: impl Future<Output = Result<T, McpTransportError>>,
+) -> Result<T, McpTransportError> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_io()
+        .enable_time()
+        .build()
+        .map_err(|_| McpTransportError::failed("MCP client runtime initialization failed."))?
+        .block_on(future)
+}
+
+#[cfg(feature = "mcp-rmcp")]
+async fn list_tools_with_rmcp_async(
+    request: McpListToolsRequest,
+) -> Result<Vec<McpToolDescriptor>, McpTransportError> {
+    let mut child = spawn_tokio_mcp_server(&request.sandbox, &SecretEnv::default())?;
+    let result = tokio::time::timeout(request.timeout, async {
+        let mut service = serve_rmcp_client(&mut child).await?;
+        let tools = service
+            .peer()
+            .list_all_tools()
+            .await
+            .map_err(rmcp_service_error)?;
+        let _closed = service.close_with_timeout(Duration::from_millis(100)).await;
+        tools
+            .into_iter()
+            .map(mcp_tool_descriptor_from_rmcp)
+            .collect::<Result<Vec<_>, _>>()
+    })
+    .await;
+    terminate_tokio_child(&mut child).await;
+    match result {
+        Ok(result) => result,
+        Err(_) => Err(McpTransportError::timeout(request.timeout)),
+    }
+}
+
+#[cfg(feature = "mcp-rmcp")]
+async fn call_tool_with_rmcp_async(
+    request: McpToolCallRequest,
+) -> Result<JsonValue, McpTransportError> {
+    let mut child = spawn_tokio_mcp_server(&request.sandbox, &request.secret_env)?;
+    let timeout = request.timeout;
+    let result = tokio::time::timeout(timeout, async {
+        let mut service = serve_rmcp_client(&mut child).await?;
+        let arguments = rmcp_json_object(request.arguments)?;
+        let result = service
+            .peer()
+            .call_tool(
+                rmcp::model::CallToolRequestParams::new(request.tool).with_arguments(arguments),
+            )
+            .await
+            .map_err(rmcp_service_error)?;
+        let _closed = service.close_with_timeout(Duration::from_millis(100)).await;
+        rmcp_call_tool_result_json(result)
+    })
+    .await;
+    terminate_tokio_child(&mut child).await;
+    match result {
+        Ok(result) => result,
+        Err(_) => Err(McpTransportError::timeout(timeout)),
+    }
+}
+
+#[cfg(feature = "mcp-rmcp")]
+async fn serve_rmcp_client(
+    child: &mut tokio::process::Child,
+) -> Result<
+    rmcp::service::RunningService<rmcp::RoleClient, rmcp::model::ClientInfo>,
+    McpTransportError,
+> {
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| McpTransportError::failed("MCP server stdout unavailable."))?;
+    let stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| McpTransportError::failed("MCP server stdin unavailable."))?;
+    let transport = RmcpContentLengthTransport::new(stdout, stdin);
+    rmcp::serve_client(rmcp::model::ClientInfo::default(), transport)
+        .await
+        .map_err(|_| McpTransportError::failed("MCP client initialization failed."))
+}
+
+#[cfg(feature = "mcp-rmcp")]
+struct RmcpContentLengthTransport<R, W> {
+    read: R,
+    write: Arc<tokio::sync::Mutex<W>>,
+    buffer: Vec<u8>,
+}
+
+#[cfg(feature = "mcp-rmcp")]
+impl<R, W> RmcpContentLengthTransport<R, W> {
+    fn new(read: R, write: W) -> Self {
+        Self {
+            read,
+            write: Arc::new(tokio::sync::Mutex::new(write)),
+            buffer: Vec::new(),
+        }
+    }
+}
+
+#[cfg(feature = "mcp-rmcp")]
+impl<R, W> rmcp::transport::Transport<rmcp::RoleClient> for RmcpContentLengthTransport<R, W>
+where
+    R: tokio::io::AsyncRead + Send + Unpin + 'static,
+    W: tokio::io::AsyncWrite + Send + Unpin + 'static,
+{
+    type Error = std::io::Error;
+
+    fn send(
+        &mut self,
+        item: rmcp::service::TxJsonRpcMessage<rmcp::RoleClient>,
+    ) -> impl Future<Output = Result<(), Self::Error>> + Send + 'static {
+        let write = Arc::clone(&self.write);
+        async move {
+            let body = serde_json::to_vec(&item).map_err(std::io::Error::other)?;
+            let header = format!("Content-Length: {}\r\n\r\n", body.len());
+            let mut write = write.lock().await;
+            tokio::io::AsyncWriteExt::write_all(&mut *write, header.as_bytes()).await?;
+            tokio::io::AsyncWriteExt::write_all(&mut *write, &body).await?;
+            tokio::io::AsyncWriteExt::flush(&mut *write).await
+        }
+    }
+
+    async fn receive(&mut self) -> Option<rmcp::service::RxJsonRpcMessage<rmcp::RoleClient>> {
+        match next_rmcp_framed_message(&mut self.read, &mut self.buffer).await {
+            Ok(Some(message)) => Some(message),
+            Ok(None) | Err(_) => None,
+        }
+    }
+
+    async fn close(&mut self) -> Result<(), Self::Error> {
+        let mut write = self.write.lock().await;
+        tokio::io::AsyncWriteExt::shutdown(&mut *write).await
+    }
+}
+
+#[cfg(feature = "mcp-rmcp")]
+async fn next_rmcp_framed_message<R>(
+    read: &mut R,
+    buffer: &mut Vec<u8>,
+) -> Result<Option<rmcp::service::RxJsonRpcMessage<rmcp::RoleClient>>, std::io::Error>
+where
+    R: tokio::io::AsyncRead + Unpin,
+{
+    loop {
+        if let Some(message) = parse_next_rmcp_framed_message(buffer)? {
+            return Ok(Some(message));
+        }
+        if buffer.len() > MAX_CLIENT_RESPONSE_BYTES {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "MCP server response exceeded size limit.",
+            ));
+        }
+        let mut chunk = [0_u8; 8192];
+        let read = tokio::io::AsyncReadExt::read(read, &mut chunk).await?;
+        if read == 0 {
+            return Ok(None);
+        }
+        buffer.extend_from_slice(&chunk[..read]);
+    }
+}
+
+#[cfg(feature = "mcp-rmcp")]
+fn parse_next_rmcp_framed_message(
+    buffer: &mut Vec<u8>,
+) -> Result<Option<rmcp::service::RxJsonRpcMessage<rmcp::RoleClient>>, std::io::Error> {
+    let Some(header_end) = find_header_end(buffer) else {
+        return Ok(None);
+    };
+    if header_end > MAX_CLIENT_RESPONSE_BYTES {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "MCP server response exceeded size limit.",
+        ));
+    }
+    let header = std::str::from_utf8(&buffer[..header_end])
+        .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
+    let content_length = content_length(header).ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "MCP server sent a response without Content-Length.",
+        )
+    })?;
+    if content_length > MAX_CLIENT_RESPONSE_BYTES {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "MCP server response exceeded size limit.",
+        ));
+    }
+    let body_start = header_end + 4;
+    let body_end = body_start.saturating_add(content_length);
+    if buffer.len() < body_end {
+        return Ok(None);
+    }
+    let body = buffer[body_start..body_end].to_vec();
+    buffer.drain(..body_end);
+    serde_json::from_slice(&body)
+        .map(Some)
+        .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))
+}
+
+#[cfg(feature = "mcp-rmcp")]
+fn spawn_tokio_mcp_server(
+    plan: &SandboxPlan,
+    secret_env: &SecretEnv,
+) -> Result<tokio::process::Child, McpTransportError> {
+    let mut command = tokio::process::Command::new(&plan.command);
+    command
+        .args(&plan.args)
+        .current_dir(&plan.cwd)
+        .env_clear()
+        .envs(&plan.env)
+        .envs(secret_env.iter())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    command
+        .spawn()
+        .map_err(|_| McpTransportError::failed("MCP server failed to spawn."))
+}
+
+#[cfg(feature = "mcp-rmcp")]
+async fn terminate_tokio_child(child: &mut tokio::process::Child) {
+    let _ = child.start_kill();
+    let _ = child.wait().await;
+}
+
+#[cfg(feature = "mcp-rmcp")]
+fn mcp_tool_descriptor_from_rmcp(
+    tool: rmcp::model::Tool,
+) -> Result<McpToolDescriptor, McpTransportError> {
+    Ok(McpToolDescriptor {
+        name: tool.name.into_owned(),
+        description: tool.description.map(std::borrow::Cow::into_owned),
+        input_schema: Some(runx_json_object(serde_json::Value::Object(
+            (*tool.input_schema).clone(),
+        ))?),
+    })
+}
+
+#[cfg(feature = "mcp-rmcp")]
+fn rmcp_call_tool_result_json(
+    result: rmcp::model::CallToolResult,
+) -> Result<JsonValue, McpTransportError> {
+    let value = serde_json::to_value(result)
+        .map_err(|_| McpTransportError::failed("MCP response serialization failed."))?;
+    serde_json::from_value(value)
+        .map_err(|_| McpTransportError::failed("MCP response conversion failed."))
+}
+
+#[cfg(feature = "mcp-rmcp")]
+fn rmcp_json_object(value: JsonObject) -> Result<rmcp::model::JsonObject, McpTransportError> {
+    match serde_json::to_value(value)
+        .map_err(|_| McpTransportError::failed("MCP request conversion failed."))?
+    {
+        serde_json::Value::Object(record) => Ok(record),
+        _ => Err(McpTransportError::failed("MCP request conversion failed.")),
+    }
+}
+
+#[cfg(feature = "mcp-rmcp")]
+fn runx_json_object(value: serde_json::Value) -> Result<JsonObject, McpTransportError> {
+    serde_json::from_value(value)
+        .map_err(|_| McpTransportError::failed("MCP response conversion failed."))
+}
+
+#[cfg(feature = "mcp-rmcp")]
+fn rmcp_service_error(error: rmcp::ServiceError) -> McpTransportError {
+    match error {
+        rmcp::ServiceError::McpError(error) => {
+            McpTransportError::tool_error(i64::from(error.code.0), "MCP server returned error.")
+        }
+        _ => McpTransportError::failed("MCP server request failed."),
+    }
+}
+
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 fn spawn_mcp_server(
     plan: &SandboxPlan,
     secret_env: &SecretEnv,
@@ -105,6 +446,7 @@ fn spawn_mcp_server(
         .map_err(|_| McpTransportError::failed("MCP server failed to spawn."))
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 struct InitializedMcpClient {
     child: Child,
     stdin: ChildStdin,
@@ -113,6 +455,7 @@ struct InitializedMcpClient {
     timeout: Duration,
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 impl InitializedMcpClient {
     fn request(&mut self, id: i64, message: &JsonValue) -> Result<JsonValue, McpTransportError> {
         write_message(&mut self.stdin, message)?;
@@ -124,12 +467,14 @@ impl InitializedMcpClient {
     }
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 impl Drop for InitializedMcpClient {
     fn drop(&mut self) {
         terminate_child(&mut self.child);
     }
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 fn initialize_mcp_client(
     sandbox: &SandboxPlan,
     secret_env: &SecretEnv,
@@ -159,6 +504,7 @@ fn initialize_mcp_client(
     Ok(client)
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 fn write_message(stdin: &mut impl Write, message: &JsonValue) -> Result<(), McpTransportError> {
     let body = serde_json::to_vec(message)
         .map_err(|_| McpTransportError::failed("MCP request serialization failed."))?;
@@ -169,6 +515,7 @@ fn write_message(stdin: &mut impl Write, message: &JsonValue) -> Result<(), McpT
         .map_err(|_| McpTransportError::failed("MCP server stdin write failed."))
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 fn wait_for_response(
     child: &mut Child,
     rx: &Receiver<Result<JsonValue, McpTransportError>>,
@@ -207,6 +554,7 @@ fn wait_for_response(
     }
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 fn process_exited(child: &mut Child) -> Result<bool, McpTransportError> {
     child
         .try_wait()
@@ -214,6 +562,7 @@ fn process_exited(child: &mut Child) -> Result<bool, McpTransportError> {
         .map_err(|_| McpTransportError::failed("MCP server status check failed."))
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 fn read_stdout_frames(mut stdout: impl Read, tx: Sender<Result<JsonValue, McpTransportError>>) {
     let mut buffer = Vec::new();
     let mut chunk = [0_u8; 8192];
@@ -252,6 +601,7 @@ fn read_stdout_frames(mut stdout: impl Read, tx: Sender<Result<JsonValue, McpTra
     }
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 fn drain_stderr(stderr: Option<impl Read + Send + 'static>) {
     if let Some(mut stderr) = stderr {
         thread::spawn(move || {
@@ -267,6 +617,7 @@ fn drain_stderr(stderr: Option<impl Read + Send + 'static>) {
     }
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 fn parse_available_messages(buffer: &mut Vec<u8>) -> Result<Vec<JsonValue>, McpTransportError> {
     let mut messages = Vec::new();
     while let Some(header_end) = find_header_end(buffer) {
@@ -301,6 +652,7 @@ fn parse_available_messages(buffer: &mut Vec<u8>) -> Result<Vec<JsonValue>, McpT
     Ok(messages)
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 fn buffered_client_response_exceeds_limit(buffer: &[u8]) -> bool {
     if buffer.len() <= MAX_CLIENT_RESPONSE_BYTES {
         return false;
@@ -329,6 +681,7 @@ fn buffered_client_response_exceeds_limit(buffer: &[u8]) -> bool {
     buffer.len() > body_end
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 fn response_id(message: &JsonValue) -> Option<i64> {
     let JsonValue::Object(record) = message else {
         return None;
@@ -340,6 +693,7 @@ fn response_id(message: &JsonValue) -> Option<i64> {
     }
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 fn response_result(message: JsonValue) -> Result<JsonValue, McpTransportError> {
     let JsonValue::Object(mut record) = message else {
         return Err(McpTransportError::failed(
@@ -356,6 +710,7 @@ fn response_result(message: JsonValue) -> Result<JsonValue, McpTransportError> {
     Ok(record.remove("result").unwrap_or(JsonValue::Null))
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 fn error_code(error: &JsonObject) -> i64 {
     match error.get("code") {
         Some(JsonValue::Number(JsonNumber::I64(value))) => *value,
@@ -364,6 +719,7 @@ fn error_code(error: &JsonObject) -> i64 {
     }
 }
 
+#[cfg(all(feature = "mcp", not(feature = "mcp-rmcp")))]
 fn terminate_child(child: &mut Child) {
     let _ = child.kill();
     let _ = child.wait();

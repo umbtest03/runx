@@ -41,6 +41,7 @@ pub use receipts::tree as receipt_tree;
     feature = "cli-tool",
     feature = "catalog",
     feature = "mcp",
+    feature = "mcp-rmcp",
     feature = "a2a",
     feature = "agent"
 ))]

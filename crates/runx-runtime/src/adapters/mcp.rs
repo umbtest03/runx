@@ -9,6 +9,9 @@
 //! - `templates`: argument templating and tool-result stringification.
 //! - `sandbox_metadata`: receipt-side sandbox metadata builders.
 
+#[cfg(all(feature = "mcp", feature = "mcp-rmcp"))]
+compile_error!("features `mcp` and `mcp-rmcp` are mutually exclusive");
+
 mod adapter;
 mod framing;
 mod jsonrpc;

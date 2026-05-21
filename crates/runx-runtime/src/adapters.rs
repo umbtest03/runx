@@ -10,5 +10,5 @@ pub mod agent;
 #[cfg(feature = "catalog")]
 pub mod catalog;
 
-#[cfg(feature = "mcp")]
+#[cfg(any(feature = "mcp", feature = "mcp-rmcp"))]
 pub mod mcp;
