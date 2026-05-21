@@ -81,6 +81,11 @@ fn aster_external_fixture_records_grounded_bridge_sources() -> Result<(), Box<dy
     assert!(
         accepted_command
             .iter()
+            .any(|value| value == &JsonValue::String("<runx-root>/skills/issue-triage".to_owned()))
+    );
+    assert!(
+        !accepted_command
+            .iter()
             .any(|value| value == &JsonValue::String("--runner".to_owned()))
     );
 

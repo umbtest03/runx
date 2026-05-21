@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-mcp-rmcp-adoption
 created: '2026-05-21T03:00:00Z'
-updated: '2026-05-21T03:00:00Z'
+updated: '2026-05-21T05:00:00Z'
 status: draft
 harden_status: not_run
 size: large
@@ -14,12 +14,13 @@ risk_level: high
 ## Current State
 
 Status: draft
-Current phase: planning
-Next: design review
+Current phase: blocked-baseline
+Next: approve `rust-async-http-layer`, then draft `rust-mcp-rmcp-cutover`
 Reason: draft migration plan for replacing the hand-rolled MCP protocol layer
 with `rmcp` after the async HTTP/runtime exception is approved.
 Blockers: `rust-async-http-layer` must be approved first; no code changes until
-a follow-up cutover spec is approved.
+a follow-up cutover spec is approved. The safe stdio/non-network baseline slice
+is executable now and does not add `rmcp`, `tokio`, or network transports.
 Allowed follow-up command: `scafld harden rust-mcp-rmcp-adoption --provider <provider>`
 Latest runner update: none
 Review gate: not_started
@@ -52,6 +53,8 @@ it's time to spec the migration to the official `rmcp` crate.
 ## Scope
 
 Design only. Migration lands in a follow-up `rust-mcp-rmcp-cutover` spec.
+The only executable work allowed before that cutover is non-network baseline
+coverage for the existing stdio contract.
 
 This spec answers:
 
@@ -62,6 +65,32 @@ This spec answers:
    contract is preserved.
 4. The async-runtime exception this spec consumes (depends on
    `rust-async-http-layer`).
+
+## Safe executable baseline
+
+Because `rust-async-http-layer` is still blocked, this spec must not add the
+`rmcp` dependency or any async runtime features yet. The executable MCP-only
+slice is to record the current hand-rolled stdio server contract and make it
+easy for the future rmcp cutover to diff against it.
+
+Baseline fixtures:
+
+- `fixtures/runtime/adapters/mcp/wire-contract/basic-lifecycle.requests.jsonl`
+- `fixtures/runtime/adapters/mcp/wire-contract/basic-lifecycle.responses.jsonl`
+- `fixtures/runtime/adapters/mcp/wire-contract/error-paths.requests.jsonl`
+- `fixtures/runtime/adapters/mcp/wire-contract/error-paths.responses.jsonl`
+
+Baseline test:
+
+```bash
+cargo test -p runx-runtime --features mcp --test mcp_server mcp_server_matches_recorded_stdio_wire_contract
+```
+
+The test frames each JSONL body with MCP `Content-Length` headers and compares
+raw response bytes. It covers initialize, `notifications/initialized`
+notification suppression, `tools/list`, `tools/call`, and JSON-RPC error paths.
+The rmcp cutover must reuse this corpus before replacing the hand-rolled server
+loop.
 
 ## Replacement map
 
@@ -125,11 +154,12 @@ Validation: every existing `mcp_server` integration test passes.
 
 ### Stage 4: byte-exact wire compatibility check
 
-Fixture test that records the bytes emitted by the hand-rolled server on
-the existing fixture corpus, then runs the same fixtures through the rmcp
-server and diffs. Acceptable diffs are pre-declared (e.g., rmcp may set a
-`jsonrpc` field that the hand-rolled didn't, or vice versa); any
-unexpected diff is a regression.
+Run the rmcp server against
+`fixtures/runtime/adapters/mcp/wire-contract/*.requests.jsonl` and diff its raw
+framed output against the matching `*.responses.jsonl` baseline after framing
+each JSONL body. Acceptable diffs are pre-declared (e.g., rmcp may set a
+`jsonrpc` field that the hand-rolled didn't, or vice versa); any unexpected diff
+is a regression.
 
 ### Stage 5: delete the hand-rolled layer
 
@@ -186,10 +216,10 @@ The cutover must not touch:
 
 | Stage | Acceptance |
 | --- | --- |
-| 1 (feature exists) | `cargo check --workspace --features mcp-rmcp` clean |
+| 1 (feature exists) | `cargo check -p runx-runtime --features mcp-rmcp` clean |
 | 2 (client replaced) | all `mcp_adapter` tests pass with `--features mcp-rmcp` |
 | 3 (server replaced) | all `mcp_server` tests pass with `--features mcp-rmcp` |
-| 4 (wire parity) | fixture diff against hand-rolled bytes within pre-declared envelope |
+| 4 (wire parity) | `wire-contract/*.requests.jsonl` fixture diff against hand-rolled bytes within pre-declared envelope |
 | 5 (deletion) | aster + nitrosend production soak ≥ 30 days; hand-rolled files removed; `mcp-rmcp` renamed to `mcp` |
 
 ## Open questions

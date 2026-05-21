@@ -22,6 +22,11 @@ Blockers: validate the inventory against the current test tree before filing
 follow-up executable test specs.
 Allowed follow-up command: `scafld harden rust-runtime-test-coverage --provider <provider>`
 Latest runner update: none
+Local evidence update: 2026-05-21 added a non-payment runtime test covering
+`journal::HistoryFilter` intersection across skill, status, source,
+artifact_type, since, and until in `crates/runx-runtime/tests/journal_history.rs`.
+The empty-store path was already covered by
+`missing_history_store_projects_empty_safe_result`.
 Review gate: not_started
 
 ## Why this exists
@@ -67,7 +72,7 @@ checklist that drives the next ~5 small "add tests for X" follow-up specs.
 | `harness::assertions` | covered indirectly | direct unit tests for `assert_expectations` against every `HarnessExpectedStatus` and disposition mismatch |
 | `registry::local::build` | `registry.rs`, `registry_client.rs` | direct unit tests for `build_registry_skill_version` happy path + missing-publisher; `normalize_registry_skill_version` round-trip on every source-type variant |
 | `registry::local::trust` | covered indirectly | direct unit tests for each `*_trust_signal` against verified/declared/not_declared transitions |
-| `journal::*` (projection + history filters) | `journal_history.rs` | HistoryFilter combinations (skill+status+source, since+until ranges, artifact_type intersection); empty-store behavior |
+| `journal::*` (projection + history filters) | `journal_history.rs` | Most receipt filter combinations now have direct coverage; remaining gaps are paused-run filter edge cases and any future artifact/source variants not represented by receipt metadata |
 | `agent_invocation::*` | `agent_parity.rs` | resolution flow under needs-agent loop; idempotency key derivation; act-ref resolution fixtures |
 | `target_runner::*` | `target_runner.rs` | runtime-side execution beyond contract fixture parity; readiness mismatch propagation; PR observation race conditions |
 | `post_merge_observer::*` | `post_merge_observer.rs` | publication-from-receipt projection failure modes; runtime dedupe with stale receipt refs |

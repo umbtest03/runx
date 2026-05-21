@@ -11,13 +11,9 @@ inputs:
     accepted_command:
       - "skill"
       - "<runx-root>/skills/issue-triage"
-      - "--runner"
-      - "respond"
     continuation_shape:
       - "skill"
       - "<same-skill-path>"
-      - "--runner"
-      - "respond"
       - "--run-id"
       - "<run_id>"
       - "--answers"

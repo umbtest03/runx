@@ -192,3 +192,20 @@ fn connect_start_rejects_unmodeled_status_without_fallback()
     assert!(matches!(error, ConnectError::UnsupportedStatus { .. }));
     Ok(())
 }
+
+#[test]
+fn connect_client_rejects_non_http_base_urls() {
+    let transport = MockConnectTransport::with_json(vec![]);
+    let opener = RecordingOpener::default();
+    let error = ConnectClient::with_transport_and_opener(
+        "file:///tmp/connect.sock",
+        "token",
+        &transport,
+        &opener,
+        None,
+        None,
+    )
+    .err();
+
+    assert!(matches!(error, Some(ConnectError::Http(_))));
+}

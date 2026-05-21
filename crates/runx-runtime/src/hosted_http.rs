@@ -157,6 +157,7 @@ impl CommandHttpTransport {
     }
 
     fn request_command(&self, request: &HostedHttpRequest) -> Result<Command, HostedHttpError> {
+        validate_http_url(&request.url)?;
         let mut command = Command::new(&self.command);
         command
             .arg("--silent")
@@ -226,7 +227,7 @@ impl<T: HostedTransport> HostedHttpClient<T> {
         transport: T,
     ) -> Result<Self, HostedHttpError> {
         let base_url = strip_one_trailing_slash(base_url.as_ref());
-        Url::parse(&base_url)?;
+        validate_http_url(&base_url)?;
         Ok(Self {
             base_url,
             transport,
@@ -236,7 +237,7 @@ impl<T: HostedTransport> HostedHttpClient<T> {
     pub fn route_url(&self, route: &str) -> Result<String, HostedHttpError> {
         let normalized_route = route.trim_start_matches('/');
         let url = format!("{}/{}", self.base_url, normalized_route);
-        Url::parse(&url)?;
+        validate_http_url(&url)?;
         Ok(url)
     }
 
@@ -272,6 +273,8 @@ pub enum HostedHttpError {
     },
     #[error("hosted HTTP transport returned invalid output: {message}")]
     TransportDecode { message: String },
+    #[error("unsupported hosted HTTP url scheme '{scheme}': only http and https are allowed")]
+    UnsupportedUrlScheme { scheme: String },
     #[error("invalid hosted HTTP header name '{name}': {message}")]
     InvalidHeaderName { name: String, message: String },
     #[error("invalid hosted HTTP header value for '{name}': {message}")]
@@ -306,6 +309,16 @@ fn validate_header(header: &HostedHttpHeader) -> Result<(), HostedHttpError> {
         });
     }
     Ok(())
+}
+
+fn validate_http_url(value: &str) -> Result<(), HostedHttpError> {
+    let url = Url::parse(value)?;
+    match url.scheme() {
+        "http" | "https" => Ok(()),
+        scheme => Err(HostedHttpError::UnsupportedUrlScheme {
+            scheme: scheme.to_owned(),
+        }),
+    }
 }
 
 fn is_header_token_byte(byte: u8) -> bool {
@@ -427,6 +440,10 @@ mod tests {
     #[test]
     fn invalid_base_urls_fail_closed() {
         assert!(HostedHttpClient::with_transport("not a url", &MockTransport::default()).is_err());
+        assert!(matches!(
+            HostedHttpClient::with_transport("file:///tmp/runx.sock", &MockTransport::default()),
+            Err(HostedHttpError::UnsupportedUrlScheme { .. })
+        ));
     }
 
     #[test]
@@ -471,6 +488,24 @@ mod tests {
         assert!(matches!(
             error,
             Some(HostedHttpError::InvalidHeaderValue { .. })
+        ));
+    }
+
+    #[test]
+    fn command_transport_rejects_non_http_urls_before_spawning() {
+        let transport = CommandHttpTransport::with_command("curl-command-should-not-run");
+        let error = transport
+            .send(HostedHttpRequest {
+                method: HttpMethod::Get,
+                url: "file:///etc/passwd".to_owned(),
+                headers: Vec::new(),
+                body: None,
+            })
+            .err();
+
+        assert!(matches!(
+            error,
+            Some(HostedHttpError::UnsupportedUrlScheme { .. })
         ));
     }
 }

@@ -19,9 +19,13 @@ Current phase: planning
 Next: design review
 Reason: draft architecture spec for a scoped adapter-tier async HTTP exception.
 Blockers: operator approval of the supply-chain exception; no code changes
-until a follow-up cutover spec is approved.
+that add `tokio`, `reqwest`, or remove their `crates/deny.toml` bans until a
+follow-up cutover spec is approved.
 Allowed follow-up command: `scafld harden rust-async-http-layer --provider <provider>`
-Latest runner update: none
+Latest runner update: 2026-05-21 Worker HTTP safe slice only; no async deps
+added. Existing curl-backed hosted HTTP is now guarded to HTTP(S)-only URLs at
+the hosted client and command transport boundary, with connect client coverage
+so future async cutovers preserve the same fail-closed behavior.
 Review gate: not_started
 
 ## Why this exists

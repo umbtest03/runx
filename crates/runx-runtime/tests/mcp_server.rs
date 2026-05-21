@@ -43,6 +43,22 @@ fn mcp_server_initializes_lists_and_calls_tools() -> Result<(), Box<dyn std::err
 }
 
 #[test]
+fn mcp_server_matches_recorded_stdio_wire_contract() -> Result<(), Box<dyn std::error::Error>> {
+    for fixture_name in ["basic-lifecycle", "error-paths"] {
+        let input = frame_jsonl_fixture(fixture_name, "requests")?;
+        let expected = frame_jsonl_fixture(fixture_name, "responses")?;
+        let output = run_raw_output_with_options(input, server_options())?;
+
+        assert_eq!(
+            String::from_utf8_lossy(&output),
+            String::from_utf8_lossy(&expected),
+            "{fixture_name} raw MCP stdio response bytes changed"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn mcp_server_skill_tool_execution_returns_completed_runx_structured_content()
 -> Result<(), Box<dyn std::error::Error>> {
     let responses = run_server_with_options(
@@ -398,9 +414,16 @@ fn run_raw_with_options(
     input: Vec<u8>,
     options: McpServerOptions,
 ) -> Result<Vec<JsonValue>, Box<dyn std::error::Error>> {
+    parse_frames(&run_raw_output_with_options(input, options)?)
+}
+
+fn run_raw_output_with_options(
+    input: Vec<u8>,
+    options: McpServerOptions,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let mut output = Vec::new();
     serve_mcp_json_rpc(Cursor::new(input), &mut output, options)?;
-    parse_frames(&output)
+    Ok(output)
 }
 
 fn skill_server_options() -> Result<McpServerOptions, Box<dyn std::error::Error>> {
@@ -491,6 +514,25 @@ fn frame(message: &JsonValue) -> Result<Vec<u8>, serde_json::Error> {
     let body = serde_json::to_vec(message)?;
     let mut framed = format!("Content-Length: {}\r\n\r\n", body.len()).into_bytes();
     framed.extend(body);
+    Ok(framed)
+}
+
+fn frame_jsonl_fixture(
+    fixture_name: &str,
+    kind: &str,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let path = repo_root()?.join(format!(
+        "fixtures/runtime/adapters/mcp/wire-contract/{fixture_name}.{kind}.jsonl"
+    ));
+    let mut framed = Vec::new();
+    for line in std::fs::read_to_string(path)?
+        .lines()
+        .filter(|line| !line.is_empty())
+    {
+        let _: JsonValue = serde_json::from_str(line)?;
+        framed.extend(format!("Content-Length: {}\r\n\r\n", line.len()).as_bytes());
+        framed.extend(line.as_bytes());
+    }
     Ok(framed)
 }
 

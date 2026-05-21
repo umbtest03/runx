@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use runx_contracts::HarnessReceipt;
+use runx_contracts::{HarnessReceipt, ReferenceType};
 use runx_runtime::journal::{
     HARNESS_RECEIPT_REF_PREFIX, HISTORY_PROJECTOR_ID, HistoryFilter, JOURNAL_PROJECTOR_ID,
     JournalProjectionError, PausedRunCheckpoint, exact_receipt_id, harness_receipt_ref,
@@ -153,6 +153,85 @@ fn history_filter_matches_actor_status_skill_and_date() -> Result<(), Box<dyn st
 
     assert_eq!(history.receipts.len(), 1);
     assert_eq!(history.receipts[0].id, "hrn_rcpt_revision");
+    Ok(())
+}
+
+#[test]
+fn history_filter_intersects_skill_status_source_artifact_and_date_range()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = TestDir::new()?;
+    let workspace = temp.path().join("workspace");
+    let project_runx_dir = workspace.join(".runx");
+    let store = LocalReceiptStore::new(project_runx_dir.join("receipts"));
+
+    let mut matching = receipt_with_metadata(
+        InvocationStatus::Success,
+        "hrn_rcpt_matching",
+        "2026-05-18T12:00:00Z",
+        "Deploy Skill",
+        "local",
+        "runner-a",
+    )?;
+    set_artifact_label(&mut matching, "deploy-bundle")?;
+    store.write_receipt(&matching)?;
+
+    let mut wrong_artifact = receipt_with_metadata(
+        InvocationStatus::Success,
+        "hrn_rcpt_wrong_artifact",
+        "2026-05-18T12:30:00Z",
+        "Deploy Skill",
+        "local",
+        "runner-a",
+    )?;
+    set_artifact_label(&mut wrong_artifact, "diagnostic-log")?;
+    store.write_receipt(&wrong_artifact)?;
+
+    let mut wrong_source = receipt_with_metadata(
+        InvocationStatus::Success,
+        "hrn_rcpt_wrong_source",
+        "2026-05-18T13:00:00Z",
+        "Deploy Skill",
+        "remote",
+        "runner-a",
+    )?;
+    set_artifact_label(&mut wrong_source, "deploy-bundle")?;
+    store.write_receipt(&wrong_source)?;
+
+    let mut outside_window = receipt_with_metadata(
+        InvocationStatus::Success,
+        "hrn_rcpt_outside_window",
+        "2026-05-19T00:00:01Z",
+        "Deploy Skill",
+        "local",
+        "runner-a",
+    )?;
+    set_artifact_label(&mut outside_window, "deploy-bundle")?;
+    store.write_receipt(&outside_window)?;
+
+    let history = list_local_history(
+        &store,
+        &workspace,
+        &project_runx_dir,
+        &HistoryFilter {
+            skill: Some("deploy".to_owned()),
+            status: Some("CLOSED".to_owned()),
+            source: Some("LOCAL".to_owned()),
+            artifact_type: Some("deploy-bundle".to_owned()),
+            since: Some("2026-05-18T00:00:00Z".to_owned()),
+            until: Some("2026-05-19T00:00:00Z".to_owned()),
+            ..HistoryFilter::default()
+        },
+    )?;
+
+    assert_eq!(
+        history
+            .receipts
+            .iter()
+            .map(|receipt| receipt.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["hrn_rcpt_matching"]
+    );
+    assert_eq!(history.receipts[0].artifact_types, vec!["deploy-bundle"]);
     Ok(())
 }
 
@@ -547,6 +626,41 @@ fn reseal_receipt(receipt: &mut HarnessReceipt) -> Result<(), Box<dyn std::error
         seal.digest = digest.clone();
     }
     receipt.signature.value = format!("sig:{digest}");
+    Ok(())
+}
+
+fn set_artifact_label(
+    receipt: &mut HarnessReceipt,
+    label: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for reference in receipt
+        .harness
+        .artifact_refs
+        .iter_mut()
+        .chain(receipt.seal.artifact_refs.iter_mut())
+        .chain(
+            receipt
+                .harness
+                .acts
+                .iter_mut()
+                .flat_map(|act| act.artifact_refs.iter_mut()),
+        )
+        .chain(
+            receipt
+                .harness
+                .decisions
+                .iter_mut()
+                .flat_map(|decision| decision.artifact_refs.iter_mut()),
+        )
+    {
+        if reference.reference_type == ReferenceType::Artifact {
+            reference.label = Some(label.to_owned());
+        }
+    }
+    if let Some(seal) = receipt.harness.seal.as_mut() {
+        seal.artifact_refs = receipt.seal.artifact_refs.clone();
+    }
+    reseal_receipt(receipt)?;
     Ok(())
 }
 
