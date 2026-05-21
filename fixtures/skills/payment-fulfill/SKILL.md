@@ -1,5 +1,5 @@
 ---
-name: payment-fulfill
+name: pay-fulfill-rail
 description: Deterministically fulfill an approved payment through the fixture rail.
 source:
   type: cli-tool

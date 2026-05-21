@@ -1,4 +1,4 @@
-name: payment-approval
+name: x402-pay-approval
 steps:
   - id: approve-spend
     run:
@@ -119,14 +119,14 @@ steps:
         subset_proof_present: true
         child_harness_ref:
           type: harness
-          uri: runx:harness:payment-execution_fulfill
+          uri: runx:harness:x402-pay-approval_fulfill
         spend_capability_binding:
           child_harness_ref:
             type: harness
-            uri: runx:harness:payment-execution_fulfill
+            uri: runx:harness:x402-pay-approval_fulfill
           act_id: act_fulfill
           reservation_decision_id: decision_payment_reservation
-          idempotency_key: payment:payment-execution-001
+          idempotency_key: payment:x402-pay-approval-001
           amount_minor: 125
           currency: USD
           counterparty: merchant-123
@@ -136,7 +136,7 @@ steps:
         type: credential
         uri: runx:payment-capability:spend-1
       idempotency:
-        key: payment:payment-execution-001
+        key: payment:x402-pay-approval-001
 policy:
   transitions:
     - to: fulfill

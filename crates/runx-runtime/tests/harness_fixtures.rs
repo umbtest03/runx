@@ -203,17 +203,17 @@ fn replays_payment_approval_graph_fixture_with_rail_proof() -> Result<(), Box<dy
     assert_eq!(output.status, HarnessExpectedStatus::Sealed);
     assert_eq!(
         output.receipt.harness.harness_id,
-        "hrn_payment-approval_graph"
+        "hrn_x402-pay-approval_graph"
     );
     assert_eq!(output.receipt.seal.disposition, ClosureDisposition::Closed);
     assert_eq!(output.step_receipts.len(), 2);
     assert_eq!(
         output.step_receipts[0].harness.harness_id,
-        "hrn_payment-approval_approve-spend"
+        "hrn_x402-pay-approval_approve-spend"
     );
     assert_eq!(
         output.step_receipts[1].harness.harness_id,
-        "hrn_payment-approval_fulfill"
+        "hrn_x402-pay-approval_fulfill"
     );
     let fulfill_act =
         output.step_receipts[1]
@@ -229,7 +229,7 @@ fn replays_payment_approval_graph_fixture_with_rail_proof() -> Result<(), Box<dy
             .iter()
             .map(|reference| reference.uri.as_str())
             .collect::<Vec<_>>(),
-        vec!["receipt-proof:mock:payment-execution-001"]
+        vec!["receipt-proof:mock:x402-pay-approval-001"]
     );
     Ok(())
 }
@@ -242,14 +242,14 @@ fn replays_payment_denied_graph_fixture_as_policy_denied() -> Result<(), Box<dyn
     assert_eq!(output.status, HarnessExpectedStatus::PolicyDenied);
     assert_eq!(
         output.receipt.harness.harness_id,
-        "hrn_payment-approval_graph"
+        "hrn_x402-pay-approval_graph"
     );
     assert_eq!(output.receipt.seal.disposition, ClosureDisposition::Blocked);
     assert_eq!(output.receipt.seal.reason_code, "graph_blocked");
     assert_eq!(output.step_receipts.len(), 1);
     assert_eq!(
         output.step_receipts[0].harness.harness_id,
-        "hrn_payment-approval_approve-spend"
+        "hrn_x402-pay-approval_approve-spend"
     );
     Ok(())
 }
@@ -322,8 +322,8 @@ impl SkillAdapter for TestAdapter {
     }
 
     fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, runx_runtime::RuntimeError> {
-        let stdout = if request.skill_name == "payment-fulfill" {
-            r#"{"payment_rail_packet":{"data":{"rail_result":{"status":"fulfilled","rail":"mock","amount_minor":125,"currency":"USD"},"rail_proof":{"proof_ref":"receipt-proof:mock:payment-execution-001","idempotency_key":"payment:payment-execution-001"},"credential_envelope":{"form":"paid_tool_credential","credential_ref":"credential:mock:payment-execution-001"}}}}"#.to_owned()
+        let stdout = if request.skill_name == "pay-fulfill-rail" {
+            r#"{"payment_rail_packet":{"data":{"rail_result":{"status":"fulfilled","rail":"mock","amount_minor":125,"currency":"USD"},"rail_proof":{"proof_ref":"receipt-proof:mock:x402-pay-approval-001","idempotency_key":"payment:x402-pay-approval-001"},"credential_envelope":{"form":"paid_tool_credential","credential_ref":"credential:mock:x402-pay-approval-001"}}}}"#.to_owned()
         } else {
             request
                 .inputs
