@@ -366,7 +366,7 @@ fn require_source_thread_metadata(
 
 fn public_reply_body(projection: &PostMergeObserverPublicationProjection) -> String {
     sanitize_public_text(&format!(
-        "Post-merge observer: {}. Closure: {}. Verification: {}. Proof: {}. Receipt: {}.",
+        "Post-merge observer: {}. Review gate: external_human. Closure: {}. Verification: {}. Proof: {}. Next: {}. Receipt: {}.",
         projection.summary,
         projection.reason_code,
         projection
@@ -374,8 +374,23 @@ fn public_reply_body(projection: &PostMergeObserverPublicationProjection) -> Str
             .as_deref()
             .unwrap_or("not_required"),
         projection.proof_criterion_id,
+        next_human_action(projection),
         projection.harness_receipt_ref.uri
     ))
+}
+
+fn next_human_action(projection: &PostMergeObserverPublicationProjection) -> &'static str {
+    if projection.close_authorized
+        && projection.source_issue_disposition == PostMergeSourceIssueDisposition::Close
+    {
+        return "none";
+    }
+    match projection.reason_code.as_str() {
+        "failed_verification" => "review_failed_verification",
+        "merged_pending_verification" => "wait_for_verification",
+        "closed_unmerged" => "review_source_issue",
+        _ => "review_source_issue",
+    }
 }
 
 fn sanitize_public_text(text: &str) -> String {

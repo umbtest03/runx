@@ -522,11 +522,27 @@ fn source_publication_receipt_metadata(
     source_issue_ref: Option<&Reference>,
     source_thread_ref: &Reference,
 ) -> JsonObject {
+    let disposition = if plan.dedupe.result == TargetRepoRunnerDedupeResult::Reused {
+        TargetRepoRunnerPullRequestDisposition::Reuse
+    } else {
+        TargetRepoRunnerPullRequestDisposition::Create
+    };
     let mut metadata = JsonObject::new();
     metadata.insert("target_repo".to_owned(), string(plan.target.repo.clone()));
     metadata.insert(
         "target_pull_request_url".to_owned(),
         string(pull_request_ref.uri.clone()),
+    );
+    metadata.insert(
+        "dedupe".to_owned(),
+        JsonValue::Object(dedupe_receipt_metadata(&plan.dedupe, disposition)),
+    );
+    metadata.insert(
+        "disposition".to_owned(),
+        static_string(match disposition {
+            TargetRepoRunnerPullRequestDisposition::Create => "created",
+            TargetRepoRunnerPullRequestDisposition::Reuse => "reused",
+        }),
     );
     metadata.insert(
         "source".to_owned(),

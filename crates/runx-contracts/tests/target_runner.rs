@@ -474,7 +474,17 @@ fn created_pull_request_receipt_metadata_records_created_dedupe_result()
 fn source_publication_receipt_carries_original_thread_and_target_pr()
 -> Result<(), Box<dyn std::error::Error>> {
     let policy: OperationalPolicy = serde_json::from_str(NITROSEND_LIKE)?;
-    let plan = plan_target_repo_runner(&policy, &nitrosend_request("nitrosend/api", None))?;
+    let plan = plan_target_repo_runner(
+        &policy,
+        &nitrosend_request(
+            "nitrosend/api",
+            Some(TargetRepoRunnerExistingPullRequest {
+                url: "https://github.com/nitrosend/api/pull/144".to_owned(),
+                number: Some(144),
+                branch: Some("runx/source-482".to_owned()),
+            }),
+        ),
+    )?;
     let publication = plan_target_repo_runner_source_publication_receipt(
         &plan,
         &TargetRepoRunnerExistingPullRequest {
@@ -508,6 +518,22 @@ fn source_publication_receipt_carries_original_thread_and_target_pr()
         Some(&JsonValue::String(
             "https://github.com/nitrosend/api/pull/144".to_owned()
         ))
+    );
+    assert_eq!(
+        nested_string(&publication.metadata, &["dedupe", "strategy"]),
+        Some("source_fingerprint")
+    );
+    assert_eq!(
+        nested_string(&publication.metadata, &["dedupe", "key"]),
+        Some(plan.dedupe.key.as_str())
+    );
+    assert_eq!(
+        nested_string(&publication.metadata, &["dedupe", "result"]),
+        Some("reused")
+    );
+    assert_eq!(
+        publication.metadata.get("disposition"),
+        Some(&JsonValue::String("reused".to_owned()))
     );
     Ok(())
 }
