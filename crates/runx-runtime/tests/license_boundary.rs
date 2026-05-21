@@ -104,11 +104,11 @@ fn license_boundary_guard_rejects_private_dependency_edge_fixture()
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()?;
-    child
+    let stdin = child
         .stdin
         .as_mut()
-        .expect("edge check stdin should be piped")
-        .write_all(metadata.as_bytes())?;
+        .ok_or("edge check stdin should be piped")?;
+    stdin.write_all(metadata.as_bytes())?;
     let output = child.wait_with_output()?;
 
     let _ = fs::remove_dir_all(&temp_dir);

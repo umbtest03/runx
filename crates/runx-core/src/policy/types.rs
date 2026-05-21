@@ -100,6 +100,10 @@ pub struct LocalScopeAdmissionOptions {
     pub denied_before_grant_resolution: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub connected_auth_checked_at: Option<String>,
+    /// Honor a universal `*` grant scope. Defaults to `false` (fail closed):
+    /// only a trusted caller resolving first-party grants may set this true.
+    #[serde(default)]
+    pub wildcard_scopes_trusted: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: thread-outbox-provider-protocol-v1
 created: '2026-05-22T01:16:00+10:00'
-updated: '2026-05-21T16:52:24Z'
-status: review
+updated: '2026-05-21T17:28:27Z'
+status: completed
 harden_status: not_run
 size: large
 risk_level: high
@@ -13,14 +13,14 @@ risk_level: high
 
 ## Current State
 
-Status: review
+Status: completed
 Current phase: final
-Next: review
-Reason: build completed; ready for review
+Next: done
+Reason: task completed
 Blockers: none
-Allowed follow-up command: `scafld review thread-outbox-provider-protocol-v1`
-Latest runner update: 2026-05-21T16:52:24Z
-Review gate: not_started
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-21T17:28:27Z
+Review gate: pass
 
 ## Summary
 
@@ -120,11 +120,11 @@ Definition of done:
   the blocker.
 - [x] `dod3` Provider push/fetch/readback frames are defined in
   `runx-contracts` and generated TypeScript contracts.
-- [ ] `dod4` Provider adapters consume `credential-broker-delivery-contract-v1`
+- [x] `dod4` Provider adapters consume `credential-broker-delivery-contract-v1`
   and reject private secret fields.
-- [ ] `dod5` Idempotent provider mutation and readback receipt tests exist for
+- [x] `dod5` Idempotent provider mutation and readback receipt tests exist for
   at least one provider fixture.
-- [ ] `dod6` Runtime-local/adapters sunset can point provider outbox work at
+- [x] `dod6` Runtime-local/adapters sunset can point provider outbox work at
   this protocol without preserving a TypeScript mutation fallback.
 
 Validation:
@@ -171,6 +171,24 @@ Validation:
   - Evidence: 2026-05-22T02:25:21+10:00 passed 5 tests and mapped all
     `fixtures/contracts/thread-outbox-provider/*.json` payloads to generated
     provider schemas.
+- [x] `v7` Rust runtime supervisor invokes the provider fixture and proves
+  credential/redaction/idempotency/readback behavior.
+  - Command:
+    `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test thread_outbox_provider -- --nocapture`
+  - Expected kind: `exit_code_zero`
+  - Status: passed
+  - Evidence: 2026-05-22T03:45:00+10:00 passed 6 tests covering supervisor
+    invocation, process-only transport rejection, secret-field rejection,
+    credential redaction in stderr and observation errors, idempotent push
+    created/replayed states, delivery-observation injection, and fetch/readback
+    receipt shaping.
+- [x] `v8` Provider runtime lane has no TypeScript runtime-local/adapters
+  fallback import.
+  - Command:
+    `! rg -n "@runxhq/(core|runtime-local|adapters)|packages/(runtime-local|adapters)" crates/runx-runtime/src/outbox_provider.rs crates/runx-runtime/tests/thread_outbox_provider.rs fixtures/runtime/thread-outbox-provider`
+  - Expected kind: `no_matches`
+  - Status: passed
+  - Evidence: 2026-05-22T03:26:51+10:00 returned no matches.
 
 ## Phase 1: Boundary
 
@@ -237,27 +255,48 @@ Negative contract rules:
 Status: completed
 Dependencies: Phase 2
 
-Objective: Complete this phase.
+Objective: Implement one Rust-supervised provider process fixture without live
+provider network mutation.
 
 Changes:
 - Add a narrow Rust `ThreadOutboxProviderProcessSupervisor` that is not a `SkillAdapter` and is not `ExternalAdapterProcessSupervisor`.
-- Invoke provider adapters with a strict process protocol: `ThreadOutboxProviderFetch` JSON frame; protocol version, and manifest-supported operation before accepting output.
+- Invoke provider adapters with a strict process protocol:
+  - stdin receives exactly one `ThreadOutboxProviderPush` or
+    `ThreadOutboxProviderFetch` JSON frame.
+  - stdout emits exactly one `ThreadOutboxProviderObservation` JSON frame.
+  - stderr is diagnostic only and must be redacted before any receipt projection.
 - Define timeout, output-size, cwd, command/args, and cancellation defaults in the supervisor rather than leaving provider fixtures to invent them.
+- Deliver credentials only through the shared Rust `CredentialDelivery`
+  primitive, using the declared environment delivery contract and the runtime
+  allowlist.
+- Validate adapter id, provider, operation, request id, protocol version, and
+  manifest-supported operation before accepting output.
 - Reject raw secret-like fields and redact credential material from stdout, stderr, metadata, errors, and observations before any receipt projection.
 - Add one provider fixture adapter under Rust supervision.
 - Prove idempotent push and readback receipt shaping.
 - Prove secrets are redacted from observations and receipts.
-- `crates/runx-runtime/src/outbox_provider.rs` or `crates/runx-runtime/src/adapters/thread_outbox_provider.rs`
-- `crates/runx-runtime/src/lib.rs`
-- `crates/runx-runtime/tests/thread_outbox_provider.rs`
-- `fixtures/runtime/thread-outbox-provider/**`
-- this spec evidence fields
-- No live GitHub, Slack, or support-channel network mutation.
-- No reuse of `external-adapter-plugin-protocol-v1` as a provider queue.
-- No `@runxhq/core`, `@runxhq/runtime-local`, or `@runxhq/adapters` provider mutation fallback.
+- Buildable write set:
+  - [x] `crates/runx-runtime/src/outbox_provider.rs`
+  - [x] `crates/runx-runtime/src/lib.rs`
+  - [x] `crates/runx-runtime/tests/thread_outbox_provider.rs`
+  - [x] `fixtures/runtime/thread-outbox-provider/mock-provider.sh`
+  - [x] this spec evidence fields
+- Non-goals:
+  - No live GitHub, Slack, or support-channel network mutation.
+  - No reuse of `external-adapter-plugin-protocol-v1` as a provider queue.
+  - No `@runxhq/core`, `@runxhq/runtime-local`, or `@runxhq/adapters`
+    provider mutation fallback.
 
 Acceptance:
-- none
+- [x] `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test thread_outbox_provider -- --nocapture`
+  exits zero and covers supervisor invocation, HTTP-transport rejection,
+  secret-field rejection, credential redaction in stdout/stderr/observations,
+  idempotent push, and readback receipt shaping.
+- [x] The Rust source, test, and fixture paths named in the buildable write set
+  exist, and the supervisor is exported or otherwise reachable from
+  `crates/runx-runtime/src/lib.rs`.
+- [x] Strict DoD items `dod4`, `dod5`, and `dod6` are checked only after that
+  validation exists.
 
 ## Rollback
 
@@ -268,13 +307,25 @@ or `@runxhq/adapters` as a trusted provider mutation fallback.
 
 ## Review
 
-Review must reject any implementation that:
-- accepts raw provider tokens in public outbox frames;
-- mutates real providers from `@runxhq/core` or another surviving TypeScript
-  helper without Rust supervision;
-- treats external execution adapters as the outbox provider protocol;
-- publishes to a fallback root channel/thread when source-thread routing is
-  missing.
+Status: completed
+Verdict: pass
+Mode: verify
+Provider: command
+Output: command.stdout
+Summary: Command-provider verification pass. Rechecked thread-outbox-provider-protocol-v1 after Phase 3 implementation: the dedicated Rust ThreadOutboxProviderProcessSupervisor exists under runx-runtime, is exported from lib.rs, is not a SkillAdapter or ExternalAdapterProcessSupervisor, invokes process-only provider fixtures over stdin/stdout, injects CredentialDelivery env values, rejects HTTP endpoint transport and secret-like response fields, redacts credential material from stderr and parsed observations, and validates adapter/provider/operation/request identity. Runtime fixture tests prove idempotent push created/replayed states and fetch/readback receipt shaping. Strict DoD dod4-dod6 and v7 evidence are now checked. No completion blockers found.
+
+Attack log:
+- `Phase 3 source paths`: verify crates/runx-runtime/src/outbox_provider.rs, lib export, runtime test, and fixtures/runtime/thread-outbox-provider/mock-provider.sh exist -> clean
+- `process supervisor separation`: inspect that ThreadOutboxProviderProcessSupervisor is a dedicated module and not a SkillAdapter or ExternalAdapterProcessSupervisor reuse -> clean
+- `credential delivery`: run runtime fixture with CredentialDelivery env injection and public observation insertion -> clean
+- `secret-field rejection`: run fixture that emits access_token in observation and expect SecretFieldRejected -> clean
+- `redaction`: run fixture that leaks credential in stderr and observation error text and assert redacted output -> clean
+- `idempotency`: run push fixture for created and replayed idempotency states -> clean
+- `readback`: run fetch fixture and assert readback summary plus provider event hash -> clean
+- `transport boundary`: mutate manifest endpoint to HTTP-like transport and expect UnsupportedTransport -> clean
+
+Findings:
+- none
 
 ## Origin
 

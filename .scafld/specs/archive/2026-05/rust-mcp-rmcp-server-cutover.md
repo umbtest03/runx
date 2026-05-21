@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-mcp-rmcp-server-cutover
 created: '2026-05-21T12:12:00Z'
-updated: '2026-05-21T16:42:54Z'
+updated: '2026-05-21T17:30:52Z'
 status: completed
 harden_status: passed
 size: large
@@ -20,6 +20,15 @@ Reason: task completed
 Blockers: none in the MCP write set.
 Allowed follow-up command: `none`
 Latest runner update: 2026-05-21T16:42:54Z
+Post-cutover dogfood update: 2026-05-21T17:30:52Z added an actual
+`runx mcp serve` binary dogfood test, multi-call streaming stress coverage,
+and malformed mid-session transport failure coverage. Dogfood found and fixed
+two real runtime-boundary issues: the server used a blocking read inside an
+async poll path, which starved live streaming sessions, and post-initialize
+transport errors could be reported as clean shutdowns. The native CLI now
+passes an explicit `RUNX_CWD` workspace boundary into MCP execution, and MCP
+server skill refs are canonicalized before sandbox planning so relative CLI
+refs cannot produce relative sandbox cwd artifacts.
 Review gate: pass
 
 ## Summary
@@ -119,7 +128,14 @@ Policy surfaces:
 `runx-runtime` exposes one MCP feature:
 
 ```toml
-mcp = ["dep:rmcp", "dep:tokio", "tokio/process", "tokio/io-util", "tokio/sync"]
+mcp = [
+  "dep:rmcp",
+  "dep:tokio",
+  "tokio/process",
+  "tokio/io-util",
+  "tokio/sync",
+  "tokio/rt-multi-thread"
+]
 ```
 
 The old staging feature is gone. The crate graph script enforces this exact
@@ -149,9 +165,11 @@ Runx owns:
 `serve_mcp_json_rpc` delegates to an rmcp server over
 `RmcpContentLengthTransport`.
 
-The server path uses blocking async read/write wrappers around owned stdio
-handles, so `runx mcp serve` can stream responses without waiting for stdin
-EOF.
+The server path uses a channel-backed async reader over owned stdio handles, so
+`runx mcp serve` can stream responses without blocking the Tokio executor or
+waiting for stdin EOF. The adapter uses a small hidden multi-thread Tokio
+runtime so the rmcp server task and stdin reader can make progress during real
+binary dogfood sessions.
 
 ### Client lifecycle
 
@@ -183,6 +201,11 @@ normalize harmless rmcp serializer differences such as absent/default
 - `ProcessMcpTransport` is backed by rmcp protocol dispatch.
 - The shared Content-Length transport tests pass under `--features mcp`.
 - MCP server and adapter tests pass under `--features mcp`.
+- A native `runx mcp serve` binary dogfood test streams initialize,
+  `tools/list`, multiple `tools/call` requests, and verifies sealed harness
+  receipt files.
+- A native `runx mcp serve` malformed mid-session frame test fails closed and
+  reports the recorded transport diagnostic.
 - `scripts/check-rust-crate-graph.mjs` passes and prevents rmcp/tokio from
   entering pure crates or `runx-cli`.
 - `cargo clippy -p runx-runtime --all-targets --features mcp -- -D warnings`
@@ -207,6 +230,34 @@ Validation completed during the cutover:
 - `cargo deny --manifest-path crates/Cargo.toml check` passed advisories,
   bans, licenses, and sources.
 - `scafld validate rust-mcp-rmcp-server-cutover --json` passed.
+- `git diff --check` passed.
+
+Post-cutover dogfood/stress validation completed after the initial cutover:
+
+- `cargo test --manifest-path crates/Cargo.toml -p runx-cli --test mcp_dogfood -- --nocapture`
+  passed 2 tests. This spawns the native `runx` binary, speaks Content-Length
+  MCP over stdin/stdout, streams six real `tools/call` invocations through the
+  `mcp-echo` skill, verifies completed structured content, and checks each
+  written receipt has schema `runx.harness_receipt.v1`, sealed harness state,
+  and a seal.
+- `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features mcp --test mcp_server -- --nocapture`
+  passed 15 tests, including a 96-call single-session streaming stress test
+  and a mid-session malformed-frame diagnostic test.
+- `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features mcp --test mcp_adapter -- --nocapture`
+  passed 11 tests.
+- `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features mcp --lib rmcp_transport_tests -- --nocapture`
+  passed 4 transport tests.
+- `cargo test --manifest-path crates/Cargo.toml -p runx-core policy -- --nocapture`
+  passed the policy unit, fixture, and proptest-filtered surfaces after the
+  authority wildcard call-site drift was repaired.
+- `cargo clippy --manifest-path crates/Cargo.toml -p runx-runtime --all-targets --features mcp -- -D warnings`
+  passed.
+- `cargo clippy --manifest-path crates/Cargo.toml -p runx-cli --all-targets -- -D warnings`
+  passed.
+- `cargo deny --manifest-path crates/Cargo.toml check` passed advisories,
+  bans, licenses, and sources.
+- `node scripts/check-rust-crate-graph.mjs` passed.
+- `cargo fmt --manifest-path crates/Cargo.toml --all -- --check` passed.
 - `git diff --check` passed.
 
 ## References

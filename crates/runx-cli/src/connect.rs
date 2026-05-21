@@ -18,6 +18,10 @@ pub fn parse_connect_plan(args: &[OsString]) -> Result<ConnectPlan, String> {
             .ok_or_else(|| "connect arguments must be UTF-8".to_owned())?;
         if token == "--json" {
             json = true;
+        } else {
+            return Err(format!(
+                "unknown runx connect argument: {token}; expected only --json"
+            ));
         }
     }
 

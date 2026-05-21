@@ -475,6 +475,16 @@ fn minor_unit_caps_subset(
         return false;
     }
 
+    // Spend-class authority must be bounded in aggregate, not only per call: a
+    // per-call cap with no per-run/per-period cap permits unbounded total spend
+    // (per-call x unlimited calls). Require at least one aggregate cap on both
+    // the requested child and the granting parent.
+    if payment_authority_spends(child)
+        && (!has_aggregate_minor_cap(child_payment) || !has_aggregate_minor_cap(parent_payment))
+    {
+        return false;
+    }
+
     optional_cap_subset(
         child_payment.max_per_call_minor,
         parent_payment.max_per_call_minor,
@@ -485,6 +495,10 @@ fn minor_unit_caps_subset(
         child_payment.max_per_period_minor,
         parent_payment.max_per_period_minor,
     )
+}
+
+fn has_aggregate_minor_cap(payment: &PaymentAuthorityBounds) -> bool {
+    payment.max_per_run_minor.is_some() || payment.max_per_period_minor.is_some()
 }
 
 fn uses_minor_units(term: &AuthorityTerm) -> bool {

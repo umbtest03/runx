@@ -27,7 +27,7 @@ fn main() -> ExitCode {
         LauncherAction::RunHistory(plan) => run_native_history(plan.args),
         LauncherAction::RunList(plan) => run_native_list(plan),
         LauncherAction::RunMcp(plan) => runx_cli::mcp::run_native_mcp(plan),
-        LauncherAction::RunHarness(plan) => run_native_harness(PathBuf::from(plan.fixture_path)),
+        LauncherAction::RunHarness(plan) => run_native_harness(plan.fixture_paths),
         LauncherAction::RunKernel(plan) => runx_cli::kernel::run_native_kernel(plan),
         LauncherAction::RunConnect(plan) => run_native_connect(plan),
         LauncherAction::RunConfig(plan) => run_native_config(plan),
@@ -115,22 +115,34 @@ fn run_native_config(plan: runx_cli::config::ConfigPlan) -> ExitCode {
     }
 }
 
-fn run_native_harness(fixture_path: PathBuf) -> ExitCode {
-    let request = runx_runtime::HarnessRunRequest { fixture_path };
-    match LocalOrchestrator.run_harness(&request) {
-        Ok(output) => match serde_json::to_string_pretty(&output.output) {
-            Ok(json) => write_stdout_line(&json),
+fn run_native_harness(fixture_paths: Vec<OsString>) -> ExitCode {
+    let mut outputs = Vec::new();
+    for fixture_path in fixture_paths {
+        let request = runx_runtime::HarnessRunRequest {
+            fixture_path: PathBuf::from(fixture_path),
+        };
+        match LocalOrchestrator.run_harness(&request) {
+            Ok(output) => outputs.push(output.output),
             Err(error) => {
                 let _ignored = write_stderr_line(&format!(
-                    "runx: failed to serialize harness receipt: {error}"
+                    "runx: native harness replay failed for {}: {error}",
+                    request.fixture_path.display()
                 ));
-                ExitCode::from(1)
+                return ExitCode::from(1);
             }
-        },
+        }
+    }
+
+    let output = if outputs.len() == 1 {
+        outputs.pop().unwrap_or(runx_contracts::JsonValue::Null)
+    } else {
+        runx_contracts::JsonValue::Array(outputs)
+    };
+    match serde_json::to_string_pretty(&output) {
+        Ok(json) => write_stdout_line(&json),
         Err(error) => {
             let _ignored = write_stderr_line(&format!(
-                "runx: native harness replay failed for {}: {error}",
-                request.fixture_path.display()
+                "runx: failed to serialize harness receipt: {error}"
             ));
             ExitCode::from(1)
         }

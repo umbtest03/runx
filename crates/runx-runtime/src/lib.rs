@@ -17,6 +17,7 @@ pub mod execution;
 pub mod host;
 pub mod journal;
 pub mod list;
+pub mod outbox_provider;
 pub mod payment_ledger;
 pub mod payment_packets;
 pub mod payment_state;
@@ -83,6 +84,11 @@ pub use list::{
 pub use orchestrator::{
     GraphRunRequest, HarnessRunRequest, LocalOrchestrator, OrchestratorError, RunContinuation,
     RunRequest, RunResult, RunStatus, SkillRunRequest,
+};
+pub use outbox_provider::{
+    ThreadOutboxProviderProcessOutcome, ThreadOutboxProviderProcessSupervisor,
+    ThreadOutboxProviderSupervisorError, ThreadOutboxProviderSupervisorOptions,
+    thread_outbox_provider_forbidden_secret_fields,
 };
 pub use receipts::paths::{
     INIT_CWD_ENV, RUNTIME_RECEIPTS_DIR_CONFIG_KEY, RUNX_CWD_ENV, RUNX_PROJECT_DIR_ENV,

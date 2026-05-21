@@ -208,6 +208,12 @@ const FIXTURES: &[(&str, &str)] = &[
         ),
     ),
     (
+        "payment-authority-denies-unbounded-aggregate-spend",
+        include_str!(
+            "../../../fixtures/kernel/policy/payment-authority-denies-unbounded-aggregate-spend.json"
+        ),
+    ),
+    (
         "public-work-blocks-dependency-bot-pr",
         include_str!("../../../fixtures/kernel/policy/public-work-blocks-dependency-bot-pr.json"),
     ),

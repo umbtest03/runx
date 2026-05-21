@@ -61,8 +61,8 @@ fn mcp_server_preserves_recorded_stdio_semantics() -> Result<(), Box<dyn std::er
 
         assert_content_length_framing(&output)?;
         assert_eq!(
-            normalize_fixture_messages(parse_frames(&output)?),
-            normalize_fixture_messages(parse_frames(&expected)?),
+            normalize_fixture_messages(sort_responses_by_id(parse_frames(&output)?)),
+            normalize_fixture_messages(sort_responses_by_id(parse_frames(&expected)?)),
             "{fixture_name} MCP stdio semantics changed"
         );
     }
@@ -118,6 +118,56 @@ fn mcp_server_replays_recorded_basic_lifecycle_fixture() -> Result<(), Box<dyn s
         path(&responses[2], &["result", "content", "0", "text"]),
         Some(&JsonValue::String("hello from server".to_owned()))
     );
+    Ok(())
+}
+
+#[test]
+fn mcp_server_handles_many_calls_in_one_streaming_session() -> Result<(), Box<dyn std::error::Error>>
+{
+    let mut requests = vec![
+        rmcp_initialize_request(1),
+        initialized_notification(),
+        request(2, "tools/list", JsonObject::new()),
+    ];
+    for index in 0..96 {
+        requests.push(request(
+            100 + index,
+            "tools/call",
+            [
+                ("name".to_owned(), JsonValue::String("echo".to_owned())),
+                (
+                    "arguments".to_owned(),
+                    JsonValue::Object(
+                        [(
+                            "index".to_owned(),
+                            JsonValue::Number(runx_contracts::JsonNumber::I64(index)),
+                        )]
+                        .into(),
+                    ),
+                ),
+            ]
+            .into(),
+        ));
+    }
+
+    let responses = run_server(requests)?;
+
+    assert_eq!(responses.len(), 98);
+    assert_eq!(
+        path(&responses[0], &["result", "protocolVersion"]),
+        Some(&JsonValue::String("2025-06-18".to_owned()))
+    );
+    assert_eq!(
+        path(&responses[1], &["result", "tools", "0", "name"]),
+        Some(&JsonValue::String("echo".to_owned()))
+    );
+    for response in responses.iter().skip(2) {
+        assert_no_json_rpc_error(response);
+        assert_eq!(
+            path(response, &["result", "content", "0", "text"]),
+            Some(&JsonValue::String("hello from server".to_owned()))
+        );
+    }
     Ok(())
 }
 
@@ -425,6 +475,31 @@ fn mcp_server_parse_error_is_transport_error() -> Result<(), Box<dyn std::error:
 }
 
 #[test]
+#[cfg(feature = "mcp")]
+fn mcp_server_mid_session_transport_error_keeps_recorded_diagnostic()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut input = [
+        frame(&rmcp_initialize_request(1))?,
+        frame(&initialized_notification())?,
+    ]
+    .concat();
+    input.extend_from_slice(b"Content-Length: 1\r\n\r\n{");
+
+    let error = match run_raw(input) {
+        Ok(_) => return Err("mid-session malformed JSON fails at the transport boundary".into()),
+        Err(error) => error,
+    };
+
+    assert!(
+        error
+            .to_string()
+            .contains("MCP rmcp server task failed: EOF while parsing an object"),
+        "{error}"
+    );
+    Ok(())
+}
+
+#[test]
 fn mcp_server_host_result_conversion_covers_terminal_statuses() {
     let completed = mcp_tool_result_from_host_result(McpHostRunResult::Completed {
         skill_name: "echo".to_owned(),
@@ -509,7 +584,9 @@ fn run_raw_with_options(
     input: Vec<u8>,
     options: McpServerOptions,
 ) -> Result<Vec<JsonValue>, Box<dyn std::error::Error>> {
-    parse_frames(&run_raw_output_with_options(input, options)?)
+    Ok(sort_responses_by_id(parse_frames(
+        &run_raw_output_with_options(input, options)?,
+    )?))
 }
 
 fn run_raw_output_with_options(
@@ -752,6 +829,19 @@ fn assert_content_length_framing(mut bytes: &[u8]) -> Result<(), Box<dyn std::er
 
 fn normalize_fixture_messages(messages: Vec<JsonValue>) -> Vec<JsonValue> {
     messages.into_iter().map(normalize_fixture_value).collect()
+}
+
+fn sort_responses_by_id(mut messages: Vec<JsonValue>) -> Vec<JsonValue> {
+    messages.sort_by_key(response_sort_key);
+    messages
+}
+
+fn response_sort_key(message: &JsonValue) -> i128 {
+    match path(message, &["id"]) {
+        Some(JsonValue::Number(runx_contracts::JsonNumber::I64(value))) => i128::from(*value),
+        Some(JsonValue::Number(runx_contracts::JsonNumber::U64(value))) => i128::from(*value),
+        _ => i128::MAX,
+    }
 }
 
 fn normalize_fixture_value(value: JsonValue) -> JsonValue {

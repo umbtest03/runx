@@ -1,8 +1,7 @@
-import { execFile as execFileCallback } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
 
 import { Type } from "@sinclair/typebox";
 import { validateExternalAdapterResponseContract } from "@runxhq/contracts";
@@ -24,7 +23,6 @@ import {
   stringInput,
 } from "./index.js";
 
-const execFile = promisify(execFileCallback);
 const externalAdapterConformanceRoot = path.join(process.cwd(), "fixtures", "external-adapter-conformance");
 const externalAdapterInvocationPath = path.join(externalAdapterConformanceRoot, "invocation.json");
 
@@ -215,25 +213,42 @@ describe("@runxhq/authoring", () => {
     });
   });
 
-  it("validates a non-TypeScript adapter response from the same conformance invocation fixture", async () => {
-    const { stdout } = await execFile("python3", [
-      path.join(externalAdapterConformanceRoot, "python_echo_adapter.py"),
-      externalAdapterInvocationPath,
-    ]);
-    const response = validateExternalAdapterResponseContract(JSON.parse(stdout));
-
-    expect(response).toMatchObject({
-      schema: "runx.external_adapter.response.v1",
-      protocol_version: "runx.external_adapter.v1",
-      invocation_id: "external_inv_conformance_001",
-      adapter_id: "adapter.conformance.echo",
-      status: "completed",
-      output: {
-        adapter_language: "python",
-        message: "hello from fixture",
-        count: 2,
+  it("runs sample adapters over the process stdin/stdout wire protocol", async () => {
+    const invocationJson = await readFile(externalAdapterInvocationPath, "utf8");
+    const adapters = [
+      {
+        language: "typescript",
+        command: "pnpm",
+        args: [
+          "exec",
+          "tsx",
+          path.join(externalAdapterConformanceRoot, "typescript_echo_adapter.ts"),
+        ],
       },
-    });
+      {
+        language: "python",
+        command: "python3",
+        args: [path.join(externalAdapterConformanceRoot, "python_echo_adapter.py")],
+      },
+    ] as const;
+
+    for (const adapter of adapters) {
+      const stdout = await runExternalAdapterProcess(adapter.command, adapter.args, invocationJson);
+      const response = validateExternalAdapterResponseContract(JSON.parse(stdout));
+
+      expect(response).toMatchObject({
+        schema: "runx.external_adapter.response.v1",
+        protocol_version: "runx.external_adapter.v1",
+        invocation_id: "external_inv_conformance_001",
+        adapter_id: "adapter.conformance.echo",
+        status: "completed",
+        output: {
+          adapter_language: adapter.language,
+          message: "hello from fixture",
+          count: 2,
+        },
+      });
+    }
   });
 
   it("fails closed when a prebuilt adapter response changes invocation identity", async () => {
@@ -273,3 +288,37 @@ describe("@runxhq/authoring", () => {
     }
   });
 });
+
+async function runExternalAdapterProcess(
+  command: string,
+  args: readonly string[],
+  invocationJson: string,
+): Promise<string> {
+  const child = spawn(command, [...args], {
+    cwd: process.cwd(),
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk: string) => {
+    stdout += chunk;
+  });
+  child.stderr.on("data", (chunk: string) => {
+    stderr += chunk;
+  });
+
+  const closed = new Promise<string>((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve(stdout);
+        return;
+      }
+      reject(new Error(`${command} exited ${code ?? "without status"}: ${stderr}`));
+    });
+  });
+  child.stdin.end(invocationJson.endsWith("\n") ? invocationJson : `${invocationJson}\n`);
+  return closed;
+}

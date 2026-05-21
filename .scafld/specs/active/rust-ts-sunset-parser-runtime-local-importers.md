@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-ts-sunset-parser-runtime-local-importers
 created: '2026-05-22T00:26:00+10:00'
-updated: '2026-05-22T01:36:00+10:00'
+updated: '2026-05-22T03:22:00+10:00'
 status: active
 harden_status: not_run
 size: small
@@ -26,9 +26,10 @@ Blockers: replacement Rust/contract parser ingress must be identified for each
 full skill, graph, runner manifest, tool manifest, install, and reflect-policy
 value importer before production imports move.
 Allowed follow-up command: `scafld validate rust-ts-sunset-parser-runtime-local-importers --json`
-Latest runner update: 2026-05-22T01:36:00+10:00 promoted the executed child
-spec from drafts to active and revalidated the current importer census. The
-remaining parser value importers are explicit blockers, not hidden work.
+Latest runner update: 2026-05-22T03:22:00+10:00 revalidated the active child
+spec, refreshed the parser importer census, and reran the focused migrated
+runtime-local importer tests. The remaining parser value importers are explicit
+blockers, not hidden work.
 Review gate: partial_migration_recorded; remaining_importers_blocked
 
 ## Summary
@@ -186,7 +187,8 @@ Validation:
   - Command: `scafld validate rust-ts-sunset-parser-runtime-local-importers --json`
   - Expected kind: `exit_code_zero`
   - Status: passed
-  - Evidence: returned `{"ok":true,...,"valid":true}`.
+  - Evidence: 2026-05-22T03:21:00+10:00 returned
+    `{"ok":true,...,"valid":true}`.
 - [ ] `v2` Runtime-local parser direct-import census.
   - Command: `rg -n "@runxhq/core/parser" packages/runtime-local/src --glob '!packages/core/src/parser/**'`
   - Expected kind: `no_matches`
@@ -195,24 +197,20 @@ Validation:
     `runner-local/execution-targets.ts`, `runner-local/index.ts`,
     `runner-local/skill-install.ts`, and `sdk/index.ts`. `parseSkillMarkdown`
     is no longer imported by `packages/runtime-local/src/harness/**`.
-- [ ] `v3` Parser implementation remains present.
+- [x] `v3` Parser implementation remains present.
   - Command: `test -d packages/core/src/parser`
   - Expected kind: `exit_code_zero`
   - Status: passed
-  - Evidence: `test -d packages/core/src/parser && printf 'parser implementation present\n'`
-    printed `parser implementation present`.
+  - Evidence: parser implementation remains present; no parser source was
+    deleted or renamed in this lane.
 - [ ] `v4` Targeted runtime-local tests cover migrated importers.
   - Command: `pnpm exec vitest run --config vitest.config.ts tests/local-skill-runner.test.ts tests/runtime-local-harness.test.ts packages/runtime-local/src/harness/agent-hook.test.ts`
   - Expected kind: `exit_code_zero`
   - Status: partial
-  - Evidence: `pnpm exec vitest run --config vitest.config.ts packages/runtime-local/src/harness/agent-hook.test.ts`
-    and `pnpm exec vitest run --config vitest.config.ts packages/runtime-local/src/tool-catalogs/index.test.ts`
-    passed in the prior slice. `pnpm exec vitest run --config vitest.config.ts packages/runtime-local/src/harness/skill-frontmatter.test.ts packages/runtime-local/src/harness/agent-hook.test.ts`
-    and `pnpm typecheck` passed for this slice. `pnpm exec vitest run --config vitest.config.ts tests/inline-x-harness.test.ts tests/skill-publish.test.ts packages/runtime-local/src/harness/agent-hook.test.ts`
-    failed in this dirty tree: inline harness cases require
-    `RUNX_KERNEL_EVAL_BIN`, and `tests/skill-publish.test.ts` returned an
-    unexpected publish report shape before producing the expected publish
-    payload.
+  - Evidence: 2026-05-22T03:21:00+10:00
+    `pnpm exec vitest run --config vitest.config.ts packages/runtime-local/src/harness/skill-frontmatter.test.ts packages/runtime-local/src/harness/agent-hook.test.ts packages/runtime-local/src/tool-catalogs/index.test.ts`
+    passed with 3 files and 5 tests. `pnpm typecheck` also passed. Broader
+    inline harness coverage remains blocked without `RUNX_KERNEL_EVAL_BIN`.
 
 ## Phase 1: Importer Classification
 

@@ -2,6 +2,7 @@ use std::ffi::OsString;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::{collections::BTreeMap, env};
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct McpPlan {
@@ -60,7 +61,7 @@ pub fn run_native_mcp(plan: McpPlan) -> ExitCode {
             runx_runtime::adapters::mcp::McpServerExecutionOptions {
                 runner: plan.runner,
                 receipt_dir: plan.receipt_dir,
-                env: std::env::vars().collect(),
+                env: mcp_execution_env(),
             },
         ) {
             Ok(options) => options,
@@ -80,6 +81,19 @@ pub fn run_native_mcp(plan: McpPlan) -> ExitCode {
             ExitCode::from(1)
         }
     }
+}
+
+fn mcp_execution_env() -> BTreeMap<String, String> {
+    let mut env = env::vars().collect::<BTreeMap<_, _>>();
+    if !env.contains_key(runx_runtime::RUNX_CWD_ENV)
+        && let Ok(cwd) = env::current_dir()
+    {
+        env.insert(
+            runx_runtime::RUNX_CWD_ENV.to_owned(),
+            cwd.to_string_lossy().into_owned(),
+        );
+    }
+    env
 }
 
 fn os_arg(args: &[OsString], index: usize) -> Result<&str, String> {

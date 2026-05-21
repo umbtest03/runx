@@ -136,6 +136,7 @@ fn collect_connected_auth_reasons(
         &requirement,
         grants,
         options.connected_auth_checked_at.as_deref(),
+        false,
     )
     .is_none()
     {

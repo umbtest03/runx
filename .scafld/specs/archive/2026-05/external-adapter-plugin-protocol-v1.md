@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: external-adapter-plugin-protocol-v1
 created: '2026-05-21T13:04:12Z'
-updated: '2026-05-21T16:52:35Z'
-status: review
+updated: '2026-05-22T03:07:12+10:00'
+status: completed
 harden_status: not_run
 size: large
 risk_level: high
@@ -13,13 +13,17 @@ risk_level: high
 
 ## Current State
 
-Status: review
+Status: completed
 Current phase: final
-Next: complete
-Reason: review gate pass: 3 finding(s), 0 completion blocker(s)
+Next: done
+Reason: task completed after repairing all non-blocking review findings
 Blockers: none
-Allowed follow-up command: `scafld complete external-adapter-plugin-protocol-v1`
-Latest runner update: 2026-05-21T16:52:45Z
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-22T03:07:12+10:00 completed after post-review
+repairs: Python and TypeScript conformance adapters now consume invocation JSON
+from stdin and emit exactly one response JSON document on stdout; the authoring
+test runs both adapters over the process wire protocol; the contract schema
+source documents stdin/stdout/stderr process transport rules.
 Review gate: pass
 
 ## Summary
@@ -211,15 +215,16 @@ Validation:
   - Command: `pnpm vitest run packages/authoring/src/index.test.ts`
   - Expected kind: `exit_code_zero`
   - Status: passed
-  - Evidence: 2026-05-22T02:45:53+10:00 passed 1 file, 12 tests covering
+  - Evidence: 2026-05-22T03:05:45+10:00 passed 1 file, 12 tests covering
     existing authoring helpers plus TypeScript external-adapter conformance,
-    Python adapter conformance over the same fixture, response identity
-    fail-closed behavior, and protocol-only helper imports.
+    TypeScript and Python process-wire conformance over the same stdin/stdout
+    fixture, response identity fail-closed behavior, and protocol-only helper
+    imports.
 - [x] `v4` No helper imports deleted runtime packages.
   - Command: `! rg -n "@runxhq/(runtime-local|adapters)|packages/(runtime-local|adapters)" packages/{authoring,create-skill,contracts,host-adapters,langchain} --glob '!**/dist/**'`
   - Expected kind: `exit_code_zero`
   - Status: passed
-  - Evidence: 2026-05-22T02:45:53+10:00 returned no matches after moving the
+  - Evidence: 2026-05-22T03:06:24+10:00 returned no matches after moving the
     conformance assertion to construct forbidden package names dynamically, so
     the literal guard can scan survivor package sources.
 - [x] `v5` TypeScript protocol schema fixtures pass.
@@ -254,7 +259,7 @@ Validation:
   - Command: `pnpm tsc -p tsconfig.typecheck.json --noEmit --pretty false`
   - Expected kind: `exit_code_zero`
   - Status: passed
-  - Evidence: 2026-05-22T02:45:53+10:00 exited 0.
+  - Evidence: 2026-05-22T03:06:24+10:00 exited 0.
 
 ## Phase 1: Protocol Shape
 
@@ -327,6 +332,27 @@ If the protocol cannot preserve required hosted/custom execution-adapter
 behavior, keep the runtime-local/adapters sunset blocked and narrow the
 protocol. Do not solve the gap by reviving a TypeScript trusted runtime or by
 folding non-execution queues into the execution-adapter protocol.
+
+## Post-Review Repairs
+
+The review found three non-blocking conformance/documentation issues. All were
+fixed before completion:
+- `F1`: `fixtures/external-adapter-conformance/python_echo_adapter.py` now reads
+  the invocation from stdin, matching the Rust supervisor's process transport.
+- `F2`: `packages/authoring/src/index.test.ts` now runs both the TypeScript and
+  Python sample adapters as subprocesses, writes the shared invocation fixture
+  to stdin, and validates the single JSON response from stdout.
+- `F3`: `packages/contracts/src/schemas/external-adapter.ts` now documents the
+  process transport rule: invocation JSON on stdin, exactly one response JSON
+  document on stdout, stderr diagnostic only.
+
+Post-repair validation:
+- `pnpm vitest run packages/authoring/src/index.test.ts` passed 12 tests at
+  2026-05-22T03:06:57+10:00.
+- `pnpm tsc -p tsconfig.typecheck.json --noEmit --pretty false` exited 0 at
+  2026-05-22T03:06:57+10:00.
+- `! rg -n "@runxhq/(runtime-local|adapters)|packages/(runtime-local|adapters)" packages/{authoring,create-skill,contracts,host-adapters,langchain} --glob '!**/dist/**'`
+  exited 0 at 2026-05-22T03:06:57+10:00.
 
 ## Review
 

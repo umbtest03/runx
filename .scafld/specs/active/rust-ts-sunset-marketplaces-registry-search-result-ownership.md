@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-ts-sunset-marketplaces-registry-search-result-ownership
 created: '2026-05-22T00:00:00+10:00'
-updated: '2026-05-22T01:36:00+10:00'
+updated: '2026-05-22T03:22:00+10:00'
 status: active
 harden_status: not_run
 size: small
@@ -28,11 +28,16 @@ Blockers: marketplace adapter behavior still has live consumers in CLI
 fixture marketplace search, runtime-local install/SDK surfaces, and focused
 marketplace fixture tests. Parent marketplace deletion must stay blocked.
 Allowed follow-up command: `scafld validate rust-ts-sunset-marketplaces-registry-search-result-ownership --json`
-Latest runner update: 2026-05-22T01:36:00+10:00 promoted the executed child
-spec from drafts to active. Registry-owned `SkillSearchResult` is already in
-place and narrow registry/CLI result-shape imports have moved. Marketplace
-adapter behavior was intentionally left in place.
+Latest runner update: 2026-05-22T03:22:00+10:00 revalidated the active child
+spec, refreshed the result-shape importer census, and reran the focused CLI
+search rendering test. Registry-owned `SkillSearchResult` remains in place and
+narrow registry/CLI result-shape imports remain moved. Marketplace adapter
+behavior was intentionally left in place.
 Review gate: result_shape_migrated; adapter_behavior_blocked
+Lifecycle note: `scafld complete
+rust-ts-sunset-marketplaces-registry-search-result-ownership --json` is blocked
+because this promoted active spec has no session review ledger; next remains the
+allowed validation command above.
 
 ## Summary
 
@@ -135,12 +140,14 @@ Validation:
   - Command: `scafld validate rust-ts-sunset-marketplaces-registry-search-result-ownership --json`
   - Expected kind: `exit_code_zero`
   - Status: passed
-  - Evidence: returned `{"ok":true,...,"valid":true}`.
+  - Evidence: 2026-05-22T03:21:00+10:00 returned
+    `{"ok":true,...,"valid":true}`.
 - [x] `v2` Registry/CLI result-shape importer census is current.
   - Command: `rg -n "@runxhq/core/marketplaces|\\.\\./marketplaces/index\\.js|SkillSearchResult" packages/core/src/registry packages/cli/src --glob '!**/dist/**'`
   - Expected kind: `exit_code_zero`
   - Status: passed
-  - Evidence: listed `packages/core/src/registry/search.ts` and CLI
+  - Evidence: 2026-05-22T03:21:00+10:00 listed
+    `packages/core/src/registry/search.ts` and CLI
     `native-registry.ts`, `registry-fallback.ts`, `presentation/search.ts`, and
     `skill-refs.ts` result-shape references.
 - [x] `v3` Marketplace implementation remains present.
@@ -152,12 +159,13 @@ Validation:
   - Command: `pnpm typecheck`
   - Expected kind: `exit_code_zero`
   - Status: passed
-  - Evidence: `tsc -p tsconfig.typecheck.json --noEmit` completed with exit 0.
+  - Evidence: 2026-05-22T03:21:00+10:00 `tsc -p
+    tsconfig.typecheck.json --noEmit` completed with exit 0.
 - [x] `v5` Focused CLI search rendering behavior still passes.
   - Command: `pnpm vitest run packages/cli/src/index.test.ts -t "renders search results with run and add commands"`
   - Expected kind: `exit_code_zero`
   - Status: passed
-  - Evidence: 1 test passed, 46 skipped.
+  - Evidence: 2026-05-22T03:21:00+10:00 passed with 1 test passed, 46 skipped.
 - [x] `v6` Child and parent specs validate after migration notes.
   - Command: `scafld validate rust-ts-sunset-marketplaces-registry-search-result-ownership --json && scafld validate rust-ts-sunset-marketplaces --json`
   - Expected kind: `exit_code_zero`

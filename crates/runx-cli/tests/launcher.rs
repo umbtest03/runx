@@ -27,7 +27,7 @@ fn top_level_help_and_version_are_native() {
         &help,
         "runx skill <skill-ref|skill-dir|SKILL.md> [--input k=v] [--receipt-dir dir] [--run-id id] [--answers file] [--json]",
     );
-    assert_help_line(&help, "runx harness <fixture.yaml> [--json]");
+    assert_help_line(&help, "runx harness <fixture.yaml...> [--json]");
     assert!(
         !help.contains("runx harness <fixture.yaml|skill-dir|SKILL.md>"),
         "native help must not advertise harness target forms that only the old TypeScript path handled"
@@ -82,16 +82,36 @@ fn routes_harness_to_native_runner() {
     assert_eq!(
         plan(&["harness", "fixtures/harness/echo-skill.yaml", "--json"]),
         LauncherAction::RunHarness(HarnessPlan {
-            fixture_path: "fixtures/harness/echo-skill.yaml".into(),
+            fixture_paths: vec!["fixtures/harness/echo-skill.yaml".into()],
         })
     );
 }
 
 #[test]
-fn harness_rejects_unsupported_argument_shape() {
+fn routes_multiple_harness_fixtures_to_native_runner() {
+    assert_eq!(
+        plan(&[
+            "harness",
+            "fixtures/harness/x402-pay-idempotency-capability-reuse.yaml",
+            "fixtures/harness/x402-pay-idempotency-crash-recovery.yaml",
+            "fixtures/harness/x402-pay-idempotency-replay.yaml",
+            "--json",
+        ]),
+        LauncherAction::RunHarness(HarnessPlan {
+            fixture_paths: vec![
+                "fixtures/harness/x402-pay-idempotency-capability-reuse.yaml".into(),
+                "fixtures/harness/x402-pay-idempotency-crash-recovery.yaml".into(),
+                "fixtures/harness/x402-pay-idempotency-replay.yaml".into(),
+            ],
+        })
+    );
+}
+
+#[test]
+fn harness_rejects_missing_fixture_path() {
     assert_eq!(
         plan(&["harness"]),
-        LauncherAction::Error("runx harness requires exactly one fixture path".to_owned())
+        LauncherAction::Error("runx harness requires at least one fixture path".to_owned())
     );
 }
 
@@ -148,7 +168,7 @@ fn skill_rejects_partial_continuation_shape() {
 #[test]
 fn routes_connect_to_oss_unavailable_stub() {
     assert_eq!(
-        plan(&["connect", "list", "--json"]),
+        plan(&["connect", "--json"]),
         LauncherAction::RunConnect(ConnectPlan { json: true })
     );
 
@@ -166,7 +186,9 @@ fn routes_connect_to_oss_unavailable_stub() {
             "runxhq/aster",
             "--json",
         ]),
-        LauncherAction::RunConnect(ConnectPlan { json: true })
+        LauncherAction::Error(
+            "unknown runx connect argument: github; expected only --json".to_owned()
+        )
     );
 }
 

@@ -6,27 +6,21 @@ use runx_cli::connect::{ConnectPlan, parse_connect_plan};
 #[test]
 fn parses_connect_as_oss_unavailable_stub() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(
-        parse_connect_plan(&args(["connect", "list", "--json"]))?,
+        parse_connect_plan(&args(["connect", "--json"]))?,
         ConnectPlan { json: true }
     );
-    assert_eq!(
-        parse_connect_plan(&args([
-            "connect",
-            "github",
-            "--scope",
-            "repo:read",
-            "--target-repo",
-            "runxhq/aster",
-        ]))?,
-        ConnectPlan { json: false }
-    );
+    let error = match parse_connect_plan(&args(["connect", "github", "--scope", "repo:read"])) {
+        Ok(_) => return Err("provider-specific connect arguments must be rejected".into()),
+        Err(error) => error,
+    };
+    assert!(error.contains("unknown runx connect argument"));
     Ok(())
 }
 
 #[test]
 fn connect_command_is_explicitly_unavailable_in_oss() -> Result<(), Box<dyn std::error::Error>> {
     let output = Command::new(env!("CARGO_BIN_EXE_runx"))
-        .args(["connect", "list"])
+        .arg("connect")
         .output()?;
 
     assert_eq!(output.status.code(), Some(1));
@@ -41,7 +35,7 @@ fn connect_command_is_explicitly_unavailable_in_oss() -> Result<(), Box<dyn std:
 #[test]
 fn connect_json_stub_reports_error_without_brokerage() -> Result<(), Box<dyn std::error::Error>> {
     let output = Command::new(env!("CARGO_BIN_EXE_runx"))
-        .args(["connect", "github", "--json"])
+        .args(["connect", "--json"])
         .output()?;
 
     assert_eq!(output.status.code(), Some(1));
