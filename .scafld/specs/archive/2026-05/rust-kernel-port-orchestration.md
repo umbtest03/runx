@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: rust-kernel-port-orchestration
 created: '2026-05-17T00:00:00Z'
-updated: '2026-05-20T00:00:00Z'
-status: draft
+updated: '2026-05-21T11:44:59Z'
+status: cancelled
 harden_status: not_run
 size: small
 risk_level: medium
@@ -13,22 +13,13 @@ risk_level: medium
 
 ## Current State
 
-Status: obsolete_as_written
+Status: cancelled
 Current phase: decommissioned planning record
-Next: do not harden, approve, execute, review, or complete this spec as a
-lifecycle driver. Use the replacement slices named below.
-Reason: the repo has advanced beyond the original umbrella plan. The Rust core
-crate graph and `runx-core` state-machine/policy surfaces exist, docs coherence
-was refreshed, and the clean-kernel PR counter exists. This file's original
-Phase Receipts and Review sections were never populated, so it cannot prove or
-drive the completed lifecycle sequence.
-Blockers: no blocker should be cleared in this file. Any remaining kernel work
-must live in a fresh executable slice with its own scope, validation, and
-review.
-Allowed follow-up command: none for `rust-kernel-port-orchestration`; do not
-run `scafld harden rust-kernel-port-orchestration`.
+Next: done
+Reason: cancel
+Blockers: none
+Allowed follow-up command: `none`
 Latest runner update: superseded by archived completed sub-specs and fresh
-draft slices; no orchestration runner receipt exists here.
 Review gate: not_started; intentionally not used as completion evidence.
 
 ## Summary
