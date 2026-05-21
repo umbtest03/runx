@@ -8,7 +8,9 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use runx_contracts::{ExecutionEvent, FanoutReceiptSyncPoint, HarnessReceipt, JsonObject};
+use runx_contracts::{
+    ClosureDisposition, ExecutionEvent, FanoutReceiptSyncPoint, HarnessReceipt, JsonObject,
+};
 use runx_core::state_machine::SequentialGraphState;
 use runx_parser::ExecutionGraph;
 
@@ -17,7 +19,7 @@ use crate::RuntimeError;
 use crate::adapter::{SkillAdapter, SkillOutput};
 use crate::caller::{Caller, NoopCaller};
 use crate::journal::ExecutionJournal;
-use crate::receipts::graph_receipt;
+use crate::receipts::{graph_receipt, graph_receipt_with_disposition};
 
 mod authority;
 mod execution;
@@ -86,6 +88,12 @@ pub struct Runtime<A> {
     options: RuntimeOptions,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum BlockedGraphOutcome {
+    Error,
+    Receipt,
+}
+
 impl<A> Runtime<A>
 where
     A: SkillAdapter,
@@ -106,7 +114,17 @@ where
     ) -> Result<GraphRun, RuntimeError> {
         let graph = load_graph(graph_path)?;
         let graph_dir = graph_path.parent().unwrap_or_else(|| Path::new("."));
-        self.run_graph_with_caller(graph_dir, graph, caller)
+        self.run_graph_with_caller_outcome(graph_dir, graph, caller, BlockedGraphOutcome::Error)
+    }
+
+    pub(crate) fn run_graph_file_for_harness(
+        &self,
+        graph_path: &Path,
+        caller: &mut dyn Caller,
+    ) -> Result<GraphRun, RuntimeError> {
+        let graph = load_graph(graph_path)?;
+        let graph_dir = graph_path.parent().unwrap_or_else(|| Path::new("."));
+        self.run_graph_with_caller_outcome(graph_dir, graph, caller, BlockedGraphOutcome::Receipt)
     }
 
     pub fn run_graph_with_caller(
@@ -115,22 +133,57 @@ where
         graph: ExecutionGraph,
         caller: &mut dyn Caller,
     ) -> Result<GraphRun, RuntimeError> {
+        self.run_graph_with_caller_outcome(graph_dir, graph, caller, BlockedGraphOutcome::Error)
+    }
+
+    fn run_graph_with_caller_outcome(
+        &self,
+        graph_dir: &Path,
+        graph: ExecutionGraph,
+        caller: &mut dyn Caller,
+        blocked_outcome: BlockedGraphOutcome,
+    ) -> Result<GraphRun, RuntimeError> {
         let mut execution = GraphExecution::new(&graph);
-        execution.run(self, graph_dir, &graph, caller, None)?;
-        let receipt = graph_receipt(
-            &graph.name,
-            &execution.runs,
-            execution.sync_points.clone(),
-            &self.options.created_at,
-        )?;
-        execution.record(
-            caller,
-            ExecutionEvent::Completed {
-                message: format!("graph {} completed", graph.name),
-                data: None,
-            },
-        )?;
-        Ok(execution.finish(graph, receipt))
+        match execution.run(self, graph_dir, &graph, caller, None) {
+            Ok(()) => {
+                let receipt = graph_receipt(
+                    &graph.name,
+                    &execution.runs,
+                    execution.sync_points.clone(),
+                    &self.options.created_at,
+                )?;
+                execution.record(
+                    caller,
+                    ExecutionEvent::Completed {
+                        message: format!("graph {} completed", graph.name),
+                        data: None,
+                    },
+                )?;
+                Ok(execution.finish(graph, receipt))
+            }
+            Err(RuntimeError::GraphBlocked { step_id, reason })
+                if blocked_outcome == BlockedGraphOutcome::Receipt =>
+            {
+                let receipt = graph_receipt_with_disposition(
+                    &graph.name,
+                    &execution.runs,
+                    execution.sync_points.clone(),
+                    &self.options.created_at,
+                    ClosureDisposition::Blocked,
+                    "graph_blocked".to_owned(),
+                    format!("graph {} blocked at {step_id}: {reason}", graph.name),
+                )?;
+                execution.record(
+                    caller,
+                    ExecutionEvent::Completed {
+                        message: format!("graph {} blocked at {step_id}", graph.name),
+                        data: None,
+                    },
+                )?;
+                Ok(execution.finish(graph, receipt))
+            }
+            Err(error) => Err(error),
+        }
     }
 
     pub fn run_graph_file_until_steps(

@@ -473,7 +473,7 @@ where
     options.env.extend(fixture.env.clone());
     let runtime = Runtime::new(adapter, options);
     let mut caller = FixtureCaller::new(fixture);
-    let graph_run = runtime.run_graph_file_with_caller(graph_path, &mut caller)?;
+    let graph_run = runtime.run_graph_file_for_harness(graph_path, &mut caller)?;
     let output = replay_output_from_graph(fixture, graph_run);
     Ok(output)
 }

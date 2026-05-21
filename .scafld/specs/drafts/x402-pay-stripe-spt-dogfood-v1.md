@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: x402-pay-stripe-spt-dogfood-v1
 created: '2026-05-21T00:46:25Z'
-updated: '2026-05-21T04:15:55Z'
+updated: '2026-05-21T05:18:00Z'
 status: draft
 harden_status: not_run
 size: large
@@ -14,14 +14,16 @@ risk_level: high
 ## Current State
 
 Status: draft
-Current phase: implementation
-Next: full dogfood
+Current phase: Rust runtime proof complete; CLI fixture promotion pending
+Next: CLI-runnable Stripe SPT dogfood fixture, then gated live test-mode script
 Reason: Recut to Rust-first offline Stripe SPT runtime proof before any
 TypeScript wrapper or live test-mode dogfood.
 Blockers: none
 Allowed follow-up command: `scafld harden x402-pay-stripe-spt-dogfood-v1`
 Latest runner update: Rust runtime now proves Stripe SPT happy path, terminal
-decline, and timeout/idempotency preservation.
+decline, and timeout/idempotency preservation. The core dogfood wrapper now
+runs native x402 mock CLI proof before TS wrapper coverage; Stripe SPT itself
+still needs CLI fixture promotion before live test-mode work.
 Review gate: not_started
 
 ## Summary
@@ -153,3 +155,6 @@ Commands:
   remain pending.
 - 2026-05-21T04:15:55Z: Core dogfood passed with the Rust Stripe SPT payment
   runtime test as an explicit queue step.
+- 2026-05-21T05:18:00Z: Boundary recut kept the Stripe SPT proof Rust-first and
+  identified CLI fixture promotion as the next required layer before any
+  TypeScript wrapper or live test-mode script can count as dogfood evidence.

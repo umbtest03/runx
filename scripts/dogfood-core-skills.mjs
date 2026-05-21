@@ -32,6 +32,11 @@ const steps = [
     args: ["test", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-runtime", "--test", "stripe_spt_payment"],
   },
   {
+    label: "prove native x402 mock dogfood CLI",
+    command: cargo,
+    args: ["test", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--test", "x402_native_dogfood"],
+  },
+  {
     label: "build workspace packages",
     command: pnpm,
     args: ["build"],
@@ -42,7 +47,7 @@ const steps = [
     args: ["exec", "tsx", "packages/cli/src/index.ts", "doctor", "--json"],
   },
   {
-    label: "prove x402 mock payment fixtures",
+    label: "prove TS wrapper x402 mock payment fixtures",
     command: pnpm,
     args: ["exec", "vitest", "run", "tests/x402-pay-dogfood-mock.test.ts"],
   },

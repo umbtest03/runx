@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: x402-pay-paid-echo-composer-v1
 created: '2026-05-21T00:46:25Z'
-updated: '2026-05-21T04:15:55Z'
+updated: '2026-05-21T05:18:00Z'
 status: draft
 harden_status: not_run
 size: large
@@ -14,14 +14,16 @@ risk_level: high
 ## Current State
 
 Status: draft
-Current phase: implementation
-Next: full dogfood
+Current phase: Rust runtime proof complete; CLI fixture promotion pending
+Next: CLI-runnable paid-echo dogfood fixture
 Reason: Cut over from the stale TS-composer framing to the Rust runtime core
 where payment authority, proof sealing, and graph forwarding now live.
 Blockers: none
 Allowed follow-up command: `scafld harden x402-pay-paid-echo-composer-v1`
-Latest runner update: Rust payment execution test now covers paid echo success,
-approval denial, and missing rail proof.
+Latest runner update: Rust payment execution test covers paid echo success,
+approval denial, and missing rail proof. The core dogfood wrapper now also runs
+the native x402 mock CLI proof before TS wrapper coverage, but this paid-echo
+spec is not complete until paid-echo itself has a CLI-runnable fixture.
 Review gate: not_started
 
 ## Summary
@@ -146,3 +148,6 @@ Commands:
   runtime build.
 - 2026-05-21T04:15:55Z: Core dogfood passed again after adding the Rust Stripe
   SPT payment runtime queue step.
+- 2026-05-21T05:18:00Z: Native x402 mock payment dogfood moved into
+  `crates/runx-cli/tests/x402_native_dogfood.rs`; paid-echo remains
+  Rust-runtime-proven and still needs CLI fixture promotion.

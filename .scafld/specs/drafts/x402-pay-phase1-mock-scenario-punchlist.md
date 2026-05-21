@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: x402-pay-phase1-mock-scenario-punchlist
 created: '2026-05-21T00:46:25Z'
-updated: '2026-05-21T03:10:00Z'
+updated: '2026-05-21T05:18:00Z'
 status: draft
 harden_status: not_run
 size: small
@@ -13,6 +13,15 @@ risk_level: low
 
 This file is append-only. Rows stay here after closure with their status and
 closing evidence updated by a follow-up spec.
+
+Native Rust CLI coverage added 2026-05-21:
+
+- P1.1 happy path remains covered by `fixtures/harness/payment-approval-graph.yaml`.
+- P1.5 approval denial is now covered by
+  `fixtures/harness/payment-approval-denied.yaml`.
+- `cargo test --manifest-path crates/Cargo.toml -p runx-cli --test
+  x402_native_dogfood` proves both fixtures through the native Rust CLI with no
+  Node, pnpm, tsx, or TypeScript package dependency.
 
 | Scenario | Status | Observed Behavior | Expected Behavior | Concrete Blocker | Follow-up |
 | --- | --- | --- | --- | --- | --- |

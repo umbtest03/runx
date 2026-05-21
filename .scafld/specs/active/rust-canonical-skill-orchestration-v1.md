@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-canonical-skill-orchestration-v1
 created: '2026-05-21T04:35:09Z'
-updated: '2026-05-21T04:35:09Z'
+updated: '2026-05-21T05:18:00Z'
 status: active
 harden_status: not_run
 size: large
@@ -14,24 +14,21 @@ risk_level: very_high
 ## Current State
 
 Status: active
-Current phase: phases 0-2 first slice
-Next: inline harness expansion or TypeScript importer reroute
-Reason: Skill orchestration is the critical cutover boundary. Rust now owns
-parts of runtime execution, payment authority, receipts, history, doctor, MCP,
-skill run, and harness replay, but TypeScript still owns or masks too much of
-the local product orchestration through `@runxhq/runtime-local`,
-`@runxhq/adapters`, package dogfood scripts, CLI wrappers, composer flows, and
-many tests. The standalone Rust CLI must be useful on a machine with no Node,
-pnpm, tsx, or TypeScript packages installed.
-Blockers: CLI package importer reroute remains open; `packages/cli/src/**`
-still imports `@runxhq/runtime-local` and `@runxhq/adapters` for local
-execution commands. Native inline harness expansion from `skill-dir|SKILL.md`
+Current phase: phase 4 partial, phase 5 blocked
+Next: TypeScript importer reroute for `packages/cli/src/**`
+Reason: Rust now owns the native skill/graph/harness orchestrator path, the
+TS-free native smoke path, and the x402 mock payment CLI dogfood proof. The
+remaining cutover blocker is package CLI source that still imports
+`@runxhq/runtime-local` and `@runxhq/adapters` for local execution and support
+surfaces.
+Blockers: `packages/cli/src/**` still imports `@runxhq/runtime-local` and
+`@runxhq/adapters`; native inline harness expansion for `skill-dir|SKILL.md`
 is not implemented and must stay out of help until it is Rust-native.
 Allowed follow-up command: `scafld harden rust-canonical-skill-orchestration-v1`
-Latest runner update: 2026-05-21 - docs boundary repaired, Rust harness help
-made truthful, TS-free native CLI smoke added, canonical Rust orchestrator
-surface introduced, and official `fixtures/skills` Node/tsx dependencies moved
-to checked-in shell or Python fixtures.
+Latest runner update: 2026-05-21T05:18:00Z - Rust harness replay now seals
+blocked transition graphs as `policy_denied` receipts, and native CLI
+`x402_native_dogfood` proves approved and denied mock payment dogfood fixtures
+without Node, pnpm, tsx, or TypeScript packages.
 Review gate: not_started
 
 ## Summary
@@ -264,105 +261,115 @@ no longer publish runtime-local as an execution owner.
 Profile: strict
 
 Definition of done:
-- [ ] `dod1` command - Docs state one clear boundary: Rust is canonical for local skill,
-  graph, harness, receipt, history, policy, and payment orchestration; TS is a
-  wrapper/client surface.
+- [x] `dod1` command - Docs state one clear boundary: Rust is canonical for
+  local skill, graph, harness, receipt, history, policy, and payment
+  orchestration; TS is a wrapper/client surface.
   - Command: `! rg -n '@runxhq/runtime-local.*owns local orchestration|runtime-local.*local runtime: orchestration|TypeScript remains authoritative' README.md docs crates/runx-runtime/README.md`
-- [ ] `dod2` command - Native `runx --help` advertises only Rust-implemented command
-  forms, with tests proving each advertised form.
+  - Expected kind: `exit_code_zero`
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-3
+- [x] `dod2` command - Native `runx --help` advertises only
+  Rust-implemented command forms, with tests proving each advertised form.
   - Command: `crates/target/debug/runx --help && cargo test --quiet --manifest-path crates/Cargo.toml -p runx-cli --test launcher`
-- [ ] `dod3` command - The Rust CLI has a TS-free smoke suite that runs without Node,
-  pnpm, tsx, or workspace TypeScript packages.
+  - Expected kind: `exit_code_zero`
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-4
+- [x] `dod3` command - The Rust CLI has a TS-free smoke suite that runs
+  without Node, pnpm, tsx, or workspace TypeScript packages.
   - Command: `env -i PATH="$PATH" crates/target/debug/runx doctor --json && env -i PATH="$PATH" crates/target/debug/runx list skills --json && env -i PATH="$PATH" crates/target/debug/runx harness fixtures/harness/payment-approval-graph.yaml --json`
-- [ ] `dod4` command - All trusted local orchestration flows enter through the Rust
-  orchestrator API.
+  - Expected kind: `exit_code_zero`
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-5
+- [x] `dod4` command - All trusted local orchestration flows enter through the
+  Rust orchestrator API.
   - Command: `rg -n 'pub (struct|enum) (SkillRunRequest|GraphRunRequest|HarnessRunRequest|RunContinuation|RunResult|RunStatus)' crates/runx-runtime/src/execution && cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --tests`
-- [ ] `dod5` command - Official payment/x402 dogfood eventualities have Rust-native
-  CLI-runnable fixtures, not just TS wrappers or in-memory unit tests.
-  - Command: `cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --tests && ! rg -n 'command: node|node -e|tsx|pnpm' fixtures/harness fixtures/graphs fixtures/skills`
+  - Expected kind: `exit_code_zero`
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-6
+- [ ] `dod5` command - Official payment/x402 dogfood eventualities have
+  Rust-native CLI-runnable fixtures, not just TS wrappers or in-memory unit
+  tests.
+  - Command: `cargo test --quiet --manifest-path crates/Cargo.toml -p runx-cli --test x402_native_dogfood && cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --test payment_execution && cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --test stripe_spt_payment && ! rg -n 'command: node|node -e|tsx|pnpm' fixtures/harness fixtures/graphs fixtures/skills`
+  - Expected kind: `exit_code_zero`
+  - Status: partial
+  - Evidence: Native CLI now covers approved and denied mock payment dogfood
+    fixtures. Paid-echo and Stripe SPT still have Rust-runtime proof first and
+    need CLI-runnable fixture promotion before this item is complete.
+  - Source event: local
 - [ ] `dod6` command - `packages/cli/src/**` has no `@runxhq/runtime-local` or
   `@runxhq/adapters` imports for local execution commands.
   - Command: `! rg -n '@runxhq/(runtime-local|adapters)' packages/cli/src --glob '!**/*.test.ts'`
-- [ ] `dod7` command - `rust-ts-sunset-runtime-local` is unblocked by a refreshed importer
-  census and no docs/API page still presents runtime-local as canonical local
-  orchestration.
+  - Expected kind: `exit_code_zero`
+  - Status: fail
+  - Evidence: exit code was 1
+  - Source event: entry-8
+- [x] `dod7` command - `rust-ts-sunset-runtime-local` is unblocked by a
+  refreshed importer census and no docs/API page still presents runtime-local
+  as canonical local orchestration.
   - Command: `scafld validate rust-ts-sunset-runtime-local --json && ! rg -n '@runxhq/runtime-local.*owns local orchestration|runtime-local.*local runtime: orchestration|TypeScript remains authoritative' README.md docs crates/runx-runtime/README.md`
+  - Expected kind: `exit_code_zero`
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-9
 
 Validation:
-- [ ] `v1` command - This spec validates.
+- [x] `v1` command - This spec validates.
   - Command: `scafld validate rust-canonical-skill-orchestration-v1 --json`
   - Expected kind: `exit_code_zero`
-  - Timeout seconds: none
-  - Result: none
-  - Status: pending
-  - Evidence: none
-  - Source event: none
-  - Last attempt: none
-  - Checked at: none
-- [ ] `v2` command - Native Rust CLI works without TS runtime.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-10
+- [x] `v2` command - Native Rust CLI works without TS runtime.
   - Command: `env -i PATH="$PATH" crates/target/debug/runx doctor --json && env -i PATH="$PATH" crates/target/debug/runx list skills --json && env -i PATH="$PATH" crates/target/debug/runx harness fixtures/harness/payment-approval-graph.yaml --json`
   - Expected kind: `exit_code_zero`
-  - Timeout seconds: none
-  - Result: none
-  - Status: pending
-  - Evidence: none
-  - Source event: none
-  - Last attempt: none
-  - Checked at: none
-- [ ] `v3` command - Every advertised `runx harness` form works or is not
-  advertised.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-11
+- [x] `v3` command - Every advertised `runx harness` form works or is not
   - Command: `crates/target/debug/runx --help && cargo test --quiet --manifest-path crates/Cargo.toml -p runx-cli --test launcher`
   - Expected kind: `exit_code_zero`
-  - Timeout seconds: none
-  - Result: none
-  - Status: pending
-  - Evidence: none
-  - Source event: none
-  - Last attempt: none
-  - Checked at: none
-- [ ] `v4` command - Canonical local execution tests pass.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-12
+- [x] `v4` command - Canonical local execution tests pass.
   - Command: `cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --tests`
   - Expected kind: `exit_code_zero`
-  - Timeout seconds: none
-  - Result: none
-  - Status: pending
-  - Evidence: none
-  - Source event: none
-  - Last attempt: none
-  - Checked at: none
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-13
 - [ ] `v5` command - CLI source no longer imports runtime
   execution from TS sunset packages.
   - Command: `! rg -n '@runxhq/(runtime-local|adapters)' packages/cli/src --glob '!**/*.test.ts'`
   - Expected kind: `exit_code_zero`
-  - Timeout seconds: none
-  - Result: none
-  - Status: pending
-  - Evidence: none
-  - Source event: none
-  - Last attempt: none
-  - Checked at: none
-- [ ] `v6` command - Trusted dogfood fixtures do not
-  require Node for core proof.
+  - Status: fail
+  - Evidence: exit code was 1
+  - Source event: entry-14
+- [x] `v6` command - Trusted dogfood fixtures do not require Node for core
+  proof.
   - Command: `! rg -n 'command: node|node -e|tsx|pnpm' fixtures/harness fixtures/graphs fixtures/skills`
   - Expected kind: `exit_code_zero`
-  - Timeout seconds: none
-  - Result: none
-  - Status: pending
-  - Evidence: none
-  - Source event: none
-  - Last attempt: none
-  - Checked at: none
-- [ ] `v7` command - Docs no longer name runtime-local as canonical
-  local orchestration.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-15
+- [x] `v7` command - Docs no longer name runtime-local as canonical local
+  orchestration.
   - Command: `! rg -n '@runxhq/runtime-local.*owns local orchestration|runtime-local.*local runtime: orchestration|TypeScript remains authoritative' README.md docs crates/runx-runtime/README.md`
   - Expected kind: `exit_code_zero`
-  - Timeout seconds: none
-  - Result: none
-  - Status: pending
-  - Evidence: none
-  - Source event: none
-  - Last attempt: none
-  - Checked at: none
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-16
+- [x] `v8` command - Native x402 mock dogfood runs through the Rust CLI without
+  TypeScript.
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-cli --test x402_native_dogfood`
+  - Expected kind: `exit_code_zero`
+  - Status: pass
+  - Evidence: approved and denied mock payment fixtures passed through the
+    native CLI harness.
+  - Source event: local
 
 ## Sequencing Rules
 

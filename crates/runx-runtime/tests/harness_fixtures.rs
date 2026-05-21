@@ -15,9 +15,18 @@ fn loads_active_harness_fixtures_without_retired_receipt_fields() -> Result<(), 
         "fixtures/harness/echo-skill.yaml",
         "fixtures/harness/sequential-graph.yaml",
         "fixtures/harness/payment-approval-graph.yaml",
+        "fixtures/harness/payment-approval-denied.yaml",
     ] {
         let fixture = load_harness_fixture(fixture_path(path))?;
-        assert_eq!(fixture.expect.status, Some(HarnessExpectedStatus::Sealed));
+        let (expected_status, expected_disposition) = if path.ends_with("denied.yaml") {
+            (
+                HarnessExpectedStatus::PolicyDenied,
+                ClosureDisposition::Blocked,
+            )
+        } else {
+            (HarnessExpectedStatus::Sealed, ClosureDisposition::Closed)
+        };
+        assert_eq!(fixture.expect.status, Some(expected_status));
         let receipt = fixture
             .expect
             .receipt
@@ -26,7 +35,7 @@ fn loads_active_harness_fixtures_without_retired_receipt_fields() -> Result<(), 
             })?;
         assert_eq!(receipt.schema, HarnessReceiptSchema::V1);
         assert_eq!(receipt.state, Some(HarnessState::Sealed));
-        assert_eq!(receipt.disposition, Some(ClosureDisposition::Closed));
+        assert_eq!(receipt.disposition, Some(expected_disposition));
     }
     Ok(())
 }
@@ -217,6 +226,26 @@ fn replays_payment_approval_graph_fixture_with_rail_proof() -> Result<(), Box<dy
             .map(|reference| reference.uri.as_str())
             .collect::<Vec<_>>(),
         vec!["receipt-proof:mock:payment-execution-001"]
+    );
+    Ok(())
+}
+
+#[test]
+fn replays_payment_denied_graph_fixture_as_policy_denied() -> Result<(), Box<dyn std::error::Error>>
+{
+    let output = run_fixture_with_test_adapter("fixtures/harness/payment-approval-denied.yaml")?;
+
+    assert_eq!(output.status, HarnessExpectedStatus::PolicyDenied);
+    assert_eq!(
+        output.receipt.harness.harness_id,
+        "hrn_payment-approval_graph"
+    );
+    assert_eq!(output.receipt.seal.disposition, ClosureDisposition::Blocked);
+    assert_eq!(output.receipt.seal.reason_code, "graph_blocked");
+    assert_eq!(output.step_receipts.len(), 1);
+    assert_eq!(
+        output.step_receipts[0].harness.harness_id,
+        "hrn_payment-approval_approve-spend"
     );
     Ok(())
 }

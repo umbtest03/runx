@@ -1,0 +1,18 @@
+name: payment-approval-denied
+kind: graph
+target: ../graphs/payment/approval-spend.yaml
+caller:
+  approvals:
+    spend-approval: false
+expect:
+  status: policy_denied
+  receipt:
+    schema: runx.harness_receipt.v1
+    harness_id: hrn_payment-approval_graph
+    state: sealed
+    disposition: blocked
+    reason_code: graph_blocked
+    child_receipt_refs:
+      - runx:harness_receipt:hrn_rcpt_payment-approval_approve-spend
+  steps:
+    - approve-spend
