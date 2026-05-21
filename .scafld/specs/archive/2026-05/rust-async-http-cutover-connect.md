@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: rust-async-http-cutover-connect
 created: '2026-05-21T02:07:31Z'
-updated: '2026-05-21T02:47:36Z'
-status: review
+updated: '2026-05-21T03:11:23Z'
+status: completed
 harden_status: passed
 size: medium
 risk_level: high
@@ -13,14 +13,14 @@ risk_level: high
 
 ## Current State
 
-Status: review
+Status: completed
 Current phase: final
-Next: repair
-Reason: review gate fail: 4 finding(s), 1 completion blocker(s)
+Next: done
+Reason: task completed
 Blockers: none
-Allowed follow-up command: `scafld handoff rust-async-http-cutover-connect`
-Latest runner update: 2026-05-21T02:47:43Z
-Review gate: fail
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-21T03:11:23Z
+Review gate: pass
 
 ## Summary
 
@@ -332,51 +332,44 @@ Acceptance:
 ## Review
 
 Status: completed
-Verdict: fail
-Mode: discover
+Verdict: pass
+Mode: verify
 Provider: claude:claude-opus-4-7
 Output: claude.mcp_submit_review
-Summary: Connect cutover to reqwest is correctly wired. ReqwestHttpTransport disables redirects, validates URL scheme + header tokens, and uses a panic-free blocking bridge that errors out via HostedHttpError::BlockingHttpInsideAsyncRuntime when called inside an active tokio runtime. ConnectClient<T,O> stays generic so MockConnectTransport tests still inject; the new() constructor is gated on async-http and runx-cli enables cli-tool which implies async-http, so the CARGO_BIN_EXE_runx integration tests exercise the new transport on real TCP. Headers (authorization Bearer, accept: application/json, content-type: application/json), safe_route for flow ids, redact_connect_text for opener/flow/HTTP/unsupported errors, OAuth poll precedence (pending → initial → env → 750ms), and elapsed-time timeout semantics are all preserved. Reqwest pin =0.13.3 with default-features=false and features [rustls,json,gzip], tokio pin =1.52.3 with [rt,net,time]; cargo deny check passes with all-features=true. Three non-blocking observations are filed for visibility; none gate completion. Workspace changed during review; review failed closed.
+Summary: Verify-mode re-review of rust-async-http-cutover-connect. The prior critical blocker `workspace_mutation` is no longer present: Workspace Baseline reports `clean`, Task Changes Since Approval Baseline reports `none`, and ambient drift is attributed to sibling specs (hosted-http-removal, registry) outside this task's declared scope. The four prior findings are confirmed fixed against current source: (1) Rollback section at .scafld/specs/active/rust-async-http-cutover-connect.md:320-330 references the curl module via git history rather than the deleted CommandHttpTransport type (zero matches in crates/); (2) crates/deny.toml:22 bans `tokio` with the approved wrapper allowlist `[runx-runtime, reqwest, hyper, hyper-rustls, hyper-util, tokio-rustls, tower]`; (3) crates/runx-runtime/src/runtime_http.rs:110-127 configures explicit `request_timeout=30s, connect_timeout=10s` with a `reqwest_transport_times_out_stalled_response` regression test bound to a stalling TCP server; (4) prior workspace_mutation hash drift no longer occurs. Re-walked the cutover surface: feature edge `async-http = ["dep:reqwest", "dep:tokio"]` and `cli-tool = ["async-http"]` at runx-runtime/Cargo.toml:20-21; reqwest pin `=0.13.3` with `default-features=false, features=["rustls", "json"]`; tokio pin `=1.52.3` with `["rt", "net", "time"]`; no `blocking|cookies|stream|default-features=true` or direct `hyper` dependency; runx-cli enables `["cli-tool", "mcp"]` so the cargo-built binary exercises reqwest end-to-end. `ConnectClient<T, O>` stays generic at connect/client.rs:47-54; `with_transport_and_opener` is feature-agnostic so MockConnectTransport/RecordingOpener test injection continues to work; the `cfg(feature = "async-http")`-gated `ConnectClient::new` at connect/client.rs:69-84 is the only seam that pulls in ReqwestHttpTransport. `block_on_http` at runtime_http.rs:290-304 short-circuits with `Handle::try_current()` returning typed `BlockingHttpInsideAsyncRuntime`, and runtime build failure maps to `AsyncRuntimeUnavailable`; no `unwrap!|expect!|panic!|println!` in the helper or transport path (grep confirms zero matches). OAuth polling precedence (pending.poll_after_ms → initial → poll_interval_ms → 750ms) and elapsed-time timeout semantics are preserved at connect/client.rs:175-185. Header CRLF rejection and URL scheme guard pre-empt the reqwest send. HostedHttpResponse/Header/Request Debug impls redact sensitive headers, bodies (shown as "[redacted body present]"), and body bytes ("{n} bytes"); ConnectClientOptions Debug redacts access_token. No new task-scope regressions detected; ambient drift remains classified as context-only per the workspace classifier contract. Note: the spec's Summary language ("This draft does not add dependencies, edit Cargo manifests, or change Rust source.") and Out-of-scope item ("Implementing the code change in this task.") are stale against the now-completed phases, but this is documentary-only and was not raised by the prior review.
 
 Attack log:
-- `acceptance evidence vs current source`: Re-walk ac1..ac11 against the present tree (Cargo.toml feature lines, deny.toml entries, runtime_http panic-free check, typed error variants, connect tests gated) -> clean (All eleven recorded acceptance criteria match the current code; feature wiring `cli-tool = ["async-http"]` and exact pins for reqwest/tokio present.)
-- `ambient drift attribution`: Confirm deletion of hosted_http.rs, lib.rs edits, registry/http.rs, runx-cli/src/main.rs belong to sibling specs rust-async-http-cutover-registry / rust-async-http-cutover-hosted-http-removal rather than this task -> clean (Both sibling specs are present in .scafld/specs/active/ and explicitly own those changes. Per provider instruction, ambient drift is context, not a finding here.)
-- `rollback procedure`: Verify rollback text in spec is still executable against current source -> finding (Filed scope-drift-rollback-references-deleted-type.)
-- `regression hunt - connect CLI binding`: Trace ConnectClient::new from runx-cli main.rs through runtime feature graph to confirm CLI integration tests exercise reqwest, not a curl fallback -> clean (main.rs:55 calls ConnectClient::new; runx-cli Cargo.toml enables runx-runtime [cli-tool, mcp]; cli-tool implies async-http; ConnectClient::new is cfg-gated on async-http. The path is sound.)
-- `regression hunt - generic ConnectClient<T,O>`: Ensure tests can still inject MockConnectTransport/RecordingOpener despite the new default ReqwestHttpTransport -> clean (tests/connect_client.rs and tests/connect_secret_redaction.rs use with_transport_and_opener with &MockConnectTransport; with_transport_and_opener has no async-http gate.)
-- `OAuth polling precedence`: Confirm wait_for_connect_flow uses precedence: pending poll_after_ms → initial → RUNX_CONNECT_POLL_INTERVAL_MS → 750ms -> clean (connect/client.rs:178-181 implements exactly this order; matches spec assumption.)
-- `timeout semantics`: Trace ConnectError::Timeout and confirm elapsed-time check at pending-loop boundary -> clean (connect/client.rs:175 compares started_at.elapsed() against timeout_ms; defaults to 60_000ms. Matches spec.)
-- `secret/PII leak across error paths`: Audit OpenerFailed, FlowFailed, HttpStatus, Contract, UnsupportedStatus, InvalidJson paths for raw bearer/URL/flow-id leaks -> clean (redact_connect_text covers opener.open errors, failed-flow error text, http_error_message body strings; safe_route('/v1/connect/sessions/...') redacts flow ids; HostedHttpResponse Debug shows body length only; HostedHttpHeader Debug redacts authorization/proxy-authorization/token/secret/api-key. connect_secret_redaction tests exercise all listed paths.)
-- `header injection`: Send header value containing CRLF through ReqwestHttpTransport -> clean (runtime_http.rs:441-456 (test reqwest_transport_rejects_header_injection) returns InvalidHeaderValue; validate_header explicitly rejects \r and \n in values.)
-- `scheme smuggling`: Pass file:// or other non-http(s) URL into ReqwestHttpTransport::send -> clean (validate_http_url runs before block_on_http; reqwest_transport_rejects_non_http_urls_before_sending test covers it; HostedHttpClient::with_transport validates base_url; route_url re-validates the composed URL.)
-- `no-redirect policy`: Verify reqwest does not follow 3xx -> clean (ReqwestHttpTransport::new sets `.redirect(reqwest::redirect::Policy::none())`; reqwest_transport_does_not_follow_redirects test asserts a real 302 stays 302.)
-- `nested-runtime panic safety`: Call HostedTransport::send from within an active tokio runtime -> clean (block_on_http checks Handle::try_current() and returns HostedHttpError::BlockingHttpInsideAsyncRuntime; runtime build failures map to AsyncRuntimeUnavailable. No unwrap/expect/panic/println in runtime_http.rs (ac5).)
-- `deny.toml supply-chain shape`: Walk the deny rules vs Cargo.lock to confirm hyper/reqwest are allowed only through approved wrappers and pure crates stay clean -> finding (Hyper/reqwest correctly wrapped; filed deny-toml-tokio-not-listed for the spec's stated 'free of tokio' intent.)
-- `convention check - workspace lints`: Check changed files against workspace lints (unwrap_used=deny, panic=deny, print_stdout=deny, etc.) -> clean (runtime_http.rs and connect/client.rs use no unwrap/expect/panic/println/eprintln (ac5, ac9 negative greps pass).)
-- `request timeout coverage`: Confirm a hung server is bounded by some timeout -> finding (Filed reqwest-no-per-request-timeout as low-severity; may be intentional per spec assumption #5.)
-- `workspace mutation guard`: compare pre-review and post-review workspace snapshots -> finding (changed crates/runx-runtime/Cargo.toml (M 00ade208d3ce2591a2efab5fae67d71c1edc8a1921e384210e36c0d9f496474f -> M b68a95bfbe3553559f90cebf2db2b83573d2d3199a9de6414479f514440b217d), changed crates/runx-runtime/src/runtime_http.rs (?? 42286800c8801094864fa1f1158f567e5e498edc7e03aac497604ecf9fc867f8 -> ?? d8affbce250f5175826c145dc8546e3487ea17821baf7cc64e3006635b7df212))
+- `workspace_mutation critical blocker`: Confirm prior workspace-mutation blocker is no longer present; verify Workspace Baseline and task_changes attribution -> clean (Workspace Baseline = clean; Task Changes Since Approval Baseline = none; ambient drift attributable to sibling cutover specs outside scope.)
+- `scope-drift-rollback-references-deleted-type`: Read current Rollback section and grep crates/ for CommandHttpTransport -> clean (Rollback lines 320-330 reference git history; zero CommandHttpTransport matches in crates/.)
+- `deny-toml-tokio-not-listed`: Re-read deny.toml ban list and verify tokio wrapper allowlist matches Cargo.lock dependents -> clean (deny.toml:22 bans tokio with [runx-runtime, reqwest, hyper, hyper-rustls, hyper-util, tokio-rustls, tower]; matches Cargo.lock dependents; ac2 passes.)
+- `reqwest-no-per-request-timeout`: Trace ReqwestHttpTransport::new to confirm explicit per-request and connect timeouts plus regression coverage -> clean (runtime_http.rs:110-127 sets 30s request and 10s connect timeouts; reqwest_transport_times_out_stalled_response asserts bounded failure path.)
+- `Regression hunt — CLI feature edge still threads reqwest`: Walk runx-cli/Cargo.toml → cli-tool → async-http → ConnectClient::new gating -> clean (runx-cli/Cargo.toml:20 enables [cli-tool, mcp]; runx-runtime/Cargo.toml:21 has cli-tool=[async-http]; ConnectClient::new at connect/client.rs:69 is cfg(feature='async-http')-gated. CLI integration tests exercise the reqwest binary.)
+- `Regression hunt — ConnectClient generic injection`: Confirm with_transport_and_opener is feature-agnostic so MockConnectTransport tests still run -> clean (connect/client.rs:86-108 with_transport_and_opener is not feature-gated; tests/connect_client.rs and tests/connect_secret_redaction.rs continue to inject &MockConnectTransport + &RecordingOpener. ac7/ac7b pass.)
+- `Convention check — forbidden patterns in transport path`: Grep unwrap/expect/panic!/println! in runtime_http.rs -> clean (Grep returns zero matches; ac5 negative grep over hosted_http.rs/http_runtime.rs/runtime_http.rs passes.)
+- `Dark patterns — header CRLF and URL scheme smuggling`: Trace validate_header and validate_http_url; confirm both pre-empt reqwest send -> clean (validate_header rejects \r/\n in values and non-token name bytes; validate_http_url runs before block_on_http for transport.send and inside HostedHttpClient::with_transport. Dedicated tests cover both paths.)
+- `Dark patterns — secret leakage across Debug/Display`: Audit Display/Debug impls for ConnectError, HostedHttpResponse, HostedHttpHeader, HttpConnectStart/Flow responses -> clean (ConnectError::HttpStatus uses http_error_message which redacts JSON-error bodies via redact_connect_text and otherwise reports only byte length. HostedHttpResponse Debug shows '{n} bytes'. HostedHttpHeader Debug redacts authorization/proxy-authorization/*token*/*secret*/*api-key*. ConnectClientOptions Debug redacts access_token. connect_secret_redaction tests cover the suite.)
+- `Dark patterns — block_on inside an active tokio runtime`: Verify block_on_http checks Handle::try_current() and surfaces typed BlockingHttpInsideAsyncRuntime / AsyncRuntimeUnavailable -> clean (runtime_http.rs:294 checks Handle::try_current() and returns HostedHttpError::BlockingHttpInsideAsyncRuntime; runtime build failures map to AsyncRuntimeUnavailable. Grep confirms both variant names exist in src.)
+- `Spec compliance — OAuth polling precedence and timeout semantics`: Read wait_for_connect_flow and verify pending.poll_after_ms → initial → poll_interval_ms → 750ms order and elapsed-time timeout -> clean (connect/client.rs:178-181 selects delay_ms via `.or(initial_poll_after_ms).or(self.poll_interval_ms).unwrap_or(750)`; timeout_ms defaults to 60_000 (line 106); started_at.elapsed() compared at pending boundary (line 175).)
+- `Spec compliance — dependency pins and feature shape`: Re-run textual checks of ac3 against current Cargo.toml -> clean (async-http = ["dep:reqwest", "dep:tokio"] and cli-tool = ["async-http"] at runx-runtime/Cargo.toml:20-21; reqwest pin =0.13.3 with default-features=false features [rustls, json]; tokio pin =1.52.3 with [rt, net, time]; no blocking/cookies/stream/default-features=true/direct hyper.)
 
 Findings:
-- [low/non-blocking] `scope-drift-rollback-references-deleted-type` Spec rollback step references CommandHttpTransport which no longer exists in source.
-  - Location: `.scafld/specs/active/rust-async-http-cutover-connect.md:322`
-  - Evidence: Rollback line 322 says 'Revert the connect default transport to CommandHttpTransport.' but `rg CommandHttpTransport crates/` returns no matches and crates/runx-runtime/src/hosted_http.rs is marked deleted in ambient drift. The deletion is attributed to the sibling spec rust-async-http-cutover-hosted-http-removal (also in review). The rollback as written cannot be executed without restoring the type from git history.
-  - Impact: If a reviewer follows the documented rollback after merge, they will find no CommandHttpTransport to revert to. The actual recovery path is `git revert` on the cutover commits in the inverse order of the three sibling specs.
-  - Validation: Cross-checked deny.toml, registry/http.rs, connect/client.rs, lib.rs — none import or define CommandHttpTransport.
-- [low/non-blocking] `deny-toml-tokio-not-listed` deny.toml does not list `tokio` even though spec keeps pure crates 'free of tokio, reqwest, hyper'.
-  - Location: `crates/deny.toml:13`
-  - Evidence: deny.toml lines 13-23 ban async-std, axum, clap, hyper (wrappers: reqwest/hyper-rustls/hyper-util), reqwest (wrapper: runx-runtime), rmcp, serde_yaml/yml, ureq — but tokio is absent. Spec scope says 'Scope deny.toml changes so pure crates remain free of tokio, reqwest, hyper, and raw network clients.' Today pure crates do not pull tokio transitively, so cargo deny check passes (ac2), but the rule isn't enforced: a future pure-crate edit adding a direct tokio dep would not fail the supply-chain gate.
-  - Impact: Drift risk: a pure crate could be regressed to depend on tokio without cargo deny catching it. Not a current violation; preventive.
-  - Validation: Inspected Cargo.lock for tokio dependents (reqwest, hyper-util, hyper-rustls, tokio-rustls, quinn family) — the suggested wrapper list matches the actual graph.
-- [low/non-blocking] `reqwest-no-per-request-timeout` ReqwestHttpTransport builds the client without `.timeout(...)`; a hung request stalls before the pending-loop timeout can fire.
-  - Location: `crates/runx-runtime/src/runtime_http.rs:108`
-  - Evidence: ReqwestHttpTransport::new (lines 108-116) calls `reqwest::Client::builder().redirect(Policy::none()).build()` with no per-request or connect timeout. wait_for_connect_flow (connect/client.rs:152-188) only checks `started_at.elapsed() >= timeout_ms` AFTER a poll response is received, so a stalled poll request can block indefinitely. Spec assumption #5 says 'Timeout semantics remain elapsed-time based and return ConnectError::Timeout only after the same pending-loop boundary as today', so this may be intentional, but it leaves the initial preprovision/list/revoke request and any hung poll unbounded by request time.
-  - Impact: If the cloud connect endpoint goes silent mid-request, `runx connect` hangs until the user Ctrl-Cs. The behavior may match the pre-cutover curl transport if curl was invoked without --max-time, but the new reqwest path locks this in.
-  - Validation: Reviewed reqwest 0.13 builder defaults — without explicit timeout, reqwest does not impose one. Confirmed connect_client.rs OAuth-polling test uses poll_after_ms=0 and timeout_ms=1000 to bound the test, masking this gap.
-- [critical/blocks completion] `workspace_mutation` Workspace changed during review.
-  - Location: `crates/runx-runtime/Cargo.toml (M 00ade208d3ce2591a2efab5fae67d71c1edc8a1921e384210e36c0d9f496474f -> M b68a95bfbe3553559f90cebf2db2b83573d2d3199a9de6414479f514440b217d)`
-  - Evidence: workspace changed during review: changed crates/runx-runtime/Cargo.toml (M 00ade208d3ce2591a2efab5fae67d71c1edc8a1921e384210e36c0d9f496474f -> M b68a95bfbe3553559f90cebf2db2b83573d2d3199a9de6414479f514440b217d), changed crates/runx-runtime/src/runtime_http.rs (?? 42286800c8801094864fa1f1158f567e5e498edc7e03aac497604ecf9fc867f8 -> ?? d8affbce250f5175826c145dc8546e3487ea17821baf7cc64e3006635b7df212)
-  - Impact: The review provider changed the workspace while acting as a read-only reviewer, so its verdict is not trustworthy.
-  - Validation: Restore the workspace to the expected state, ensure the provider is read-only, then rerun scafld review.
+- [critical/non-blocking] `workspace_mutation` Prior workspace_mutation blocker no longer reproduces.
+  - Location: `.scafld/specs/active/rust-async-http-cutover-connect.md`
+  - Evidence: Workspace Baseline section reports `clean`; Task Changes Since Approval Baseline reports `none`. Ambient drift is attributed to sibling cutover specs (hosted-http-removal, registry) outside this task's declared scope. Re-checked Cargo.toml:34 reqwest pin and runtime_http.rs against approval baseline — no further drift during this verify pass.
+  - Impact: None — the blocker condition is no longer present and the verify-pass baseline is clean.
+  - Validation: Workspace Baseline = clean; ambient_drift attribution is sibling-spec ownership; no in-flight edits to task-scope files during review.
+- [low/non-blocking] `scope-drift-rollback-references-deleted-type` Rollback section no longer references the deleted CommandHttpTransport type.
+  - Location: `.scafld/specs/active/rust-async-http-cutover-connect.md:320`
+  - Evidence: .scafld/specs/active/rust-async-http-cutover-connect.md lines 320-330 describe a git-history-based revert ("this restores the deleted curl module from git history instead of leaving a compatibility shim"). `rg CommandHttpTransport crates/` returns zero matches; only historical Review/Harden log entries inside this spec mention the old type, which is expected.
+  - Validation: Read Rollback block lines 320-330; grep across crates/ confirms zero source references to CommandHttpTransport.
+- [low/non-blocking] `deny-toml-tokio-not-listed` deny.toml now bans tokio with the approved wrapper allowlist.
+  - Location: `crates/deny.toml:22`
+  - Evidence: crates/deny.toml line 22: `{ name = "tokio", wrappers = ["runx-runtime", "reqwest", "hyper", "hyper-rustls", "hyper-util", "tokio-rustls", "tower"], reason = "Approved only inside runx-runtime async-http and reviewed reqwest internals; pure crates must not depend on tokio." }`. Wrapper set matches actual Cargo.lock dependents and ac2 (`cd crates && cargo deny check`) passes with `all-features = true`.
+  - Validation: Read deny.toml lines 13-24; ac2 recorded exit code 0.
+- [low/non-blocking] `reqwest-no-per-request-timeout` ReqwestHttpTransport configures explicit request and connect timeouts with regression coverage.
+  - Location: `crates/runx-runtime/src/runtime_http.rs:110`
+  - Evidence: runtime_http.rs:110-127 — `ReqwestHttpTransport::new()` delegates to `with_timeouts(Duration::from_secs(30), Duration::from_secs(10))`; the builder applies `.timeout(request_timeout).connect_timeout(connect_timeout)`. Regression test `reqwest_transport_times_out_stalled_response` at runtime_http.rs:491-520 binds a stalling TCP listener and asserts `HostedHttpError::Transport`, bounding hung initial connect requests independently of the OAuth pending-loop timeout.
+  - Validation: Read runtime_http.rs lines 110-127 and 491-520; ac4 (`runtime_http::tests`) passes per recorded evidence.
 
 ## Self Eval
 

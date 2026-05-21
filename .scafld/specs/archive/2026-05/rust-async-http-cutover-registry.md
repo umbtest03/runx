@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: rust-async-http-cutover-registry
 created: '2026-05-21T02:07:27Z'
-updated: '2026-05-21T02:47:05Z'
-status: review
+updated: '2026-05-21T03:08:24Z'
+status: completed
 harden_status: passed
 size: medium
 risk_level: high
@@ -13,13 +13,13 @@ risk_level: high
 
 ## Current State
 
-Status: review
+Status: completed
 Current phase: final
-Next: complete
-Reason: review gate pass
+Next: done
+Reason: task completed
 Blockers: none
-Allowed follow-up command: `scafld complete rust-async-http-cutover-registry`
-Latest runner update: 2026-05-21T03:00:04Z
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-21T03:08:24Z
 Review gate: pass
 
 ## Summary
