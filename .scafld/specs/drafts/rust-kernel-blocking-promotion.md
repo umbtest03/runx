@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-kernel-blocking-promotion
 created: '2026-05-17T00:30:00Z'
-updated: '2026-05-21T13:31:43+10:00'
+updated: '2026-05-21T14:08:58+10:00'
 status: draft
 harden_status: not_run
 size: medium
@@ -15,7 +15,7 @@ risk_level: high
 
 Status: draft
 Current phase: evidence script landed; soak evidence pending
-Next: record advisory-start evidence, then run the clean-kernel counter against
+Next: continue soak verification by running the clean-kernel counter against
 live GitHub metadata or an audited operator fixture
 Reason: CI still marks Rust kernel parity advisory. The obsolete umbrella
 orchestration spec has been superseded by narrow slices, and clean-PR counter
@@ -24,9 +24,10 @@ Conservative advisory-start evidence is recorded from the archived completed
 `rust-parity-ci-governance` spec, but five qualifying post-advisory PRs are
 still missing.
 Blockers: 5 clean kernel-touching PRs landed while Rust kernel parity checks
-are advisory. Local `node scripts/check-rust-kernel-parity.mjs` now passes
-after the async HTTP crate-graph policy was aligned with the completed cutover
-and the runtime dev executable-fixture defect was fixed.
+are advisory. Current full local `node scripts/check-rust-kernel-parity.mjs`
+also fails at `cargo fmt --check` because existing untracked
+`crates/runx-cli/tests/locality.rs` needs rustfmt; that file is outside this
+promotion evidence slice and was not edited.
 Allowed follow-up command: run the evidence script against audited evidence; do
 not run `scafld harden rust-kernel-blocking-promotion`.
 Latest runner update: 2026-05-20 clean-kernel counter live-GitHub mode now
@@ -44,12 +45,11 @@ advisory-start timestamp of `2026-05-19T03:33:01Z` from the completed archived
 `rust-parity-ci-governance` spec. Fixture mode still counts 4 qualifying PRs;
 live GitHub mode against `runxhq/runx` still counts 0 qualifying PRs after
 that start.
-Latest local parity update: 2026-05-21T03:31:43Z updated the crate-graph guard
-to preserve the pure-crate ban on async/network/protocol dependencies while
-allowing the reviewed optional `runx-runtime` `async-http` edge (`reqwest` +
-`tokio`) required by the completed async HTTP cutover. The full local
-`node scripts/check-rust-kernel-parity.mjs` wrapper now passes. This evidence
-does not satisfy the live five-PR soak gate and does not authorize the CI flip.
+Latest local parity update: 2026-05-21T04:08:33Z re-ran the full local
+`node scripts/check-rust-kernel-parity.mjs` wrapper. It failed immediately at
+the rustfmt check on existing untracked `crates/runx-cli/tests/locality.rs`.
+This evidence does not satisfy the live five-PR soak gate and does not
+authorize the CI flip.
 Review gate: not_started
 
 ## Summary
@@ -274,14 +274,15 @@ Validation:
 - [ ] `v1` command - Rust kernel parity still passes.
   - Command: `node scripts/check-rust-kernel-parity.mjs`
   - Expected kind: `exit_code_zero`
-  - Status: passed 2026-05-21T03:31:43Z after the crate-graph guard accepted
-    only the reviewed `runx-runtime` `async-http` edge and the runtime dev
-    executable-fixture blocker was fixed.
+  - Status: failed 2026-05-21T04:08:33Z because `cargo fmt --check` reported
+    an unformatted diff in existing untracked
+    `crates/runx-cli/tests/locality.rs`.
 - [ ] `v2` command - 5 clean kernel-touching PRs are evidenced.
   - Command: `pnpm exec tsx scripts/count-clean-kernel-prs.ts --min 5`
   - Expected kind: `exit_code_zero`
   - Timeout seconds: 60
-  - Status: pending
+  - Status: failed 2026-05-21T04:08:33Z with 4 qualifying fixture records,
+    below the required 5.
 - [ ] `v3` command - Rust kernel parity checks are no longer advisory.
   - Command: `! rg -n 'continue-on-error: true' .github/workflows/ci.yml | rg -qE 'cargo-deny|cargo public-api|check-rust-kernel-parity'`
   - Expected kind: `exit_code_zero`
@@ -332,7 +333,8 @@ Acceptance:
   - Command: `pnpm exec tsx scripts/count-clean-kernel-prs.ts --min 5`
   - Expected kind: `exit_code_zero`
   - Timeout seconds: 60
-  - Status: pending
+  - Status: failed 2026-05-21T04:08:33Z with 4 qualifying fixture records,
+    below the required 5.
 - [ ] `ac2_2` command - evidence is recorded in this spec.
   - Command: `rg -n 'Clean PR evidence: filled' .scafld/specs/drafts/rust-kernel-blocking-promotion.md`
   - Expected kind: `exit_code_zero`
@@ -517,6 +519,26 @@ Local non-promoting evidence, 2026-05-21T03:31:43Z:
   kernel-touching PRs are still not evidenced and `.github/workflows/ci.yml`
   still intentionally keeps the Rust kernel parity step advisory.
 
+Local non-promoting evidence, 2026-05-21T04:08:33Z:
+- `scafld status rust-kernel-blocking-promotion --json` reported the spec is
+  still `draft`, with follow-up limited to running the evidence script against
+  audited evidence.
+- `scafld validate rust-kernel-blocking-promotion --json` passed.
+- `pnpm exec vitest run --config vitest.config.ts tests/count-clean-kernel-prs.test.ts`
+  passed, 10 tests.
+- `pnpm exec tsx scripts/count-clean-kernel-prs.ts --fixture tests/fixtures/clean-kernel-prs.json --min 5`
+  failed closed with 4 qualifying fixture records: PRs 101, 102, 103, and 108.
+- `pnpm exec tsx scripts/count-clean-kernel-prs.ts --min 5` failed closed
+  with the same 4 qualifying fixture records, below the required 5.
+- `pnpm exec tsx scripts/count-clean-kernel-prs.ts --from-github --repo runxhq/runx --advisory-start 2026-05-19T03:33:01Z --min 5 --limit 100`
+  failed closed with 0 qualifying live records. The latest returned merged PR
+  was PR 36, merged at 2026-05-14T14:17:35Z, which is before the conservative
+  advisory start.
+- `node scripts/check-rust-kernel-parity.mjs` failed at the rustfmt check with
+  an unformatted diff in existing untracked
+  `crates/runx-cli/tests/locality.rs`. This is outside this promotion evidence
+  slice's allowed edit scope and blocks any CI promotion.
+
 ## Metadata
 
 Estimated effort hours: 6
@@ -565,3 +587,8 @@ Supersession:
 - 2026-05-21T03:31:43Z: Re-ran the local parity wrapper after the async HTTP
   crate-graph guard update and runtime dev executable-fixture fix; the wrapper
   now passes, but the five-PR soak evidence remains the promotion blocker.
+- 2026-05-21T04:08:33Z: Executed the next safe soak-verification slice. Fixture
+  mode still counts 4 qualifying PRs, live GitHub mode against `runxhq/runx`
+  still counts 0 qualifying PRs after the conservative advisory start, and the
+  full parity wrapper now fails on rustfmt for existing untracked
+  `crates/runx-cli/tests/locality.rs`. CI remains advisory.
