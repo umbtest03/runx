@@ -2,24 +2,29 @@
 spec_version: '2.0'
 task_id: rust-mcp-rmcp-cutover
 created: '2026-05-21T00:00:00Z'
-updated: '2026-05-21T11:28:26Z'
-status: review
+updated: '2026-05-21T12:12:00Z'
+status: active
 harden_status: not_run
 size: large
 risk_level: high
 ---
 
-# rmcp cutover for the MCP adapter
+# rmcp client transport cutover for the MCP adapter
 
 ## Current State
 
-Status: review
-Current phase: final
-Next: review
-Reason: build completed; ready for review
+Status: active
+Current phase: stage-2 client transport repair complete
+Next: review this Stage 1-2 slice, then execute `rust-mcp-rmcp-server-cutover`
+for the server/deletion stages
+Reason: the original file over-scoped one executable slice as the full
+five-stage cutover. The code in this tree delivers the disjoint `mcp-rmcp`
+feature and rmcp-backed process client transport. Server-loop migration,
+rmcp-served wire parity, and deletion of hand-rolled protocol modules remain a
+separate follow-up.
 Blockers: none
 Allowed follow-up command: `scafld review rust-mcp-rmcp-cutover`
-Latest runner update: 2026-05-21T11:28:26Z
+Latest runner update: 2026-05-21T12:12:00Z
 Review gate: not_started
 
 ## Why this exists
@@ -32,8 +37,9 @@ predecessor spec established that the upstream `rmcp` crate should own that
 protocol surface, that the runx-specific surfaces stay, and that the cutover
 must preserve the recorded byte-shape contract. `rmcp` started banned in
 [`crates/deny.toml`](../../crates/deny.toml) precisely because this cutover had
-not run; Stage 1 converts that to a package-scoped `runx-runtime` exception
-while the staged feature exists. This spec runs it.
+not run; this slice converts that to a package-scoped `runx-runtime` exception
+while the staged `mcp-rmcp` feature exists and moves the process client
+transport to rmcp.
 
 This spec does not re-decide design. Where this file and
 `rust-mcp-rmcp-adoption` differ, the predecessor wins. This file is the
@@ -41,13 +47,15 @@ executable decomposition of that plan's "Follow-up cutover plan" section.
 
 ## Summary
 
-Migrate the MCP adapter's protocol layer to the upstream `rmcp` crate behind a
-disjoint `mcp-rmcp` feature, in five independently-compiling stages, preserving
-the recorded stdio wire contract within the predecessor's enumerated diff
-envelope, then delete the hand-rolled protocol modules and remove the
-`deny.toml` ban. The runx-specific surfaces (skill execution under MCP,
-argument templating, sandbox metadata, the `runx:` host-result projection,
-receipt sealing) are not touched.
+Deliver the first two independently compiling stages of the MCP rmcp cutover:
+add a disjoint `mcp-rmcp` feature with an exact pinned rmcp dependency, then run
+`ProcessMcpTransport` tool listing and calls through rmcp over stdio. This
+slice deliberately does not claim the server loop, rmcp-served wire parity, or
+deletion gate. Those stages are owned by `rust-mcp-rmcp-server-cutover`.
+
+The runx-specific surfaces (skill execution under MCP, argument templating,
+sandbox metadata, the `runx:` host-result projection, receipt sealing) are not
+touched.
 
 ## Runner note: 2026-05-21T10:58:27Z
 
@@ -71,6 +79,20 @@ mcp_server_matches_recorded_stdio_wire_contract`, `cargo test -p runx-runtime
 `cargo deny check licenses` pass. `cargo check -p runx-runtime --features mcp,mcp-rmcp` fails
 with the expected mutual-exclusion compile error.
 
+## Runner note: 2026-05-21T12:12:00Z
+
+The review gate correctly caught two client-slice regressions in addition to
+the over-broad Stage 3-5 claims. The client transport now records
+receive-side Content-Length, size-limit, and JSON parse failures in the rmcp
+transport error state before returning stream end to rmcp's `Transport`
+interface, so downstream service errors can preserve the stable transport
+message. The tokio child-process path now pipes and bounded-drains stderr like
+the legacy client path instead of sending it to `/dev/null`.
+
+New unit coverage under `--features mcp-rmcp --lib rmcp_transport_tests`
+proves missing `Content-Length`, oversized body, and malformed JSON are
+recorded as transport errors rather than clean EOF.
+
 ## Context
 
 CWD: `.` (run cargo from `crates/`).
@@ -78,7 +100,7 @@ CWD: `.` (run cargo from `crates/`).
 Packages:
 - `crates/runx-runtime` (the `mcp` adapter modules and features)
 
-Current sources (hand-rolled, to be replaced by rmcp):
+Current sources (hand-rolled, still owned by the server/deletion follow-up):
 - `crates/runx-runtime/src/adapters/mcp/framing.rs`
 - `crates/runx-runtime/src/adapters/mcp/jsonrpc.rs`
 - `crates/runx-runtime/src/adapters/mcp/transport.rs` (`ProcessMcpTransport`)
@@ -94,8 +116,9 @@ Current sources (runx-specific, must stay unchanged):
 Files impacted:
 - `crates/runx-runtime/Cargo.toml` (features, optional `rmcp` dep)
 - `crates/Cargo.lock` (committed with the dependency review)
-- `crates/deny.toml` (scope the `rmcp` exception during the cutover; remove the
-  ban after Stage 5)
+- `crates/deny.toml` (scope the `rmcp` exception during this staged client
+  path; remove the ban after `rust-mcp-rmcp-server-cutover` deletes the
+  hand-rolled protocol path)
 - `crates/runx-runtime/src/lib.rs` and `src/adapters.rs` (feature exposure)
 - `crates/runx-runtime/src/adapters/mcp.rs` (mutual-exclusion `compile_error!`)
 - `crates/runx-runtime/src/adapters/mcp/{transport,jsonrpc}.rs` (client
@@ -112,30 +135,34 @@ Invariants:
   Enabling both is a build-time `compile_error!`.
 - The runx-specific surfaces listed above are not modified by any stage.
 - Every stage compiles and tests independently. No big-bang rewrite.
-- The hand-rolled layer is deleted only after Stage 4 wire parity passes and
-  the deletion gate is satisfied.
+- The hand-rolled server/framing layer is not deleted by this spec. It is
+  deleted only after the follow-up server cutover passes rmcp-served wire
+  parity and its deletion gate.
 - `cargo deny check licenses` stays clean; the rmcp tree (tokio, schemars,
   JSON-Schema helpers) must remain Apache-2.0 / MIT.
 
 ## Objectives
 
-- Adopt `rmcp` for MCP framing, JSON-RPC, the client transport, and the server
-  loop, behind a disjoint feature, with an exact pinned version.
-- Preserve the recorded stdio wire contract within the predecessor's diff
-  envelope.
-- Delete the hand-rolled protocol modules and remove the `deny.toml` ban once
-  the deletion gate is met.
+- Adopt `rmcp` for the process client transport behind a disjoint feature, with
+  an exact pinned version.
+- Preserve the existing `mcp` feature's recorded stdio wire contract while the
+  staged `mcp-rmcp` client path is introduced.
+- Preserve stable client error semantics for malformed JSON, missing
+  `Content-Length`, oversized responses, timeout, and stderr draining.
 
 ## Scope
 
 In scope:
-- The five stages from `rust-mcp-rmcp-adoption` "Follow-up cutover plan":
-  feature flag (Stage 1), client transport (Stage 2), server transport
-  (Stage 3), byte-exact wire-parity check (Stage 4), deletion plus deny.toml
-  removal (Stage 5).
-- The mutual-exclusion build guard and the dependency-review `Cargo.lock` diff.
+- Stage 1 from `rust-mcp-rmcp-adoption`: feature flag, exact rmcp pin,
+  dependency-policy exception, and mutual-exclusion build guard.
+- Stage 2 from `rust-mcp-rmcp-adoption`: rmcp-backed process client transport
+  for tool listing and calls; `FixtureMcpTransport` remains unchanged.
+- Client-side parity repair for receive errors and stderr draining.
 
 Out of scope:
+- Server transport migration, rmcp-served wire parity, deletion of hand-rolled
+  protocol modules, removal of the `mcp-rmcp` staging feature, and removal of
+  the `deny.toml` rmcp ban. Owned by `rust-mcp-rmcp-server-cutover`.
 - rmcp HTTP transports (SSE / streamable HTTP). Stdio only; follow up if a
   consumer needs HTTP (predecessor Open Questions).
 - Publishing a public reusable rmcp `ServerHandler` type
@@ -154,15 +181,15 @@ Stages and their per-stage acceptance gates are defined in
 2. Behind `#[cfg(feature = "mcp-rmcp")]`, swap `ProcessMcpTransport` tool
    listing and calls to the rmcp client. `FixtureMcpTransport` unchanged.
    **Done for the process client path.**
-3. Behind `mcp-rmcp`, swap the `serve_mcp_json_rpc` stdio loop for the rmcp
-   server, wrapping `McpServerState` in an rmcp `ServerHandler`.
-4. Diff the rmcp server's framed output against the recorded `*.responses.jsonl`
-   baseline, holding to the predecessor's enumerated must-match / may-differ
-   envelope. Any diff outside the envelope is a regression.
-5. Once Stage 4 passes and the deletion gate holds, delete
-   `mcp/{framing,jsonrpc,transport,server}` protocol code, remove the
-   `mcp-rmcp` feature so rmcp is the only `mcp` path, and remove the `rmcp`
-   ban from `deny.toml`.
+3. Deferred to `rust-mcp-rmcp-server-cutover`: behind `mcp-rmcp`, swap the
+   `serve_mcp_json_rpc` stdio loop for the rmcp server, wrapping
+   `McpServerState` in an rmcp `ServerHandler`.
+4. Deferred to `rust-mcp-rmcp-server-cutover`: diff the rmcp server's framed
+   output against the recorded `*.responses.jsonl` baseline, holding to the
+   predecessor's enumerated must-match / may-differ envelope.
+5. Deferred to `rust-mcp-rmcp-server-cutover`: delete hand-rolled protocol
+   code, make rmcp the only `mcp` path, and remove the `rmcp` ban from
+   `deny.toml`.
 
 ## Dependencies
 
@@ -194,6 +221,8 @@ dependency review.
   passes.
 - [x] `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test mcp_adapter --features mcp-rmcp -- --nocapture`
   passes.
+- [x] `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features mcp-rmcp --lib rmcp_transport_tests -- --nocapture`
+  passes.
 - [x] `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features mcp --test mcp_server -- --nocapture`
   passes.
 - [x] `cargo clippy --manifest-path crates/Cargo.toml -p runx-runtime --all-targets --features cli-tool,mcp -- -D warnings`
@@ -203,13 +232,10 @@ dependency review.
 - [x] From `crates/`, `cargo deny check bans` and `cargo deny check licenses`
   pass.
 
-## Open Questions
+## Follow-up
 
-- Deletion-gate signal. The predecessor replaced the unverifiable external-soak
-  gate with an in-repo attestation under
-  `fixtures/runtime/adapters/mcp/rmcp-cutover/` OR an owner override OR
-  default-on for one full minor with zero protocol-drift receipts. Pick the
-  signal to use at Stage 5 time and record the query command or the override.
+- `rust-mcp-rmcp-server-cutover` owns the remaining server loop, rmcp-served
+  wire parity, deletion-gate signal, and `deny.toml` ban removal.
 
 ## References
 
