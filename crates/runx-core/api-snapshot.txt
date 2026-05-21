@@ -183,10 +183,12 @@ pub runx_core::policy::CredentialBindingRequest::credential: core::option::Optio
 pub runx_core::policy::CredentialBindingRequest::grants: alloc::vec::Vec<runx_core::policy::LocalAdmissionGrant>
 pub runx_core::policy::CredentialBindingRequest::scope_admission: runx_core::policy::ScopeAdmission
 pub struct runx_core::policy::CredentialEnvelope
-pub runx_core::policy::CredentialEnvelope::connection_id: alloc::string::String
+pub runx_core::policy::CredentialEnvelope::auth_mode: alloc::string::String
+pub runx_core::policy::CredentialEnvelope::connection_id: core::option::Option<alloc::string::String>
 pub runx_core::policy::CredentialEnvelope::grant_id: alloc::string::String
 pub runx_core::policy::CredentialEnvelope::grant_reference: core::option::Option<runx_core::policy::CredentialGrantReference>
 pub runx_core::policy::CredentialEnvelope::kind: alloc::string::String
+pub runx_core::policy::CredentialEnvelope::material_kind: alloc::string::String
 pub runx_core::policy::CredentialEnvelope::material_ref: alloc::string::String
 pub runx_core::policy::CredentialEnvelope::provider: alloc::string::String
 pub runx_core::policy::CredentialEnvelope::scopes: alloc::vec::Vec<alloc::string::String>

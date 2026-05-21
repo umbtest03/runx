@@ -83,6 +83,8 @@ Exercises connected credential binding.
               kind: "runx.credential-envelope.v1",
               grant_id: "grant_other",
               provider: "github",
+              auth_mode: "oauth",
+              material_kind: "nango_connection",
               connection_id: "conn_1",
               scopes: ["repo:read"],
               grant_reference: {
@@ -211,6 +213,8 @@ Exercises admitted grant narrowing.
                   kind: "runx.credential-envelope.v1",
                   grant_id: grant.grant_id,
                   provider: grant.provider,
+                  auth_mode: "oauth",
+                  material_kind: "nango_connection",
                   connection_id: "conn_1",
                   scopes: grant.scopes,
                   grant_reference: {
