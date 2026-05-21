@@ -1,18 +1,12 @@
-mod connect_support;
-
 use runx_contracts::JsonValue;
 use runx_core::policy::{
-    AdmissionDecision, LocalAdmissionOptions, LocalAdmissionSkill, LocalAdmissionSource,
-    admit_local_skill,
+    AdmissionDecision, AuthorityKind, LocalAdmissionGrant, LocalAdmissionGrantStatus,
+    LocalAdmissionOptions, LocalAdmissionSkill, LocalAdmissionSource, admit_local_skill,
 };
-use runx_runtime::connect::connect_grant_to_local_admission;
 use serde_json::json;
-
-use connect_support::grant_fixture;
 
 #[test]
 fn converted_targeted_grant_admits_exact_requirement() -> Result<(), Box<dyn std::error::Error>> {
-    let grant = grant_fixture("grant_exact");
     let skill = connected_skill(json!({
         "provider": "github",
         "scopes": ["repo:read"],
@@ -24,7 +18,8 @@ fn converted_targeted_grant_admits_exact_requirement() -> Result<(), Box<dyn std
     let decision = admit_local_skill(
         &skill,
         &LocalAdmissionOptions {
-            connected_grants: Some(vec![connect_grant_to_local_admission(&grant)]),
+            connected_grants: Some(vec![local_grant(LocalAdmissionGrantStatus::Active)]),
+            connected_auth_checked_at: Some("2026-05-22T00:00:00Z".to_owned()),
             ..LocalAdmissionOptions::default()
         },
     );
@@ -36,7 +31,6 @@ fn converted_targeted_grant_admits_exact_requirement() -> Result<(), Box<dyn std
 #[test]
 fn converted_targeted_grant_does_not_admit_untargeted_requirement()
 -> Result<(), Box<dyn std::error::Error>> {
-    let grant = grant_fixture("grant_targeted");
     let skill = connected_skill(json!({
         "provider": "github",
         "scopes": ["repo:read"]
@@ -44,7 +38,8 @@ fn converted_targeted_grant_does_not_admit_untargeted_requirement()
     let decision = admit_local_skill(
         &skill,
         &LocalAdmissionOptions {
-            connected_grants: Some(vec![connect_grant_to_local_admission(&grant)]),
+            connected_grants: Some(vec![local_grant(LocalAdmissionGrantStatus::Active)]),
+            connected_auth_checked_at: Some("2026-05-22T00:00:00Z".to_owned()),
             ..LocalAdmissionOptions::default()
         },
     );
@@ -55,8 +50,6 @@ fn converted_targeted_grant_does_not_admit_untargeted_requirement()
 
 #[test]
 fn converted_revoked_grant_denies() -> Result<(), Box<dyn std::error::Error>> {
-    let mut grant = grant_fixture("grant_revoked");
-    grant.status = runx_runtime::connect::ConnectGrantStatus::Revoked;
     let skill = connected_skill(json!({
         "provider": "github",
         "scopes": ["repo:read"],
@@ -68,13 +61,29 @@ fn converted_revoked_grant_denies() -> Result<(), Box<dyn std::error::Error>> {
     let decision = admit_local_skill(
         &skill,
         &LocalAdmissionOptions {
-            connected_grants: Some(vec![connect_grant_to_local_admission(&grant)]),
+            connected_grants: Some(vec![local_grant(LocalAdmissionGrantStatus::Revoked)]),
+            connected_auth_checked_at: Some("2026-05-22T00:00:00Z".to_owned()),
             ..LocalAdmissionOptions::default()
         },
     );
 
     assert!(matches!(decision, AdmissionDecision::Deny { .. }));
     Ok(())
+}
+
+fn local_grant(status: LocalAdmissionGrantStatus) -> LocalAdmissionGrant {
+    LocalAdmissionGrant {
+        grant_id: "grant_fixture".to_owned(),
+        provider: "github".to_owned(),
+        scopes: vec!["repo:read".to_owned()],
+        status: Some(status),
+        not_before: Some("2026-05-21T00:00:00Z".to_owned()),
+        expires_at: Some("2026-05-23T00:00:00Z".to_owned()),
+        scope_family: Some("github_repo".to_owned()),
+        authority_kind: Some(AuthorityKind::ReadOnly),
+        target_repo: Some("runxhq/aster".to_owned()),
+        target_locator: Some("github:repo:runxhq/aster".to_owned()),
+    }
 }
 
 fn connected_skill(auth: serde_json::Value) -> Result<LocalAdmissionSkill, serde_json::Error> {

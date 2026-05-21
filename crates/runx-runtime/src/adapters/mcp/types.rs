@@ -187,7 +187,7 @@ impl McpTransportError {
         }
     }
 
-    #[cfg(all(test, feature = "mcp-rmcp"))]
+    #[cfg(all(test, feature = "mcp"))]
     #[must_use]
     pub(super) fn message_for_test(&self) -> &str {
         &self.message

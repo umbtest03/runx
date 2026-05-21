@@ -217,7 +217,7 @@ Commands:
   runx init [-g|--global] [--prefetch official] [--json]
   runx history [query] [--skill s] [--status s] [--source s] [--actor a] [--artifact-type t] [--since iso] [--until iso] [--receipt-dir dir] [--json]
   runx list [tools|skills|graphs|packets|overlays] [--ok-only|--invalid-only] [--json]
-  runx connect list|revoke <grant-id>|<provider> [--scope scope] [--scope-family family] [--authority-kind read_only|constructive|destructive] [--target-repo owner/repo] [--target-locator locator] [--json]
+  runx connect [--json]  # unavailable in the MIT OSS CLI
   runx config set|get|list [agent.provider|agent.model|agent.api_key] [value] [--json]
   runx policy inspect|lint <policy.json> [--json]
   runx kernel eval --input <file|-> --json

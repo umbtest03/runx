@@ -26,7 +26,7 @@ thiserror = "2.0.17"
 [workspace.package]
 edition = "2024"
 rust-version = "1.85"
-license = "Apache-2.0"
+license = "MIT"
 repository = "https://github.com/runxhq/runx"
 homepage = "https://runx.ai"
 

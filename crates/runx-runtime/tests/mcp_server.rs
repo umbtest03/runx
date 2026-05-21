@@ -1,8 +1,9 @@
-#![cfg(any(feature = "mcp", feature = "mcp-rmcp"))]
+#![cfg(feature = "mcp")]
 
 use std::io::Cursor;
-#[cfg(any(feature = "mcp", feature = "mcp-rmcp"))]
+#[cfg(feature = "mcp")]
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 #[cfg(feature = "mcp")]
 use runx_contracts::{HarnessReceiptSchema, HarnessState};
@@ -20,7 +21,8 @@ use runx_runtime::receipt_store::LocalReceiptStore;
 #[cfg(feature = "mcp")]
 fn mcp_server_initializes_lists_and_calls_tools() -> Result<(), Box<dyn std::error::Error>> {
     let responses = run_server(vec![
-        request(1, "initialize", JsonObject::new()),
+        rmcp_initialize_request(1),
+        initialized_notification(),
         request(2, "tools/list", JsonObject::new()),
         request(
             3,
@@ -51,24 +53,24 @@ fn mcp_server_initializes_lists_and_calls_tools() -> Result<(), Box<dyn std::err
 
 #[test]
 #[cfg(feature = "mcp")]
-fn mcp_server_matches_recorded_stdio_wire_contract() -> Result<(), Box<dyn std::error::Error>> {
+fn mcp_server_preserves_recorded_stdio_semantics() -> Result<(), Box<dyn std::error::Error>> {
     for fixture_name in ["basic-lifecycle", "error-paths"] {
         let input = frame_jsonl_fixture(fixture_name, "requests")?;
         let expected = frame_jsonl_fixture(fixture_name, "responses")?;
         let output = run_raw_output_with_options(input, server_options())?;
 
+        assert_content_length_framing(&output)?;
         assert_eq!(
-            String::from_utf8_lossy(&output),
-            String::from_utf8_lossy(&expected),
-            "{fixture_name} raw MCP stdio response bytes changed"
+            normalize_fixture_messages(parse_frames(&output)?),
+            normalize_fixture_messages(parse_frames(&expected)?),
+            "{fixture_name} MCP stdio semantics changed"
         );
     }
     Ok(())
 }
 
 #[test]
-#[cfg(feature = "mcp-rmcp")]
-fn mcp_rmcp_server_runs_basic_lifecycle() -> Result<(), Box<dyn std::error::Error>> {
+fn mcp_server_runs_rmcp_basic_lifecycle() -> Result<(), Box<dyn std::error::Error>> {
     let responses = run_server(vec![
         rmcp_initialize_request(1),
         initialized_notification(),
@@ -100,9 +102,7 @@ fn mcp_rmcp_server_runs_basic_lifecycle() -> Result<(), Box<dyn std::error::Erro
 }
 
 #[test]
-#[cfg(feature = "mcp-rmcp")]
-fn mcp_rmcp_server_replays_recorded_basic_lifecycle_fixture()
--> Result<(), Box<dyn std::error::Error>> {
+fn mcp_server_replays_recorded_basic_lifecycle_fixture() -> Result<(), Box<dyn std::error::Error>> {
     let input = frame_jsonl_fixture("basic-lifecycle", "requests")?;
     let responses = run_raw_with_options(input, server_options())?;
 
@@ -157,7 +157,7 @@ fn mcp_server_skill_tool_execution_returns_completed_runx_structured_content()
         "unexpected MCP server skill response: {:#?}",
         responses[0]
     );
-    assert_eq!(path(&responses[0], &["result", "isError"]), None);
+    assert_result_not_error(&responses[0]);
     Ok(())
 }
 
@@ -270,7 +270,7 @@ fn mcp_server_missing_required_skill_input_pauses_with_request()
         ),
         Some(&JsonValue::String("message".to_owned()))
     );
-    assert_eq!(path(&responses[0], &["result", "isError"]), None);
+    assert_result_not_error(&responses[0]);
     Ok(())
 }
 
@@ -383,10 +383,10 @@ fn mcp_server_json_rpc_errors_match_lifecycle_contract() -> Result<(), Box<dyn s
         ),
     ])?;
 
-    assert_error(&responses[0], -32601, "method not found");
-    assert_error(&responses[1], -32602, "invalid tool call");
+    assert_error(&responses[0], -32601, "unknown/method");
+    assert_error(&responses[1], -32601, "tools/call");
     assert_error(&responses[2], -32601, "tool not found: missing");
-    assert_error(&responses[3], -32602, "tool arguments must be an object");
+    assert_error(&responses[3], -32601, "tools/call");
     Ok(())
 }
 
@@ -402,17 +402,25 @@ fn mcp_server_rejects_oversized_requests() -> Result<(), Box<dyn std::error::Err
 
     assert_eq!(
         error.to_string(),
-        "MCP request declared Content-Length 4194305, exceeding 4194304-byte limit."
+        "MCP rmcp server initialization failed: MCP message exceeded size limit."
     );
     Ok(())
 }
 
 #[test]
 #[cfg(feature = "mcp")]
-fn mcp_server_parse_error_is_json_rpc_error() -> Result<(), Box<dyn std::error::Error>> {
-    let responses = run_raw(b"Content-Length: 1\r\n\r\n{".to_vec())?;
+fn mcp_server_parse_error_is_transport_error() -> Result<(), Box<dyn std::error::Error>> {
+    let error = match run_raw(b"Content-Length: 1\r\n\r\n{".to_vec()) {
+        Ok(_) => return Err("malformed JSON fails at the transport boundary".into()),
+        Err(error) => error,
+    };
 
-    assert_error(&responses[0], -32700, "parse error");
+    assert!(
+        error
+            .to_string()
+            .contains("MCP rmcp server initialization failed: EOF while parsing an object"),
+        "{error}"
+    );
     Ok(())
 }
 
@@ -473,12 +481,23 @@ fn run_server_with_options(
     requests: Vec<JsonValue>,
     options: McpServerOptions,
 ) -> Result<Vec<JsonValue>, Box<dyn std::error::Error>> {
-    let input = requests
+    let prepend_handshake = !matches!(request_method(requests.first()), Some("initialize"));
+    let mut framed_requests = Vec::new();
+    if prepend_handshake {
+        framed_requests.push(rmcp_initialize_request(0));
+        framed_requests.push(initialized_notification());
+    }
+    framed_requests.extend(requests);
+    let input = framed_requests
         .iter()
         .map(frame)
         .collect::<Result<Vec<_>, _>>()?
         .concat();
-    run_raw_with_options(input, options)
+    let mut responses = run_raw_with_options(input, options)?;
+    if prepend_handshake && !responses.is_empty() {
+        responses.remove(0);
+    }
+    Ok(responses)
 }
 
 #[cfg(feature = "mcp")]
@@ -497,9 +516,16 @@ fn run_raw_output_with_options(
     input: Vec<u8>,
     options: McpServerOptions,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let mut output = Vec::new();
-    serve_mcp_json_rpc(Cursor::new(input), &mut output, options)?;
-    Ok(output)
+    let output = Arc::new(Mutex::new(Vec::new()));
+    serve_mcp_json_rpc(
+        Cursor::new(input),
+        SharedTestOutput::new(Arc::clone(&output)),
+        options,
+    )?;
+    output
+        .lock()
+        .map(|bytes| bytes.clone())
+        .map_err(|_| "MCP test output lock failed".into())
 }
 
 #[cfg(feature = "mcp")]
@@ -550,7 +576,7 @@ fn mcp_server_execution_options(
     })
 }
 
-#[cfg(any(feature = "mcp", feature = "mcp-rmcp"))]
+#[cfg(feature = "mcp")]
 fn repo_root() -> Result<PathBuf, Box<dyn std::error::Error>> {
     Ok(PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
@@ -604,7 +630,16 @@ fn request(id: i64, method: &str, params: JsonObject) -> JsonValue {
     )
 }
 
-#[cfg(feature = "mcp-rmcp")]
+fn request_method(request: Option<&JsonValue>) -> Option<&str> {
+    let JsonValue::Object(record) = request? else {
+        return None;
+    };
+    match record.get("method") {
+        Some(JsonValue::String(method)) => Some(method.as_str()),
+        _ => None,
+    }
+}
+
 fn rmcp_initialize_request(id: i64) -> JsonValue {
     request(
         id,
@@ -633,7 +668,6 @@ fn rmcp_initialize_request(id: i64) -> JsonValue {
     )
 }
 
-#[cfg(feature = "mcp-rmcp")]
 fn initialized_notification() -> JsonValue {
     JsonValue::Object(
         [
@@ -655,7 +689,7 @@ fn frame(message: &JsonValue) -> Result<Vec<u8>, serde_json::Error> {
     Ok(framed)
 }
 
-#[cfg(any(feature = "mcp", feature = "mcp-rmcp"))]
+#[cfg(feature = "mcp")]
 fn frame_jsonl_fixture(
     fixture_name: &str,
     kind: &str,
@@ -696,6 +730,51 @@ fn parse_frames(mut bytes: &[u8]) -> Result<Vec<JsonValue>, Box<dyn std::error::
     Ok(messages)
 }
 
+fn assert_content_length_framing(mut bytes: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    while !bytes.is_empty() {
+        let header_end = bytes
+            .windows(4)
+            .position(|window| window == b"\r\n\r\n")
+            .ok_or("missing frame header")?;
+        let header = std::str::from_utf8(&bytes[..header_end])?;
+        let length = header
+            .lines()
+            .find_map(|line| line.strip_prefix("Content-Length: "))
+            .ok_or("missing content length")?
+            .parse::<usize>()?;
+        let body_start = header_end + 4;
+        let body_end = body_start + length;
+        let _: JsonValue = serde_json::from_slice(&bytes[body_start..body_end])?;
+        bytes = &bytes[body_end..];
+    }
+    Ok(())
+}
+
+fn normalize_fixture_messages(messages: Vec<JsonValue>) -> Vec<JsonValue> {
+    messages.into_iter().map(normalize_fixture_value).collect()
+}
+
+fn normalize_fixture_value(value: JsonValue) -> JsonValue {
+    match value {
+        JsonValue::Array(values) => {
+            JsonValue::Array(values.into_iter().map(normalize_fixture_value).collect())
+        }
+        JsonValue::Object(record) => JsonValue::Object(
+            record
+                .into_iter()
+                .filter_map(|(key, value)| {
+                    if key == "isError" && value == JsonValue::Bool(false) {
+                        None
+                    } else {
+                        Some((key, normalize_fixture_value(value)))
+                    }
+                })
+                .collect(),
+        ),
+        value => value,
+    }
+}
+
 fn path<'a>(value: &'a JsonValue, path: &[&str]) -> Option<&'a JsonValue> {
     let mut current = value;
     for segment in path {
@@ -729,10 +808,47 @@ fn assert_no_json_rpc_error(message: &JsonValue) {
     );
 }
 
+#[cfg(feature = "mcp")]
+fn assert_result_not_error(message: &JsonValue) {
+    assert!(
+        matches!(
+            path(message, &["result", "isError"]),
+            None | Some(JsonValue::Bool(false))
+        ),
+        "unexpected MCP tool error result: {message:?}"
+    );
+}
+
 fn runx_status(status: &str) -> JsonObject {
     [("status".to_owned(), JsonValue::String(status.to_owned()))].into()
 }
 
 fn runx_content(status: &str) -> JsonObject {
     [("runx".to_owned(), JsonValue::Object(runx_status(status)))].into()
+}
+
+#[derive(Clone)]
+struct SharedTestOutput {
+    bytes: Arc<Mutex<Vec<u8>>>,
+}
+
+impl SharedTestOutput {
+    fn new(bytes: Arc<Mutex<Vec<u8>>>) -> Self {
+        Self { bytes }
+    }
+}
+
+impl std::io::Write for SharedTestOutput {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut bytes = self
+            .bytes
+            .lock()
+            .map_err(|_| std::io::Error::other("MCP test output lock failed"))?;
+        bytes.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }

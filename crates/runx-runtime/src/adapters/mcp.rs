@@ -3,19 +3,14 @@
 //! - `types`: shared data types and the `McpTransport` trait.
 //! - `adapter`: the `McpAdapter` `SkillAdapter` entry point.
 //! - `transport`: stdio process and fixture client transports.
-//! - `framing`, `jsonrpc`: protocol-level helpers shared by client and server.
+//! - `framing`: runx-owned Content-Length transport helpers.
 //! - `server`: `serve_mcp_json_rpc` and host-result projections.
 //! - `server_skill`: server-side skill and graph execution.
 //! - `templates`: argument templating and tool-result stringification.
 //! - `sandbox_metadata`: receipt-side sandbox metadata builders.
 
-#[cfg(all(feature = "mcp", feature = "mcp-rmcp"))]
-compile_error!("features `mcp` and `mcp-rmcp` are mutually exclusive");
-
 mod adapter;
 mod framing;
-mod jsonrpc;
-#[cfg(feature = "mcp-rmcp")]
 mod rmcp_content_length;
 mod sandbox_metadata;
 mod server;

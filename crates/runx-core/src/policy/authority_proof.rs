@@ -40,7 +40,11 @@ pub fn build_local_scope_admission(
         );
     }
 
-    match find_matching_grant(&requirement, grants) {
+    match find_matching_grant(
+        &requirement,
+        grants,
+        options.connected_auth_checked_at.as_deref(),
+    ) {
         Some(grant) => scope_admission_allow(
             requested_scopes,
             unique_strings(&grant.scopes),
@@ -66,7 +70,10 @@ pub fn build_authority_proof(options: &BuildAuthorityProofOptions) -> AuthorityP
         build_local_scope_admission(
             options.auth.as_ref(),
             &options.grants,
-            &LocalScopeAdmissionOptions::default(),
+            &LocalScopeAdmissionOptions {
+                connected_auth_checked_at: options.connected_auth_checked_at.clone(),
+                ..LocalScopeAdmissionOptions::default()
+            },
         )
     });
     let sandbox = summarize_authority_sandbox(

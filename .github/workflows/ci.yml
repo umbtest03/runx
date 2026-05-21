@@ -76,6 +76,13 @@ jobs:
           cargo test --workspace --all-features
           cargo package -p runx-cli
 
+      - name: License boundary guard
+        run: |
+          node .scafld/scripts/check-license-edges.mjs --check manifest-complete
+          node .scafld/scripts/check-license-edges.mjs --check identifiers
+          cargo metadata --manifest-path crates/Cargo.toml --format-version 1 | node .scafld/scripts/check-license-edges.mjs --check edges
+          cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test license_boundary
+
       - name: Install advisory Rust parity tools
         run: cargo install cargo-deny cargo-public-api
 

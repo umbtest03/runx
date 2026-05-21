@@ -24,6 +24,7 @@
     }
   },
   "dependencies": {
+    "@runxhq/contracts": "workspace:^0.2.5",
     "@sinclair/typebox": "^0.34.41"
   }
 }

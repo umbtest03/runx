@@ -4,8 +4,8 @@ CLI-backed Rust SDK for runx.
 
 This crate calls an installed `runx` binary and consumes documented
 `runx --json` output. It provides typed helpers for the initial client surface:
-skill search, skill run, resume, connect list, host protocol decoding, and
-act-assignment construction.
+skill search, skill run, continue, host protocol decoding, and act-assignment
+construction.
 
 SDK v0 does not execute skills natively and does not replace the TypeScript
 runtime. Native runtime support is future work behind a later `native-runtime`

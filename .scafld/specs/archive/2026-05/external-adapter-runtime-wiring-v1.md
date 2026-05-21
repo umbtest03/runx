@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: external-adapter-runtime-wiring-v1
 created: '2026-05-22T00:00:00+10:00'
-updated: '2026-05-22T01:22:00+10:00'
-status: active
+updated: '2026-05-21T15:52:28Z'
+status: completed
 harden_status: not_run
 size: medium
 risk_level: high
@@ -13,22 +13,14 @@ risk_level: high
 
 ## Current State
 
-Status: active
-Current phase: runtime hardening slice complete
-Next: rerun handoff/review after the stale workspace-mutation review finding is cleared
-Reason: focused runtime wiring now covers explicit inline/package-relative
-manifest discovery, credential delivery/redaction into the supervised process,
-host-resolution frame routing through `Host`, and fail-closed response
-identity/frame validation. Helper SDKs, conformance adapters, and broad
-registry discovery remain owned by `external-adapter-plugin-protocol-v1`.
+Status: completed
+Current phase: final
+Next: done
+Reason: task completed
 Blockers: none
-Allowed follow-up command: `scafld handoff external-adapter-runtime-wiring-v1`
-Latest runner update: 2026-05-22T01:22:00+10:00 added package-relative
-`manifest_path`, process-env credential delivery with response-observation
-redaction, public credential refs plus delivery-observation metadata,
-host-resolution frame normalization, graph-level host routing, and 16 focused
-passing runtime tests.
-Review gate: stale_failed_workspace_mutation_review; rerun required
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-21T15:52:28Z
+Review gate: pass
 
 ## Summary
 
@@ -150,24 +142,22 @@ provider-specific logic.
 ## Review
 
 Status: completed
-Verdict: fail
-Mode: discover
+Verdict: pass
+Mode: verify
 Provider: claude:claude-opus-4-7
 Output: claude.mcp_submit_review
-Summary: Reviewed external-adapter-runtime-wiring-v1 in discover mode (light depth). The feature-gated `ExternalAdapterSkillAdapter` in `crates/runx-runtime/src/adapters/external_adapter.rs` exposes `source_type: external-adapter` through `SkillAdapter::invoke`, builds an `ExternalAdapterInvocation` from `SkillInvocation` under Rust authority (no provider-specific logic), resolves manifests via inline lookup (`source.external_adapter.manifest` or `source.external_adapter_manifest`) with a generic resolver seam, and delegates to `ExternalAdapterProcessSupervisor` which preserves identity/protocol/transport/timeout/exit-code/response-mismatch/credential-frame/timeout-cancellation fail-closed paths. Module is gated behind the `external-adapter` feature in both `adapters.rs` and `lib.rs`, and the test file `crates/runx-runtime/tests/external_adapter.rs` is gated with `#![cfg(feature = "external-adapter")]`. The graph-level test instantiates `Runtime::new(ExternalAdapterSkillAdapter::default(), ...)` and exercises `run_graph_file` end-to-end, capturing the on-the-wire invocation to assert the supervisor was reached with expected fields. Acceptance criteria dod1–dod4 are satisfied by the existing code and the 9 tests in the validation evidence. No completion blockers identified. Workspace changed during review; review failed closed.
+Summary: Verify-mode review (light) of external-adapter-runtime-wiring-v1 confirms the previous critical workspace_mutation finding is resolved: the contract reports `workspace_baseline=clean` and no review-time self-mutation, so the prior reviewer's mid-flight workspace change is no longer present and the verdict can again be trusted. The single task-scoped change since approval baseline is `crates/runx-runtime/tests/cli_tool_contract.rs` (M); the file is a sandbox/CLI-tool test surface that does not import or alter `external_adapter` production paths (`grep` for `external.adapter|ExternalAdapter` in the file returns zero hits), so it cannot regress the supervisor wiring under review. Spot-checked `crates/runx-runtime/src/adapters/external_adapter.rs` and `tests/external_adapter.rs`: the feature-gated `ExternalAdapterSkillAdapter` still routes `source_type: external-adapter` through `InlineExternalAdapterManifestResolver` + `ExternalAdapterProcessSupervisor` with fail-closed identity/protocol/schema/transport/timeout/exit/response paths intact, matching dod1–dod4 and the v1 evidence (16 tests passing). No new completion blockers found; the previous workspace_mutation finding is treated as fixed.
 
 Attack log:
-- `spec acceptance dod1-dod4`: Trace adapter facade, manifest resolution, supervisor call, and fail-closed paths against each definition-of-done item -> clean (Facade is feature-gated, builds invocation contract without provider knowledge, supports inline manifests + injectable resolver, and tests cover graph reach + missing-manifest + response-mismatch fail-closed paths.)
-- `feature gating / module exposure`: Check that external_adapter module and tests are unreachable without the external-adapter feature -> clean (adapters.rs gates `pub mod external_adapter` on feature; lib.rs only enables `pub mod adapters` when one of the adapter features (including external-adapter) is set; test file is gated via `#![cfg(feature = "external-adapter")]`.)
-- `runtime integration / regression hunt`: Confirm wiring did not perturb other adapters or step execution paths (cli-tool, agent, a2a, mcp, catalog) -> clean (Runtime still dispatches via single `runtime.adapter.invoke` in steps.rs:60; no provider-specific branches added; only impact is a new optional adapter type behind feature flag.)
-- `supervisor fail-closed behavior`: Verify identity mismatch, unexpected credential frames, unsupported protocol/schema, transport, timeouts, crashed-process, oversized response, and pre-spawn validation all return errors that surface through the facade as RuntimeError::SkillFailed -> clean (validate_invocation_contract runs before spawn; parse_response rejects credential_request frames and unknown schemas; validate_response_contract enforces schema/protocol/adapter_id/invocation_id; timeout path returns TimedOut with cancellation frame; oversize stdout returns ResponseTooLarge.)
-- `subprocess hygiene / dark patterns`: Look for shell injection, env leakage, deadlocks, identifier collisions, or stdin/stdout race conditions -> clean (spawn_process uses env_clear + explicit envs; stdout/stderr captured on dedicated threads to avoid pipe deadlock; identifier_segment sanitizes skill names and defaults to 'skill'; supervisor reads compact JSON terminated by newline to match shell `read -r` semantics; process group + /bin/kill TERM/KILL escalation present on unix with direct child kill fallback.)
-- `conventions / AGENTS.md`: Check error envelope, trusted-kernel boundaries, no test logic in production, no hardcoded secrets -> clean (Errors via thiserror; no secret material handled (credential refs are pass-through); no test-only branches in production code; adapter lives in runtime crate, not in core/policy/state-machine.)
-- `workspace mutation guard`: compare pre-review and post-review workspace snapshots -> finding (removed .scafld/specs/active/external-adapter-runtime-wiring-v1.md (was M 1bc0cab4af492066e09e9f9cc0be432c6723c32fbc112b27a5716577a9fb3bc8))
+- `previous_finding:workspace_mutation`: Re-check workspace baseline and review-time mutation classification against the verify-mode snapshot -> clean (workspace_baseline=clean; no review_self_mutation entry; spec file present at original path.)
+- `task_changes:cli_tool_contract.rs`: Regression hunt — grep the only task-scoped change for external-adapter coupling and inspect imports for shared sandbox/runtime API surface that could regress external_adapter wiring -> clean (Zero matches for external.adapter|ExternalAdapter in the file; imports are `runx_runtime::adapters::cli_tool::CliToolAdapter`, `sandbox::prepare_process_sandbox`, `credentials::CredentialDelivery`, and shared env constants — none touched by external_adapter.rs, which has its own subprocess path.)
+- `adapters/external_adapter.rs + tests/external_adapter.rs`: Convention/dark-pattern spot-check against acceptance criteria dod1–dod4: feature gating, fail-closed paths, identity/schema/protocol/transport mismatch handling, manifest path canonicalization below skill directory -> clean (ExternalAdapterSkillAdapter checks source_type, delegates to InlineExternalAdapterManifestResolver + ExternalAdapterProcessSupervisor; supervisor errors enumerate UnsupportedManifestProtocol/Schema/Transport, AdapterIdMismatch, TimedOut+cancellation, ResponseTooLarge, UnexpectedCredentialRequest, ResponseMismatch — matching v1 evidence.)
+- `ambient_drift`: Confirm no ambient drift outside task scope is being attributed to this task -> clean (ambient_drift=0 per classifier; other dirty paths (credential-broker spec move, draft edits) are not enumerated here and are not within this task's declared scope.)
 
 Findings:
-- [critical/blocks completion] `workspace_mutation` Workspace changed during review.
-  - Location: `.scafld/specs/active/external-adapter-runtime-wiring-v1.md (was M 1bc0cab4af492066e09e9f9cc0be432c6723c32fbc112b27a5716577a9fb3bc8)`
-  - Evidence: workspace changed during review: removed .scafld/specs/active/external-adapter-runtime-wiring-v1.md (was M 1bc0cab4af492066e09e9f9cc0be432c6723c32fbc112b27a5716577a9fb3bc8)
-  - Impact: The review provider changed the workspace while acting as a read-only reviewer, so its verdict is not trustworthy.
-  - Validation: Restore the workspace to the expected state, ensure the provider is read-only, then rerun scafld review.
+- [critical/non-blocking] `workspace_mutation` Prior reviewer mutated the workspace during review; now resolved.
+  - Location: `.scafld/specs/active/external-adapter-runtime-wiring-v1.md`
+  - Evidence: Context manifest reports workspace_baseline=clean, task_changes=1 (cli_tool_contract.rs), ambient_drift=0, and no review_self_mutation entry. The previously removed `.scafld/specs/active/external-adapter-runtime-wiring-v1.md` is present and readable at the same path.
+  - Impact: Previously made the prior verdict untrustworthy; no longer the case under the current snapshot.
+  - Validation: Re-run scafld review under verify mode against the restored workspace (this run).
+

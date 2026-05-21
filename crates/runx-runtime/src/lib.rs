@@ -42,7 +42,6 @@ pub use receipts::tree as receipt_tree;
     feature = "cli-tool",
     feature = "catalog",
     feature = "mcp",
-    feature = "mcp-rmcp",
     feature = "a2a",
     feature = "agent",
     feature = "external-adapter"
@@ -58,11 +57,7 @@ pub use config::{
     resolve_local_skill_profile, resolve_path_from_user_input, resolve_runx_global_home_dir,
     resolve_runx_home_dir, update_runx_config_value, write_runx_config_file,
 };
-pub use connect::{
-    ConnectClient, ConnectError, ConnectOpener, HttpConnectGrant, HttpConnectListResponse,
-    HttpConnectPreprovisionRequest, HttpConnectReadyResponse, HttpConnectRevokeResponse,
-    load_connect_options_from_env,
-};
+pub use connect::redact_connect_text;
 pub use credentials::{
     CredentialDelivery, CredentialDeliveryError, CredentialDeliveryProfile, CredentialMaterialRole,
     InMemoryMaterialResolver, MaterialResolver, ResolvedCredentialMaterial, SecretEnv,

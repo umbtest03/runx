@@ -1,6 +1,18 @@
 import { realpathSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+import {
+  RUNX_LOGICAL_SCHEMAS,
+  externalAdapterProtocolVersion,
+  validateExternalAdapterInvocationContract,
+  validateExternalAdapterResponseContract,
+  type ExternalAdapterArtifactObservationContract,
+  type ExternalAdapterErrorObservationContract,
+  type ExternalAdapterInvocationContract,
+  type ExternalAdapterResponseContract,
+  type ExternalAdapterTelemetryObservationContract,
+} from "@runxhq/contracts";
+
 export { Type as t, type Static, type TSchema } from "@sinclair/typebox";
 import type { Static, TSchema } from "@sinclair/typebox";
 
@@ -70,6 +82,126 @@ export interface DefinedTool<
 > extends ToolDefinition<Inputs, Output> {
   runWith(rawInputs?: Readonly<Record<string, unknown>>): Promise<Output | ToolFailure>;
   main(): Promise<void>;
+}
+
+export type ExternalAdapterInvocation = ExternalAdapterInvocationContract;
+export type ExternalAdapterResponse = ExternalAdapterResponseContract;
+export type ExternalAdapterStatus = ExternalAdapterResponseContract["status"];
+
+export interface ExternalAdapterResponseOptions {
+  readonly status?: ExternalAdapterStatus;
+  readonly stdout?: string;
+  readonly stderr?: string;
+  readonly exitCode?: number | null;
+  readonly output?: Readonly<Record<string, unknown>>;
+  readonly artifacts?: readonly ExternalAdapterArtifactObservationContract[];
+  readonly errors?: readonly ExternalAdapterErrorObservationContract[];
+  readonly telemetry?: readonly ExternalAdapterTelemetryObservationContract[];
+  readonly metadata?: Readonly<Record<string, unknown>>;
+  readonly observedAt?: string | Date;
+}
+
+export type ExternalAdapterHandlerResult =
+  | ExternalAdapterResponseContract
+  | ExternalAdapterResponseOptions
+  | Readonly<Record<string, unknown>>
+  | undefined
+  | void;
+
+export interface ExternalAdapterDefinition {
+  readonly adapterId?: string;
+  invoke(args: {
+    readonly invocation: ExternalAdapterInvocationContract;
+    readonly env: NodeJS.ProcessEnv;
+    readonly cwd: string;
+  }): ExternalAdapterHandlerResult | Promise<ExternalAdapterHandlerResult>;
+}
+
+export interface DefinedExternalAdapter extends ExternalAdapterDefinition {
+  runWith(rawInvocation: unknown): Promise<ExternalAdapterResponseContract>;
+  main(): Promise<void>;
+}
+
+export function parseExternalAdapterInvocation(
+  value: unknown,
+  label = "external_adapter_invocation",
+): ExternalAdapterInvocationContract {
+  return validateExternalAdapterInvocationContract(value, label);
+}
+
+export function parseExternalAdapterInvocationJson(
+  value: string,
+  label = "external_adapter_invocation",
+): ExternalAdapterInvocationContract {
+  return parseExternalAdapterInvocation(JSON.parse(value) as unknown, label);
+}
+
+export function createExternalAdapterResponse(
+  invocation: Pick<ExternalAdapterInvocationContract, "invocation_id" | "adapter_id">,
+  options: ExternalAdapterResponseOptions = {},
+): ExternalAdapterResponseContract {
+  const response = pruneUndefined({
+    schema: RUNX_LOGICAL_SCHEMAS.externalAdapterResponse,
+    protocol_version: externalAdapterProtocolVersion,
+    invocation_id: invocation.invocation_id,
+    adapter_id: invocation.adapter_id,
+    status: options.status ?? "completed",
+    stdout: options.stdout,
+    stderr: options.stderr,
+    exit_code: options.exitCode,
+    output: options.output,
+    artifacts: options.artifacts,
+    errors: options.errors,
+    telemetry: options.telemetry,
+    metadata: options.metadata,
+    observed_at: normalizeExternalAdapterObservedAt(options.observedAt),
+  });
+
+  return validateExternalAdapterResponseContract(response);
+}
+
+export function defineExternalAdapter(definition: ExternalAdapterDefinition): DefinedExternalAdapter {
+  const adapter = {
+    ...definition,
+    async runWith(rawInvocation: unknown) {
+      const invocation = parseExternalAdapterInvocation(rawInvocation);
+      assertExternalAdapterId(definition.adapterId, invocation);
+      try {
+        const result = await definition.invoke({
+          invocation,
+          env: process.env,
+          cwd: process.cwd(),
+        });
+        return normalizeExternalAdapterHandlerResult(invocation, result);
+      } catch (error) {
+        return createExternalAdapterResponse(invocation, {
+          status: "failed",
+          exitCode: 1,
+          stderr: errorMessage(error),
+          errors: [{
+            code: "adapter_error",
+            message: errorMessage(error),
+            retryable: false,
+          }],
+        });
+      }
+    },
+    async main() {
+      try {
+        const invocation = parseExternalAdapterInvocation(readExternalAdapterInvocationInput());
+        const response = await this.runWith(invocation);
+        process.stdout.write(JSON.stringify(response));
+        if (response.status === "failed") {
+          process.exitCode = response.exit_code ?? 1;
+        }
+      } catch (error) {
+        process.stderr.write(`${JSON.stringify({ error: { message: errorMessage(error) } })}\n`);
+        process.exitCode = 1;
+      }
+    },
+  } satisfies DefinedExternalAdapter;
+
+  return adapter;
 }
 
 export function defineTool<
@@ -526,6 +658,91 @@ function finalizeOutput<Output>(
     schema,
     data: pruned,
   } as Output;
+}
+
+function normalizeExternalAdapterHandlerResult(
+  invocation: ExternalAdapterInvocationContract,
+  result: ExternalAdapterHandlerResult,
+): ExternalAdapterResponseContract {
+  if (isRecord(result) && result.schema === RUNX_LOGICAL_SCHEMAS.externalAdapterResponse) {
+    return validateExternalAdapterResponseIdentity(
+      invocation,
+      validateExternalAdapterResponseContract(result),
+    );
+  }
+  if (isExternalAdapterResponseOptions(result)) {
+    return createExternalAdapterResponse(invocation, result);
+  }
+  if (isRecord(result)) {
+    return createExternalAdapterResponse(invocation, { output: result });
+  }
+  return createExternalAdapterResponse(invocation);
+}
+
+function isExternalAdapterResponseOptions(value: unknown): value is ExternalAdapterResponseOptions {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return [
+    "status",
+    "stdout",
+    "stderr",
+    "exitCode",
+    "output",
+    "artifacts",
+    "errors",
+    "telemetry",
+    "metadata",
+    "observedAt",
+  ].some((key) => key in value);
+}
+
+function assertExternalAdapterId(
+  adapterId: string | undefined,
+  invocation: ExternalAdapterInvocationContract,
+): void {
+  if (adapterId !== undefined && adapterId !== invocation.adapter_id) {
+    throw new Error(
+      `external adapter id mismatch: expected ${adapterId}, received ${invocation.adapter_id}`,
+    );
+  }
+}
+
+function validateExternalAdapterResponseIdentity(
+  invocation: ExternalAdapterInvocationContract,
+  response: ExternalAdapterResponseContract,
+): ExternalAdapterResponseContract {
+  if (response.invocation_id !== invocation.invocation_id) {
+    throw new Error(
+      `external adapter invocation id mismatch: expected ${invocation.invocation_id}, received ${response.invocation_id}`,
+    );
+  }
+  if (response.adapter_id !== invocation.adapter_id) {
+    throw new Error(
+      `external adapter response adapter id mismatch: expected ${invocation.adapter_id}, received ${response.adapter_id}`,
+    );
+  }
+  return response;
+}
+
+function normalizeExternalAdapterObservedAt(value: string | Date | undefined): string {
+  if (value === undefined) {
+    return new Date().toISOString();
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return value;
+}
+
+function readExternalAdapterInvocationInput(): unknown {
+  if (process.env.RUNX_EXTERNAL_ADAPTER_INVOCATION_JSON) {
+    return JSON.parse(process.env.RUNX_EXTERNAL_ADAPTER_INVOCATION_JSON) as unknown;
+  }
+  if (process.env.RUNX_EXTERNAL_ADAPTER_INVOCATION_PATH) {
+    return JSON.parse(readFileSync(process.env.RUNX_EXTERNAL_ADAPTER_INVOCATION_PATH, "utf8")) as unknown;
+  }
+  return JSON.parse(readFileSync(0, "utf8")) as unknown;
 }
 
 function isToolFailure(value: unknown): value is ToolFailure {

@@ -103,6 +103,7 @@
           "type": "human"
         }
       },
+      "connectedAuthCheckedAt": "2026-05-22T00:00:00Z",
       "auth": {
         "authority_kind": "read_only",
         "provider": "github",
@@ -137,7 +138,9 @@
       "grants": [
         {
           "authority_kind": "read_only",
+          "expires_at": "2026-05-23T00:00:00Z",
           "grant_id": "grant_expected",
+          "not_before": "2026-05-21T00:00:00Z",
           "provider": "github",
           "scope_family": "github_repo",
           "scopes": [

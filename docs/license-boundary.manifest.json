@@ -1,0 +1,202 @@
+{
+  "schema": "runx.license_boundary_manifest.v1",
+  "inventory_command": "rg -n 'nango|oauth|RUNX_CONNECT|connection_id|material_ref|credential|auth' crates --glob '*.rs'",
+  "crate_classes": {
+    "runx-cli": {
+      "class": "mit-oss",
+      "phase1_state": "requires-phase2-connect-stub-or-removal",
+      "decision": "Keep MIT after deleting or stubbing the hosted connect brokerage command."
+    },
+    "runx-contracts": {
+      "class": "mit-oss",
+      "phase1_state": "keep",
+      "decision": "Provider-neutral contracts and credential-delivery envelope stay MIT."
+    },
+    "runx-core": {
+      "class": "mit-oss",
+      "phase1_state": "keep",
+      "decision": "Policy and authority enforcement stay MIT; no brokerage or provider calls."
+    },
+    "runx-parser": {
+      "class": "mit-oss",
+      "phase1_state": "keep",
+      "decision": "Skill parsing stays MIT."
+    },
+    "runx-receipts": {
+      "class": "mit-oss",
+      "phase1_state": "keep",
+      "decision": "Receipt verification stays MIT."
+    },
+    "runx-runtime": {
+      "class": "mit-oss",
+      "phase1_state": "requires-phase2-connect-brokerage-move",
+      "decision": "Keep MIT after hosted connect brokerage is moved or abstracted; retain credential consumption, enforcement, and redaction."
+    },
+    "runx-sdk": {
+      "class": "mit-oss",
+      "phase1_state": "requires-phase2-connect-surface-abstracted",
+      "decision": "Keep MIT after hosted connect-list and connection_id surfaces are removed or abstracted."
+    }
+  },
+  "private_crate_names": [],
+  "private_home": {
+    "path": "../cloud/packages/auth",
+    "follow_up_spec": "cloud-connect-auth-private-home-v1",
+    "notes": "Private broker for Nango, OAuth, hosted connect HTTP, BYO custody, grant issuance, and grant revocation."
+  },
+  "banned_identifiers": [
+    "Nango",
+    "nango",
+    "NangoConnection",
+    "nango_connection",
+    "oauth_required",
+    "oauth_poll",
+    "authorize_url",
+    "RUNX_CONNECT_ACCESS_TOKEN",
+    "RUNX_CONNECT_BASE_URL",
+    "RUNX_CONNECT_OPEN_COMMAND",
+    "RUNX_CONNECT_POLL_INTERVAL_MS",
+    "RUNX_CONNECT_TIMEOUT_MS",
+    "ConnectClient",
+    "ConnectOpener",
+    "HttpConnectGrant",
+    "HttpConnectListResponse",
+    "HttpConnectPreprovisionRequest",
+    "HttpConnectReadyResponse",
+    "HttpConnectRevokeResponse",
+    "NangoHosted",
+    "connection_id"
+  ],
+  "allowlist": [
+    {
+      "path": "crates/runx-contracts/src/credential_delivery.rs",
+      "identifier": "material_ref",
+      "rationale": "Provider-neutral credential-delivery contract crossing."
+    },
+    {
+      "path": "crates/runx-contracts/src/credential_delivery.rs",
+      "identifier": "material_ref_hash",
+      "rationale": "Provider-neutral redacted reference hash in public contract."
+    },
+    {
+      "path": "crates/runx-runtime/src/credentials.rs",
+      "identifier": "material_ref",
+      "rationale": "Opaque local material resolver input; no brokerage."
+    },
+    {
+      "path": "crates/runx-runtime/src/credentials.rs",
+      "identifier": "oauth_bearer",
+      "rationale": "Generic bearer material kind for adapter injection, not OAuth brokerage."
+    },
+    {
+      "path": "crates/runx-runtime/src/connect/redaction.rs",
+      "identifier": "authorize_url",
+      "rationale": "Redaction hygiene test material only after Phase 2 decouples it from ConnectClient."
+    },
+    {
+      "path": "crates/runx-core/src/policy/types.rs",
+      "identifier": "connection_id",
+      "rationale": "Legacy public wire field from the credential envelope. OSS must not broker or construct provider-specific values here; field rename/removal is a contract migration deferred to credential-envelope-opaque-reference-v1."
+    },
+    {
+      "path": "crates/runx-core/src/policy/authority_proof.rs",
+      "identifier": "connection_id",
+      "rationale": "Legacy authority-proof projection of the public envelope field. OSS must not broker or construct provider-specific values here; field rename/removal is deferred to credential-envelope-opaque-reference-v1."
+    },
+    {
+      "path": "crates/runx-core/tests/policy_proptest.rs",
+      "identifier": "nango",
+      "rationale": "Legacy/negative fixture material; prefer provider-opaque replacement during Phase 2."
+    },
+    {
+      "path": "crates/runx-runtime/tests/credential_delivery.rs",
+      "identifier": "connection_id",
+      "rationale": "Credential delivery fixture; prefer provider-opaque replacement during Phase 2."
+    },
+    {
+      "path": "crates/runx-runtime/tests/external_adapter.rs",
+      "identifier": "connection_id",
+      "rationale": "External adapter fixture; prefer provider-opaque replacement during Phase 2."
+    },
+    {
+      "path": "crates/runx-runtime/tests/license_boundary.rs",
+      "identifier": "Nango",
+      "rationale": "Boundary guard negative-case assertion for a copied excluded fixture."
+    },
+    {
+      "path": "crates/runx-runtime/tests/license_boundary.rs",
+      "identifier": "nango",
+      "rationale": "Boundary guard negative-case fixture filename."
+    },
+    {
+      "path": "crates/runx-runtime/tests/license_boundary.rs",
+      "identifier": "NangoConnection",
+      "rationale": "Boundary guard negative-case assertion for a copied excluded fixture."
+    }
+  ],
+  "exclude_globs": [
+    "crates/target/**",
+    "crates/runx-runtime/tests/fixtures/license_boundary/**",
+    "dist/**",
+    "fixtures/**/*.json",
+    "fixtures/**/*.yaml",
+    "fixtures/**/*.yml",
+    "target/**"
+  ],
+  "private_move_or_abstract": [
+    {
+      "path": "crates/runx-runtime/src/connect/client.rs",
+      "decision": "move-private",
+      "removed": true,
+      "rationale": "Hosted OAuth polling and RUNX_CONNECT_ACCESS_TOKEN brokerage."
+    },
+    {
+      "path": "crates/runx-runtime/src/connect/types.rs",
+      "decision": "abstract-or-move",
+      "removed": true,
+      "rationale": "NangoConnection, OAuth state, and connection_id typed surfaces."
+    },
+    {
+      "path": "crates/runx-runtime/src/connect/opener.rs",
+      "decision": "move-private",
+      "removed": true,
+      "rationale": "Browser opener for hosted connect flow."
+    },
+    {
+      "path": "crates/runx-runtime/src/connect.rs",
+      "decision": "rewrite-or-remove",
+      "rationale": "Module root currently re-exports hosted brokerage."
+    },
+    {
+      "path": "crates/runx-runtime/src/lib.rs",
+      "decision": "rewrite",
+      "rationale": "Public hosted connect re-exports must be removed or replaced."
+    },
+    {
+      "path": "crates/runx-cli/src/connect.rs",
+      "decision": "delete-or-stub",
+      "rationale": "Native runx connect brokerage command does not belong in OSS."
+    },
+    {
+      "path": "crates/runx-cli/src/main.rs",
+      "decision": "rewrite",
+      "rationale": "Connect command routing must not invoke hosted brokerage."
+    },
+    {
+      "path": "crates/runx-sdk/src/client.rs",
+      "decision": "abstract-or-remove",
+      "rationale": "SDK connect-list and connection_id surface is hosted-private."
+    }
+  ],
+  "cloud_private_context": [
+    "../cloud/packages/auth/src/nango-hosted.ts",
+    "../cloud/packages/auth/src/nango.ts",
+    "../cloud/packages/auth/src/connect.ts",
+    "../cloud/packages/auth/src/http.ts",
+    "../cloud/packages/auth/src/grant-revocation.ts",
+    "../cloud/packages/auth/src/byo-verification.ts",
+    "../cloud/packages/api/src/server-connect-routing.ts",
+    "../cloud/packages/api/src/public-integrations.ts",
+    "../cloud/packages/worker/src/index.ts"
+  ]
+}

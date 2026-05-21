@@ -288,7 +288,8 @@ fn input_env_names_match_author_visible_typescript_normalization()
 
 #[test]
 #[cfg(feature = "cli-tool")]
-fn cli_tool_drains_large_stdout_while_child_runs() -> Result<(), Box<dyn std::error::Error>> {
+fn cli_tool_drains_large_stdout_and_omits_truncated_output()
+-> Result<(), Box<dyn std::error::Error>> {
     let output = invoke_node(
         vec![
             "-e".to_owned(),
@@ -297,9 +298,9 @@ fn cli_tool_drains_large_stdout_while_child_runs() -> Result<(), Box<dyn std::er
         Some(5),
     )?;
 
-    assert_eq!(output.status, InvocationStatus::Success);
-    assert_eq!(output.stdout.len(), 1024 * 1024);
-    assert!(output.stderr.is_empty());
+    assert_eq!(output.status, InvocationStatus::Failure);
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.contains("stdout/stderr omitted"));
     Ok(())
 }
 

@@ -1,4 +1,4 @@
-#![cfg(any(feature = "mcp", feature = "mcp-rmcp"))]
+#![cfg(feature = "mcp")]
 
 use std::collections::BTreeMap;
 use std::fs;

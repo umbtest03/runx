@@ -38,6 +38,8 @@ pub struct LocalAdmissionOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub connected_grants: Option<Vec<LocalAdmissionGrant>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub connected_auth_checked_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_connected_auth: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub approved_sandbox_escalation: Option<bool>,
@@ -62,6 +64,10 @@ pub struct LocalAdmissionGrant {
     pub scopes: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<LocalAdmissionGrantStatus>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub not_before: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_family: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -92,6 +98,8 @@ pub enum AuthorityKind {
 pub struct LocalScopeAdmissionOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub denied_before_grant_resolution: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connected_auth_checked_at: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -190,6 +198,8 @@ pub struct AuthorityProofApproval {
 pub struct BuildAuthorityProofOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub run_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connected_auth_checked_at: Option<String>,
     pub skill_name: String,
     pub source_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]

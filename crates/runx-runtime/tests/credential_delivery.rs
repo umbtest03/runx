@@ -1,4 +1,4 @@
-#![cfg(all(feature = "cli-tool", any(feature = "mcp", feature = "mcp-rmcp")))]
+#![cfg(all(feature = "cli-tool", feature = "mcp"))]
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;

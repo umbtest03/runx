@@ -1,5 +1,5 @@
 use runx_cli::config::{ConfigAction, ConfigPlan};
-use runx_cli::connect::{ConnectAction, ConnectAuthorityKind, ConnectPlan};
+use runx_cli::connect::ConnectPlan;
 use runx_cli::kernel::{KernelInputSource, KernelPlan};
 use runx_cli::launcher::{
     DevPlan, DoctorPlan, FilterMode, HarnessPlan, HistoryPlan, InitPlan, LauncherAction, ListKind,
@@ -146,20 +146,10 @@ fn skill_rejects_partial_continuation_shape() {
 }
 
 #[test]
-fn routes_connect_to_native_plan() {
+fn routes_connect_to_oss_unavailable_stub() {
     assert_eq!(
         plan(&["connect", "list", "--json"]),
-        LauncherAction::RunConnect(ConnectPlan {
-            action: ConnectAction::List,
-            provider: None,
-            grant_id: None,
-            scopes: Vec::new(),
-            scope_family: None,
-            authority_kind: None,
-            target_repo: None,
-            target_locator: None,
-            json: true,
-        })
+        LauncherAction::RunConnect(ConnectPlan { json: true })
     );
 
     assert_eq!(
@@ -176,17 +166,7 @@ fn routes_connect_to_native_plan() {
             "runxhq/aster",
             "--json",
         ]),
-        LauncherAction::RunConnect(ConnectPlan {
-            action: ConnectAction::Preprovision,
-            provider: Some("github".to_owned()),
-            grant_id: None,
-            scopes: vec!["repo:read".to_owned(), "checks:read".to_owned()],
-            scope_family: Some("github_repo".to_owned()),
-            authority_kind: Some(ConnectAuthorityKind::ReadOnly),
-            target_repo: Some("runxhq/aster".to_owned()),
-            target_locator: None,
-            json: true,
-        })
+        LauncherAction::RunConnect(ConnectPlan { json: true })
     );
 }
 
