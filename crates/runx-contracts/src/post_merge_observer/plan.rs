@@ -6,9 +6,9 @@ use sha2::{Digest, Sha256};
 
 use crate::operational_policy::OperationalPolicySourceRule;
 use crate::{
-    ActForm, ClosureDisposition, CriterionStatus, HarnessReceipt, HarnessState, OperationalPolicy,
-    OperationalPolicyPublishMode, OperationalPolicySourceIssueClosureMode, Reference,
-    ReferenceType, validate_operational_policy_semantics,
+    ActForm, ClosureDisposition, CriterionStatus, HarnessReceipt, HarnessState, JsonValue,
+    OperationalPolicy, OperationalPolicyPublishMode, OperationalPolicySourceIssueClosureMode,
+    Reference, ReferenceType, validate_operational_policy_semantics,
 };
 
 use super::{
@@ -126,16 +126,27 @@ pub fn project_post_merge_observer_publication_from_receipt(
     let publication_criteria = require_publication_criteria(receipt, final_state)?;
     let source_issue_ref =
         required_receipt_reference(receipt, ReferenceType::GithubIssue, "source issue")?;
+    let pull_request_ref = required_receipt_reference(
+        receipt,
+        ReferenceType::GithubPullRequest,
+        "target pull request",
+    )?;
     let source_thread_ref =
         required_receipt_reference(receipt, ReferenceType::SlackThread, "source thread")?;
+    let merge_sha = receipt_merge_sha(receipt, final_state)?;
     let close_authorized = receipt_close_authorized(receipt)?;
 
     Ok(PostMergeObserverPublicationProjection {
         harness_receipt_ref: harness_receipt_ref(receipt),
         source_issue_ref,
+        pull_request_ref,
         source_thread_ref: Some(source_thread_ref),
+        merge_sha,
         reason_code: receipt.seal.reason_code.clone(),
         summary: receipt.seal.summary.clone(),
+        verification_summary: publication_criteria
+            .verification_criterion_id
+            .and_then(|criterion_id| receipt_criterion_summary(receipt, criterion_id)),
         proof_criterion_id: publication_criteria.proof_criterion_id.to_owned(),
         verification_criterion_id: publication_criteria
             .verification_criterion_id
@@ -203,6 +214,52 @@ fn required_receipt_reference(
 ) -> Result<Reference, PostMergeObserverPlanError> {
     receipt_reference(receipt, reference_type)
         .ok_or(PostMergeObserverPlanError::MissingReceiptReference(label))
+}
+
+fn receipt_merge_sha(
+    receipt: &HarnessReceipt,
+    final_state: PostMergeObserverClosureState,
+) -> Result<Option<String>, PostMergeObserverPlanError> {
+    if !matches!(
+        final_state,
+        PostMergeObserverClosureState::MergedVerified
+            | PostMergeObserverClosureState::FailedVerification
+            | PostMergeObserverClosureState::MergedPendingVerification
+    ) {
+        return Ok(None);
+    }
+
+    let merge_sha = receipt_metadata_string(receipt, &["observer_contract", "pr", "merge_sha"])
+        .ok_or(PostMergeObserverPlanError::MissingReceiptMetadata(
+            "merge_sha",
+        ))?;
+    Ok(Some(merge_sha.to_owned()))
+}
+
+fn receipt_criterion_summary(receipt: &HarnessReceipt, criterion_id: &str) -> Option<String> {
+    receipt
+        .seal
+        .criteria
+        .iter()
+        .find(|criterion| criterion.criterion_id == criterion_id)
+        .and_then(|criterion| criterion.summary.as_ref())
+        .and_then(|summary| non_empty_string(summary))
+        .map(str::to_owned)
+}
+
+fn receipt_metadata_string<'a>(receipt: &'a HarnessReceipt, path: &[&str]) -> Option<&'a str> {
+    let (first, rest) = path.split_first()?;
+    let mut value = receipt.metadata.as_ref()?.get(*first)?;
+    for key in rest {
+        value = match value {
+            JsonValue::Object(object) => object.get(*key)?,
+            _ => return None,
+        };
+    }
+    match value {
+        JsonValue::String(value) => non_empty_string(value),
+        _ => None,
+    }
 }
 
 fn harness_receipt_ref(receipt: &HarnessReceipt) -> Reference {

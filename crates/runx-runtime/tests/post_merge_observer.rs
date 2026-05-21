@@ -53,6 +53,14 @@ fn sealed_receipt_projects_publication_commands_and_dedupes_publication_key()
         PostMergeObserverPublicationCommand::SourceIssueClose { target, .. }
             if target.reference_type == ReferenceType::GithubIssue
     ));
+    let body = match &first.commands[0] {
+        PostMergeObserverPublicationCommand::SourceIssueComment { body, .. } => body,
+        _ => return Err("expected source issue comment command".into()),
+    };
+    assert!(body.contains("Source issue: github://runxhq/nitrosend/issues/77"));
+    assert!(body.contains("Target PR: github://runxhq/nitrosend/pulls/188"));
+    assert!(body.contains("Merge: 9f14c0ffee1234567890abcdef1234567890abcd"));
+    assert!(body.contains("Verification summary: Nitrosend dogfood verification passed."));
     assert_eq!(
         repeated.decision,
         PostMergeObserverPublicationRuntimeDecision::AlreadyPublished
@@ -168,7 +176,10 @@ fn closed_unmerged_projection_publishes_without_source_issue_close()
         })
         .collect::<Vec<_>>();
     for body in bodies {
+        assert!(body.contains("Target PR: github://runxhq/nitrosend/pulls/188"));
+        assert!(body.contains("Merge: not_available"));
         assert!(body.contains("Verification: not_required"));
+        assert!(body.contains("Verification summary: not_required"));
         assert!(body.contains("Proof: post_merge.provider_state"));
         assert!(!body.contains("shipped"));
     }
@@ -208,7 +219,10 @@ fn failed_verification_projection_publishes_final_reply_without_source_issue_clo
     for body in bodies {
         assert!(body.contains("Review gate: external_human"));
         assert!(body.contains("Closure: failed_verification"));
+        assert!(body.contains("Target PR: github://runxhq/nitrosend/pulls/188"));
+        assert!(body.contains("Merge: 9f14c0ffee1234567890abcdef1234567890abcd"));
         assert!(body.contains("Verification: post_merge.verification_failed"));
+        assert!(body.contains("Verification summary: Nitrosend dogfood verification failed."));
         assert!(body.contains("Proof: post_merge.verification_failed"));
         assert!(body.contains("Next: review_failed_verification"));
         assert!(!body.contains("shipped"));

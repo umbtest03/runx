@@ -288,6 +288,22 @@ fn sealed_harness_receipt_projects_publication_and_close_authority()
         ReferenceType::GithubIssue
     );
     assert_eq!(
+        projection.pull_request_ref.reference_type,
+        ReferenceType::GithubPullRequest
+    );
+    assert_eq!(
+        projection.pull_request_ref.uri,
+        "github://runxhq/nitrosend/pulls/188"
+    );
+    assert_eq!(
+        projection.merge_sha.as_deref(),
+        Some("9f14c0ffee1234567890abcdef1234567890abcd")
+    );
+    assert_eq!(
+        projection.verification_summary.as_deref(),
+        Some("Nitrosend dogfood verification passed.")
+    );
+    assert_eq!(
         projection
             .source_thread_ref
             .as_ref()
@@ -315,6 +331,11 @@ fn sealed_closed_unmerged_receipt_projects_without_verification_or_close()
         PostMergeSourceIssueDisposition::KeepOpen
     );
     assert!(!projection.close_authorized);
+    assert_eq!(
+        projection.pull_request_ref.reference_type,
+        ReferenceType::GithubPullRequest
+    );
+    assert_eq!(projection.merge_sha, None);
     assert_eq!(
         projection
             .source_thread_ref
@@ -347,6 +368,15 @@ fn publication_projection_rejects_unsealed_or_under_proven_receipts()
         project_post_merge_observer_publication_from_receipt(&missing_verification),
         Err(PostMergeObserverPlanError::ReceiptPublicationNotAuthorized(
             _
+        ))
+    ));
+
+    let mut missing_merge_sha = post_merge_observer_receipt()?;
+    missing_merge_sha.metadata = None;
+    assert!(matches!(
+        project_post_merge_observer_publication_from_receipt(&missing_merge_sha),
+        Err(PostMergeObserverPlanError::MissingReceiptMetadata(
+            "merge_sha"
         ))
     ));
     Ok(())

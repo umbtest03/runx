@@ -369,11 +369,18 @@ fn require_source_thread_metadata(
 
 fn public_reply_body(projection: &PostMergeObserverPublicationProjection) -> String {
     sanitize_public_text(&format!(
-        "Post-merge observer: {}. Review gate: external_human. Closure: {}. Verification: {}. Proof: {}. Next: {}. Receipt: {}.",
+        "Post-merge observer: {}. Source issue: {}. Target PR: {}. Merge: {}. Review gate: external_human. Closure: {}. Verification: {}. Verification summary: {}. Proof: {}. Next: {}. Receipt: {}.",
         projection.summary,
+        projection.source_issue_ref.uri,
+        projection.pull_request_ref.uri,
+        projection.merge_sha.as_deref().unwrap_or("not_available"),
         projection.reason_code,
         projection
             .verification_criterion_id
+            .as_deref()
+            .unwrap_or("not_required"),
+        projection
+            .verification_summary
             .as_deref()
             .unwrap_or("not_required"),
         projection.proof_criterion_id,

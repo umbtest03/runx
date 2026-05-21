@@ -208,10 +208,15 @@ pub struct PostMergeObserverRuntimeDedupePlan {
 pub struct PostMergeObserverPublicationProjection {
     pub harness_receipt_ref: Reference,
     pub source_issue_ref: Reference,
+    pub pull_request_ref: Reference,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_thread_ref: Option<Reference>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merge_sha: Option<String>,
     pub reason_code: String,
     pub summary: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_summary: Option<String>,
     pub proof_criterion_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verification_criterion_id: Option<String>,
@@ -233,6 +238,7 @@ pub enum PostMergeObserverPlanError {
     ReceiptNotPostMergeObserver,
     MissingReceiptCriterion(String),
     MissingReceiptReference(&'static str),
+    MissingReceiptMetadata(&'static str),
     ReceiptPublicationNotAuthorized(String),
 }
 
@@ -283,6 +289,12 @@ impl fmt::Display for PostMergeObserverPlanError {
                     "sealed post-merge receipt is missing required {kind} reference"
                 )
             }
+            Self::MissingReceiptMetadata(kind) => {
+                write!(
+                    formatter,
+                    "sealed post-merge receipt is missing required {kind} metadata"
+                )
+            }
             Self::ReceiptPublicationNotAuthorized(message) => formatter.write_str(message),
         }
     }
@@ -303,6 +315,7 @@ impl std::error::Error for PostMergeObserverPlanError {
             | Self::ReceiptNotPostMergeObserver
             | Self::MissingReceiptCriterion(_)
             | Self::MissingReceiptReference(_)
+            | Self::MissingReceiptMetadata(_)
             | Self::ReceiptPublicationNotAuthorized(_) => None,
         }
     }

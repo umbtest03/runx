@@ -26,12 +26,16 @@ source-thread ref, target PR ref, merge SHA, runner verification hook/deploy
 context, and cross-repo dedupe identity; policy source configuration from
 `runx-operational-policy-config` for source-thread publication and close mode.
 Allowed follow-up command: `scafld harden runx-post-merge-closure-observer --mark-passed`
-Latest runner update: 2026-05-21 added local runtime failed-verification final
-reply projection from a sealed receipt, including review-gate, closure,
-verification, proof, and next-human-action fields, without issuing a source
-issue close command. Earlier local slices added closed-unmerged sealed receipt
-publication projection without fabricating verification proof or issuing a
-source issue close command, Rust contract-level
+Latest runner update: 2026-05-21 hardened sealed final-publication projection
+so local publication now requires a target PR ref from the receipt, requires
+merge SHA metadata for merged closures, projects verification summaries, and
+renders source issue, target PR, merge SHA, review-gate, closure,
+verification, proof, next-human-action, and receipt fields in final replies.
+The same day also added local runtime failed-verification final reply
+projection from a sealed receipt without issuing a source issue close command.
+Earlier local slices added closed-unmerged sealed receipt publication
+projection without fabricating verification proof or issuing a source issue
+close command, Rust contract-level
 repeated observer signal idempotency proof for duplicate local provider
 observations, missing source-thread fail-closed routing before provider-state
 classification, stable webhook/scheduler runtime dedupe planning, sealed
@@ -177,9 +181,10 @@ Required behavior:
   metadata is missing. Live provider adapters remain pending.
 - [ ] Final publication is backed by a sealed harness receipt containing issue
   link, PR link, merge sha when available, verification summary, closure reason,
-  and next human action. Local projection now distinguishes proof criteria from
-  optional verification criteria for closed-unmerged receipts; live publication
-  remains pending.
+  and next human action. Local projection now requires the sealed target PR ref,
+  requires merge SHA metadata for merged closures, distinguishes proof criteria
+  from optional verification criteria for closed-unmerged receipts, and renders
+  the full context fields in local commands; live publication remains pending.
 - [x] Final publication validates by reading the sealed harness receipt and
   required closure/proof criteria before publication; source issue close still
   requires proof-bound verification criteria.
@@ -289,10 +294,11 @@ Started: 2026-05-20T10:27:24Z
 Ended: none
 
 Checks:
-- none
+- `cargo test --manifest-path crates/Cargo.toml -p runx-contracts --test post_merge_observer` (passed 2026-05-21)
+- `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test post_merge_observer` (passed 2026-05-21 after target-runner helper integration)
 
 Issues:
-- none
+- none in this local projection slice
 
 
 ## Planning Log
@@ -329,3 +335,12 @@ Issues:
   verification, proof, next human action, and receipt while avoiding source
   issue close. Live provider adapters and target-runner source/target context
   remain blockers.
+- 2026-05-21: Hardened sealed final-publication projection to require target PR
+  evidence and merged-closure merge SHA metadata from the receipt before local
+  command projection. Final replies now include source issue, target PR, merge
+  SHA/not_available, verification summary, review gate, closure, proof, next
+  human action, and receipt. `cargo test --manifest-path crates/Cargo.toml -p
+  runx-contracts --test post_merge_observer` passed; `cargo test
+  --manifest-path crates/Cargo.toml -p runx-runtime --test
+  post_merge_observer` passed after the target-runner source-publication helper
+  integration landed.
