@@ -6,12 +6,12 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use runx_contracts::sha256_prefixed;
 use runx_parser::{
     SkillInstallOrigin, ValidatedSkillInstall, parse_runner_manifest_yaml,
     validate_runner_manifest, validate_skill_install,
 };
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 
 use super::refs::safe_skill_package_parts;
 use super::types::TrustTier;
@@ -187,7 +187,7 @@ fn validate_candidate_digest(
     candidate: &InstallCandidate,
     options: &InstallLocalSkillOptions,
 ) -> Result<String, InstallError> {
-    let actual_digest = sha256_prefixed(&candidate.markdown);
+    let actual_digest = sha256_prefixed(candidate.markdown.as_bytes());
     let expected_digest = options
         .expected_digest
         .as_ref()
@@ -210,7 +210,7 @@ fn validate_candidate_profile_digest(
     let profile_digest = candidate
         .profile_document
         .as_ref()
-        .map(|document| sha256_prefixed(document));
+        .map(|document| sha256_prefixed(document.as_bytes()));
     if let Some(expected) = &candidate.profile_digest {
         let matches = profile_digest
             .as_ref()
@@ -294,7 +294,7 @@ fn prepare_install_write_plan(
         None => None,
     };
     if let Some(existing) = &existing {
-        if sha256_prefixed(existing) != sha256_prefixed(markdown) {
+        if sha256_prefixed(existing.as_bytes()) != sha256_prefixed(markdown.as_bytes()) {
             return Err(InstallError::ConflictingSkill(paths.destination.clone()));
         }
     }
@@ -424,15 +424,6 @@ fn read_optional(path: &Path) -> Result<Option<String>, InstallError> {
             source,
         }),
     }
-}
-
-fn sha256_prefixed(value: &str) -> String {
-    let digest = Sha256::digest(value.as_bytes());
-    let mut hex = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        hex.push_str(&format!("{byte:02x}"));
-    }
-    format!("sha256:{hex}")
 }
 
 fn digest_matches(expected: &str, actual_prefixed: &str) -> bool {

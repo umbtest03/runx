@@ -5,10 +5,9 @@ use std::path::{Component, Path, PathBuf};
 use runx_contracts::{
     DoctorDiagnostic, DoctorDiagnosticSeverity, DoctorLocation, DoctorRepair,
     DoctorRepairConfidence, DoctorRepairKind, DoctorRepairRisk, DoctorReport, DoctorReportSchema,
-    DoctorStatus, DoctorSummary, JsonNumber, JsonObject, JsonValue,
+    DoctorStatus, DoctorSummary, JsonNumber, JsonObject, JsonValue, sha256_prefixed,
 };
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
 
 use crate::RuntimeError;
 
@@ -485,7 +484,7 @@ fn diagnostic_instance_id(
         material.push_str(evidence);
     }
     material.push('}');
-    sha256_prefixed(&material)
+    sha256_prefixed(material.as_bytes())
 }
 
 fn manual_repair(
@@ -742,21 +741,6 @@ fn string_value(value: &str) -> JsonValue {
 
 fn number_value(value: u64) -> JsonValue {
     JsonValue::Number(JsonNumber::U64(value))
-}
-
-fn sha256_prefixed(value: &str) -> String {
-    let digest = Sha256::digest(value.as_bytes());
-    format!("sha256:{}", hex_lower(&digest))
-}
-
-fn hex_lower(bytes: &[u8]) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut encoded = String::with_capacity(bytes.len() * 2);
-    for byte in bytes {
-        encoded.push(HEX[(byte >> 4) as usize] as char);
-        encoded.push(HEX[(byte & 0x0f) as usize] as char);
-    }
-    encoded
 }
 
 fn json_string(value: &str) -> String {

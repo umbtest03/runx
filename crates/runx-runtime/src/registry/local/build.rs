@@ -1,7 +1,7 @@
 // rust-style-allow: large-file because local registry ingestion keeps skill
 // parsing, binding metadata, and registry-version projection together for the
 // current TS-sunset parity slice.
-use runx_contracts::{JsonObject, JsonValue};
+use runx_contracts::{JsonObject, JsonValue, sha256_hex};
 use runx_parser::{
     SkillRunnerManifest, ValidatedSkill, parse_runner_manifest_yaml, parse_skill_markdown,
     validate_runner_manifest, validate_skill,
@@ -17,8 +17,7 @@ use crate::registry::local::trust::{
     normalize_attestations,
 };
 use crate::registry::local::util::{
-    missing_field, now_iso8601, required_string, sha256_hex, validate_publisher,
-    validate_source_metadata,
+    missing_field, now_iso8601, required_string, validate_publisher, validate_source_metadata,
 };
 
 pub fn build_registry_skill_version(
@@ -27,7 +26,7 @@ pub fn build_registry_skill_version(
 ) -> Result<RegistrySkillVersion, LocalRegistryError> {
     let raw = parse_skill_markdown(markdown)?;
     let skill = validate_skill(raw)?;
-    let digest = sha256_hex(markdown);
+    let digest = sha256_hex(markdown.as_bytes());
     let binding = build_binding_artifact(&skill, options.profile_document.as_deref())?;
     let catalog = registry_catalog(binding.manifest.as_ref());
     let defaults = registry_version_defaults(&digest, binding.digest.as_deref(), options);
@@ -310,7 +309,7 @@ fn build_binding_artifact(
         }
     }
     Ok(BindingArtifact {
-        digest: Some(sha256_hex(profile_document)),
+        digest: Some(sha256_hex(profile_document.as_bytes())),
         runner_names: manifest.runners.keys().cloned().collect(),
         manifest: Some(manifest),
     })
@@ -321,9 +320,12 @@ pub(super) fn default_registry_version_seed(
     profile_digest: Option<&str>,
 ) -> String {
     match profile_digest {
-        Some(profile_digest) => sha256_hex(&format!(
-            "{{\"markdown_digest\":\"{markdown_digest}\",\"profile_digest\":\"{profile_digest}\"}}"
-        )),
+        Some(profile_digest) => sha256_hex(
+            format!(
+                "{{\"markdown_digest\":\"{markdown_digest}\",\"profile_digest\":\"{profile_digest}\"}}"
+            )
+            .as_bytes(),
+        ),
         None => markdown_digest.to_owned(),
     }
 }

@@ -1,15 +1,8 @@
 use std::collections::BTreeMap;
 
-use runx_contracts::{HarnessReceipt, JsonNumber, JsonValue};
-use sha2::{Digest, Sha256};
+use runx_contracts::{HarnessReceipt, JsonNumber, JsonValue, sha256_prefixed};
 
 use crate::ReceiptError;
-
-#[must_use]
-pub fn sha256_prefixed(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    format!("sha256:{}", hex_lower(&digest))
-}
 
 pub fn canonical_receipt_json(receipt: &HarnessReceipt) -> Result<String, ReceiptError> {
     let value = receipt_json(receipt)?;
@@ -37,16 +30,6 @@ fn receipt_json(receipt: &HarnessReceipt) -> Result<JsonValue, ReceiptError> {
     serde_json::from_value(value).map_err(|source| ReceiptError::Serialization {
         message: source.to_string(),
     })
-}
-
-fn hex_lower(bytes: &[u8]) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut encoded = String::with_capacity(bytes.len() * 2);
-    for byte in bytes {
-        encoded.push(HEX[(byte >> 4) as usize] as char);
-        encoded.push(HEX[(byte & 0x0f) as usize] as char);
-    }
-    encoded
 }
 
 fn strip_body_proof_fields(value: &mut JsonValue, is_root: bool) {

@@ -2,8 +2,6 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
-use sha2::{Digest, Sha256};
-
 pub(super) use crate::time::now_iso8601;
 
 use super::super::types::{
@@ -200,15 +198,6 @@ pub(super) fn hex_value(byte: u8) -> Option<u8> {
         b'A'..=b'F' => Some(byte - b'A' + 10),
         _ => None,
     }
-}
-
-pub(super) fn sha256_hex(value: &str) -> String {
-    let digest = Sha256::digest(value.as_bytes());
-    let mut hex = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        hex.push_str(&format!("{byte:02x}"));
-    }
-    hex
 }
 
 pub(super) fn display_sha256(digest: &str) -> String {

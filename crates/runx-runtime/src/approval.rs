@@ -2,9 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use runx_contracts::{
     ApprovalGate, ExecutionEvent, JsonObject, JsonValue, ResolutionRequest, ResolutionResponse,
-    ResolutionResponseActor,
+    ResolutionResponseActor, sha256_prefixed,
 };
-use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 use crate::{Host, RuntimeError};
@@ -250,9 +249,4 @@ fn payload_type(payload: &JsonValue) -> &'static str {
         JsonValue::Array(_) => "array",
         JsonValue::Object(_) => "object",
     }
-}
-
-fn sha256_prefixed(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    format!("sha256:{digest:x}")
 }

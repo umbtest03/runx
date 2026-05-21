@@ -1,7 +1,6 @@
 use std::time::{Duration, Instant};
 
-use runx_contracts::{JsonObject, JsonValue};
-use sha2::{Digest, Sha256};
+use runx_contracts::{JsonObject, JsonValue, sha256_hex};
 
 use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
@@ -198,11 +197,6 @@ pub(super) fn failure(
 pub(super) fn duration_ms(started: Instant) -> u64 {
     let millis = started.elapsed().as_millis();
     u64::try_from(millis).unwrap_or(u64::MAX)
-}
-
-fn sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    format!("{digest:x}")
 }
 
 fn timeout_from_source(timeout_seconds: Option<u64>) -> Duration {

@@ -5,8 +5,7 @@ use std::collections::BTreeMap;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use runx_contracts::{JsonObject, JsonValue};
-use sha2::{Digest, Sha256};
+use runx_contracts::{JsonObject, JsonValue, sha256_hex};
 
 use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
@@ -531,11 +530,6 @@ fn sha256_json(value: &JsonValue) -> Result<String, RuntimeError> {
     let json = serde_json::to_string(value)
         .map_err(|source| RuntimeError::json("serializing A2A hash payload", source))?;
     Ok(sha256_hex(json.as_bytes()))
-}
-
-fn sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    format!("{digest:x}")
 }
 
 fn failure(message: impl Into<String>, started: Instant, metadata: JsonObject) -> SkillOutput {

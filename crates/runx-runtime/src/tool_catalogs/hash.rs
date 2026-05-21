@@ -1,15 +1,5 @@
+use runx_contracts::sha256_prefixed;
 use runx_contracts::tools::{JsonPayload, JsonPayloadObject};
-use sha2::{Digest, Sha256};
-
-pub(crate) fn sha256_prefixed(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    format!("sha256:{digest:x}")
-}
-
-pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    format!("{digest:x}")
-}
 
 pub(crate) fn sha256_stable(value: &JsonPayload) -> String {
     sha256_prefixed(stable_stringify(value).as_bytes())

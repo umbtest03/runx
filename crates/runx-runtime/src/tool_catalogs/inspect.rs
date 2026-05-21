@@ -8,8 +8,9 @@ use runx_contracts::tools::{
     ToolInspectRunx,
 };
 
+use runx_contracts::sha256_hex;
+
 use super::error::ToolCatalogError;
-use super::hash::sha256_hex;
 use super::search::{FixtureTool, fixture_catalog_allowed, fixture_tool};
 
 #[derive(Clone, Debug, PartialEq, Eq)]

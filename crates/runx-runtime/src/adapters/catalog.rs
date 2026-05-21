@@ -1,9 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use runx_contracts::{JsonNumber, JsonObject, JsonValue};
+use runx_contracts::{JsonNumber, JsonObject, JsonValue, sha256_hex};
 use runx_parser::SkillSource;
-use sha2::{Digest, Sha256};
 
 use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
@@ -252,9 +251,4 @@ fn mcp_metadata(tool_name: &str) -> JsonObject {
 fn duration_ms(started: Instant) -> u64 {
     let millis = started.elapsed().as_millis();
     u64::try_from(millis).unwrap_or(u64::MAX)
-}
-
-fn sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    format!("{digest:x}")
 }

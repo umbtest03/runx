@@ -7,10 +7,11 @@ use runx_contracts::tools::{
     BuiltToolItem, JsonPayload, JsonPayloadObject, RuntimeCommand, ToolBuildReport,
     ToolBuildReportSchema, ToolBuildStatus, ToolManifest, ToolManifestSchema, ToolOutput,
 };
+use runx_contracts::sha256_prefixed;
 use serde::Deserialize;
 
 use super::error::ToolCatalogError;
-use super::hash::{sha256_prefixed, sha256_stable};
+use super::hash::sha256_stable;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ToolBuildOptions {
