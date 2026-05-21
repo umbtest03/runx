@@ -134,7 +134,10 @@ pub struct CredentialEnvelope {
     pub kind: String,
     pub grant_id: String,
     pub provider: String,
-    pub connection_id: String,
+    pub auth_mode: String,
+    pub material_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connection_id: Option<String>,
     pub scopes: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub grant_reference: Option<CredentialGrantReference>,

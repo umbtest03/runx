@@ -325,7 +325,7 @@ fn resolved_credential_material(
         status: "resolved".to_owned(),
         grant_id: Some(credential.grant_id.clone()),
         provider: Some(credential.provider.clone()),
-        connection_id: Some(credential.connection_id.clone()),
+        connection_id: credential.connection_id.clone(),
         scopes: Some(credential.scopes.clone()),
         grant_reference: credential.grant_reference.clone(),
         material_ref_hash: Some(sha256_hex(credential.material_ref.as_bytes())),
@@ -622,4 +622,3 @@ fn bool_field(object: Option<&JsonObject>, field: &str) -> Option<bool> {
         _ => None,
     }
 }
-
