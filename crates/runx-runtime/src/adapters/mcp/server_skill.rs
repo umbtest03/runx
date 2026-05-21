@@ -187,7 +187,7 @@ fn execute_mcp_server_graph(
     let runtime = Runtime::new(
         McpServerGraphAdapter,
         RuntimeOptions {
-            created_at: "2026-05-20T00:00:00Z".to_owned(),
+            created_at: crate::time::DEFAULT_CREATED_AT.to_owned(),
             env: execution.env.clone(),
         },
     );
@@ -246,7 +246,7 @@ fn complete_mcp_server_skill(
         &execution.skill.name,
         1,
         &output,
-        "2026-05-20T00:00:00Z",
+        crate::time::DEFAULT_CREATED_AT,
     )?;
     if let Some(receipt_dir) = &execution.receipt_dir {
         LocalReceiptStore::new(receipt_dir)
