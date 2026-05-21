@@ -1,9 +1,12 @@
 ---
-status: draft
+spec_version: '2.0'
 task_id: rust-aplus-cleanup
-spec_id: rust-aplus-cleanup
-companion_plans:
-  - plans/rust-takeover.md
+created: '2026-05-21T03:50:00Z'
+updated: '2026-05-21T03:50:00Z'
+status: draft
+harden_status: not_run
+size: medium
+risk_level: medium
 ---
 
 # Rust A+ cleanup before cutover
