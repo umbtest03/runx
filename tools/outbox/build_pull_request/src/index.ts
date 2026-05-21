@@ -77,31 +77,38 @@ function runBuildPullRequest({ inputs }) {
     normalizePullRequestOutbox(explicitOutboxEntry) ??
     latestPullRequestOutbox(thread);
 
-  const threadLocator = firstNonEmptyString(
+  const threadLocator = assertNoPublicLeakage(firstNonEmptyString(
     inputs.thread_locator,
     existingOutboxEntry?.thread_locator,
     threadContext.thread_locator,
-  );
+  ), "thread_locator");
+  const sourceThreadLocator = assertNoPublicLeakage(firstNonEmptyString(
+    inputs.source_thread_locator,
+    threadLocator,
+  ), "source_thread_locator");
+  if (threadLocator && sourceThreadLocator && threadLocator !== sourceThreadLocator) {
+    throw new Error("thread_locator must match source_thread_locator.");
+  }
 
-  const title = firstNonEmptyString(
+  const title = assertNoPublicLeakage(firstNonEmptyString(
     completionResult.title,
     statusSnapshot?.title,
     inputs.thread_title,
     threadContext.title,
     taskId,
-  );
+  ), "title");
 
-  const targetRepo = firstNonEmptyString(
+  const targetRepo = assertNoPublicLeakage(firstNonEmptyString(
     inputs.target_repo,
     parseRepoSlug(firstNonEmptyString(threadContext.canonical_uri)),
-  );
+  ), "target_repo");
   const policyAdmission = admitPolicyRequest({
     policy: optionalRecord(inputs.operational_policy),
     sourceId: inputs.source_id,
     targetRepo,
     runnerId: inputs.runner_id,
     policyAction: inputs.policy_action,
-    sourceThreadLocator: firstNonEmptyString(inputs.source_thread_locator, threadLocator),
+    sourceThreadLocator,
   });
 
   const action = existingOutboxEntry ? "refresh" : "create";
@@ -117,11 +124,11 @@ function runBuildPullRequest({ inputs }) {
     firstNonEmptyString(completionResult.status, statusSnapshot?.status) === "completed" &&
     checkStatus === "success" &&
     !isFailingReview(reviewVerdict);
-  const branch = firstNonEmptyString(
+  const branch = assertNoPublicLeakage(firstNonEmptyString(
     inputs.branch,
     currentBranch?.branch,
-  );
-  const base = firstNonEmptyString(inputs.base);
+  ), "branch");
+  const base = assertNoPublicLeakage(firstNonEmptyString(inputs.base), "base");
   const dedupe = buildPullRequestDedupe({
     existingOutboxEntry,
     taskId,
@@ -138,11 +145,11 @@ function runBuildPullRequest({ inputs }) {
     thread: prune({
       thread_locator: threadLocator,
       thread_kind: firstNonEmptyString(threadContext.thread_kind),
-      title: firstNonEmptyString(
+      title: assertNoPublicLeakage(firstNonEmptyString(
         inputs.thread_title,
         threadContext.title,
         title,
-      ),
+      ), "thread.title"),
       canonical_uri: firstNonEmptyString(threadContext.canonical_uri),
     }),
     target: prune({
@@ -219,6 +226,7 @@ function runBuildPullRequest({ inputs }) {
       push_ready: pushReady,
       changed_files: changedFiles,
       dedupe,
+      source_thread: buildSourceThreadMetadata(sourceThreadLocator),
       human_merge_gate: "required",
       post_merge_observation: "provider_state_update",
       story_milestones: [
@@ -484,8 +492,61 @@ function normalizeChangedFiles(fixBundle) {
   const paths = files
     .filter(isRecord)
     .map((file) => firstNonEmptyString(file.path))
-    .filter((filePath) => filePath !== undefined);
+    .filter((filePath) => filePath !== undefined)
+    .map((filePath) => normalizeChangedFilePath(filePath));
   return paths.length > 0 ? [...new Set(paths)] : undefined;
+}
+
+function buildSourceThreadMetadata(threadLocator) {
+  const locator = assertNoPublicLeakage(threadLocator, "source_thread.thread_locator");
+  if (!locator) {
+    return undefined;
+  }
+  return {
+    required: true,
+    publish_mode: "reply",
+    missing_behavior: "fail_closed",
+    thread_locator: locator,
+  };
+}
+
+function normalizeChangedFilePath(value) {
+  const raw = assertNoPublicLeakage(value, "changed_files");
+  const normalized = raw.trim().replace(/\\/g, "/").replace(/^\.\/+/, "");
+  if (
+    normalized.length === 0 ||
+    normalized.startsWith("/") ||
+    /^[A-Za-z]:\//.test(normalized) ||
+    normalized.split("/").some((segment) => segment === ".." || segment.length === 0)
+  ) {
+    throw new Error("outbox changed file path must be a relative path inside the workspace.");
+  }
+  return normalized;
+}
+
+function assertNoPublicLeakage(value, label) {
+  const text = firstNonEmptyString(value);
+  if (!text) {
+    return undefined;
+  }
+  if (containsLocalFilesystemPath(text)) {
+    throw new Error(`${label} must not contain local filesystem paths.`);
+  }
+  if (containsSecretMaterial(text)) {
+    throw new Error(`${label} must not contain secret material.`);
+  }
+  return text;
+}
+
+function containsLocalFilesystemPath(value) {
+  return /(?:^|[\s=("'`])(?:\/Users|\/home|\/var|\/private|\/tmp)\/[^\s)"'`]+/.test(value) ||
+    /[A-Za-z]:\\[^\s)"'`]+/.test(value);
+}
+
+function containsSecretMaterial(value) {
+  return /\b(gh[pousr]_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{16,})\b/.test(value) ||
+    /\b((?:bearer|authorization)\s+)[A-Za-z0-9._:-]{6,}\b/i.test(value) ||
+    /\b[A-Z][A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API[_-]?KEY|MATERIAL[_-]?REF)[A-Z0-9_]*=/.test(value);
 }
 
 function latestPullRequestOutbox(state) {

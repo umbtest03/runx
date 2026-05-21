@@ -97,6 +97,12 @@ describe("outbox.build_pull_request tool", () => {
           key: "example/repo:fixture-task",
           result: "created",
         },
+        source_thread: {
+          required: true,
+          publish_mode: "reply",
+          missing_behavior: "fail_closed",
+          thread_locator: "github://example/repo/issues/123",
+        },
       },
     });
     expect(result.draft_pull_request).toMatchObject({
@@ -246,6 +252,34 @@ describe("outbox.build_pull_request tool", () => {
     expect(result.draft_pull_request.pull_request.body_markdown).not.toContain("/tmp/workspace");
     expect(result.draft_pull_request.pull_request.body_markdown).not.toContain("RUNX_BIN=");
     expect(result.draft_pull_request.pull_request.body_markdown).toContain("Detailed handoff omitted from public markdown");
+  });
+
+  it("rejects unsafe changed-file metadata before packet creation", () => {
+    for (const filePath of [
+      "/Users/kam/dev/runx/workspace/app.txt",
+      "docs/ghp_123456789012345678901234567890123456.txt",
+    ]) {
+      const result = runToolRaw({
+        ...minimalPullRequestInputs(),
+        fix_bundle: {
+          files: [
+            {
+              path: filePath,
+              contents: "unsafe metadata should not be emitted\n",
+            },
+          ],
+        },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).not.toContain(filePath);
+      expect(result.stdout).not.toContain(filePath);
+      if (filePath.startsWith("/")) {
+        expect(result.stderr).toContain("changed_files must not contain local filesystem paths");
+      } else {
+        expect(result.stderr).toContain("changed_files must not contain secret material");
+      }
+    }
   });
 
   it("admits PR packaging through operational policy before producing packets", () => {

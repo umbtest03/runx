@@ -392,6 +392,29 @@ describe("thread.push_outbox tool", () => {
           title: "Fix fixture behavior",
           status: "proposed",
           thread_locator: "github://example/repo/issues/123",
+          metadata: {
+            schema_version: "runx.outbox-entry.pull-request.v1",
+            packet_schema_version: "runx.pull-request-draft.v1",
+            action: "create",
+            task_id: "issue-123",
+            repo: "example/repo",
+            branch: "issue-123",
+            base: "main",
+            changed_files: ["README.md"],
+            dedupe: {
+              strategy: "branch",
+              key: "example/repo:issue-123",
+              result: "created",
+            },
+            source_thread: {
+              required: true,
+              publish_mode: "reply",
+              missing_behavior: "fail_closed",
+              thread_locator: "github://example/repo/issues/123",
+            },
+            human_merge_gate: "required",
+            post_merge_observation: "provider_state_update",
+          },
         },
         draft_pull_request: {
           schema_version: "runx.pull-request-draft.v1",
@@ -414,6 +437,9 @@ describe("thread.push_outbox tool", () => {
             body_markdown: "# Fix fixture behavior\n\nBody.\n",
             is_draft: true,
           },
+          governance: {
+            changed_files: ["README.md"],
+          },
         },
         workspace_path: workspace,
         next_status: "draft",
@@ -429,6 +455,25 @@ describe("thread.push_outbox tool", () => {
           locator: "https://github.com/example/repo/pull/77",
           status: "draft",
           thread_locator: "github://example/repo/issues/123",
+          metadata: {
+            repo: "example/repo",
+            branch: "issue-123",
+            base: "main",
+            changed_files: ["README.md"],
+            dedupe: {
+              strategy: "branch",
+              key: "example/repo:issue-123",
+              result: "created",
+            },
+            source_thread: {
+              required: true,
+              publish_mode: "reply",
+              missing_behavior: "fail_closed",
+              thread_locator: "github://example/repo/issues/123",
+            },
+            human_merge_gate: "required",
+            post_merge_observation: "provider_state_update",
+          },
         },
         thread: {
           adapter: {
@@ -441,6 +486,13 @@ describe("thread.push_outbox tool", () => {
               entry_id: "pr-77",
               locator: "https://github.com/example/repo/pull/77",
               status: "draft",
+              metadata: {
+                changed_files: ["README.md"],
+                source_thread: {
+                  required: true,
+                  thread_locator: "github://example/repo/issues/123",
+                },
+              },
             },
           ],
         },

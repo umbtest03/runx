@@ -41,3 +41,9 @@ expect:
         entry_id: pull_request:task-fixture
         kind: pull_request
         status: proposed
+        metadata:
+          source_thread:
+            required: true
+            publish_mode: reply
+            missing_behavior: fail_closed
+            thread_locator: issue://fixture/123
