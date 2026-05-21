@@ -26,9 +26,9 @@ use crate::execution::orchestrator::SkillRunRequest;
 use crate::receipts::paths::{ReceiptPathInputs, resolve_receipt_path};
 use crate::receipts::store::{LocalReceiptStore, ReceiptStoreError};
 use crate::receipts::{StepReceiptWithDisposition, step_receipt_with_disposition};
+use crate::time::DEFAULT_CREATED_AT;
 
 const SKILL_RUN_SCHEMA: &str = "runx.skill_run.v1";
-const DEFAULT_CREATED_AT: &str = "2026-05-18T00:00:00Z";
 
 #[derive(Debug, Error)]
 pub enum SkillRunError {

@@ -38,7 +38,7 @@ pub struct RuntimeOptions {
 impl Default for RuntimeOptions {
     fn default() -> Self {
         Self {
-            created_at: "2026-05-18T00:00:00Z".to_owned(),
+            created_at: crate::time::DEFAULT_CREATED_AT.to_owned(),
             env: safe_default_env(),
         }
     }
