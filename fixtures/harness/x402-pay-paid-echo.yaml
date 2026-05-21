@@ -4,6 +4,9 @@ target: ../graphs/payment/x402-pay-paid-echo.yaml
 caller:
   approvals:
     spend-approval: true
+metadata:
+  payment_ledger_profile: x402-pay
+  payment_ledger_scenario_id: P1.5
 expect:
   status: sealed
   receipt:

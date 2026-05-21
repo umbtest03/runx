@@ -1,6 +1,6 @@
 use runx_runtime::payment_state::{
-    FileBackedPaymentStateStore, MockRailMutation, MockRailMutationStatus, PaymentIdempotencyEntry,
-    PaymentIdempotencyKey, PaymentRecoveryState, SpendCapabilityConsumption,
+    FileBackedPaymentStateStore, PaymentIdempotencyEntry, PaymentIdempotencyKey,
+    PaymentRecoveryState, RailMutation, RailMutationStatus, SpendCapabilityConsumption,
 };
 
 #[test]
@@ -19,13 +19,13 @@ fn persists_payment_state_across_fresh_store() -> Result<(), Box<dyn std::error:
             amount_minor: 125,
             currency: "USD".to_owned(),
         })?;
-        store.record_mock_rail_mutation(MockRailMutation {
+        store.record_rail_mutation(RailMutation {
             idempotency_key: idempotency_key.clone(),
             rail: "mock".to_owned(),
             amount_minor: 125,
             currency: "USD".to_owned(),
             counterparty: "merchant:paid-echo".to_owned(),
-            status: MockRailMutationStatus::Fulfilled,
+            status: RailMutationStatus::Fulfilled,
             proof_ref: Some("receipt-proof:mock:paid-echo-001".to_owned()),
             recovery_state: PaymentRecoveryState::Sealed,
         })?;
@@ -39,9 +39,9 @@ fn persists_payment_state_across_fresh_store() -> Result<(), Box<dyn std::error:
     assert_eq!(entry.rail_proof_ref, "receipt-proof:mock:paid-echo-001");
 
     let mutation = store
-        .lookup_mock_rail_mutation(&idempotency_key)
-        .ok_or("mock rail mutation should survive fresh store open")?;
-    assert_eq!(mutation.status, MockRailMutationStatus::Fulfilled);
+        .lookup_rail_mutation(&idempotency_key)
+        .ok_or("rail mutation should survive fresh store open")?;
+    assert_eq!(mutation.status, RailMutationStatus::Fulfilled);
     assert_eq!(mutation.recovery_state, PaymentRecoveryState::Sealed);
 
     Ok(())
@@ -141,38 +141,38 @@ fn rejects_duplicate_idempotency_and_rail_mutation_without_overwrite()
         .ok_or("original idempotency entry should remain stored")?;
     assert_eq!(stored.receipt_ref, "receipt:first");
 
-    store.record_mock_rail_mutation(MockRailMutation {
+    store.record_rail_mutation(RailMutation {
         idempotency_key: idempotency_key.clone(),
         rail: "mock".to_owned(),
         amount_minor: 125,
         currency: "USD".to_owned(),
         counterparty: "merchant:paid-echo".to_owned(),
-        status: MockRailMutationStatus::Partial,
+        status: RailMutationStatus::Partial,
         proof_ref: None,
         recovery_state: PaymentRecoveryState::InFlight,
     })?;
     let mutation_error = store
-        .record_mock_rail_mutation(MockRailMutation {
+        .record_rail_mutation(RailMutation {
             idempotency_key: idempotency_key.clone(),
             rail: "mock".to_owned(),
             amount_minor: 250,
             currency: "USD".to_owned(),
             counterparty: "merchant:paid-echo".to_owned(),
-            status: MockRailMutationStatus::Fulfilled,
+            status: RailMutationStatus::Fulfilled,
             proof_ref: Some("proof:second".to_owned()),
             recovery_state: PaymentRecoveryState::Sealed,
         })
         .err()
-        .ok_or("duplicate mock rail mutation should be rejected")?;
+        .ok_or("duplicate rail mutation should be rejected")?;
     assert_eq!(
         mutation_error.to_string(),
-        "mock rail mutation for idempotency key mock\u{1f}merchant:paid-echo\u{1f}payment:paid-echo-001 was already recorded"
+        "rail mutation for idempotency key mock\u{1f}merchant:paid-echo\u{1f}payment:paid-echo-001 was already recorded"
     );
 
     let mutation = store
-        .lookup_mock_rail_mutation(&idempotency_key)
+        .lookup_rail_mutation(&idempotency_key)
         .ok_or("original rail mutation should remain stored")?;
-    assert_eq!(mutation.status, MockRailMutationStatus::Partial);
+    assert_eq!(mutation.status, RailMutationStatus::Partial);
     assert_eq!(mutation.recovery_state, PaymentRecoveryState::InFlight);
 
     Ok(())

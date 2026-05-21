@@ -25,7 +25,9 @@ use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutpu
 use crate::agent_invocation::{AgentActInvocationSourceType, agent_act_invocation_id};
 use crate::execution::runner::{GraphRun, Runtime, RuntimeOptions, StepRun};
 use crate::host::Host;
-use crate::payment_ledger::persist_x402_payment_ledger_projection_event;
+use crate::payment_ledger::{
+    X402_PAY_PAYMENT_PROFILE, persist_x402_payment_ledger_projection_event,
+};
 use crate::receipts::paths::{RUNX_RECEIPT_DIR_ENV, ReceiptPathInputs, resolve_receipt_path};
 use crate::receipts::{
     StepReceiptWithDisposition, graph_receipt_with_disposition, step_receipt_with_disposition,
@@ -690,6 +692,9 @@ where
     if !runtime.options().env.contains_key(RUNX_RECEIPT_DIR_ENV) {
         return Ok(());
     }
+    if string_metadata(fixture, "payment_ledger_profile") != Some(X402_PAY_PAYMENT_PROFILE) {
+        return Ok(());
+    }
     let cwd = std::env::current_dir().map_err(|source| {
         RuntimeError::io("resolving cwd for payment ledger projection", source)
     })?;
@@ -699,14 +704,18 @@ where
         env: &runtime.options().env,
         cwd: &cwd,
     });
-    let scenario_id = x402_payment_scenario_id(fixture, graph_run);
+    let scenario_id = required_string_metadata(
+        &fixture.metadata,
+        "metadata.payment_ledger_scenario_id",
+        "payment_ledger_scenario_id",
+    )?;
     persist_x402_payment_ledger_projection_event(
         &receipt_path.path,
         &format!("gx_{}", graph_run.graph.name),
         &runtime.options().created_at,
         &graph_run.receipt,
         &graph_run.steps,
-        &scenario_id,
+        scenario_id.as_str(),
     )
     .map(|_| ())
     .map_err(|source| {
@@ -715,27 +724,6 @@ where
         }
         .into()
     })
-}
-
-fn x402_payment_scenario_id(fixture: &HarnessFixture, graph_run: &GraphRun) -> String {
-    string_metadata(fixture, "payment_ledger_scenario_id")
-        .or_else(|| scenario_id_from_graph_name(&graph_run.graph.name))
-        .unwrap_or("P1")
-        .to_owned()
-}
-
-fn scenario_id_from_graph_name(graph_name: &str) -> Option<&'static str> {
-    if graph_name.contains("paid-echo") {
-        Some("P1.5")
-    } else if graph_name.contains("cap-exceeded") {
-        Some("P1.3")
-    } else if graph_name.contains("ambiguous-bounds") {
-        Some("P1.4")
-    } else if graph_name.contains("proofless-rail") {
-        Some("P1.12")
-    } else {
-        None
-    }
 }
 
 struct FixtureHost<'a> {

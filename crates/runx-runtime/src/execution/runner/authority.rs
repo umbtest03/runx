@@ -16,7 +16,7 @@ use super::inputs::{
 use crate::RuntimeError;
 use crate::adapter::SkillOutput;
 use crate::payment_state::{
-    FileBackedPaymentStateStore, PaymentIdempotencyKey, resolve_payment_state_path,
+    PaymentIdempotencyKey, consumed_spend_capability_recorded, lookup_payment_idempotency_entry,
 };
 
 pub(super) fn enforce_step_authority_receipt_before_success(
@@ -94,18 +94,11 @@ fn consumed_spend_capability_refs_for_admission(
     graph_dir: &Path,
 ) -> Result<Vec<runx_contracts::Reference>, RuntimeError> {
     let mut refs = input.consumed_spend_capability_refs.clone();
-    let Some(path) = resolve_payment_state_path(env, graph_dir) else {
-        return Ok(refs);
-    };
-    let store = FileBackedPaymentStateStore::open(&path).map_err(|source| {
-        RuntimeError::payment_state("opening payment state for admission", source)
-    })?;
-    if store
-        .lookup_consumed_spend_capability(&input.spend_capability_ref.uri)
-        .is_some()
-        && !refs
-            .iter()
-            .any(|reference| same_reference(reference, &input.spend_capability_ref))
+    if consumed_spend_capability_recorded(env, graph_dir, &input.spend_capability_ref.uri).map_err(
+        |source| RuntimeError::payment_state("reading payment state for admission", source),
+    )? && !refs
+        .iter()
+        .any(|reference| same_reference(reference, &input.spend_capability_ref))
     {
         refs.push(input.spend_capability_ref.clone());
     }
@@ -121,13 +114,11 @@ fn block_unavailable_idempotency_replay(
     let Some(payment) = payment else {
         return Ok(());
     };
-    let Some(path) = resolve_payment_state_path(env, graph_dir) else {
-        return Ok(());
-    };
-    let store = FileBackedPaymentStateStore::open(&path).map_err(|source| {
-        RuntimeError::payment_state("opening payment state for replay lookup", source)
-    })?;
-    let Some(entry) = store.lookup_idempotency(&payment.idempotency_key) else {
+    let Some(entry) = lookup_payment_idempotency_entry(env, graph_dir, &payment.idempotency_key)
+        .map_err(|source| {
+            RuntimeError::payment_state("reading payment state for replay lookup", source)
+        })?
+    else {
         return Ok(());
     };
     Err(authority_denied(

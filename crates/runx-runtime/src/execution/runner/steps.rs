@@ -3,7 +3,7 @@
 // state persistence in one runtime boundary until the runner module split.
 use std::path::Path;
 
-use runx_contracts::{ApprovalGate, JsonNumber, JsonObject, JsonValue, ResolutionResponseActor};
+use runx_contracts::{ApprovalGate, JsonObject, JsonValue, ResolutionResponseActor};
 use runx_parser::GraphStep;
 
 use super::super::graph::{load_skill, output_object, resolve_inputs, skill_dir};
@@ -16,10 +16,7 @@ use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
 use crate::approval::{ApprovalResolution, request_approval};
 use crate::host::Host;
-use crate::payment_state::{
-    FileBackedPaymentStateStore, MockRailMutation, MockRailMutationStatus, PaymentIdempotencyEntry,
-    PaymentRecoveryState, SpendCapabilityConsumption, resolve_payment_state_path,
-};
+use crate::payment_state::{PaymentStepStateInput, persist_payment_step_state};
 use crate::receipts::step_receipt;
 
 pub(super) fn output_error(run: &StepRun) -> String {
@@ -83,8 +80,6 @@ where
     })
 }
 
-// rust-style-allow: long-function because payment state persistence binds
-// authority, output, receipt, and recovery-state invariants in one transaction.
 fn persist_payment_state_for_step<A>(
     runtime: &Runtime<A>,
     graph_dir: &Path,
@@ -98,169 +93,21 @@ where
     let Some(payment) = authority.and_then(|authority| authority.payment.as_ref()) else {
         return Ok(());
     };
-    let Some(path) = resolve_payment_state_path(&runtime.options.env, graph_dir) else {
-        return Ok(());
-    };
-    let mut store = FileBackedPaymentStateStore::open(&path).map_err(|source| {
-        RuntimeError::payment_state("opening payment state for payment step persistence", source)
-    })?;
-    let recovery_state = payment_recovery_state(outputs);
-    let rail_touched = nested_string(
+    persist_payment_step_state(
+        &runtime.options.env,
+        graph_dir,
+        &PaymentStepStateInput {
+            idempotency_key: payment.idempotency_key.clone(),
+            spend_capability_ref: payment.spend_capability_ref.uri.clone(),
+            rail: payment.rail.clone(),
+            counterparty: payment.counterparty.clone(),
+            amount_minor: payment.amount_minor,
+            currency: payment.currency.clone(),
+        },
         outputs,
-        &["payment_rail_packet", "data", "rail_result", "status"],
+        &receipt.id,
     )
-    .is_some();
-    if rail_touched
-        && store
-            .lookup_consumed_spend_capability(&payment.spend_capability_ref.uri)
-            .is_none()
-    {
-        store
-            .consume_spend_capability(SpendCapabilityConsumption {
-                capability_ref: payment.spend_capability_ref.uri.clone(),
-                idempotency_key: payment.idempotency_key.clone(),
-                receipt_ref: Some(receipt.id.clone()),
-                recovery_state: Some(recovery_state.clone()),
-            })
-            .map_err(|source| {
-                RuntimeError::payment_state("recording consumed payment spend capability", source)
-            })?;
-    }
-
-    if let Some(proof_ref) = nested_string(
-        outputs,
-        &["payment_rail_packet", "data", "rail_proof", "proof_ref"],
-    ) && store.lookup_idempotency(&payment.idempotency_key).is_none()
-    {
-        store
-            .record_idempotency(PaymentIdempotencyEntry {
-                idempotency_key: payment.idempotency_key.clone(),
-                receipt_ref: receipt.id.clone(),
-                rail_proof_ref: proof_ref.to_owned(),
-                amount_minor: nested_u64(
-                    outputs,
-                    &["payment_rail_packet", "data", "rail_result", "amount_minor"],
-                )
-                .unwrap_or(payment.amount_minor),
-                currency: nested_string(
-                    outputs,
-                    &["payment_rail_packet", "data", "rail_result", "currency"],
-                )
-                .unwrap_or(&payment.currency)
-                .to_owned(),
-            })
-            .map_err(|source| {
-                RuntimeError::payment_state("recording payment idempotency entry", source)
-            })?;
-    }
-
-    if rail_touched
-        && store
-            .lookup_mock_rail_mutation(&payment.idempotency_key)
-            .is_none()
-    {
-        store
-            .record_mock_rail_mutation(MockRailMutation {
-                idempotency_key: payment.idempotency_key.clone(),
-                rail: nested_string(
-                    outputs,
-                    &["payment_rail_packet", "data", "rail_result", "rail"],
-                )
-                .unwrap_or(&payment.rail)
-                .to_owned(),
-                amount_minor: nested_u64(
-                    outputs,
-                    &["payment_rail_packet", "data", "rail_result", "amount_minor"],
-                )
-                .unwrap_or(payment.amount_minor),
-                currency: nested_string(
-                    outputs,
-                    &["payment_rail_packet", "data", "rail_result", "currency"],
-                )
-                .unwrap_or(&payment.currency)
-                .to_owned(),
-                counterparty: nested_string(
-                    outputs,
-                    &["payment_rail_packet", "data", "rail_result", "counterparty"],
-                )
-                .unwrap_or(&payment.counterparty)
-                .to_owned(),
-                status: mock_rail_mutation_status(&recovery_state),
-                proof_ref: nested_string(
-                    outputs,
-                    &["payment_rail_packet", "data", "rail_proof", "proof_ref"],
-                )
-                .map(str::to_owned),
-                recovery_state,
-            })
-            .map_err(|source| {
-                RuntimeError::payment_state("recording mock payment rail mutation", source)
-            })?;
-    }
-
-    Ok(())
-}
-
-fn payment_recovery_state(outputs: &JsonObject) -> PaymentRecoveryState {
-    match nested_string(
-        outputs,
-        &["payment_rail_packet", "data", "recovery_hint", "status"],
-    ) {
-        Some("sealed") => PaymentRecoveryState::Sealed,
-        Some("terminal_decline" | "escalated") => PaymentRecoveryState::Escalated,
-        Some("recoverable_timeout" | "partial" | "in_flight") => PaymentRecoveryState::InFlight,
-        _ if nested_string(
-            outputs,
-            &["payment_rail_packet", "data", "rail_proof", "proof_ref"],
-        )
-        .is_some() =>
-        {
-            PaymentRecoveryState::Sealed
-        }
-        _ => PaymentRecoveryState::InFlight,
-    }
-}
-
-fn mock_rail_mutation_status(recovery_state: &PaymentRecoveryState) -> MockRailMutationStatus {
-    match recovery_state {
-        PaymentRecoveryState::Sealed => MockRailMutationStatus::Fulfilled,
-        PaymentRecoveryState::Escalated => MockRailMutationStatus::Escalated,
-        PaymentRecoveryState::InFlight => MockRailMutationStatus::Partial,
-    }
-}
-
-fn nested_string<'a>(object: &'a JsonObject, path: &[&str]) -> Option<&'a str> {
-    let mut value = object.get(path.first().copied()?)?;
-    for segment in &path[1..] {
-        let JsonValue::Object(object) = value else {
-            return None;
-        };
-        value = object.get(*segment)?;
-    }
-    match value {
-        JsonValue::String(value) => Some(value.as_str()),
-        _ => None,
-    }
-}
-
-fn nested_u64(object: &JsonObject, path: &[&str]) -> Option<u64> {
-    let mut value = object.get(path.first().copied()?)?;
-    for segment in &path[1..] {
-        let JsonValue::Object(object) = value else {
-            return None;
-        };
-        value = object.get(*segment)?;
-    }
-    match value {
-        JsonValue::Number(JsonNumber::U64(value)) => Some(*value),
-        JsonValue::Number(JsonNumber::I64(value)) => u64::try_from(*value).ok(),
-        JsonValue::Number(JsonNumber::F64(value))
-            if value.is_finite() && value.fract() == 0.0 && *value >= 0.0 =>
-        {
-            Some(*value as u64)
-        }
-        _ => None,
-    }
+    .map_err(|source| RuntimeError::payment_state("persisting payment step state", source))
 }
 
 pub(super) fn run_native_step<A>(

@@ -1,13 +1,19 @@
+// rust-style-allow: large-file because payment state currently owns persisted
+// idempotency, spend-capability consumption, rail mutation recovery, and the
+// step-persistence transaction until the payment execution boundary splits.
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use runx_contracts::JsonObject;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub const PAYMENT_STATE_SCHEMA_VERSION: &str = "runx.payment_state.v1";
+use crate::payment_packets::{PaymentPacketError, PaymentRailPacket, read_payment_rail_packet};
+
+pub const PAYMENT_STATE_SCHEMA_VERSION: &str = "runx.payment_state.v2";
 pub const RUNX_PAYMENT_STATE_PATH_ENV: &str = "RUNX_PAYMENT_STATE_PATH";
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -67,23 +73,33 @@ pub enum PaymentRecoveryState {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MockRailMutation {
+pub struct RailMutation {
     pub idempotency_key: PaymentIdempotencyKey,
     pub rail: String,
     pub amount_minor: u64,
     pub currency: String,
     pub counterparty: String,
-    pub status: MockRailMutationStatus,
+    pub status: RailMutationStatus,
     pub proof_ref: Option<String>,
     pub recovery_state: PaymentRecoveryState,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum MockRailMutationStatus {
+pub enum RailMutationStatus {
     Partial,
     Fulfilled,
     Escalated,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PaymentStepStateInput {
+    pub idempotency_key: PaymentIdempotencyKey,
+    pub spend_capability_ref: String,
+    pub rail: String,
+    pub counterparty: String,
+    pub amount_minor: u64,
+    pub currency: String,
 }
 
 #[derive(Clone, Debug)]
@@ -98,7 +114,7 @@ struct PaymentStateDocument {
     schema_version: String,
     idempotency_entries: BTreeMap<String, PaymentIdempotencyEntry>,
     consumed_spend_capabilities: BTreeMap<String, SpendCapabilityConsumption>,
-    mock_rail_mutations: BTreeMap<String, MockRailMutation>,
+    rail_mutations: BTreeMap<String, RailMutation>,
 }
 
 impl Default for PaymentStateDocument {
@@ -107,7 +123,7 @@ impl Default for PaymentStateDocument {
             schema_version: PAYMENT_STATE_SCHEMA_VERSION.to_owned(),
             idempotency_entries: BTreeMap::new(),
             consumed_spend_capabilities: BTreeMap::new(),
-            mock_rail_mutations: BTreeMap::new(),
+            rail_mutations: BTreeMap::new(),
         }
     }
 }
@@ -150,10 +166,12 @@ pub enum PaymentStateError {
     UnsupportedSchemaVersion { schema_version: String },
     #[error("idempotency key {idempotency_key} was already recorded")]
     IdempotencyAlreadyRecorded { idempotency_key: String },
-    #[error("mock rail mutation for idempotency key {idempotency_key} was already recorded")]
-    MockRailMutationAlreadyRecorded { idempotency_key: String },
+    #[error("rail mutation for idempotency key {idempotency_key} was already recorded")]
+    RailMutationAlreadyRecorded { idempotency_key: String },
     #[error("spend capability {capability_ref} was already consumed")]
     SpendCapabilityAlreadyConsumed { capability_ref: String },
+    #[error(transparent)]
+    PaymentPacket(#[from] PaymentPacketError),
 }
 
 impl FileBackedPaymentStateStore {
@@ -233,24 +251,21 @@ impl FileBackedPaymentStateStore {
         self.persist()
     }
 
-    pub fn lookup_mock_rail_mutation(
-        &self,
-        key: &PaymentIdempotencyKey,
-    ) -> Option<&MockRailMutation> {
-        self.state.mock_rail_mutations.get(&key.index_key())
+    pub fn lookup_rail_mutation(&self, key: &PaymentIdempotencyKey) -> Option<&RailMutation> {
+        self.state.rail_mutations.get(&key.index_key())
     }
 
-    pub fn record_mock_rail_mutation(
+    pub fn record_rail_mutation(
         &mut self,
-        mutation: MockRailMutation,
+        mutation: RailMutation,
     ) -> Result<(), PaymentStateError> {
         let index_key = mutation.idempotency_key.index_key();
-        if self.state.mock_rail_mutations.contains_key(&index_key) {
-            return Err(PaymentStateError::MockRailMutationAlreadyRecorded {
+        if self.state.rail_mutations.contains_key(&index_key) {
+            return Err(PaymentStateError::RailMutationAlreadyRecorded {
                 idempotency_key: index_key,
             });
         }
-        self.state.mock_rail_mutations.insert(index_key, mutation);
+        self.state.rail_mutations.insert(index_key, mutation);
         self.persist()
     }
 
@@ -266,6 +281,151 @@ impl FileBackedPaymentStateStore {
             source,
         })?;
         write_json_atomically(&self.path, &self.state)
+    }
+}
+
+pub fn consumed_spend_capability_recorded(
+    env: &BTreeMap<String, String>,
+    cwd: &Path,
+    capability_ref: &str,
+) -> Result<bool, PaymentStateError> {
+    let Some(path) = resolve_payment_state_path(env, cwd) else {
+        return Ok(false);
+    };
+    let store = FileBackedPaymentStateStore::open(&path)?;
+    Ok(store
+        .lookup_consumed_spend_capability(capability_ref)
+        .is_some())
+}
+
+pub fn lookup_payment_idempotency_entry(
+    env: &BTreeMap<String, String>,
+    cwd: &Path,
+    key: &PaymentIdempotencyKey,
+) -> Result<Option<PaymentIdempotencyEntry>, PaymentStateError> {
+    let Some(path) = resolve_payment_state_path(env, cwd) else {
+        return Ok(None);
+    };
+    let store = FileBackedPaymentStateStore::open(&path)?;
+    Ok(store.lookup_idempotency(key).cloned())
+}
+
+// rust-style-allow: long-function because payment state persistence binds
+// authority, output, receipt, and recovery-state invariants in one transaction.
+pub fn persist_payment_step_state(
+    env: &BTreeMap<String, String>,
+    cwd: &Path,
+    input: &PaymentStepStateInput,
+    outputs: &JsonObject,
+    receipt_id: &str,
+) -> Result<(), PaymentStateError> {
+    let Some(path) = resolve_payment_state_path(env, cwd) else {
+        return Ok(());
+    };
+    let mut store = FileBackedPaymentStateStore::open(&path)?;
+    let rail_packet = read_payment_rail_packet(outputs)?;
+    let recovery_state = payment_recovery_state(rail_packet.as_ref());
+    let rail_touched = rail_packet
+        .as_ref()
+        .and_then(|packet| packet.result.as_ref())
+        .and_then(|result| result.status.as_deref())
+        .is_some();
+
+    if rail_touched
+        && store
+            .lookup_consumed_spend_capability(&input.spend_capability_ref)
+            .is_none()
+    {
+        store.consume_spend_capability(SpendCapabilityConsumption {
+            capability_ref: input.spend_capability_ref.clone(),
+            idempotency_key: input.idempotency_key.clone(),
+            receipt_ref: Some(receipt_id.to_owned()),
+            recovery_state: Some(recovery_state.clone()),
+        })?;
+    }
+
+    let proof_ref = rail_packet
+        .as_ref()
+        .and_then(|packet| packet.proof.as_ref())
+        .map(|proof| proof.proof_ref.as_str());
+    if let Some(proof_ref) = proof_ref
+        && store.lookup_idempotency(&input.idempotency_key).is_none()
+    {
+        let result = rail_packet
+            .as_ref()
+            .and_then(|packet| packet.result.as_ref());
+        store.record_idempotency(PaymentIdempotencyEntry {
+            idempotency_key: input.idempotency_key.clone(),
+            receipt_ref: receipt_id.to_owned(),
+            rail_proof_ref: proof_ref.to_owned(),
+            amount_minor: result
+                .and_then(|result| result.amount_minor)
+                .unwrap_or(input.amount_minor),
+            currency: result
+                .and_then(|result| result.currency.as_deref())
+                .unwrap_or(&input.currency)
+                .to_owned(),
+        })?;
+    }
+
+    if rail_touched && store.lookup_rail_mutation(&input.idempotency_key).is_none() {
+        let result = rail_packet
+            .as_ref()
+            .and_then(|packet| packet.result.as_ref());
+        store.record_rail_mutation(RailMutation {
+            idempotency_key: input.idempotency_key.clone(),
+            rail: result
+                .and_then(|result| result.rail.as_deref())
+                .unwrap_or(&input.rail)
+                .to_owned(),
+            amount_minor: result
+                .and_then(|result| result.amount_minor)
+                .unwrap_or(input.amount_minor),
+            currency: result
+                .and_then(|result| result.currency.as_deref())
+                .unwrap_or(&input.currency)
+                .to_owned(),
+            counterparty: result
+                .and_then(|result| result.counterparty.as_deref())
+                .unwrap_or(&input.counterparty)
+                .to_owned(),
+            status: rail_mutation_status(&recovery_state),
+            proof_ref: proof_ref.map(str::to_owned),
+            recovery_state,
+        })?;
+    }
+
+    Ok(())
+}
+
+fn payment_recovery_state(packet: Option<&PaymentRailPacket>) -> PaymentRecoveryState {
+    match packet {
+        Some(PaymentRailPacket {
+            recovery_status: Some(status),
+            ..
+        }) if status == "sealed" => PaymentRecoveryState::Sealed,
+        Some(PaymentRailPacket {
+            recovery_status: Some(status),
+            ..
+        }) if status == "terminal_decline" || status == "escalated" => {
+            PaymentRecoveryState::Escalated
+        }
+        Some(PaymentRailPacket {
+            recovery_status: Some(status),
+            ..
+        }) if status == "recoverable_timeout" || status == "partial" || status == "in_flight" => {
+            PaymentRecoveryState::InFlight
+        }
+        Some(PaymentRailPacket { proof: Some(_), .. }) => PaymentRecoveryState::Sealed,
+        _ => PaymentRecoveryState::InFlight,
+    }
+}
+
+fn rail_mutation_status(recovery_state: &PaymentRecoveryState) -> RailMutationStatus {
+    match recovery_state {
+        PaymentRecoveryState::Sealed => RailMutationStatus::Fulfilled,
+        PaymentRecoveryState::Escalated => RailMutationStatus::Escalated,
+        PaymentRecoveryState::InFlight => RailMutationStatus::Partial,
     }
 }
 
