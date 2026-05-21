@@ -3,9 +3,9 @@ import type {
   DevReportContract,
 } from "@runxhq/contracts";
 import { resolvePathFromUserInput, resolveRunxWorkspaceBase } from "@runxhq/core/config";
-import { type Caller, type RegistryStore } from "@runxhq/runtime-local";
 
 import type { CliAgentRuntime } from "../agent-runtime.js";
+import type { Caller, RegistryStore } from "../cli-runtime-contracts.js";
 import { statusIcon, theme } from "../ui.js";
 import { type DoctorCommandArgs, handleDoctorCommand } from "./doctor.js";
 import { createDoctorDiagnostic, type DoctorReport } from "./doctor-types.js";

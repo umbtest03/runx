@@ -1,6 +1,5 @@
-import { type Caller } from "@runxhq/runtime-local";
-
 import { isPlainRecord } from "../../authoring-utils.js";
+import type { Caller } from "../../cli-runtime-contracts.js";
 import type { DevCommandDependencies } from "../dev.js";
 import type { FixtureExecutionRoots } from "./internal.js";
 

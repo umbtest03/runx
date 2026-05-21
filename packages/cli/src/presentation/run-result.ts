@@ -1,13 +1,13 @@
+import type { ResolutionRequestContract as ResolutionRequest } from "@runxhq/contracts";
+
+import type { ParsedArgs } from "../args.js";
 import {
   runnerReceiptDisposition,
   runnerReceiptDurationMs,
   runnerReceiptGraphSteps,
   runnerReceiptOutcomeState,
-  type RunLocalSkillResult,
-} from "@runxhq/runtime-local";
-import type { ResolutionRequestContract as ResolutionRequest } from "@runxhq/contracts";
-
-import type { ParsedArgs } from "../args.js";
+  type CliSkillRunResult as RunLocalSkillResult,
+} from "../cli-runtime-contracts.js";
 import type { CliIo } from "../index.js";
 import { shortId, statusIcon, theme } from "../ui.js";
 import { isRecord } from "./internal.js";

@@ -7,10 +7,10 @@ import type {
   ResolutionResponseContract as ResolutionResponse,
 } from "@runxhq/contracts";
 import { isRecord } from "@runxhq/core/util";
-import type { Caller } from "@runxhq/runtime-local";
 
 import type { CliAgentRuntime } from "./agent-runtime.js";
 import { loadCliAgentRuntime } from "./agent-runtime.js";
+import type { Caller } from "./cli-runtime-contracts.js";
 import { renderExecutionEvent } from "./cli-presentation.js";
 import type { CliIo } from "./index.js";
 import { theme } from "./ui.js";

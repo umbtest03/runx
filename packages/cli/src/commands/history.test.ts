@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { renderHistory } from "./history.js";
-import type { LocalReceiptSummary } from "@runxhq/runtime-local";
+
+type LocalReceiptSummary = Parameters<typeof renderHistory>[0][number];
 
 describe("renderHistory", () => {
   it("surfaces compact harness status summaries", () => {

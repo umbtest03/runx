@@ -1,9 +1,54 @@
 import type { SkillSearchResult } from "@runxhq/core/marketplaces";
-import type { ToolCatalogSearchResult, ToolInspectResult } from "@runxhq/runtime-local/tool-catalogs";
 
 import { theme } from "../ui.js";
 
-export function renderSearchResults(results: readonly SkillSearchResult[], env: NodeJS.ProcessEnv = process.env): string {
+interface ToolCatalogSearchResult {
+  readonly tool_id: string;
+  readonly name: string;
+  readonly summary?: string;
+  readonly source: string;
+  readonly source_label: string;
+  readonly source_type: string;
+  readonly namespace: string;
+  readonly external_name: string;
+  readonly required_scopes: readonly string[];
+  readonly tags: readonly string[];
+  readonly catalog_ref: string;
+}
+
+interface ToolInspectResult {
+  readonly ref: string;
+  readonly name: string;
+  readonly description?: string;
+  readonly execution_source_type: string;
+  readonly inputs: Readonly<
+    Record<
+      string,
+      {
+        readonly type: string;
+        readonly required: boolean;
+        readonly description?: string;
+      }
+    >
+  >;
+  readonly scopes: readonly string[];
+  readonly reference_path: string;
+  readonly skill_directory: string;
+  readonly provenance: {
+    readonly origin: "local" | "imported";
+    readonly source?: string;
+    readonly source_label?: string;
+    readonly source_type?: string;
+    readonly namespace?: string;
+    readonly external_name?: string;
+    readonly catalog_ref?: string;
+  };
+}
+
+export function renderSearchResults(
+  results: readonly SkillSearchResult[],
+  env: NodeJS.ProcessEnv = process.env,
+): string {
   const t = theme(undefined, env);
   if (results.length === 0) {
     return `\n  ${t.dim}No skills found.${t.reset}\n\n`;
@@ -11,7 +56,9 @@ export function renderSearchResults(results: readonly SkillSearchResult[], env: 
   const lines: string[] = [""];
   for (const result of results) {
     const tier = result.source_type === "bundled" ? "bundled" : result.source_label;
-    lines.push(`  ${t.magenta}${t.bold}${result.skill_id}${t.reset}  ${t.dim}· ${tier} · ${result.trust_tier}${t.reset}`);
+    lines.push(
+      `  ${t.magenta}${t.bold}${result.skill_id}${t.reset}  ${t.dim}· ${tier} · ${result.trust_tier}${t.reset}`,
+    );
     if (result.summary) {
       lines.push(`  ${t.dim}${result.summary}${t.reset}`);
     }

@@ -1,7 +1,5 @@
-import { runHarness, runHarnessTarget } from "@runxhq/runtime-local/harness";
-import type { ExecutionEvent } from "@runxhq/runtime-local";
-
 import type { CliIo } from "./index.js";
+import type { ExecutionEvent } from "./cli-runtime-contracts.js";
 import { renderKeyValue, statusIcon, theme } from "./ui.js";
 import { humanizeLabel, isRecord } from "./presentation/internal.js";
 import { humanizeExpectedOutput } from "./presentation/needs-agent.js";
@@ -82,9 +80,7 @@ export function renderCliError(message: string): string {
 }
 
 export function renderHarnessResult(
-  result:
-    | Awaited<ReturnType<typeof runHarness>>
-    | Awaited<ReturnType<typeof runHarnessTarget>>,
+  result: HarnessSuiteRenderResult | HarnessCaseRenderResult,
 ): string {
   const t = theme();
   if ("cases" in result) {
@@ -113,4 +109,22 @@ export function renderHarnessResult(
     ],
     t,
   );
+}
+
+interface HarnessCaseRenderResult {
+  readonly status: string;
+  readonly fixture: {
+    readonly name: string;
+    readonly kind: string;
+  };
+  readonly targetPath: string;
+  readonly assertionErrors: readonly string[];
+}
+
+interface HarnessSuiteRenderResult {
+  readonly status: string;
+  readonly cases: readonly HarnessCaseRenderResult[];
+  readonly assertionErrors: readonly string[];
+  readonly skillPath?: string;
+  readonly targetPath?: string;
 }

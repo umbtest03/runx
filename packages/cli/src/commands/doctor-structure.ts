@@ -23,10 +23,6 @@ const DOCTOR_FILE_BUDGETS: readonly DoctorFileBudget[] = [
     path: "packages/cli/src/commands/doctor.ts",
     maxLines: 950,
   },
-  {
-    path: "packages/runtime-local/src/runner-local/index.ts",
-    maxLines: 2000,
-  },
 ] as const;
 
 const DOCTOR_IMPORT_SPECIFIER_PATTERNS = [
