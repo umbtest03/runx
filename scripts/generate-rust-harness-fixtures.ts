@@ -95,9 +95,9 @@ function sequentialGraphOracle(): OracleReceipt[] {
 }
 
 function paymentApprovalGraphOracle(): OracleReceipt[] {
-  const approval = stepReceipt("payment-approval", "approve-spend", approvalStdout());
-  const fulfill = stepReceipt("payment-approval", "fulfill", paymentRailStdout(), paymentRailRefs());
-  const graph = graphReceipt("payment-approval", [approval, fulfill]);
+  const approval = stepReceipt("x402-pay-approval", "approve-spend", approvalStdout());
+  const fulfill = stepReceipt("x402-pay-approval", "fulfill", paymentRailStdout(), paymentRailRefs());
+  const graph = graphReceipt("x402-pay-approval", [approval, fulfill]);
   return [
     oracleReceipt("payment-approval-graph", "receipt", graph),
     oracleReceipt("payment-approval-graph", "approve-spend", approval),
@@ -282,7 +282,7 @@ function paymentRailRefs(): ActRefs {
     sourceRefs: [
       {
         type: "credential",
-        uri: "credential:mock:payment-execution-001",
+        uri: "credential:mock:x402-pay-approval-001",
         label: "scoped payment credential",
       },
     ],
@@ -291,8 +291,8 @@ function paymentRailRefs(): ActRefs {
     verificationRefs: [
       {
         type: "verification",
-        uri: "receipt-proof:mock:payment-execution-001",
-        locator: "payment:payment-execution-001",
+        uri: "receipt-proof:mock:x402-pay-approval-001",
+        locator: "payment:x402-pay-approval-001",
         label: "payment rail proof",
         proof_kind: "payment_rail",
       },
@@ -326,12 +326,12 @@ function paymentRailStdout(): string {
           currency: "USD",
         },
         rail_proof: {
-          proof_ref: "receipt-proof:mock:payment-execution-001",
-          idempotency_key: "payment:payment-execution-001",
+          proof_ref: "receipt-proof:mock:x402-pay-approval-001",
+          idempotency_key: "payment:x402-pay-approval-001",
         },
         credential_envelope: {
           form: "paid_tool_credential",
-          credential_ref: "credential:mock:payment-execution-001",
+          credential_ref: "credential:mock:x402-pay-approval-001",
         },
       },
     },

@@ -19,6 +19,8 @@ use tempfile::TempDir;
 
 const PAID_ECHO_IDEMPOTENCY_KEY: &str = "payment:paid-echo-001";
 const PAID_ECHO_RAIL_SESSION_MATERIAL_REF: &str = "rail-session-material:mock:paid-echo-001";
+const X402_APPROVAL_IDEMPOTENCY_KEY: &str = "payment:x402-pay-approval-001";
+const X402_APPROVAL_PROOF_REF: &str = "receipt-proof:mock:x402-pay-approval-001";
 
 #[test]
 fn approved_payment_approval_emits_approval_output_and_runs_fulfill()
@@ -102,7 +104,7 @@ fn payment_approval_step_is_recorded_with_receipt() -> Result<(), Box<dyn std::e
     assert_eq!(approval_step.attempt, 1);
     assert_eq!(
         approval_step.receipt.harness.harness_id,
-        "hrn_payment-execution_approve-spend"
+        "hrn_x402-pay-approval_approve-spend"
     );
     assert_eq!(
         run.state
@@ -140,7 +142,7 @@ fn payment_graph_seals_with_strict_parent_child_receipt_proof()
             .verification_refs
             .iter()
             .any(
-                |reference| reference.uri == "receipt-proof:mock:payment-execution-001"
+                |reference| reference.uri == X402_APPROVAL_PROOF_REF
                     && reference.proof_kind.as_ref() == Some(&ProofKind::PaymentRail)
             ),
         "payment fulfillment act must carry the rail proof reference into the sealed receipt"
@@ -291,7 +293,7 @@ fn non_payment_step_without_rail_admission_inputs_invokes_adapter()
     assert_eq!(run.state.status, GraphStatus::Succeeded);
     assert_eq!(
         invocations.borrow().as_slice(),
-        &["fulfill".to_owned()],
+        &["pay-fulfill-rail".to_owned()],
         "non-payment steps should not require payment rail admission inputs"
     );
     Ok(())
@@ -517,7 +519,7 @@ struct RecordingAdapter {
 impl Default for RecordingAdapter {
     fn default() -> Self {
         Self::with_stdout(
-            r#"{"payment_rail_packet":{"data":{"rail_result":{"status":"fulfilled","rail":"mock","amount_minor":125,"currency":"USD"},"rail_proof":{"proof_ref":"receipt-proof:mock:payment-execution-001","idempotency_key":"payment:payment-execution-001"},"credential_envelope":{"form":"paid_tool_credential","credential_ref":"credential:mock:payment-execution-001"}}}}"#,
+            r#"{"payment_rail_packet":{"data":{"rail_result":{"status":"fulfilled","rail":"mock","amount_minor":125,"currency":"USD"},"rail_proof":{"proof_ref":"receipt-proof:mock:x402-pay-approval-001","idempotency_key":"payment:x402-pay-approval-001"},"credential_envelope":{"form":"paid_tool_credential","credential_ref":"credential:mock:x402-pay-approval-001"}}}}"#,
         )
     }
 }
@@ -525,7 +527,7 @@ impl Default for RecordingAdapter {
 impl RecordingAdapter {
     fn without_rail_proof() -> Self {
         Self::with_stdout(
-            r#"{"payment_rail_packet":{"data":{"rail_result":{"status":"fulfilled","rail":"mock","amount_minor":125,"currency":"USD"},"credential_envelope":{"form":"paid_tool_credential","credential_ref":"credential:mock:payment-execution-001"}}}}"#,
+            r#"{"payment_rail_packet":{"data":{"rail_result":{"status":"fulfilled","rail":"mock","amount_minor":125,"currency":"USD"},"credential_envelope":{"form":"paid_tool_credential","credential_ref":"credential:mock:x402-pay-approval-001"}}}}"#,
         )
     }
 
@@ -543,7 +545,7 @@ impl RecordingAdapter {
 
 impl SkillAdapter for RecordingAdapter {
     fn adapter_type(&self) -> &'static str {
-        "payment-execution-test"
+        "x402-pay-approval-test"
     }
 
     fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
@@ -768,8 +770,8 @@ impl GraphFixture {
         fs::create_dir(&fulfill_dir)?;
         fs::write(
             fulfill_dir.join("SKILL.md"),
-            r#"---
-name: fulfill
+r#"---
+name: pay-fulfill-rail
 description: Fulfill approved payment.
 source:
   type: cli-tool
@@ -868,7 +870,7 @@ fn graph_yaml(
         fulfill["inputs"] = inputs;
     }
     serde_json::to_string_pretty(&json!({
-        "name": "payment-execution",
+        "name": "x402-pay-approval",
         "steps": [
             {
                 "id": "approve-spend",
@@ -975,11 +977,11 @@ fn fulfill_inputs(admission: FulfillAdmission) -> Option<Value> {
         FulfillAdmission::Valid => Some(valid_payment_inputs(2_500, true)),
         FulfillAdmission::MissingReservedPaymentAuthority => Some(json!({
             "spend_capability_ref": spend_capability_ref(),
-            "idempotency": { "key": "payment:payment-execution-001" }
+            "idempotency": { "key": X402_APPROVAL_IDEMPOTENCY_KEY }
         })),
         FulfillAdmission::MissingSpendCapabilityRef => Some(json!({
             "reserved_payment_authority": reserved_payment_authority(2_500, true),
-            "idempotency": { "key": "payment:payment-execution-001" }
+            "idempotency": { "key": X402_APPROVAL_IDEMPOTENCY_KEY }
         })),
         FulfillAdmission::MissingIdempotencyKey => Some(json!({
             "reserved_payment_authority": reserved_payment_authority(2_500, true),
@@ -996,7 +998,7 @@ fn valid_payment_inputs(child_max_per_call_minor: u64, subset_proof_present: boo
     json!({
         "reserved_payment_authority": reserved_payment_authority(child_max_per_call_minor, subset_proof_present),
         "spend_capability_ref": spend_capability_ref(),
-        "idempotency": { "key": "payment:payment-execution-001" }
+        "idempotency": { "key": X402_APPROVAL_IDEMPOTENCY_KEY }
     })
 }
 
@@ -1011,7 +1013,7 @@ fn reserved_payment_authority(child_max_per_call_minor: u64, subset_proof_presen
             "child_harness_ref": child_harness_ref(),
             "act_id": "act_fulfill",
             "reservation_decision_id": "decision_payment_reservation",
-            "idempotency_key": "payment:payment-execution-001",
+            "idempotency_key": X402_APPROVAL_IDEMPOTENCY_KEY,
             "amount_minor": 125,
             "currency": "USD",
             "counterparty": "merchant-123",
@@ -1175,7 +1177,7 @@ fn paid_echo_spend_capability_ref() -> Value {
 }
 
 fn child_harness_ref() -> Value {
-    reference("harness", "runx:harness:payment-execution_fulfill")
+    reference("harness", "runx:harness:x402-pay-approval_fulfill")
 }
 
 fn spend_capability_ref() -> Value {
