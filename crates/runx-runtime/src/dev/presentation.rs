@@ -11,10 +11,10 @@ pub struct DevRenderTheme {
 impl Default for DevRenderTheme {
     fn default() -> Self {
         Self {
-            success: "ok",
-            failure: "x",
-            skipped: "-",
-            needs_approval: "!",
+            success: "✓",
+            failure: "✗",
+            skipped: "·",
+            needs_approval: "◇",
         }
     }
 }

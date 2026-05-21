@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use runx_runtime::dev::DevLane;
-use runx_runtime::{DevLoopOptions, DevReportStatus, render_dev_result, run_dev_once};
+use runx_runtime::{DevLoopOptions, DevReport, DevReportStatus, render_dev_result, run_dev_once};
 
 use crate::launcher::DevPlan;
 
@@ -41,17 +41,13 @@ pub fn run_native_dev(plan: DevPlan) -> ExitCode {
         DevReportStatus::Failure => 1,
     };
 
-    let stdout = if plan.json {
-        match serde_json::to_string(&report) {
-            Ok(text) => format!("{text}\n"),
-            Err(error) => {
-                let _ignored =
-                    write_stderr(&format!("runx: failed to serialize dev report: {error}\n"));
-                return ExitCode::from(1);
-            }
+    let stdout = match render_dev_stdout(&report, plan.json) {
+        Ok(stdout) => stdout,
+        Err(error) => {
+            let _ignored =
+                write_stderr(&format!("runx: failed to serialize dev report: {error}\n"));
+            return ExitCode::from(1);
         }
-    } else {
-        render_dev_result(&report)
     };
 
     let _ignored = write_stdout(&stdout);
@@ -73,6 +69,14 @@ fn resolve_unit_path(root: &Path, path: &Path) -> PathBuf {
     }
 }
 
+fn render_dev_stdout(report: &DevReport, json: bool) -> Result<String, serde_json::Error> {
+    if json {
+        serde_json::to_string_pretty(report).map(|text| format!("{text}\n"))
+    } else {
+        Ok(render_dev_result(report))
+    }
+}
+
 fn write_stdout(value: &str) -> io::Result<()> {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
@@ -83,4 +87,39 @@ fn write_stderr(value: &str) -> io::Result<()> {
     let stderr = io::stderr();
     let mut handle = stderr.lock();
     handle.write_all(value.as_bytes())
+}
+
+#[cfg(test)]
+mod tests {
+    use runx_contracts::{DoctorReport, DoctorReportSchema, DoctorStatus, DoctorSummary};
+    use runx_runtime::{DevReport, DevReportStatus};
+
+    use super::render_dev_stdout;
+
+    #[test]
+    fn dev_json_stdout_is_pretty_printed_like_ts_cli() -> Result<(), Box<dyn std::error::Error>> {
+        let report = DevReport {
+            schema: "runx.dev.v1".to_owned(),
+            status: DevReportStatus::Skipped,
+            doctor: DoctorReport {
+                schema: DoctorReportSchema::V1,
+                status: DoctorStatus::Success,
+                summary: DoctorSummary {
+                    errors: 0,
+                    warnings: 0,
+                    infos: 0,
+                },
+                diagnostics: Vec::new(),
+            },
+            fixtures: Vec::new(),
+            receipt_id: None,
+        };
+
+        let stdout = render_dev_stdout(&report, true)?;
+
+        assert!(stdout.starts_with("{\n  \"schema\": \"runx.dev.v1\""));
+        assert!(stdout.contains("\n  \"fixtures\": []\n"));
+        assert!(stdout.ends_with('\n'));
+        Ok(())
+    }
 }
