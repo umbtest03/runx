@@ -1,4 +1,4 @@
-#![cfg(all(feature = "cli-tool", feature = "mcp"))]
+#![cfg(all(feature = "cli-tool", any(feature = "mcp", feature = "mcp-rmcp")))]
 
 use std::collections::BTreeMap;
 
@@ -148,7 +148,9 @@ fn credential() -> CredentialEnvelope {
         kind: "runx.credential-envelope.v1".to_owned(),
         grant_id: "grant_github_main".to_owned(),
         provider: "github".to_owned(),
-        connection_id: "conn_github_main".to_owned(),
+        auth_mode: "oauth_bearer".to_owned(),
+        material_kind: "access_token".to_owned(),
+        connection_id: Some("conn_github_main".to_owned()),
         scopes: vec!["repo".to_owned()],
         grant_reference: None,
         material_ref: "secret://github/main".to_owned(),

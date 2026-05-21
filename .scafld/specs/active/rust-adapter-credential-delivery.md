@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: rust-adapter-credential-delivery
 created: '2026-05-21T00:00:00Z'
-updated: '2026-05-21T00:00:00Z'
-status: draft
+updated: '2026-05-21T10:58:42Z'
+status: review
 harden_status: not_run
 size: large
 risk_level: high
@@ -13,27 +13,21 @@ risk_level: high
 
 ## Current State
 
-Status: draft
-Current phase: OAuth-shaped delivery boundary implemented
-Next: wire hosted/local material resolvers from the final credential envelope
-shape and add live provider delivery profiles
-Reason: the kernel already admits grants, decides credential binding, and proves
-authority over a credential while recording only a hash of the material; the
-runtime never resolves that material into a real secret nor delivers it to a
-tool process. This is the single missing layer between an admitted credential
-and a tool that can use it. It is the keystone for integrations: the catalog
-lists hundreds of providers and only `github` is wired end-to-end.
-Blockers: live resolver storage remains in `byo-credential-foundations`; this
-slice adds the runtime channel and adapter injection against the current
-OAuth-shaped `CredentialEnvelope`.
+Status: review
+Current phase: final
+Next: review
+Reason: build completed; ready for review
+Blockers: none
+Allowed follow-up command: `scafld review rust-adapter-credential-delivery`
+Latest runner update: 2026-05-21T10:58:42Z
 Review gate: not_started
 
 ## Why this exists
 
 The credential contract and the kernel decisions already exist in Rust:
 
-- `CredentialEnvelope { kind, grant_id, provider, connection_id, scopes,
-  grant_reference, material_ref }`
+- `CredentialEnvelope { kind, grant_id, provider, auth_mode, material_kind,
+  connection_id, scopes, grant_reference, material_ref }`
   ([`runx-core/src/policy/types.rs:133`](../../crates/runx-core/src/policy/types.rs#L133)).
 - `CredentialBindingRequest` / `CredentialBindingDecision::{Allow,Deny}`
   ([`policy/types.rs:150`](../../crates/runx-core/src/policy/types.rs#L150)):
@@ -140,12 +134,12 @@ Out of scope:
   client this resolver extends).
 - `rust-policy-authority-proof-parity` (archived; the proof + redaction the
   delivery must not violate).
-- `byo-credential-foundations` (cloud; supplies the final credential envelope
-  with optional `connection_id`, `material_kind`, `auth_mode`). The
-  `CredentialEnvelope` in core today is OAuth-shaped, requiring `connection_id`
-  ([`types.rs:137`](../../crates/runx-core/src/policy/types.rs#L137)); it gets
-  completed to that final shape there. The OAuth delivery path can land first;
-  BYO follows once the envelope is settled. No interim/versioned envelope.
+- `byo-credential-foundations` (cloud; supplies live material storage and hosted
+  resolution). The `CredentialEnvelope` in core now carries `auth_mode`,
+  `material_kind`, and optional `connection_id`
+  ([`types.rs:137`](../../crates/runx-core/src/policy/types.rs#L137)). The
+  runtime delivery path can land first against that envelope shape; live
+  provider resolution follows once storage is available.
 
 ## Open Questions
 
@@ -165,12 +159,18 @@ Out of scope:
 
 - [x] focused runtime tests prove credential delivery and non-leakage.
   - Command:
-    `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test credential_delivery --test mcp_adapter --test catalog_adapter --all-features -- --nocapture`
-  - Evidence: exit code 0; cli-tool and MCP both injected `GITHUB_TOKEN` only
-    at spawn and redacted the secret from stdout/metadata.
+    `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test credential_delivery --features cli-tool,mcp -- --nocapture`
+  - Evidence: exit code 0; 4 tests passed; cli-tool and MCP both injected
+    `GITHUB_TOKEN` only at spawn and redacted the secret from stdout/metadata.
+  - Command:
+    `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test credential_delivery --features cli-tool,mcp-rmcp -- --nocapture`
+  - Evidence: exit code 0; 4 tests passed under the rmcp-backed MCP feature.
 - [x] focused runtime clippy remains clean.
   - Command:
-    `cargo clippy --manifest-path crates/Cargo.toml -p runx-runtime --all-targets --all-features -- -D warnings`
+    `cargo clippy --manifest-path crates/Cargo.toml -p runx-runtime --all-targets --features cli-tool,mcp -- -D warnings`
+  - Evidence: exit code 0.
+  - Command:
+    `cargo clippy --manifest-path crates/Cargo.toml -p runx-runtime --all-targets --features cli-tool,mcp-rmcp -- -D warnings`
   - Evidence: exit code 0.
 
 ## Planning Log
