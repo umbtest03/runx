@@ -15,8 +15,8 @@ use crate::{
 mod plan;
 
 pub use plan::{
-    plan_post_merge_observer_closure, plan_post_merge_observer_runtime_dedupe,
-    project_post_merge_observer_publication_from_receipt,
+    normalize_post_merge_observer_command, plan_post_merge_observer_closure,
+    plan_post_merge_observer_runtime_dedupe, project_post_merge_observer_publication_from_receipt,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -82,6 +82,33 @@ pub struct PostMergeObserverPlanRequest {
     pub source_thread_ref: Option<Reference>,
     pub pull_request: PostMergePullRequestObservation,
     pub verification: PostMergeVerificationObservation,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PostMergeObserverCommandRequest {
+    pub source_id: Option<String>,
+    pub source_issue_ref: Reference,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_thread_ref: Option<Reference>,
+    pub pull_request_ref: Reference,
+    pub signal_source: PostMergeObserverSignalSource,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_ref: Option<Reference>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PostMergeObserverCommand {
+    pub command_key: String,
+    pub source_id: String,
+    pub source_issue_ref: Reference,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_thread_ref: Option<Reference>,
+    pub pull_request_ref: Reference,
+    pub signal_source: PostMergeObserverSignalSource,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_ref: Option<Reference>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -231,7 +258,23 @@ pub enum PostMergeObserverPlanError {
     SourceRequired,
     UnknownSource(String),
     ProviderStateNotTerminal,
-    MissingSourceThread { source_id: String },
+    MissingSourceThread {
+        source_id: String,
+    },
+    MissingObserverSignal {
+        signal_source: PostMergeObserverSignalSource,
+    },
+    InvalidObserverCommandReference {
+        field: &'static str,
+        expected: &'static str,
+    },
+    MissingObserverCommandReferenceMetadata {
+        field: &'static str,
+    },
+    UnsupportedObserverCommandProvider {
+        field: &'static str,
+        provider: String,
+    },
     VerificationRequired,
     InconsistentObservation(String),
     ReceiptNotSealed,
@@ -265,6 +308,30 @@ impl fmt::Display for PostMergeObserverPlanError {
                 write!(
                     formatter,
                     "source '{source_id}' requires a source-thread target before final publication"
+                )
+            }
+            Self::MissingObserverSignal { signal_source } => {
+                write!(
+                    formatter,
+                    "post-merge observer {signal_source:?} command requires a signal reference"
+                )
+            }
+            Self::InvalidObserverCommandReference { field, expected } => {
+                write!(
+                    formatter,
+                    "post-merge observer command field '{field}' must be a {expected} reference"
+                )
+            }
+            Self::MissingObserverCommandReferenceMetadata { field } => {
+                write!(
+                    formatter,
+                    "post-merge observer command field '{field}' requires provider and locator metadata"
+                )
+            }
+            Self::UnsupportedObserverCommandProvider { field, provider } => {
+                write!(
+                    formatter,
+                    "post-merge observer command field '{field}' has unsupported provider '{provider}'"
                 )
             }
             Self::VerificationRequired => {
@@ -309,6 +376,10 @@ impl std::error::Error for PostMergeObserverPlanError {
             | Self::UnknownSource(_)
             | Self::ProviderStateNotTerminal
             | Self::MissingSourceThread { .. }
+            | Self::MissingObserverSignal { .. }
+            | Self::InvalidObserverCommandReference { .. }
+            | Self::MissingObserverCommandReferenceMetadata { .. }
+            | Self::UnsupportedObserverCommandProvider { .. }
             | Self::VerificationRequired
             | Self::InconsistentObservation(_)
             | Self::ReceiptNotSealed

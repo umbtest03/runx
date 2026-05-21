@@ -5,6 +5,10 @@
 
 use std::collections::BTreeSet;
 
+use runx_contracts::post_merge_observer::{
+    PostMergeObserverCommand, PostMergeObserverCommandRequest,
+    normalize_post_merge_observer_command,
+};
 use runx_contracts::{
     HarnessReceipt, OperationalPolicy, PostMergeObserverPlan, PostMergeObserverPlanError,
     PostMergeObserverPlanRequest, PostMergeObserverPublicationProjection,
@@ -60,6 +64,8 @@ pub struct PostMergeObserverLivePublicationRequest {
     pub source_thread_ref: Option<Reference>,
     pub pull_request_ref: Reference,
     pub signal_source: PostMergeObserverSignalSource,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_ref: Option<Reference>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -82,6 +88,7 @@ pub struct PostMergeObserverVerificationObservationRequest {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct PostMergeObserverLivePublication {
+    pub command: PostMergeObserverCommand,
     pub pull_request: PostMergePullRequestObservation,
     pub verification: PostMergeVerificationObservation,
     pub closure_plan: PostMergeObserverPlan,
@@ -187,26 +194,37 @@ pub fn execute_post_merge_observer_with_adapter<A: PostMergeObserverAdapter>(
     adapter: &mut A,
     ledger: &mut PostMergeObserverPublicationLedger,
 ) -> Result<PostMergeObserverLivePublication, PostMergeObserverRuntimeError> {
-    let pull_request =
-        adapter.observe_pull_request(&PostMergeObserverPullRequestObservationRequest {
+    let command = normalize_post_merge_observer_command(
+        policy,
+        &PostMergeObserverCommandRequest {
             source_id: request.source_id.clone(),
             source_issue_ref: request.source_issue_ref.clone(),
             source_thread_ref: request.source_thread_ref.clone(),
             pull_request_ref: request.pull_request_ref.clone(),
+            signal_source: request.signal_source,
+            signal_ref: request.signal_ref.clone(),
+        },
+    )?;
+    let pull_request =
+        adapter.observe_pull_request(&PostMergeObserverPullRequestObservationRequest {
+            source_id: Some(command.source_id.clone()),
+            source_issue_ref: command.source_issue_ref.clone(),
+            source_thread_ref: command.source_thread_ref.clone(),
+            pull_request_ref: command.pull_request_ref.clone(),
         })?;
     let verification =
         adapter.observe_verification(&PostMergeObserverVerificationObservationRequest {
-            source_id: request.source_id.clone(),
-            source_issue_ref: request.source_issue_ref.clone(),
-            source_thread_ref: request.source_thread_ref.clone(),
+            source_id: Some(command.source_id.clone()),
+            source_issue_ref: command.source_issue_ref.clone(),
+            source_thread_ref: command.source_thread_ref.clone(),
             pull_request: pull_request.clone(),
         })?;
     let closure_plan = plan_post_merge_observer_closure(
         policy,
         &PostMergeObserverPlanRequest {
-            source_id: request.source_id.clone(),
-            source_issue_ref: request.source_issue_ref.clone(),
-            source_thread_ref: request.source_thread_ref.clone(),
+            source_id: Some(command.source_id.clone()),
+            source_issue_ref: command.source_issue_ref.clone(),
+            source_thread_ref: command.source_thread_ref.clone(),
             pull_request: pull_request.clone(),
             verification: verification.clone(),
         },
@@ -223,6 +241,7 @@ pub fn execute_post_merge_observer_with_adapter<A: PostMergeObserverAdapter>(
         project_post_merge_observer_publication_commands(&dedupe, sealed_receipt, ledger)?;
 
     Ok(PostMergeObserverLivePublication {
+        command,
         pull_request,
         verification,
         closure_plan,

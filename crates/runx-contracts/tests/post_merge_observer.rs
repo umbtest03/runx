@@ -1,3 +1,6 @@
+use runx_contracts::post_merge_observer::{
+    PostMergeObserverCommandRequest, normalize_post_merge_observer_command,
+};
 use runx_contracts::{
     ActForm, ClosureDisposition, CriterionStatus, HarnessReceipt, HarnessState, OperationalPolicy,
     PostMergeObserverClosureState, PostMergeObserverCriterionPlan, PostMergeObserverPlan,
@@ -264,6 +267,128 @@ fn webhook_and_scheduler_signals_share_runtime_dedupe_receipt_identity()
 }
 
 #[test]
+fn webhook_and_scheduler_commands_normalize_to_same_observer_key()
+-> Result<(), Box<dyn std::error::Error>> {
+    let policy = nitrosend_policy()?;
+    let webhook = normalize_post_merge_observer_command(
+        &policy,
+        &observer_command_request(
+            PostMergeObserverSignalSource::Webhook,
+            Some(webhook_delivery_ref()),
+            true,
+        ),
+    )?;
+    let scheduler = normalize_post_merge_observer_command(
+        &policy,
+        &observer_command_request(PostMergeObserverSignalSource::Scheduler, None, true),
+    )?;
+
+    assert_eq!(webhook.command_key, scheduler.command_key);
+    assert_eq!(
+        webhook.command_key,
+        "post-merge-observer:github://nitrosend/nitrosend/issues/482:github://nitrosend/api/pulls/144"
+    );
+    assert_eq!(webhook.source_id, "bugs-fixes");
+    assert_eq!(scheduler.source_id, "bugs-fixes");
+    assert_eq!(
+        webhook.signal_ref.as_ref().map(|reference| {
+            (
+                reference.reference_type.clone(),
+                reference.provider.as_deref(),
+                reference.locator.as_deref(),
+            )
+        }),
+        Some((
+            ReferenceType::WebhookDelivery,
+            Some("github"),
+            Some("nitrosend/api/delivery/evt_01HX")
+        ))
+    );
+    assert_eq!(scheduler.signal_ref, None);
+    assert_eq!(
+        webhook
+            .source_thread_ref
+            .as_ref()
+            .and_then(|reference| reference.provider.as_deref()),
+        Some("slack")
+    );
+    assert_eq!(
+        webhook.pull_request_ref.reference_type,
+        ReferenceType::GithubPullRequest
+    );
+    Ok(())
+}
+
+#[test]
+fn observer_command_rejects_missing_target_metadata_before_provider_readback()
+-> Result<(), Box<dyn std::error::Error>> {
+    let policy = nitrosend_policy()?;
+    let mut request = observer_command_request(
+        PostMergeObserverSignalSource::Webhook,
+        Some(webhook_delivery_ref()),
+        true,
+    );
+    request.pull_request_ref.provider = None;
+
+    let error = normalize_post_merge_observer_command(&policy, &request)
+        .err()
+        .ok_or("expected missing target metadata error")?;
+
+    assert!(matches!(
+        error,
+        PostMergeObserverPlanError::MissingObserverCommandReferenceMetadata {
+            field: "pull_request_ref"
+        }
+    ));
+    Ok(())
+}
+
+#[test]
+fn webhook_command_requires_delivery_ref_before_provider_readback()
+-> Result<(), Box<dyn std::error::Error>> {
+    let policy = nitrosend_policy()?;
+    let request = observer_command_request(PostMergeObserverSignalSource::Webhook, None, true);
+
+    let error = normalize_post_merge_observer_command(&policy, &request)
+        .err()
+        .ok_or("expected missing webhook delivery ref error")?;
+
+    assert!(matches!(
+        error,
+        PostMergeObserverPlanError::MissingObserverSignal {
+            signal_source: PostMergeObserverSignalSource::Webhook
+        }
+    ));
+    Ok(())
+}
+
+#[test]
+fn webhook_command_rejects_non_github_delivery_provider_before_provider_readback()
+-> Result<(), Box<dyn std::error::Error>> {
+    let policy = nitrosend_policy()?;
+    let mut signal_ref = webhook_delivery_ref();
+    signal_ref.provider = Some("slack".to_owned());
+    let request = observer_command_request(
+        PostMergeObserverSignalSource::Webhook,
+        Some(signal_ref),
+        true,
+    );
+
+    let error = normalize_post_merge_observer_command(&policy, &request)
+        .err()
+        .ok_or("expected unsupported webhook provider error")?;
+
+    assert!(matches!(
+        error,
+        PostMergeObserverPlanError::UnsupportedObserverCommandProvider {
+            field: "signal_ref",
+            provider
+        } if provider == "slack"
+    ));
+    Ok(())
+}
+
+#[test]
 fn sealed_harness_receipt_projects_publication_and_close_authority()
 -> Result<(), Box<dyn std::error::Error>> {
     let receipt = post_merge_observer_receipt()?;
@@ -525,6 +650,21 @@ fn observer_request(
     }
 }
 
+fn observer_command_request(
+    signal_source: PostMergeObserverSignalSource,
+    signal_ref: Option<Reference>,
+    include_source_thread: bool,
+) -> PostMergeObserverCommandRequest {
+    PostMergeObserverCommandRequest {
+        source_id: Some("bugs-fixes".to_owned()),
+        source_issue_ref: source_issue_ref(),
+        source_thread_ref: include_source_thread.then(source_thread_ref),
+        pull_request_ref: pull_request_ref(),
+        signal_source,
+        signal_ref,
+    }
+}
+
 fn source_issue_ref() -> Reference {
     Reference {
         reference_type: ReferenceType::GithubIssue,
@@ -532,6 +672,18 @@ fn source_issue_ref() -> Reference {
         provider: Some("github".to_owned()),
         locator: Some("nitrosend/nitrosend#482".to_owned()),
         label: Some("Nitrosend source issue".to_owned()),
+        observed_at: None,
+        proof_kind: None,
+    }
+}
+
+fn pull_request_ref() -> Reference {
+    Reference {
+        reference_type: ReferenceType::GithubPullRequest,
+        uri: "github://nitrosend/api/pulls/144".to_owned(),
+        provider: Some("github".to_owned()),
+        locator: Some("nitrosend/api#144".to_owned()),
+        label: Some("Nitrosend target PR".to_owned()),
         observed_at: None,
         proof_kind: None,
     }
@@ -545,6 +697,18 @@ fn source_thread_ref() -> Reference {
         locator: Some("nitrosend/C0APFMY0V8Q/1778834840.485629".to_owned()),
         label: Some("Nitrosend source thread".to_owned()),
         observed_at: None,
+        proof_kind: None,
+    }
+}
+
+fn webhook_delivery_ref() -> Reference {
+    Reference {
+        reference_type: ReferenceType::WebhookDelivery,
+        uri: "github://webhook-deliveries/evt_01HX".to_owned(),
+        provider: Some("github".to_owned()),
+        locator: Some("nitrosend/api/delivery/evt_01HX".to_owned()),
+        label: Some("GitHub pull_request webhook delivery".to_owned()),
+        observed_at: Some("2026-05-20T05:20:00Z".to_owned()),
         proof_kind: None,
     }
 }

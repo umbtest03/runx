@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: runx-post-merge-closure-observer
 created: '2026-05-19T02:08:02Z'
-updated: '2026-05-20T10:27:24Z'
+updated: '2026-05-21T03:58:20Z'
 status: draft
 harden_status: in_progress
 size: large
@@ -26,11 +26,18 @@ source-thread ref, target PR ref, merge SHA, runner verification hook/deploy
 context, and cross-repo dedupe identity; policy source configuration from
 `runx-operational-policy-config` for source-thread publication and close mode.
 Allowed follow-up command: `scafld harden runx-post-merge-closure-observer --mark-passed`
-Latest runner update: 2026-05-21 hardened sealed final-publication projection
-so local publication now requires a target PR ref from the receipt, requires
-merge SHA metadata for merged closures, projects verification summaries, and
-renders source issue, target PR, merge SHA, review-gate, closure,
-verification, proof, next-human-action, and receipt fields in final replies.
+Latest runner update: 2026-05-21 added typed live observer command
+normalization before adapter readback. Webhook commands now require a
+`webhook_delivery` signal reference with provider/locator metadata; scheduler
+commands may omit a signal ref; both normalize to the same source issue plus
+target PR command key. Source issue, source thread, and target PR references
+fail closed before any adapter observation when type/provider/locator context is
+missing. Earlier on 2026-05-21 the slice hardened sealed final-publication
+projection so local publication now requires a target PR ref from the receipt,
+requires merge SHA metadata for merged closures, projects verification
+summaries, and renders source issue, target PR, merge SHA, review-gate,
+closure, verification, proof, next-human-action, and receipt fields in final
+replies.
 The same day also added local runtime failed-verification final reply
 projection from a sealed receipt without issuing a source issue close command.
 Earlier local slices added closed-unmerged sealed receipt publication
@@ -174,6 +181,9 @@ Required behavior:
 - [x] Repeated observer signal is idempotent at the Rust contract planning
   layer; webhook and scheduler signals share one runtime dedupe receipt
   identity before publication.
+- [x] Webhook and scheduler live observer commands normalize to one source
+  issue plus target PR command key, and malformed source/target/webhook context
+  fails closed before provider adapter readback.
 - [x] Missing source Slack thread fails Slack publish cleanly without posting to
   channel root. Rust contract planning now fails closed before provider-state
   classification when source-thread metadata is missing, and the local runtime
@@ -344,3 +354,11 @@ Issues:
   --manifest-path crates/Cargo.toml -p runx-runtime --test
   post_merge_observer` passed after the target-runner source-publication helper
   integration landed.
+- 2026-05-21: Added typed live observer command normalization for webhook and
+  scheduler triggers. Contract normalization resolves the policy source,
+  validates GitHub source issue and target PR refs, validates Slack source
+  thread metadata when publication is required, requires webhook delivery refs
+  for webhook-triggered runs, and keeps scheduler/webhook commands on one stable
+  command key. Runtime live execution now normalizes the command before adapter
+  calls, so malformed target context produces no provider readback. Focused
+  `runx-contracts` and `runx-runtime` post-merge observer tests passed.

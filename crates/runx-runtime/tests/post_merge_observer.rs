@@ -1,8 +1,9 @@
 use runx_contracts::{
-    ActForm, ClosureDisposition, CriterionStatus, HarnessReceipt, PostMergeObserverRuntimeDecision,
-    PostMergeObserverRuntimeDedupePlan, PostMergeObserverSignalSource, PostMergeProvider,
-    PostMergePullRequestObservation, PostMergePullRequestState, PostMergeVerificationObservation,
-    PostMergeVerificationStatus, Reference, ReferenceType,
+    ActForm, ClosureDisposition, CriterionStatus, HarnessReceipt, PostMergeObserverPlanError,
+    PostMergeObserverRuntimeDecision, PostMergeObserverRuntimeDedupePlan,
+    PostMergeObserverSignalSource, PostMergeProvider, PostMergePullRequestObservation,
+    PostMergePullRequestState, PostMergeVerificationObservation, PostMergeVerificationStatus,
+    Reference, ReferenceType,
 };
 use runx_runtime::post_merge_observer::{
     PostMergeObserverAdapter, PostMergeObserverAdapterError,
@@ -247,6 +248,7 @@ fn live_adapter_projects_observed_closure_into_publication_commands_without_netw
             source_thread_ref: Some(fixture_source_thread_ref()),
             pull_request_ref: fixture_pull_request_ref(),
             signal_source: PostMergeObserverSignalSource::Webhook,
+            signal_ref: Some(webhook_delivery_ref()),
         },
         &receipt,
         &mut adapter,
@@ -254,6 +256,24 @@ fn live_adapter_projects_observed_closure_into_publication_commands_without_netw
     )?;
 
     assert_eq!(adapter.events, vec!["pull_request", "verification"]);
+    assert_eq!(
+        live.command.command_key,
+        "post-merge-observer:github://runxhq/nitrosend/issues/77:github://runxhq/nitrosend/pulls/188"
+    );
+    assert_eq!(
+        live.command.signal_ref.as_ref().map(|reference| {
+            (
+                reference.reference_type.clone(),
+                reference.provider.as_deref(),
+                reference.locator.as_deref(),
+            )
+        }),
+        Some((
+            ReferenceType::WebhookDelivery,
+            Some("github"),
+            Some("runxhq/nitrosend/delivery/evt_01HX")
+        ))
+    );
     assert_eq!(live.pull_request.provider, PostMergeProvider::Github);
     assert_eq!(live.pull_request.repo, "runxhq/nitrosend");
     assert_eq!(live.pull_request.number, 188);
@@ -289,6 +309,45 @@ fn live_adapter_projects_observed_closure_into_publication_commands_without_netw
         PostMergeObserverPublicationCommand::SourceIssueClose { target, .. }
             if target.reference_type == ReferenceType::GithubIssue
     ));
+    Ok(())
+}
+
+#[test]
+fn live_adapter_command_validation_fails_before_provider_observation()
+-> Result<(), Box<dyn std::error::Error>> {
+    let policy: runx_contracts::OperationalPolicy = serde_json::from_str(NITROSEND_LIKE)?;
+    let receipt = post_merge_observer_receipt()?;
+    let mut adapter = FakePostMergeObserverAdapter { events: Vec::new() };
+    let mut ledger = PostMergeObserverPublicationLedger::new();
+    let mut pull_request_ref = fixture_pull_request_ref();
+    pull_request_ref.locator = None;
+
+    let error = execute_post_merge_observer_with_adapter(
+        &policy,
+        &PostMergeObserverLivePublicationRequest {
+            source_id: Some("bugs-fixes".to_owned()),
+            source_issue_ref: fixture_source_issue_ref(),
+            source_thread_ref: Some(fixture_source_thread_ref()),
+            pull_request_ref,
+            signal_source: PostMergeObserverSignalSource::Webhook,
+            signal_ref: Some(webhook_delivery_ref()),
+        },
+        &receipt,
+        &mut adapter,
+        &mut ledger,
+    )
+    .err()
+    .ok_or("expected live command validation error")?;
+
+    assert!(matches!(
+        error,
+        PostMergeObserverRuntimeError::Projection(
+            PostMergeObserverPlanError::MissingObserverCommandReferenceMetadata {
+                field: "pull_request_ref"
+            }
+        )
+    ));
+    assert!(adapter.events.is_empty());
     Ok(())
 }
 
@@ -512,6 +571,18 @@ fn fixture_pull_request_ref() -> Reference {
         provider: Some("github".to_owned()),
         locator: Some("runxhq/nitrosend#188".to_owned()),
         label: Some("human-merged PR".to_owned()),
+        observed_at: Some(OBSERVED_AT.to_owned()),
+        proof_kind: None,
+    }
+}
+
+fn webhook_delivery_ref() -> Reference {
+    Reference {
+        reference_type: ReferenceType::WebhookDelivery,
+        uri: "github://webhook-deliveries/evt_01HX".to_owned(),
+        provider: Some("github".to_owned()),
+        locator: Some("runxhq/nitrosend/delivery/evt_01HX".to_owned()),
+        label: Some("GitHub pull_request webhook delivery".to_owned()),
         observed_at: Some(OBSERVED_AT.to_owned()),
         proof_kind: None,
     }

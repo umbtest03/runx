@@ -12,15 +12,47 @@ use crate::{
 };
 
 use super::{
-    PostMergeObserverClosureState, PostMergeObserverCriterionPlan,
-    PostMergeObserverIdempotencyPlan, PostMergeObserverPlan, PostMergeObserverPlanError,
-    PostMergeObserverPlanRequest, PostMergeObserverProviderPlan, PostMergeObserverPublicationPlan,
-    PostMergeObserverPublicationProjection, PostMergeObserverRuntimeDecision,
-    PostMergeObserverRuntimeDedupePlan, PostMergeObserverSignalSource,
-    PostMergeObserverSourceIssuePlan, PostMergeObserverVerificationPlan, PostMergeProvider,
-    PostMergePullRequestObservation, PostMergePullRequestState, PostMergeSourceIssueDisposition,
-    PostMergeVerificationObservation, PostMergeVerificationStatus,
+    PostMergeObserverClosureState, PostMergeObserverCommand, PostMergeObserverCommandRequest,
+    PostMergeObserverCriterionPlan, PostMergeObserverIdempotencyPlan, PostMergeObserverPlan,
+    PostMergeObserverPlanError, PostMergeObserverPlanRequest, PostMergeObserverProviderPlan,
+    PostMergeObserverPublicationPlan, PostMergeObserverPublicationProjection,
+    PostMergeObserverRuntimeDecision, PostMergeObserverRuntimeDedupePlan,
+    PostMergeObserverSignalSource, PostMergeObserverSourceIssuePlan,
+    PostMergeObserverVerificationPlan, PostMergeProvider, PostMergePullRequestObservation,
+    PostMergePullRequestState, PostMergeSourceIssueDisposition, PostMergeVerificationObservation,
+    PostMergeVerificationStatus,
 };
+
+pub fn normalize_post_merge_observer_command(
+    policy: &OperationalPolicy,
+    request: &PostMergeObserverCommandRequest,
+) -> Result<PostMergeObserverCommand, PostMergeObserverPlanError> {
+    let source = validated_observer_source_for_id(policy, request.source_id.as_deref())?;
+    validate_github_reference(
+        &request.source_issue_ref,
+        "source_issue_ref",
+        ReferenceType::GithubIssue,
+        "github issue",
+    )?;
+    validate_github_reference(
+        &request.pull_request_ref,
+        "pull_request_ref",
+        ReferenceType::GithubPullRequest,
+        "github pull request",
+    )?;
+    let source_thread_ref = normalized_source_thread_ref(policy, source, request)?;
+    let signal_ref = normalized_signal_ref(request)?;
+
+    Ok(PostMergeObserverCommand {
+        command_key: observer_command_key(&request.source_issue_ref, &request.pull_request_ref),
+        source_id: source.source_id.clone(),
+        source_issue_ref: request.source_issue_ref.clone(),
+        source_thread_ref,
+        pull_request_ref: request.pull_request_ref.clone(),
+        signal_source: request.signal_source,
+        signal_ref,
+    })
+}
 
 pub fn plan_post_merge_observer_closure(
     policy: &OperationalPolicy,
@@ -286,11 +318,139 @@ fn validated_observer_source<'a>(
     policy: &'a OperationalPolicy,
     request: &PostMergeObserverPlanRequest,
 ) -> Result<&'a OperationalPolicySourceRule, PostMergeObserverPlanError> {
+    validated_observer_source_for_id(policy, request.source_id.as_deref())
+}
+
+fn validated_observer_source_for_id<'a>(
+    policy: &'a OperationalPolicy,
+    source_id: Option<&str>,
+) -> Result<&'a OperationalPolicySourceRule, PostMergeObserverPlanError> {
     validate_operational_policy_semantics(policy).map_err(PostMergeObserverPlanError::Policy)?;
     if !policy.post_merge.observe_provider {
         return Err(PostMergeObserverPlanError::ProviderObservationDisabled);
     }
-    select_source(policy, request.source_id.as_deref())
+    select_source(policy, source_id)
+}
+
+fn normalized_source_thread_ref(
+    policy: &OperationalPolicy,
+    source: &OperationalPolicySourceRule,
+    request: &PostMergeObserverCommandRequest,
+) -> Result<Option<Reference>, PostMergeObserverPlanError> {
+    let source_thread_required = source_thread_publication_required(policy, source);
+    if source_thread_required && request.source_thread_ref.is_none() {
+        return Err(PostMergeObserverPlanError::MissingSourceThread {
+            source_id: source.source_id.clone(),
+        });
+    }
+    if let Some(reference) = &request.source_thread_ref {
+        require_command_reference_type(
+            reference,
+            "source_thread_ref",
+            ReferenceType::SlackThread,
+            "slack thread",
+        )?;
+        require_command_reference_metadata(reference, "source_thread_ref")?;
+    }
+    Ok(request.source_thread_ref.clone())
+}
+
+fn normalized_signal_ref(
+    request: &PostMergeObserverCommandRequest,
+) -> Result<Option<Reference>, PostMergeObserverPlanError> {
+    match request.signal_source {
+        PostMergeObserverSignalSource::Webhook => {
+            let reference = request.signal_ref.as_ref().ok_or(
+                PostMergeObserverPlanError::MissingObserverSignal {
+                    signal_source: request.signal_source,
+                },
+            )?;
+            require_command_reference_type(
+                reference,
+                "signal_ref",
+                ReferenceType::WebhookDelivery,
+                "webhook delivery",
+            )?;
+            require_command_reference_metadata(reference, "signal_ref")?;
+            require_command_reference_provider(reference, "signal_ref", "github")?;
+            Ok(Some(reference.clone()))
+        }
+        PostMergeObserverSignalSource::Scheduler => {
+            if let Some(reference) = &request.signal_ref {
+                require_command_reference_type(
+                    reference,
+                    "signal_ref",
+                    ReferenceType::Signal,
+                    "scheduler signal",
+                )?;
+            }
+            Ok(request.signal_ref.clone())
+        }
+    }
+}
+
+fn validate_github_reference(
+    reference: &Reference,
+    field: &'static str,
+    expected_type: ReferenceType,
+    expected_label: &'static str,
+) -> Result<(), PostMergeObserverPlanError> {
+    require_command_reference_type(reference, field, expected_type, expected_label)?;
+    require_command_reference_metadata(reference, field)?;
+    require_command_reference_provider(reference, field, "github")
+}
+
+fn require_command_reference_type(
+    reference: &Reference,
+    field: &'static str,
+    expected_type: ReferenceType,
+    expected_label: &'static str,
+) -> Result<(), PostMergeObserverPlanError> {
+    if reference.reference_type != expected_type {
+        return Err(
+            PostMergeObserverPlanError::InvalidObserverCommandReference {
+                field,
+                expected: expected_label,
+            },
+        );
+    }
+    Ok(())
+}
+
+fn require_command_reference_metadata(
+    reference: &Reference,
+    field: &'static str,
+) -> Result<(), PostMergeObserverPlanError> {
+    if !non_empty_option(reference.provider.as_deref())
+        || !non_empty_option(reference.locator.as_deref())
+    {
+        return Err(PostMergeObserverPlanError::MissingObserverCommandReferenceMetadata { field });
+    }
+    Ok(())
+}
+
+fn require_command_reference_provider(
+    reference: &Reference,
+    field: &'static str,
+    expected_provider: &str,
+) -> Result<(), PostMergeObserverPlanError> {
+    let provider = reference.provider.as_deref().unwrap_or_default().trim();
+    if provider != expected_provider {
+        return Err(
+            PostMergeObserverPlanError::UnsupportedObserverCommandProvider {
+                field,
+                provider: provider.to_owned(),
+            },
+        );
+    }
+    Ok(())
+}
+
+fn observer_command_key(source_issue_ref: &Reference, pull_request_ref: &Reference) -> String {
+    format!(
+        "post-merge-observer:{}:{}",
+        source_issue_ref.uri, pull_request_ref.uri
+    )
 }
 
 fn publication_plan(
@@ -935,4 +1095,8 @@ fn non_empty_string(value: &str) -> Option<&str> {
     } else {
         Some(trimmed)
     }
+}
+
+fn non_empty_option(value: Option<&str>) -> bool {
+    value.and_then(non_empty_string).is_some()
 }
