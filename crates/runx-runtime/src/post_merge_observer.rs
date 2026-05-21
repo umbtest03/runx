@@ -205,6 +205,34 @@ pub fn execute_post_merge_observer_with_adapter<A: PostMergeObserverAdapter>(
             signal_ref: request.signal_ref.clone(),
         },
     )?;
+    let observed = observe_post_merge_closure(policy, &command, sealed_receipt, adapter)?;
+
+    let dedupe = sealed_receipt_dedupe_plan(sealed_receipt, request.signal_source);
+    let publication =
+        project_post_merge_observer_publication_commands(&dedupe, sealed_receipt, ledger)?;
+
+    Ok(PostMergeObserverLivePublication {
+        command,
+        pull_request: observed.pull_request,
+        verification: observed.verification,
+        closure_plan: observed.closure_plan,
+        dedupe,
+        publication,
+    })
+}
+
+struct ObservedPostMergeClosure {
+    pull_request: PostMergePullRequestObservation,
+    verification: PostMergeVerificationObservation,
+    closure_plan: PostMergeObserverPlan,
+}
+
+fn observe_post_merge_closure<A: PostMergeObserverAdapter>(
+    policy: &OperationalPolicy,
+    command: &PostMergeObserverCommand,
+    sealed_receipt: &HarnessReceipt,
+    adapter: &mut A,
+) -> Result<ObservedPostMergeClosure, PostMergeObserverRuntimeError> {
     let pull_request =
         adapter.observe_pull_request(&PostMergeObserverPullRequestObservationRequest {
             source_id: Some(command.source_id.clone()),
@@ -235,18 +263,10 @@ pub fn execute_post_merge_observer_with_adapter<A: PostMergeObserverAdapter>(
             receipt_reason_code: sealed_receipt.seal.reason_code.clone(),
         });
     }
-
-    let dedupe = sealed_receipt_dedupe_plan(sealed_receipt, request.signal_source);
-    let publication =
-        project_post_merge_observer_publication_commands(&dedupe, sealed_receipt, ledger)?;
-
-    Ok(PostMergeObserverLivePublication {
-        command,
+    Ok(ObservedPostMergeClosure {
         pull_request,
         verification,
         closure_plan,
-        dedupe,
-        publication,
     })
 }
 
