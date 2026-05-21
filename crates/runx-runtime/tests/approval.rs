@@ -10,58 +10,57 @@ use runx_runtime::{
 
 #[test]
 fn approval_response_approved() -> Result<(), Box<dyn std::error::Error>> {
-    let mut caller = RecordingCaller::with_responses([Some(response(
+    let mut host = RecordingHost::with_responses([Some(response(
         ResolutionResponseActor::Human,
         JsonValue::Bool(true),
     ))]);
 
-    let resolution = request_approval(&mut caller, "req_approval", gate())?;
+    let resolution = request_approval(&mut host, "req_approval", gate())?;
 
     assert_eq!(resolution.approved(), Some(true));
     assert_eq!(resolution.actor(), Some(&ResolutionResponseActor::Human));
-    assert_eq!(caller.requests.len(), 1);
-    assert_approval_request(caller.requests.first(), "req_approval")?;
-    assert_resolution_events(&caller.events, Some(true))?;
+    assert_eq!(host.requests.len(), 1);
+    assert_approval_request(host.requests.first(), "req_approval")?;
+    assert_resolution_events(&host.events, Some(true))?;
     Ok(())
 }
 
 #[test]
 fn approval_response_denied() -> Result<(), Box<dyn std::error::Error>> {
-    let mut caller = RecordingCaller::with_responses([Some(response(
+    let mut host = RecordingHost::with_responses([Some(response(
         ResolutionResponseActor::Human,
         JsonValue::Bool(false),
     ))]);
 
-    let resolution = request_approval(&mut caller, "req_approval", gate())?;
+    let resolution = request_approval(&mut host, "req_approval", gate())?;
 
     assert_eq!(resolution.approved(), Some(false));
     assert_eq!(resolution.actor(), Some(&ResolutionResponseActor::Human));
-    assert_resolution_events(&caller.events, Some(false))?;
+    assert_resolution_events(&host.events, Some(false))?;
     Ok(())
 }
 
 #[test]
-fn approval_response_pending_when_caller_has_no_resolution()
--> Result<(), Box<dyn std::error::Error>> {
-    let mut caller = RecordingCaller::with_responses([None]);
+fn approval_response_pending_without_host_resolution() -> Result<(), Box<dyn std::error::Error>> {
+    let mut host = RecordingHost::with_responses([None]);
 
-    let resolution = request_approval(&mut caller, "req_approval", gate())?;
+    let resolution = request_approval(&mut host, "req_approval", gate())?;
 
     assert_eq!(resolution.approved(), None);
     assert_eq!(resolution.actor(), None);
-    assert_eq!(caller.requests.len(), 1);
-    assert_resolution_events(&caller.events, None)?;
+    assert_eq!(host.requests.len(), 1);
+    assert_resolution_events(&host.events, None)?;
     Ok(())
 }
 
 #[test]
 fn approval_rejects_string_boolean_payload() -> Result<(), Box<dyn std::error::Error>> {
-    let mut caller = RecordingCaller::with_responses([Some(response(
+    let mut host = RecordingHost::with_responses([Some(response(
         ResolutionResponseActor::Human,
         JsonValue::String("true".to_owned()),
     ))]);
 
-    let result = request_approval(&mut caller, "req_approval", gate());
+    let result = request_approval(&mut host, "req_approval", gate());
 
     match result {
         Err(ApprovalError::NonBooleanPayload {
@@ -81,16 +80,16 @@ fn approval_rejects_string_boolean_payload() -> Result<(), Box<dyn std::error::E
             return Err(std::io::Error::other(format!("unexpected error: {other}")).into());
         }
     }
-    assert_resolution_events(&caller.events, None)?;
+    assert_resolution_events(&host.events, None)?;
     Ok(())
 }
 
 #[test]
 fn approval_accepts_agent_actor_per_host_protocol() -> Result<(), Box<dyn std::error::Error>> {
     let parsed: ResolutionResponse = serde_json::from_str(r#"{"actor":"agent","payload":true}"#)?;
-    let mut caller = RecordingCaller::with_responses([Some(parsed)]);
+    let mut host = RecordingHost::with_responses([Some(parsed)]);
 
-    let resolution = request_approval(&mut caller, "req_approval", gate())?;
+    let resolution = request_approval(&mut host, "req_approval", gate())?;
 
     assert_eq!(resolution.approved(), Some(true));
     assert_eq!(resolution.actor(), Some(&ResolutionResponseActor::Agent));
@@ -101,7 +100,7 @@ fn approval_accepts_agent_actor_per_host_protocol() -> Result<(), Box<dyn std::e
 fn approval_dedupes_resolved_gate_by_canonical_idempotency_key()
 -> Result<(), Box<dyn std::error::Error>> {
     let mut resolver = LocalApprovalGateResolver::new();
-    let mut caller = RecordingCaller::with_responses([
+    let mut host = RecordingHost::with_responses([
         Some(response(
             ResolutionResponseActor::Human,
             JsonValue::Bool(true),
@@ -112,14 +111,14 @@ fn approval_dedupes_resolved_gate_by_canonical_idempotency_key()
         )),
     ]);
 
-    let first = resolver.request_approval(&mut caller, "req_approval", gate())?;
-    let second = resolver.request_approval(&mut caller, "req_duplicate", gate())?;
+    let first = resolver.request_approval(&mut host, "req_approval", gate())?;
+    let second = resolver.request_approval(&mut host, "req_duplicate", gate())?;
 
     assert_eq!(first.approved(), Some(true));
     assert_eq!(second.approved(), Some(true));
     assert_eq!(first.idempotency_key(), second.idempotency_key());
-    assert_eq!(caller.requests.len(), 1);
-    assert_eq!(caller.events.len(), 2);
+    assert_eq!(host.requests.len(), 1);
+    assert_eq!(host.events.len(), 2);
     Ok(())
 }
 
@@ -155,13 +154,13 @@ fn raw_gate_type_alternate_shape_rejected_by_host_protocol_serde() {
 }
 
 #[derive(Default)]
-struct RecordingCaller {
+struct RecordingHost {
     events: Vec<ExecutionEvent>,
     requests: Vec<ResolutionRequest>,
     responses: VecDeque<Option<ResolutionResponse>>,
 }
 
-impl RecordingCaller {
+impl RecordingHost {
     fn with_responses<const N: usize>(responses: [Option<ResolutionResponse>; N]) -> Self {
         Self {
             responses: VecDeque::from(responses),
@@ -170,7 +169,7 @@ impl RecordingCaller {
     }
 }
 
-impl Host for RecordingCaller {
+impl Host for RecordingHost {
     fn report(&mut self, event: ExecutionEvent) -> Result<(), RuntimeError> {
         self.events.push(event);
         Ok(())

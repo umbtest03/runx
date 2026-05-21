@@ -69,7 +69,7 @@ pub use harness::{
     HarnessReplayOutput, load_harness_fixture, parse_harness_fixture, run_harness_fixture,
     run_harness_fixture_with_adapter,
 };
-pub use host::Host;
+pub use host::{Host, NoopHost};
 pub use journal::ExecutionJournal;
 pub use list::{
     RunxListItem, RunxListItemKind, RunxListOptions, RunxListRequestedKind, RunxListStatus,
