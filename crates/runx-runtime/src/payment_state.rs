@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub const PAYMENT_STATE_SCHEMA_VERSION: &str = "runx.payment_state.v1";
+pub const RUNX_PAYMENT_STATE_PATH_ENV: &str = "RUNX_PAYMENT_STATE_PATH";
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -265,6 +266,25 @@ impl FileBackedPaymentStateStore {
             source,
         })?;
         write_json_atomically(&self.path, &self.state)
+    }
+}
+
+pub fn resolve_payment_state_path(env: &BTreeMap<String, String>, cwd: &Path) -> Option<PathBuf> {
+    env.get(RUNX_PAYMENT_STATE_PATH_ENV)
+        .filter(|value| !value.trim().is_empty())
+        .map(|value| resolve_path(Path::new(value), cwd))
+        .or_else(|| {
+            env.get(crate::receipts::paths::RUNX_RECEIPT_DIR_ENV)
+                .filter(|value| !value.trim().is_empty())
+                .map(|value| resolve_path(Path::new(value), cwd).join("payment-state.json"))
+        })
+}
+
+fn resolve_path(path: &Path, cwd: &Path) -> PathBuf {
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        cwd.join(path)
     }
 }
 

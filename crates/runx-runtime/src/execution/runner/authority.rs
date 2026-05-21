@@ -1,3 +1,6 @@
+use std::collections::BTreeMap;
+use std::path::Path;
+
 use runx_contracts::{AuthorityTerm, AuthorityVerb, Decision, JsonObject, ProofKind};
 use runx_core::policy::{
     PaymentSpendCapabilityBinding, StepAuthorityAdmission, admit_step_authority,
@@ -12,6 +15,9 @@ use super::inputs::{
 };
 use crate::RuntimeError;
 use crate::adapter::SkillOutput;
+use crate::payment_state::{
+    FileBackedPaymentStateStore, PaymentIdempotencyKey, resolve_payment_state_path,
+};
 
 pub(super) fn enforce_step_authority_receipt_before_success(
     step: &GraphStep,
@@ -48,10 +54,14 @@ fn is_payment_rail_proof_ref(reference: &runx_contracts::Reference) -> bool {
 pub(super) fn enforce_step_authority_admission(
     step: &GraphStep,
     inputs: &JsonObject,
+    env: &BTreeMap<String, String>,
+    graph_dir: &Path,
 ) -> Result<Option<StepAuthorityContext>, RuntimeError> {
     let Some(input) = step_authority_submission(step, inputs)? else {
         return Ok(None);
     };
+    let consumed_spend_capability_refs =
+        consumed_spend_capability_refs_for_admission(step, &input, env, graph_dir)?;
     let act_id = format!("act_{}", step.id);
     let decision = admit_step_authority(StepAuthorityAdmission {
         parent_authority: &input.parent_authority,
@@ -61,12 +71,94 @@ pub(super) fn enforce_step_authority_admission(
         child_harness_ref: &input.child_harness_ref,
         act_id: &act_id,
         idempotency_key: Some(&input.idempotency_key),
-        spend_capability_binding: input.spend_capability_binding,
-        consumed_spend_capability_refs: &input.consumed_spend_capability_refs,
+        spend_capability_binding: input.spend_capability_binding.clone(),
+        consumed_spend_capability_refs: &consumed_spend_capability_refs,
         spend_capability_ref: Some(&input.spend_capability_ref),
     })
     .map_err(|source| authority_denied(step, AuthorityVerb::Spend, source.to_string()))?;
-    Ok(decision.verb.map(|verb| StepAuthorityContext { verb }))
+    let payment = payment_context(&input);
+    block_unavailable_idempotency_replay(step, env, graph_dir, payment.as_ref())?;
+    Ok(decision.verb.map(|verb| {
+        let payment = if verb == AuthorityVerb::Spend {
+            payment
+        } else {
+            None
+        };
+        StepAuthorityContext { verb, payment }
+    }))
+}
+
+fn consumed_spend_capability_refs_for_admission(
+    _step: &GraphStep,
+    input: &OwnedStepAuthoritySubmission,
+    env: &BTreeMap<String, String>,
+    graph_dir: &Path,
+) -> Result<Vec<runx_contracts::Reference>, RuntimeError> {
+    let mut refs = input.consumed_spend_capability_refs.clone();
+    let Some(path) = resolve_payment_state_path(env, graph_dir) else {
+        return Ok(refs);
+    };
+    let store = FileBackedPaymentStateStore::open(&path).map_err(|source| {
+        RuntimeError::payment_state("opening payment state for admission", source)
+    })?;
+    if store
+        .lookup_consumed_spend_capability(&input.spend_capability_ref.uri)
+        .is_some()
+        && !refs
+            .iter()
+            .any(|reference| same_reference(reference, &input.spend_capability_ref))
+    {
+        refs.push(input.spend_capability_ref.clone());
+    }
+    Ok(refs)
+}
+
+fn block_unavailable_idempotency_replay(
+    step: &GraphStep,
+    env: &BTreeMap<String, String>,
+    graph_dir: &Path,
+    payment: Option<&StepPaymentAuthorityContext>,
+) -> Result<(), RuntimeError> {
+    let Some(payment) = payment else {
+        return Ok(());
+    };
+    let Some(path) = resolve_payment_state_path(env, graph_dir) else {
+        return Ok(());
+    };
+    let store = FileBackedPaymentStateStore::open(&path).map_err(|source| {
+        RuntimeError::payment_state("opening payment state for replay lookup", source)
+    })?;
+    let Some(entry) = store.lookup_idempotency(&payment.idempotency_key) else {
+        return Ok(());
+    };
+    Err(authority_denied(
+        step,
+        AuthorityVerb::Spend,
+        format!(
+            "payment idempotency key {} already sealed as {}; replay short-circuit requires stored step outputs and is not available in the current runner",
+            payment.idempotency_key.key, entry.receipt_ref
+        ),
+    ))
+}
+
+fn payment_context(input: &OwnedStepAuthoritySubmission) -> Option<StepPaymentAuthorityContext> {
+    let binding = input.spend_capability_binding.as_ref()?;
+    Some(StepPaymentAuthorityContext {
+        idempotency_key: PaymentIdempotencyKey::new(
+            binding.rail.clone(),
+            binding.counterparty.clone(),
+            input.idempotency_key.clone(),
+        ),
+        spend_capability_ref: input.spend_capability_ref.clone(),
+        rail: binding.rail.clone(),
+        counterparty: binding.counterparty.clone(),
+        amount_minor: binding.amount_minor,
+        currency: binding.currency.clone(),
+    })
+}
+
+fn same_reference(left: &runx_contracts::Reference, right: &runx_contracts::Reference) -> bool {
+    left.reference_type == right.reference_type && left.uri == right.uri
 }
 
 fn step_authority_submission(
@@ -176,7 +268,18 @@ pub(super) fn authority_denied(
 
 #[derive(Clone, Debug)]
 pub(super) struct StepAuthorityContext {
-    verb: AuthorityVerb,
+    pub(super) verb: AuthorityVerb,
+    pub(super) payment: Option<StepPaymentAuthorityContext>,
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct StepPaymentAuthorityContext {
+    pub(super) idempotency_key: PaymentIdempotencyKey,
+    pub(super) spend_capability_ref: runx_contracts::Reference,
+    pub(super) rail: String,
+    pub(super) counterparty: String,
+    pub(super) amount_minor: u64,
+    pub(super) currency: String,
 }
 
 #[derive(Clone, Debug)]
