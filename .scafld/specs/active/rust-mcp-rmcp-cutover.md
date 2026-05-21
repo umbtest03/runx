@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: rust-mcp-rmcp-cutover
 created: '2026-05-21T00:00:00Z'
-updated: '2026-05-21T10:51:57Z'
-status: active
+updated: '2026-05-21T11:28:26Z'
+status: review
 harden_status: not_run
 size: large
 risk_level: high
@@ -13,15 +13,13 @@ risk_level: high
 
 ## Current State
 
-Status: active
-Current phase: stage-2 client transport
-Next: stage-3 server transport
-Reason: disjoint `mcp-rmcp` feature/dependency-policy scaffold landed and
-`ProcessMcpTransport` can call/list tools through rmcp over stdio while the
-legacy `mcp` feature remains byte-compatible.
+Status: review
+Current phase: final
+Next: review
+Reason: build completed; ready for review
 Blockers: none
-Allowed follow-up command: `scafld handoff rust-mcp-rmcp-cutover`
-Latest runner update: 2026-05-21T10:58:27Z
+Allowed follow-up command: `scafld review rust-mcp-rmcp-cutover`
+Latest runner update: 2026-05-21T11:28:26Z
 Review gate: not_started
 
 ## Why this exists
