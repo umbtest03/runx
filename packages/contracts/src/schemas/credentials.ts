@@ -30,6 +30,8 @@ export const credentialEnvelopeSchema = Type.Object(
     kind: Type.Literal("runx.credential-envelope.v1"),
     grant_id: Type.String({ minLength: 1 }),
     provider: Type.String({ minLength: 1 }),
+    auth_mode: Type.String({ minLength: 1 }),
+    material_kind: Type.String({ minLength: 1 }),
     connection_id: Type.String({ minLength: 1 }),
     scopes: Type.Array(Type.String({ minLength: 1 })),
     grant_reference: Type.Optional(credentialGrantReferenceSchema),

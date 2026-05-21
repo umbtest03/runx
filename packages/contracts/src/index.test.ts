@@ -96,6 +96,8 @@ describe("@runxhq/contracts", () => {
       kind: "runx.credential-envelope.v1",
       grant_id: "grant_1",
       provider: "github",
+      auth_mode: "oauth",
+      material_kind: "nango_connection",
       connection_id: "conn_1",
       scopes: ["repo:read"],
       material_ref: "nango:github:conn_1",

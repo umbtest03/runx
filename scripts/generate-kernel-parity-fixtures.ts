@@ -447,6 +447,8 @@ function fixtureCases(): readonly KernelFixtureCase[] {
     kind: "runx.credential-envelope.v1",
     grant_id: "grant_expected",
     provider: "github",
+    auth_mode: "oauth",
+    material_kind: "nango_connection",
     connection_id: "conn_1",
     scopes: ["repo:read"],
     grant_reference: {
