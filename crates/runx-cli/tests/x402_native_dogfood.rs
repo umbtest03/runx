@@ -194,9 +194,7 @@ fn native_x402_negative_fixtures_refuse_without_settlement()
     );
     assert!(
         !quote_drift.stdout.contains("pay-fulfill-rail")
-            && !quote_drift
-                .stdout
-                .contains("credential:mock:paid-echo-001"),
+            && !quote_drift.stdout.contains("credential:mock:paid-echo-001"),
         "quote-drift fixture must not expose mock rail credential material"
     );
     assert!(
