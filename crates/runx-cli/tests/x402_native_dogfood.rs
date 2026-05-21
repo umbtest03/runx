@@ -182,6 +182,30 @@ fn native_x402_negative_fixtures_refuse_without_settlement()
         "broader-child fixture must not expose rail material"
     );
 
+    let quote_drift = run_harness_fixture_failure(
+        "fixtures/harness/x402-pay-negative-quote-drift.yaml",
+        &["payment spend capability binding does not match"],
+    )?;
+    assert!(
+        !quote_drift
+            .stdout
+            .contains("hrn_rcpt_x402-pay-negative-quote-drift_fulfill"),
+        "quote-drift fixture must fail before rail fulfillment"
+    );
+    assert!(
+        !quote_drift.stdout.contains("pay-fulfill-rail")
+            && !quote_drift
+                .stdout
+                .contains("credential:mock:paid-echo-001"),
+        "quote-drift fixture must not expose mock rail credential material"
+    );
+    assert!(
+        !quote_drift
+            .stdout
+            .contains("rail-session-material:mock:paid-echo-001"),
+        "quote-drift fixture must not expose rail material"
+    );
+
     let proofless = run_harness_fixture_failure(
         "fixtures/harness/x402-pay-negative-proofless-rail.yaml",
         &["rail proof"],

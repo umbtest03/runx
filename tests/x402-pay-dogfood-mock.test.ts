@@ -32,6 +32,7 @@ const coveredScenarios = new Set([
   "P1.6",
   "P1.8",
   "P1.12",
+  "P1.14",
   "P1.15",
   "P1.16",
 ]);
@@ -41,7 +42,6 @@ const punchlistedScenarios = [
   "P1.10",
   "P1.11",
   "P1.13",
-  "P1.14",
   "P1.17",
 ] as const;
 
