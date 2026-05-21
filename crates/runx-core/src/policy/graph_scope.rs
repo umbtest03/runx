@@ -40,7 +40,7 @@ fn denied_scopes(requested_scopes: &[String], granted_scopes: &[String]) -> Vec<
         .filter(|scope| {
             !granted_scopes
                 .iter()
-                .any(|granted_scope| scope_allows(granted_scope, scope))
+                .any(|granted_scope| scope_allows(granted_scope, scope, true))
         })
         .cloned()
         .collect()

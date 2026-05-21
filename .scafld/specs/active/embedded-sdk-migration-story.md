@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: embedded-sdk-migration-story
 created: '2026-05-21T12:19:24Z'
-updated: '2026-05-22T02:07:19+10:00'
+updated: '2026-05-22T03:30:00+10:00'
 status: active
 harden_status: not_run
 size: large
@@ -14,18 +14,32 @@ risk_level: high
 ## Current State
 
 Status: active
-Current phase: target shape recorded; fixture work remains
-Next: add migration fixtures for the Rust-supervised runtime service/native
-binding boundary and external-adapter hosted-agent replacement
+Current phase: target shape recorded; migration fixture guardrails added;
+implementation parity still remains
+Next: implement the Rust-supervised runtime service/native binding and cloud
+worker migration tests, then run the broad cloud and runtime gates
 Reason: `@runxhq/runtime-local/sdk` is a real in-process embedding surface, but
 the current Rust `runx-sdk` is explicitly CLI-backed and does not execute skills
-natively.
-Blockers: runtime-local SDK deletion remains blocked on implementation fixtures:
+natively. The migration target shape now has fixture coverage for a
+Rust-supervised runtime-service boundary and hosted-agent external-adapter
+replacement, but the cloud worker is not yet migrated to that boundary.
+Blockers: runtime-local SDK deletion remains blocked on implementation parity:
 cloud hosted execution needs a Rust-supervised runtime service or native binding
 that preserves host continuation, auth resolution, receipts, and resume; hosted
-agent/custom adapter behavior needs external-adapter conformance fixtures.
+agent/custom adapter behavior needs the external-adapter process boundary wired
+into production callers.
 Allowed follow-up command: `scafld handoff embedded-sdk-migration-story`
-Latest runner update: 2026-05-22T02:07:19+10:00 completed the cloud inventory in
+Latest runner update: 2026-05-22T03:30:00+10:00 added
+`fixtures/embedded-sdk-migration/runtime-service-boundary.json`,
+`fixtures/embedded-sdk-migration/hosted-agent-external-adapter.json`, a focused
+Vitest guard, and a `runx-sdk` host-protocol fixture decode test. The new
+fixtures pin the Rust-supervised runtime-service/native-binding shape, keep
+`runx-sdk` CLI-backed, validate hosted-agent external-adapter frames over
+`@runxhq/contracts`, and fail the fixture guards if `@runxhq/runtime-local` or
+`@runxhq/adapters` becomes an allowed target dependency. Focused TypeScript and
+Rust SDK tests passed; broad runtime validation remains blocked by unrelated
+`runx-runtime` compile state in `outbox_provider.rs`.
+Previous update: 2026-05-22T02:07:19+10:00 completed the cloud inventory in
 the full checkout and recorded the target shape. `runx-sdk` stays CLI-backed for
 v1; TypeScript remains only as cloud/product code, protocol/client helpers, and
 external-adapter authoring over Rust-supervised contracts. No target keeps
@@ -192,7 +206,14 @@ Validation:
   - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-sdk -p runx-runtime`
   - Expected kind: `exit_code_zero`
   - Status: pending
-  - Evidence: none
+  - Evidence: 2026-05-22 focused command
+    `cargo test --manifest-path crates/Cargo.toml -p runx-sdk --test host_protocol -- --nocapture`
+    passed 3 tests, including
+    `sdk_decodes_embedded_runtime_service_fixture_without_typescript_fallback`.
+    Broad `-p runx-runtime` validation is still pending; current focused
+    `runx-runtime --test external_adapter` compile failed in
+    `runx-runtime/src/outbox_provider.rs` with `E0507` moving `Child` from a
+    mutable reference, which is outside this embedded fixture change.
 - [ ] `v4` TypeScript typecheck passes after consumer migration changes.
   - Command: `pnpm typecheck`
   - Expected kind: `exit_code_zero`
@@ -379,18 +400,29 @@ The following are explicit non-targets:
 
 Goal: prove embedded behavior after migration.
 
-Status: pending
+Status: in_progress
 Dependencies: Phase 2
 
 Changes:
+- Added `fixtures/embedded-sdk-migration/runtime-service-boundary.json` for the
+  selected Rust-supervised runtime-service/native-binding boundary. It covers
+  host continuation, auth-resolution handoff, receipt production, resume, and
+  tool-catalog-resolution obligations, while asserting TypeScript is client-only
+  and `runx-sdk` remains CLI-backed.
+- Added `fixtures/embedded-sdk-migration/hosted-agent-external-adapter.json`
+  for hosted agent behavior moved from in-process `SkillAdapter` code to a
+  Rust-supervised external adapter process. It validates the manifest,
+  invocation, host-resolution frame, and response through the external-adapter
+  contract validators.
 - Add fixtures for custom adapter invocation through the selected stable
   boundary, host continuation, auth resolver, tool catalog resolution, receipt
   production, and denial/needs-agent flow.
 - Run fixtures without TypeScript runtime-local fallback on the selected target.
 
 Acceptance:
-- The fixtures pass on the selected target and fail if a hidden TypeScript
-  fallback is required.
+- Focused fixture guards pass for the Rust-supervised boundary and
+  external-adapter hosted-agent replacement.
+- Full cloud worker/runtime-service implementation fixtures remain pending.
 
 ## Rollback
 

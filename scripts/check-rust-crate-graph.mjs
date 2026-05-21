@@ -311,8 +311,8 @@ function checkRuntimeAsyncHttpContract(crateName, manifest) {
   if (!/^cli-tool\s*=\s*\["async-http"\]\s*$/mu.test(featuresBody)) {
     findings.push("runx-runtime cli-tool feature must imply async-http so the cargo CLI exercises reviewed HTTP");
   }
-  if (!/^mcp\s*=\s*\["dep:rmcp", "dep:tokio", "tokio\/process", "tokio\/io-util", "tokio\/sync"\]\s*$/mu.test(featuresBody)) {
-    findings.push("runx-runtime mcp feature must be exactly [\"dep:rmcp\", \"dep:tokio\", \"tokio/process\", \"tokio/io-util\", \"tokio/sync\"]");
+  if (!/^mcp\s*=\s*\["dep:rmcp", "dep:tokio", "tokio\/process", "tokio\/io-util", "tokio\/sync", "tokio\/rt-multi-thread"\]\s*$/mu.test(featuresBody)) {
+    findings.push("runx-runtime mcp feature must be exactly [\"dep:rmcp\", \"dep:tokio\", \"tokio/process\", \"tokio/io-util\", \"tokio/sync\", \"tokio/rt-multi-thread\"]");
   }
 
   const reqwest = dependencyInlineSpec(manifest, "dependencies", "reqwest");

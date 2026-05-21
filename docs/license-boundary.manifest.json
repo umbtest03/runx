@@ -69,31 +69,6 @@
   ],
   "allowlist": [
     {
-      "path": "crates/runx-contracts/src/credential_delivery.rs",
-      "identifier": "material_ref",
-      "rationale": "Provider-neutral credential-delivery contract crossing."
-    },
-    {
-      "path": "crates/runx-contracts/src/credential_delivery.rs",
-      "identifier": "material_ref_hash",
-      "rationale": "Provider-neutral redacted reference hash in public contract."
-    },
-    {
-      "path": "crates/runx-runtime/src/credentials.rs",
-      "identifier": "material_ref",
-      "rationale": "Opaque local material resolver input; no brokerage."
-    },
-    {
-      "path": "crates/runx-runtime/src/credentials.rs",
-      "identifier": "oauth_bearer",
-      "rationale": "Generic bearer material kind for adapter injection, not OAuth brokerage."
-    },
-    {
-      "path": "crates/runx-runtime/src/connect/redaction.rs",
-      "identifier": "authorize_url",
-      "rationale": "Redaction hygiene test material only after Phase 2 decouples it from ConnectClient."
-    },
-    {
       "path": "crates/runx-core/src/policy/types.rs",
       "identifier": "connection_id",
       "rationale": "Legacy public wire field from the credential envelope. OSS must not broker or construct provider-specific values here; field rename/removal is a contract migration deferred to credential-envelope-opaque-reference-v1."

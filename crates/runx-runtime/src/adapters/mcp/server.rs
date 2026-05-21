@@ -5,8 +5,10 @@ use std::io::{Read, Write};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
+use std::thread;
 
 use runx_contracts::{JsonObject, JsonValue};
+use tokio::sync::mpsc;
 
 use super::rmcp_content_length::{RmcpContentLengthTransport, RmcpTransportErrorState};
 use super::server_skill::{execute_mcp_server_skill, identifier_segment};
@@ -163,7 +165,8 @@ where
     R: Read + Send + Unpin + 'static,
     W: Write + Send + Unpin + 'static,
 {
-    tokio::runtime::Builder::new_current_thread()
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
         .enable_io()
         .enable_time()
         .build()
@@ -184,7 +187,7 @@ where
 {
     let error_state = RmcpTransportErrorState::default();
     let transport = RmcpContentLengthTransport::new(
-        BlockingAsyncRead::new(input),
+        ChannelAsyncRead::spawn(input),
         BlockingAsyncWrite::new(output),
         MAX_SERVER_REQUEST_BYTES,
         error_state.clone(),
@@ -200,12 +203,15 @@ where
                 error_state.take().unwrap_or_else(|| error.to_string())
             ))
         })?;
-    running.waiting().await.map(|_reason| ()).map_err(|error| {
-        McpServerError::new(format!(
-            "MCP rmcp server task failed: {}",
-            error_state.take().unwrap_or_else(|| error.to_string())
-        ))
-    })
+    let wait_result = running.waiting().await;
+    if let Some(message) = error_state.take() {
+        return Err(McpServerError::new(format!(
+            "MCP rmcp server task failed: {message}"
+        )));
+    }
+    wait_result
+        .map(|_reason| ())
+        .map_err(|error| McpServerError::new(format!("MCP rmcp server task failed: {error}")))
 }
 
 struct RmcpProofServer {
@@ -365,28 +371,79 @@ fn rmcp_internal_error(error: impl std::fmt::Display) -> rmcp::ErrorData {
     rmcp::ErrorData::internal_error(error.to_string(), None)
 }
 
-struct BlockingAsyncRead<R> {
-    inner: R,
+struct ChannelAsyncRead {
+    receiver: mpsc::Receiver<Result<Vec<u8>, std::io::Error>>,
+    pending: Vec<u8>,
+    offset: usize,
 }
 
-impl<R> BlockingAsyncRead<R> {
-    fn new(inner: R) -> Self {
-        Self { inner }
+impl ChannelAsyncRead {
+    fn spawn<R>(mut input: R) -> Self
+    where
+        R: Read + Send + 'static,
+    {
+        let (sender, receiver) = mpsc::channel(8);
+        thread::spawn(move || {
+            let mut buffer = [0_u8; 8192];
+            loop {
+                match input.read(&mut buffer) {
+                    Ok(0) => return,
+                    Ok(read) => {
+                        if sender.blocking_send(Ok(buffer[..read].to_vec())).is_err() {
+                            return;
+                        }
+                    }
+                    Err(error) => {
+                        let _ignored = sender.blocking_send(Err(error));
+                        return;
+                    }
+                }
+            }
+        });
+        Self {
+            receiver,
+            pending: Vec::new(),
+            offset: 0,
+        }
+    }
+
+    fn copy_pending(&mut self, buf: &mut tokio::io::ReadBuf<'_>) -> bool {
+        if self.offset >= self.pending.len() {
+            return false;
+        }
+        let remaining = self.pending.len() - self.offset;
+        let copied = remaining.min(buf.remaining());
+        buf.put_slice(&self.pending[self.offset..self.offset + copied]);
+        self.offset += copied;
+        if self.offset >= self.pending.len() {
+            self.pending.clear();
+            self.offset = 0;
+        }
+        true
     }
 }
 
-impl<R> tokio::io::AsyncRead for BlockingAsyncRead<R>
-where
-    R: Read + Unpin,
-{
+impl tokio::io::AsyncRead for ChannelAsyncRead {
     fn poll_read(
         mut self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
+        cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<Result<(), std::io::Error>> {
-        let read = self.inner.read(buf.initialize_unfilled())?;
-        buf.advance(read);
-        Poll::Ready(Ok(()))
+        loop {
+            if self.copy_pending(buf) {
+                return Poll::Ready(Ok(()));
+            }
+            match self.receiver.poll_recv(cx) {
+                Poll::Ready(Some(Ok(bytes))) if bytes.is_empty() => continue,
+                Poll::Ready(Some(Ok(bytes))) => {
+                    self.pending = bytes;
+                    self.offset = 0;
+                }
+                Poll::Ready(Some(Err(error))) => return Poll::Ready(Err(error)),
+                Poll::Ready(None) => return Poll::Ready(Ok(())),
+                Poll::Pending => return Poll::Pending,
+            }
+        }
     }
 }
 

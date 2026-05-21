@@ -1,0 +1,152 @@
+{
+  "description": "Embedded SDK migration fixture for hosted agent behavior moved from in-process SkillAdapter code to a Rust-supervised external adapter process.",
+  "fixture_kind": "hosted_agent_external_adapter",
+  "host_resolution_frame": {
+    "adapter_id": "adapter.hosted-agent.customer-reply",
+    "frame_id": "frame_hosted_agent_review",
+    "invocation_id": "external_inv_hosted_agent_001",
+    "protocol_version": "runx.external_adapter.v1",
+    "request": {
+      "id": "req_human_review",
+      "kind": "input",
+      "questions": [
+        {
+          "description": "Human approval text returned through the Rust host-resolution channel.",
+          "id": "review_note",
+          "prompt": "Review the hosted agent draft.",
+          "required": true,
+          "type": "text"
+        }
+      ]
+    },
+    "requested_at": "2026-05-22T02:15:00Z",
+    "schema": "runx.external_adapter.host_resolution.v1"
+  },
+  "invocation": {
+    "adapter_id": "adapter.hosted-agent.customer-reply",
+    "credential_refs": [
+      {
+        "credential_ref": {
+          "type": "credential",
+          "uri": "runx:credential:openai-project:hosted-agent"
+        },
+        "provider": "openai",
+        "purpose": "provider_api"
+      }
+    ],
+    "cwd": "/workspace/skills/hosted-agent",
+    "harness_ref": {
+      "type": "harness",
+      "uri": "runx:harness:hosted-agent-001"
+    },
+    "host_ref": {
+      "type": "host",
+      "uri": "runx:host:cloud-worker"
+    },
+    "inputs": {
+      "customer_id": "cust_123",
+      "message": "Need a status update"
+    },
+    "invocation_id": "external_inv_hosted_agent_001",
+    "metadata": {
+      "adapter_runtime": "node",
+      "cloud_package": "packages/agent-runner"
+    },
+    "protocol_version": "runx.external_adapter.v1",
+    "receipt_dir": "/var/runx/receipts/run_hosted_agent_001",
+    "resolved_inputs": {
+      "customer_id": "cust_123"
+    },
+    "run_id": "run_hosted_agent_001",
+    "schema": "runx.external_adapter.invocation.v1",
+    "skill_ref": "runx/hosted-agent/customer-reply",
+    "source_type": "agent-step",
+    "step_id": "draft_reply"
+  },
+  "manifest": {
+    "adapter_id": "adapter.hosted-agent.customer-reply",
+    "credential_needs": [
+      {
+        "provider": "openai",
+        "purpose": "provider_api",
+        "required": true,
+        "scope_refs": [
+          {
+            "type": "grant",
+            "uri": "runx:grant:hosted-agent-model"
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "owner": "cloud-agent-runner"
+    },
+    "name": "Hosted agent customer reply adapter",
+    "protocol_version": "runx.external_adapter.v1",
+    "sandbox_intent": {
+      "cwd_policy": "skill-directory",
+      "network": true,
+      "profile": "network",
+      "writable_paths": []
+    },
+    "schema": "runx.external_adapter.manifest.v1",
+    "supported_source_types": [
+      "agent",
+      "agent-step"
+    ],
+    "timeouts": {
+      "invocation_ms": 30000,
+      "startup_ms": 5000
+    },
+    "transport": {
+      "args": [
+        "hosted-agent-adapter.mjs"
+      ],
+      "command": "node",
+      "kind": "process"
+    },
+    "version": "0.1.0"
+  },
+  "name": "hosted-agent-external-adapter",
+  "response": {
+    "adapter_id": "adapter.hosted-agent.customer-reply",
+    "exit_code": null,
+    "invocation_id": "external_inv_hosted_agent_001",
+    "metadata": {
+      "external_adapter_host_resolution_frame_id": "frame_hosted_agent_review",
+      "external_adapter_host_resolution_request": {
+        "id": "req_human_review",
+        "kind": "input",
+        "questions": [
+          {
+            "description": "Human approval text returned through the Rust host-resolution channel.",
+            "id": "review_note",
+            "prompt": "Review the hosted agent draft.",
+            "required": true,
+            "type": "text"
+          }
+        ]
+      }
+    },
+    "observed_at": "2026-05-22T02:15:00Z",
+    "protocol_version": "runx.external_adapter.v1",
+    "schema": "runx.external_adapter.response.v1",
+    "status": "host_resolution_requested",
+    "stderr": "",
+    "stdout": ""
+  },
+  "schema": "runx.embedded_sdk_migration.fixture.v1",
+  "target": {
+    "allowed_package_imports": [
+      "@runxhq/authoring",
+      "@runxhq/contracts"
+    ],
+    "boundary": "external-adapter-plugin-protocol",
+    "forbidden_package_imports": [
+      "@runxhq/runtime-local",
+      "@runxhq/adapters"
+    ],
+    "trusted_supervisor": "runx-runtime",
+    "typescript_role": "adapter_process"
+  }
+}

@@ -44,6 +44,7 @@ pub fn build_local_scope_admission(
         &requirement,
         grants,
         options.connected_auth_checked_at.as_deref(),
+        options.wildcard_scopes_trusted,
     ) {
         Some(grant) => scope_admission_allow(
             requested_scopes,
@@ -223,7 +224,7 @@ fn collect_credential_scope_reasons(
             !credential
                 .scopes
                 .iter()
-                .any(|credential_scope| scope_allows(credential_scope, scope))
+                .any(|credential_scope| scope_allows(credential_scope, scope, false))
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -241,7 +242,7 @@ fn collect_credential_scope_reasons(
             !admitted_grant
                 .scopes
                 .iter()
-                .any(|granted_scope| scope_allows(granted_scope, scope))
+                .any(|granted_scope| scope_allows(granted_scope, scope, false))
         })
         .cloned()
         .collect::<Vec<_>>();

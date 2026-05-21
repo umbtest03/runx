@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-ts-sunset-state-machine-runtime-local-importers
 created: '2026-05-22T00:58:00+10:00'
-updated: '2026-05-22T01:32:00+10:00'
+updated: '2026-05-22T03:22:00+10:00'
 status: active
 harden_status: not_run
 size: small
@@ -27,10 +27,11 @@ Blockers: runtime ownership for transition/planning semantics is not settled,
 fanout gate/governance shape ownership is still coupled to TS types, and the
 fixture generators still use the TS implementation as their oracle.
 Allowed follow-up command: `scafld validate rust-ts-sunset-state-machine-runtime-local-importers --json`
-Latest runner update: 2026-05-22T01:32:00+10:00 recorded the importer
-classification and validated the fresh census. No production imports moved:
-remaining callers own live transition/planning/fanout semantics and need a
-Rust runtime graph boundary rather than a compatibility shim.
+Latest runner update: 2026-05-22T03:22:00+10:00 revalidated the active child
+spec, refreshed the importer census, and reran the focused graph hydration
+test. No production imports moved: remaining callers own live
+transition/planning/fanout semantics and need a Rust runtime graph boundary
+rather than a compatibility shim.
 Review gate: classification_recorded; migration_blocked_on_runtime_boundary
 
 ## Summary
@@ -208,6 +209,11 @@ Validation:
   - Status: passed
   - Evidence: `test -d packages/core/src/state-machine` printed
     `state machine implementation present`.
+- [x] `v4` Focused graph hydration coverage still passes.
+  - Command: `pnpm exec vitest run --config vitest.config.ts tests/graph-hydration-orphan-start.test.ts`
+  - Expected kind: `exit_code_zero`
+  - Status: passed
+  - Evidence: 2026-05-22T03:21:00+10:00 passed with 1 file and 3 tests.
 
 ## Phase 1: Importer Classification
 
@@ -245,11 +251,12 @@ Acceptance:
   - Expected kind: `no_matches`
   - Status: pending
   - Evidence: none
-- [ ] `ac4` command - TS state-machine implementation is untouched.
+- [x] `ac4` command - TS state-machine implementation is untouched.
   - Command: `test -d packages/core/src/state-machine`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-  - Evidence: none
+  - Status: passed
+  - Evidence: implementation directory remains present; no state-machine source
+    was deleted or renamed in this lane.
 
 ## Rollback
 

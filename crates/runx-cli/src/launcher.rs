@@ -41,7 +41,7 @@ pub struct DevPlan {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct HarnessPlan {
-    pub fixture_path: OsString,
+    pub fixture_paths: Vec<OsString>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -225,7 +225,7 @@ Commands:
   runx dev [root] [--lane lane] [--json]
   runx mcp serve <skill-ref...> [--receipt-dir dir]
   runx skill <skill-ref|skill-dir|SKILL.md> [--input k=v] [--receipt-dir dir] [--run-id id] [--answers file] [--json]
-  runx harness <fixture.yaml> [--json]
+  runx harness <fixture.yaml...> [--json]
   runx tool build <tool-dir>|--all [--json]
   runx tool search <query> [--source source] [--json]
   runx tool inspect <ref> [--source source] [--json]
@@ -253,7 +253,7 @@ fn mcp_runner_before_serve(args: &[OsString]) -> bool {
 }
 
 fn native_harness_plan(args: &[OsString]) -> LauncherAction {
-    let mut fixture_path = None;
+    let mut fixture_paths = Vec::new();
     let mut index = 1;
 
     while index < args.len() {
@@ -262,12 +262,7 @@ fn native_harness_plan(args: &[OsString]) -> LauncherAction {
         };
 
         if !token.starts_with("--") {
-            if fixture_path.is_some() {
-                return LauncherAction::Error(
-                    "runx harness requires exactly one fixture path".to_owned(),
-                );
-            }
-            fixture_path = Some(args[index].clone());
+            fixture_paths.push(args[index].clone());
             index += 1;
             continue;
         }
@@ -284,11 +279,11 @@ fn native_harness_plan(args: &[OsString]) -> LauncherAction {
         }
     }
 
-    let Some(fixture_path) = fixture_path else {
-        return LauncherAction::Error("runx harness requires exactly one fixture path".to_owned());
-    };
+    if fixture_paths.is_empty() {
+        return LauncherAction::Error("runx harness requires at least one fixture path".to_owned());
+    }
 
-    LauncherAction::RunHarness(HarnessPlan { fixture_path })
+    LauncherAction::RunHarness(HarnessPlan { fixture_paths })
 }
 
 fn parse_new_plan(args: &[OsString]) -> Result<NewPlan, String> {

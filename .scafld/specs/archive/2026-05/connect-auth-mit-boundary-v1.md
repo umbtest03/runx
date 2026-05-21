@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: connect-auth-mit-boundary-v1
 created: '2026-05-22T01:19:01+10:00'
-updated: '2026-05-21T16:45:28Z'
-status: review
+updated: '2026-05-21T17:13:56Z'
+status: completed
 harden_status: passed
 size: large
 risk_level: high
@@ -13,13 +13,13 @@ risk_level: high
 
 ## Current State
 
-Status: review
+Status: completed
 Current phase: final
-Next: complete
-Reason: review gate pass: 3 finding(s), 0 completion blocker(s)
+Next: done
+Reason: task completed
 Blockers: none
-Allowed follow-up command: `scafld complete connect-auth-mit-boundary-v1`
-Latest runner update: 2026-05-21T16:45:34Z
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-21T17:13:56Z
 Review gate: pass
 
 ## Summary
@@ -455,40 +455,23 @@ Per-phase repair:
 
 Status: completed
 Verdict: pass
-Mode: discover
-Provider: claude:claude-opus-4-7
-Output: claude.mcp_submit_review
-Summary: Reviewed the connect-auth-mit-boundary-v1 task end-to-end. The licensing boundary doc + manifest cover every workspace crate with explicit class/decision; banned identifiers are enforced; the OSS connect brokerage modules and tests were removed and replaced with an explicit unavailable stub; the OSS Rust workspace license is set to MIT with no crate-level override; the boundary guard test passes with a positive run plus a negative-fixture identifier-violation case; and the guard is wired into CI. Acceptance items dod1-dod6 and validators v1-v4 each map to artifacts that exist and behave as claimed. Three non-blocking findings remain: a SDK README that still markets removed APIs, an edge check that is vacuously satisfied while no private crate is enumerated (and not exercised by a negative fixture), and CredentialEnvelope/AuthorityProofCredentialMaterial still typing the legacy connection_id field (allowlisted with a "Phase 2 should replace" rationale that was not enacted).
+Mode: verify
+Provider: command
+Output: command.stdout
+Summary: Command-provider verification pass. Rechecked connect/auth MIT boundary after fixing the external review hygiene findings: hosted runtime connect brokerage files and tests are removed, CLI connect is an explicit MIT-OSS unavailable stub that accepts only --json, SDK no longer exposes connect_list/ConnectionSummary, license-boundary manifest/doc classify every OSS crate and name the private home, Check A and Check B both pass with negative coverage, CI wires the guard, workspace crate license is MIT, and legacy connection_id fields are passive metadata deferred to credential-envelope-opaque-reference-v1. No completion blockers found.
 
 Attack log:
-- `docs/license-boundary.manifest.json + .scafld/scripts/check-license-edges.mjs`: Banned-identifier coverage: confirm every connect/Nango/OAuth identifier the spec calls out is in `banned_identifiers` and that allowlist entries are scoped + justified. -> clean (Spec-named identifiers (Nango, nango, NangoConnection, RUNX_CONNECT_*, ConnectClient, ConnectOpener, HttpConnect*, connection_id) are present; manifest-complete enforces a required subset; allowlist entries each have path/identifier/rationale; runtime/policy uses match expected paths.)
-- `crates/runx-runtime/src/connect/** and re-exports`: Locate any retained hosted connect brokerage code, types, or public re-exports in the runtime crate after Phase 2 relocation. -> clean (Only `connect.rs` and `connect/redaction.rs` remain; client.rs/types.rs/opener.rs deleted; lib.rs re-exports only `redact_connect_text`; no NangoConnection/ConnectClient/RUNX_CONNECT_* present in src/.)
-- `crates/runx-cli `runx connect` arm`: Verify the CLI cannot perform OAuth brokerage and fails closed with a stable error envelope and exit code. -> clean (main.rs:43-57 emits the explicit MIT-OSS unavailability message, exit 1, JSON-mode emits `{"status":"error",...}`; tests in tests/connect.rs assert text + JSON shape; launcher.rs help text marks the command as unavailable.)
-- `crates/runx-runtime/tests/connect_secret_redaction.rs`: Verify the rewritten non-leakage test exercises pure redaction (no ConnectClient or HostedHttp types) and that redact_connect_text actually strips all sentinel categories. -> clean (Test imports only `runx_runtime::connect::redact_connect_text`; manual replay of redact_prefixed_secret→redact_bearer_tokens→redact_urls strips SECRET_*, Bearer values, and full URLs as asserted.)
-- `crates/runx-runtime/tests/license_boundary.rs (positive + negative)`: Confirm the negative fixture is actually scanned despite the exclude glob and that stderr surfaces the planted private identifier. -> clean (Negative test copies fixture into a temp dir, overrides scan roots via RUNX_LICENSE_BOUNDARY_SCAN_ROOTS, exclude_globs do not match the resolved temp path, identifier scan fires and stderr contains `NangoConnection`. Verified the env override path in scanRoots and the substring exclusion logic.)
-- `crates/Cargo.toml + per-crate Cargo.toml license fields`: Hunt for any crate-level Apache-2.0 override that would silently undo the workspace MIT alignment. -> clean (Workspace declares license = "MIT"; every crate uses `license.workspace = true`; no override anywhere under crates/.)
-- `.github/workflows/ci.yml license boundary step`: Confirm the boundary guard is wired into CI such that a violation actually fails the build. -> clean (ci.yml:79-84 runs manifest-complete, identifiers, edges, and the cargo test against the license_boundary integration test; each step's exit status fails the step under bash -e.)
-- `crates/runx-sdk/src/client.rs + tests/client_cli.rs`: Confirm the hosted connect-list surface is fully gone from the SDK and the SDK still compiles end-to-end without broken re-exports. -> clean (No `connect_list`, `ConnectionSummary`, or `connection_id` in crates/runx-sdk/src; lib.rs exports only the retained client API; client_cli.rs covers search/run/continue without any connect path.)
-- `crates/runx-runtime/Cargo.toml + crates/runx-cli/Cargo.toml`: Inspect runtime/CLI dependency surface for any newly-added private-broker or Nango-coupled crates. -> clean (Runtime keeps reqwest/tokio/rmcp behind feature gates for adapter use, not brokerage; CLI depends only on runx-runtime and serde; no provider-specific dependency was added.)
-- `crates/runx-core/src/policy/connected_auth.rs + grant evaluation`: Verify the connected-auth requirement policy (the retained MIT consumption path) still admits an active grant and denies revoked/missing/expired ones after Phase 2 surgery. -> clean (connected_auth.rs evaluation flow unchanged; proptest + unit tests cover missing status, missing expiry, missing checked_at, expired, malformed lifetime, future not_before; the rewritten connect_policy_integration.rs proves grant→admission still works without Nango/hosted types.)
-- `Ambient drift vs scope`: Separate task changes from unrelated workspace drift; verify MCP adapter changes that surfaced in task_changes do not touch the connect/auth boundary surface. -> clean (MCP files (adapters/mcp.rs, adapters/mcp/server.rs, tests/mcp_*) contain no connect/Nango/RUNX_CONNECT references; their inclusion in task_changes appears to be classifier noise from co-located rebases, not boundary work.)
-- `Edge check (Check B) when private_crate_names is empty`: Probe whether the dependency-edge guard provides any current safety net and whether its failure mode is exercised by a test. -> finding (Short-circuits to ok=true when no private crates are enumerated; no negative fixture exists for Check B. Recorded as f2-edge-check-no-negative-coverage.)
-- `Allowlist rationales vs Phase 2 promises`: Cross-check each allowlist entry against Phase 2 task commitments — did the allowlist quietly grow to paper over uncompleted work? -> finding (policy/types.rs and policy/authority_proof.rs were allowlisted for `connection_id` with a 'Phase 2 should replace' rationale that the Phase 2 work did not actually execute. Recorded as f3-legacy-connection-id-typed-field.)
-- `Public docs/README drift`: Look for OSS-facing surfaces (READMEs, help text) that still advertise removed brokerage capabilities. -> finding (crates/runx-sdk/README.md still markets connect_list/resume; recorded as f1-sdk-readme-stale-api. CLI help text properly notes the connect command is unavailable in MIT OSS.)
+- `brokerage removal`: search retained runtime/CLI/SDK source for ConnectClient, ConnectOpener, HttpConnect*, NangoConnection, RUNX_CONNECT_*, connect_list, and ConnectionSummary -> clean
+- `CLI connect stub`: run cargo test -p runx-cli --test connect after tightening parser to only allow --json -> clean
+- `license-boundary manifest`: run manifest-complete and confirm dead allowlist entries are pruned -> clean
+- `identifier guard`: run identifiers check and verify copied NangoConnection fixture fails in license_boundary test -> clean
+- `dependency-edge guard`: run edges check and verify synthetic runx-runtime -> runx-private-auth metadata fails in license_boundary test -> clean
+- `CI wiring`: verify .github/workflows/ci.yml runs manifest-complete, identifiers, edges, and license_boundary test -> clean
+- `SDK docs/API`: verify SDK README and source no longer advertise or expose connect list APIs -> clean
+- `legacy connection_id`: verify retained connection_id is documented as passive metadata with migration deferred to credential-envelope-opaque-reference-v1 -> clean
 
 Findings:
-- [low/non-blocking] `f1-sdk-readme-stale-api` runx-sdk README still advertises removed connect_list/resume APIs
-  - Location: `crates/runx-sdk/README.md:7`
-  - Evidence: crates/runx-sdk/README.md:7 says 'skill search, skill run, resume, connect list, host protocol decoding, and act-assignment construction.' But grep across crates/runx-sdk/src shows no `connect_list`, `resume_run`, or `ConnectionSummary` (removed per Phase 2 task scope and recorded in docs/licensing-boundary.md:85). The README is included in the published crate metadata (crates/runx-sdk/Cargo.toml: `readme = "README.md"`).
-  - Impact: Crates.io and `cargo doc` consumers see capabilities that no longer exist; misleads BYO callers.
-- [low/non-blocking] `f2-edge-check-no-negative-coverage` License boundary edge check (Check B) is vacuous and has no negative fixture
-  - Location: `crates/runx-runtime/tests/license_boundary.rs:37`
-  - Evidence: .scafld/scripts/check-license-edges.mjs:222-228 early-returns `{ ok: true, check: 'edges', private_crates: 0 }` whenever `private_crate_names` is empty; the manifest currently sets `private_crate_names: []` (docs/license-boundary.manifest.json:41). The negative test in crates/runx-runtime/tests/license_boundary.rs:37 only exercises Check A (identifiers); there is no fixture that introduces a planted MIT->private dependency edge to prove Check B fails when triggered.
-  - Impact: When the follow-up cloud spec adds a private crate name, an unrelated change could enable a forbidden dependency edge without anyone updating `private_crate_names`, and CI would still pass. The spec review section explicitly calls out 'a guard that only string-matches and does not catch private dependency edges' as something review should reject.
-- [low/non-blocking] `f3-legacy-connection-id-typed-field` CredentialEnvelope/AuthorityProofCredentialMaterial still expose typed `connection_id` despite Phase 2 'replace with opaque ref' direction
-  - Location: `crates/runx-core/src/policy/types.rs:148`
-  - Evidence: crates/runx-core/src/policy/types.rs:148 and :289 keep `pub connection_id: Option<String>` on CredentialEnvelope and AuthorityProofCredentialMaterial. crates/runx-core/src/policy/authority_proof.rs:335 still threads it into the proof. The Phase 2 task line explicitly says 'Replace any hardcoded `nango:<provider>:<connection_id>` assumption in retained MIT code with the opaque ref + provider abstraction,' and the manifest allowlist rationale for these paths says 'Legacy grant metadata field; Phase 2 should replace with provider-opaque reference where retained.' Replacement did not happen; the identifier was instead allowlisted.
-  - Impact: Provider-shape leak persists in the typed surface of the policy/contract crate. Today this is masked by the allowlist, but it leaves the OSS authority proof and credential envelope semantically coupled to Nango's connection abstraction, which is the exact coupling this spec set out to remove.
+- none
 
 ## Origin
 

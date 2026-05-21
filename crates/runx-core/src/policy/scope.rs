@@ -1,7 +1,20 @@
 use std::collections::BTreeSet;
 
-pub(crate) fn scope_allows(granted_scope: &str, requested_scope: &str) -> bool {
-    if granted_scope == "*" || granted_scope == requested_scope {
+/// Whether `granted_scope` covers `requested_scope`.
+///
+/// The universal `*` grant is gated behind `allow_universal_wildcard`: callers
+/// must pass `true` only when the granting source is trusted (e.g. first-party
+/// scope propagation), never for untrusted/connected provider grants. Exact and
+/// `prefix:*` matches are unaffected by trust.
+pub(crate) fn scope_allows(
+    granted_scope: &str,
+    requested_scope: &str,
+    allow_universal_wildcard: bool,
+) -> bool {
+    if granted_scope == "*" {
+        return allow_universal_wildcard;
+    }
+    if granted_scope == requested_scope {
         return true;
     }
 
@@ -29,16 +42,17 @@ mod tests {
     use super::{scope_allows, unique_strings};
 
     #[test]
-    fn wildcard_scope_allows_any_request() {
-        assert!(scope_allows("*", "repo:read"));
+    fn universal_wildcard_requires_trust() {
+        assert!(scope_allows("*", "repo:read", true));
+        assert!(!scope_allows("*", "repo:read", false));
     }
 
     #[test]
     fn prefix_wildcard_allows_strict_prefix_matches() {
-        assert!(scope_allows("repo:*", "repo:read"));
-        assert!(!scope_allows("repo:*", "deploy:prod"));
-        assert!(!scope_allows("repo:*", "repository:read"));
-        assert!(!scope_allows(":*", "repo:read"));
+        assert!(scope_allows("repo:*", "repo:read", false));
+        assert!(!scope_allows("repo:*", "deploy:prod", false));
+        assert!(!scope_allows("repo:*", "repository:read", false));
+        assert!(!scope_allows(":*", "repo:read", false));
     }
 
     #[test]

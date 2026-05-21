@@ -65,7 +65,8 @@ pub(super) fn load_mcp_server_tool(
     skill_path: &Path,
     execution: &McpServerExecutionOptions,
 ) -> Result<McpServerTool, RuntimeError> {
-    let skill = load_skill_for_mcp(skill_path)?;
+    let skill_path = canonical_skill_path(skill_path)?;
+    let skill = load_skill_for_mcp(&skill_path)?;
     Ok(McpServerTool {
         name: skill.name.clone(),
         description: skill
@@ -74,12 +75,28 @@ pub(super) fn load_mcp_server_tool(
             .unwrap_or_else(|| format!("runx skill {}", skill.name)),
         input_schema: skill_inputs_to_json_schema(&skill.inputs),
         result: McpServerToolBehavior::Skill(Box::new(McpServerSkillExecution {
-            skill_path: skill_path.to_path_buf(),
+            skill_path,
             skill,
             receipt_dir: execution.receipt_dir.clone(),
             env: execution.env.clone(),
         })),
     })
+}
+
+fn canonical_skill_path(skill_path: &Path) -> Result<PathBuf, RuntimeError> {
+    let manifest_path = if skill_path.is_dir() {
+        skill_path.join("SKILL.md")
+    } else {
+        skill_path.to_path_buf()
+    };
+    if !manifest_path.exists() {
+        return Err(RuntimeError::SkillFileMissing {
+            path: manifest_path,
+        });
+    }
+    skill_path
+        .canonicalize()
+        .map_err(|source| RuntimeError::io("canonicalizing skill path", source))
 }
 
 fn load_skill_for_mcp(skill_path: &Path) -> Result<ValidatedSkill, RuntimeError> {

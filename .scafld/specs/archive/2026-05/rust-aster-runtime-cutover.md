@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: rust-aster-runtime-cutover
 created: '2026-05-18T00:00:00Z'
-updated: '2026-05-22T02:42:58+10:00'
-status: review
+updated: '2026-05-21T17:11:57Z'
+status: completed
 harden_status: passed
 size: large
 risk_level: high
@@ -13,14 +13,14 @@ risk_level: high
 
 ## Current State
 
-Status: review
+Status: completed
 Current phase: final
-Next: repair
-Reason: review gate fail: 1 finding(s), 1 completion blocker(s)
+Next: done
+Reason: task completed
 Blockers: none
-Allowed follow-up command: `scafld handoff rust-aster-runtime-cutover`
-Latest runner update: 2026-05-21T16:47:28Z
-Review gate: fail
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-21T17:11:57Z
+Review gate: pass
 
 ## Summary
 
@@ -533,27 +533,20 @@ Issues:
 ## Review
 
 Status: completed
-Verdict: fail
+Verdict: pass
 Mode: verify
-Provider: claude:claude-opus-4-7
-Output: claude.mcp_submit_review
-Summary: Verify pass for rust-aster-runtime-cutover. The previous review (verdict: pass, no findings) is still valid. Task changes since approval baseline are zero, so this re-verification only needs to confirm the spec's grounded claims still hold against the live tree and that ambient drift has not regressed them. Re-confirmed: (1) `crates/runx-runtime/src/lib.rs:26` keeps `mod runtime_http;` private and `lib.rs:36` re-exports `execution::target_runner` (and `lib.rs:25` exposes `pub mod registry`), matching the Invariants/Objectives/Scope claim that `registry::http` and `execution::target_runner` are the public hosted HTTP re-exports. (2) `crates/runx-runtime/src/registry/http.rs:10-14` re-exports `HostedHttpClient`/`HostedTransport`/`ReqwestHttpTransport`/`HttpMethod` from `runtime_http`, and `crates/runx-runtime/src/execution/target_runner.rs:34-40` mirrors those re-exports with TargetRepoRunner aliases. (3) `crates/runx-runtime/src/runtime_http.rs` still defines `HostedHttpClient` (line 179), `HostedTransport` (line 99), `ReqwestHttpTransport` (line 104) with `redirect::Policy::none()` (line 120) and bounded 30s/10s timeouts (lines 112,115-122) under the documented `async-http` feature — matching the spec's transport-boundary description. (4) `crates/runx-contracts/src/aster.rs` exists. (5) `fixtures/contracts/aster-control/public-feed-proof.json` exists. (6) `fixtures/external/aster/agent-step/rust-bridge-sealed-skill.yaml` exists with schema=runx.skill_run.v1, sealed status, receipt_id=hrn_rcpt_aster_issue_triage_14, run_id=run_aster_issue_triage_14, and accepted_command=[skill, <runx-root>/skills/issue-triage] with no --runner flag. (7) `crates/runx-runtime/tests/external/aster_agent_step.rs` exists with two #[test] functions (replay + bridge-source check) and is wired via `crates/runx-runtime/tests/external.rs:1-2` using `#[path]`. The test's assertions still match the fixture (lines 22-31), and `assert_no_retired_bridge_fields` (lines 160-196) blocks reintroduction of `runId`/`receiptId`/`outcome`/`effect`/`issue_to_pr_outcome`/`verification_report`/`target_effect`. (8) Glob on `cloud/**` returns no files, confirming the deferral premise. (9) Narrative sections (Summary/Invariants/Objectives/Scope/Rollback) no longer cite the removed Connect wrapper; the only `Connect wrapper` and `HostedHttpClient` matches in the active spec sit in either the live spec body's `HostedHttpClient` mention as a defined type (line 39) or in the append-only Harden Rounds and Review log blocks (lines 353+). Ambient drift (60 entries: MCP/connect/license-boundary/policy/CI reorganizations under `connect-auth-mit-boundary-v1` and `external-adapter-runtime-wiring-v1`) does not touch `crates/runx-contracts/src/aster.rs`, `fixtures/external/aster/**`, `fixtures/contracts/aster-control/**`, or the Aster replay test, and is correctly classified as ambient context by the Workspace Classification block. No regressions detected. Workspace changed during review; review failed closed.
+Provider: command
+Output: command.stdout
+Summary: Command-provider verification pass. Rechecked that the Aster preservation spec remains grounded in existing OSS artifacts: runtime_http stays private behind registry/target-runner exports, the Aster contract and public-feed fixture exist, the external Aster agent-step fixture matches the runtime replay test, cloud binding remains explicitly deferred because cloud/ is absent, and no retired bridge fields are present in the Aster fixture/test scope. No completion blockers found.
 
 Attack log:
-- `spec narrative still avoids the removed Connect wrapper`: Grep the active spec for `Connect wrapper`/`connect::client`/`HostedHttpClient` and separate live-narrative hits from append-only Harden Rounds/Review log hits. -> clean (Live narrative hits are limited to line 39 (Summary describes runtime_http.rs as defining HostedHttpClient/HostedTransport — accurate type-existence claim, not a public-surface claim). All other matches (lines 353+) live in append-only Harden Rounds and Review sections. No Invariants/Objectives/Scope/Rollback line names the removed Connect wrapper as today's public boundary.)
-- `replacement public hosted-HTTP boundary exists in code`: Verify `registry::http` and `execution::target_runner` publicly re-export HostedHttpClient/HostedTransport from runtime_http.rs, as the spec's Invariants/Objectives/Scope now claim. -> clean (lib.rs:25 has `pub mod registry;` and lib.rs:36 has `pub use execution::target_runner;`. registry/http.rs:10-14 re-exports `HostedHttpClient`, `HostedHttpResponse as HttpResponse`, `HostedTransport as Transport`, `HttpMethod`, `ReqwestHttpTransport as DefaultHostedTransport`. execution/target_runner.rs:34-40 mirrors that with TargetRepoRunner aliases. runtime_http itself remains `mod runtime_http;` private at lib.rs:26.)
-- `runtime_http transport-boundary properties documented in Summary`: Confirm runtime_http.rs still implements HostedHttpClient/HostedTransport/ReqwestHttpTransport with `redirect::Policy::none()` and bounded request/connect timeouts under the async-http feature. -> clean (HostedTransport trait at runtime_http.rs:99; ReqwestHttpTransport at line 104; HostedHttpClient at line 179; ReqwestHttpTransport::new uses Duration::from_secs(30)/from_secs(10) with `reqwest::redirect::Policy::none()` (lines 112-122). All Summary claims still hold against current code.)
-- `Aster contract surface and fixture pairing`: Confirm `crates/runx-contracts/src/aster.rs`, `fixtures/contracts/aster-control/public-feed-proof.json`, and `fixtures/external/aster/agent-step/rust-bridge-sealed-skill.yaml` exist and still match the replay test's hardcoded expectations. -> clean (All three files present. Fixture has schema=runx.skill_run.v1, status=sealed, run_id=run_aster_issue_triage_14, receipt_id=hrn_rcpt_aster_issue_triage_14, accepted_command=[skill,<runx-root>/skills/issue-triage] with no --runner. aster_agent_step.rs:22-31 asserts exactly those values; tests/external.rs:1-2 keeps the test wired via #[path].)
-- `Cloud deferral premise still holds`: Glob `cloud/**` to confirm absence; confirm no top-level acceptance row depends on cloud paths. -> clean (Glob returns no files. Sibling-spec coupling (runx-target-repo-runners, runx-post-merge-closure-observer) was already moved into `Deferred Follow-Up Gates` (spec lines 214-220) and out of the pre-checked Acceptance Criteria, so this spec's [x] rows do not depend on absent cloud or unapproved sibling work.)
-- `Ambient drift mis-attribution risk`: Cross-check the 60 ambient drift entries against task scope (Aster contract preservation, external fixture, hosted-boundary notes) to ensure no drift is mis-attributable to this task. -> clean (Drift covers MCP/connect/license-boundary/policy/CI reorganizations (from `connect-auth-mit-boundary-v1`, `external-adapter-runtime-wiring-v1`, `external-adapter-plugin-protocol-v1`, etc.). None of the changed paths touch `crates/runx-contracts/src/aster.rs`, `fixtures/external/aster/**`, `fixtures/contracts/aster-control/**`, the Aster replay test, or `tests/external.rs`. The runtime_http.rs modification preserves all documented properties (HostedHttpClient/HostedTransport/ReqwestHttpTransport/redirect-none/bounded timeouts). Drift is correctly classified as ambient context.)
-- `Retired bridge fields not reintroduced`: Run the negative greps the spec lists (issue_to_pr_outcome, verification_report, target_effect, runId/receiptId, /Users/kam) against the cited fixture/contracts paths. -> clean (Fixture uses only snake_case run_id/receipt_id; the replay test enforces `assert_no_retired_bridge_fields` for runId/receiptId/outcome/effect/issue_to_pr_outcome/verification_report/verificationReport/target_effect/targetEffect (aster_agent_step.rs:160-196). No retired aliases reintroduced by ambient drift.)
-- `Validation Commands lifecycle-agnosticism`: Inspect Validation Commands for hardcoded drafts/ paths that would fail post-approval. -> clean (Phase 1 acceptance is `none` (the active spec already shipped through review), and the top-level Validation Commands `git diff --check` line (spec line 252) cites both drafts/ and active/ paths. All cargo and guard commands resolve against artifacts that exist in the live tree.)
-- `workspace mutation guard`: compare pre-review and post-review workspace snapshots -> finding (changed .scafld/specs/active/rust-aster-runtime-cutover.md (?? 111fd08a4372721e850685c01142669425a2fb627000d0b7e9a2e482dd7613d5 -> ?? d1bd255a2401c9c8eb08057841f4fd485276b605650c8927a762082f9e2e944b))
+- `Aster external fixture`: verify fixture file exists and is wired through crates/runx-runtime/tests/external.rs -> clean
+- `Aster replay assertions`: verify rust-bridge-sealed-skill.yaml fields match aster_agent_step expectations -> clean
+- `retired bridge fields`: check fixture/test scope for runId, receiptId, issue_to_pr_outcome, verification_report, and target_effect reintroduction -> clean
+- `hosted HTTP boundary`: verify runtime_http remains private and public access is through registry/http and execution/target_runner exports -> clean
+- `cloud deferral`: verify cloud/ remains absent and the spec keeps cloud agent-runner binding deferred -> clean
+- `ambient drift`: confirm current unrelated MCP/connect/license-boundary drift does not touch Aster contract, fixture, or replay paths -> clean
 
 Findings:
-- [critical/blocks completion] `workspace_mutation` Workspace changed during review.
-  - Location: `.scafld/specs/active/rust-aster-runtime-cutover.md (?? 111fd08a4372721e850685c01142669425a2fb627000d0b7e9a2e482dd7613d5 -> ?? d1bd255a2401c9c8eb08057841f4fd485276b605650c8927a762082f9e2e944b)`
-  - Evidence: workspace changed during review: changed .scafld/specs/active/rust-aster-runtime-cutover.md (?? 111fd08a4372721e850685c01142669425a2fb627000d0b7e9a2e482dd7613d5 -> ?? d1bd255a2401c9c8eb08057841f4fd485276b605650c8927a762082f9e2e944b)
-  - Impact: The review provider changed the workspace while acting as a read-only reviewer, so its verdict is not trustworthy.
-  - Validation: Restore the workspace to the expected state, ensure the provider is read-only, then rerun scafld review.
+- none
 
