@@ -1,0 +1,13 @@
+name: x402-pay-negative-proofless-rail
+kind: graph
+target: ../graphs/payment/x402-pay-negative-proofless-rail.yaml
+caller:
+  approvals:
+    spend-approval: true
+expect:
+  status: failure
+  steps:
+    - quote
+    - reserve
+    - approve-spend
+    - fulfill

@@ -1,0 +1,43 @@
+name: x402-pay-negative-cap-exceeded
+steps:
+  - id: quote
+    skill: ../../skills/x402-pay-paid-echo-quote
+    inputs:
+      payment_signal:
+        signal_type: payment_required
+        challenge_id: ch_mock_paid_echo_cap_exceeded
+        amount_minor: 125
+        currency: USD
+        rail: mock
+        counterparty: merchant:paid-echo
+        operation: paid.echo
+  - id: reserve
+    skill: ../../skills/x402-pay-negative-cap-exceeded-reserve
+    context:
+      payment_quote_packet: quote.payment_quote_packet.data
+  - id: approve-spend
+    run:
+      type: approval
+    inputs:
+      gate_id: spend-approval
+      gate_type: payment
+      reason: Approve cap-exceeded payment fixture.
+      amount_minor: 125
+      currency: USD
+    artifacts:
+      wrap_as: payment_approval
+  - id: fulfill
+    skill: ../../skills/x402-pay-paid-echo-fulfill
+    scopes:
+      - payment:spend
+    mutation: true
+    idempotency_key: paid-echo-cap-exceeded-fulfill
+    context:
+      reserved_payment_authority: reserve.payment_reservation_packet.data.reserved_payment_authority
+      spend_capability_ref: reserve.payment_reservation_packet.data.spend_capability_ref
+      idempotency: reserve.payment_reservation_packet.data.idempotency
+policy:
+  transitions:
+    - to: fulfill
+      field: approve-spend.payment_approval.data.approved
+      equals: true

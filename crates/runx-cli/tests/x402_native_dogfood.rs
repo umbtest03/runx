@@ -105,6 +105,73 @@ fn native_x402_stripe_spt_happy_path_runs_without_typescript()
     Ok(())
 }
 
+#[test]
+fn native_x402_negative_fixtures_refuse_without_settlement()
+-> Result<(), Box<dyn std::error::Error>> {
+    let malformed = run_harness_fixture(
+        "fixtures/harness/x402-pay-negative-malformed-challenge.yaml",
+        &["runx:harness_receipt:hrn_rcpt_x402-pay-negative-malformed-challenge_reserve"],
+    )?;
+    assert_eq!(malformed["schema"], "runx.harness_receipt.v1");
+    assert_eq!(malformed["harness"]["state"], "sealed");
+    assert_eq!(malformed["seal"]["disposition"], "blocked");
+    assert_eq!(malformed["seal"]["reason_code"], "graph_blocked");
+    assert_eq!(
+        child_receipt_uris(&malformed),
+        vec!["runx:harness_receipt:hrn_rcpt_x402-pay-negative-malformed-challenge_quote",]
+    );
+
+    let ambiguous = run_harness_fixture(
+        "fixtures/harness/x402-pay-negative-ambiguous-bounds.yaml",
+        &[
+            "runx:harness_receipt:hrn_rcpt_x402-pay-negative-ambiguous-bounds_approve-spend",
+            "runx:harness_receipt:hrn_rcpt_x402-pay-negative-ambiguous-bounds_fulfill",
+        ],
+    )?;
+    assert_eq!(ambiguous["schema"], "runx.harness_receipt.v1");
+    assert_eq!(ambiguous["harness"]["state"], "sealed");
+    assert_eq!(ambiguous["seal"]["disposition"], "blocked");
+    assert_eq!(ambiguous["seal"]["reason_code"], "graph_blocked");
+    assert_eq!(
+        child_receipt_uris(&ambiguous),
+        vec![
+            "runx:harness_receipt:hrn_rcpt_x402-pay-negative-ambiguous-bounds_quote",
+            "runx:harness_receipt:hrn_rcpt_x402-pay-negative-ambiguous-bounds_reserve",
+        ]
+    );
+
+    let cap_exceeded = run_harness_fixture_failure(
+        "fixtures/harness/x402-pay-negative-cap-exceeded.yaml",
+        &["payment spend capability binding does not match"],
+    )?;
+    assert!(
+        !cap_exceeded.stdout.contains("pay-fulfill-rail")
+            && !cap_exceeded
+                .stdout
+                .contains("credential:mock:paid-echo-001"),
+        "cap-exceeded fixture must fail before rail fulfillment"
+    );
+    assert!(
+        !cap_exceeded
+            .stdout
+            .contains("rail-session-material:mock:paid-echo-001"),
+        "cap-exceeded fixture must not expose rail material"
+    );
+
+    let proofless = run_harness_fixture_failure(
+        "fixtures/harness/x402-pay-negative-proofless-rail.yaml",
+        &["rail proof"],
+    )?;
+    assert!(
+        !proofless
+            .stdout
+            .contains("hrn_rcpt_x402-pay-negative-proofless-rail_echo"),
+        "proofless rail fixture must not run paid echo"
+    );
+
+    Ok(())
+}
+
 fn run_harness_fixture(
     fixture: &str,
     denied_fragments: &[&str],
@@ -121,6 +188,34 @@ fn run_harness_fixture(
         );
     }
     Ok(serde_json::from_str(&stdout)?)
+}
+
+struct FailedHarnessOutput {
+    stdout: String,
+}
+
+fn run_harness_fixture_failure(
+    fixture: &str,
+    required_stderr_fragments: &[&str],
+) -> Result<FailedHarnessOutput, Box<dyn std::error::Error>> {
+    let output = native_command()?
+        .args(["harness", fixture, "--json"])
+        .output()?;
+    assert!(
+        !output.status.success(),
+        "negative harness fixture unexpectedly succeeded\nstdout={}\nstderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout)?;
+    let stderr = String::from_utf8(output.stderr)?;
+    for required in required_stderr_fragments {
+        assert!(
+            stderr.contains(required),
+            "native CLI failure stderr must contain {required:?}\nstderr={stderr}"
+        );
+    }
+    Ok(FailedHarnessOutput { stdout })
 }
 
 fn native_command() -> Result<Command, Box<dyn std::error::Error>> {

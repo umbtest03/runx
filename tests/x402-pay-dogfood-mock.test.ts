@@ -23,17 +23,23 @@ const rustKernelBin = path.resolve(
   process.platform === "win32" ? "runx.exe" : "runx",
 );
 
-const coveredScenarios = new Set(["P1.1", "P1.5", "P1.6", "P1.15", "P1.16"]);
-const punchlistedScenarios = [
+const coveredScenarios = new Set([
+  "P1.1",
   "P1.2",
   "P1.3",
   "P1.4",
+  "P1.5",
+  "P1.6",
+  "P1.12",
+  "P1.15",
+  "P1.16",
+]);
+const punchlistedScenarios = [
   "P1.7",
   "P1.8",
   "P1.9",
   "P1.10",
   "P1.11",
-  "P1.12",
   "P1.13",
   "P1.14",
   "P1.17",

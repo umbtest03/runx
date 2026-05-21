@@ -1,0 +1,21 @@
+name: x402-pay-negative-malformed-challenge
+steps:
+  - id: quote
+    skill: ../../skills/x402-pay-negative-malformed-challenge-quote
+    inputs:
+      payment_signal:
+        signal_type: payment_required
+        challenge_id: ""
+        amount_minor: 125
+        rail: mock
+        counterparty: merchant:paid-echo
+        operation: paid.echo
+  - id: reserve
+    skill: ../../skills/x402-pay-paid-echo-reserve
+    context:
+      payment_quote_packet: quote.payment_quote_packet.data
+policy:
+  transitions:
+    - to: reserve
+      field: quote.payment_quote_packet.data.payment_quote.quote_id
+      equals: quote_paid_echo_001
