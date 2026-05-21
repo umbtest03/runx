@@ -335,6 +335,7 @@ fn invocation(
         resolved_inputs: JsonObject::new(),
         skill_directory: "/tmp/skill".into(),
         env: BTreeMap::new(),
+        credential_delivery: runx_runtime::CredentialDelivery::none(),
     };
     request.source.source_type = source_type.to_owned();
     request

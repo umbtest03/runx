@@ -99,6 +99,7 @@ fn invoke_local_tool(
         resolved_inputs: request.resolved_inputs.clone(),
         skill_directory,
         env: request.env.clone(),
+        credential_delivery: request.credential_delivery.clone(),
     };
     Ok(Some(CliToolAdapter.invoke(invocation)?))
 }

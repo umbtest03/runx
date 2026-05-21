@@ -508,6 +508,7 @@ fn skill_fixture_invocation(
         resolved_inputs: JsonObject::new(),
         skill_directory: skill_dir,
         env,
+        credential_delivery: crate::credentials::CredentialDelivery::none(),
     };
     Ok((skill_name, invocation))
 }

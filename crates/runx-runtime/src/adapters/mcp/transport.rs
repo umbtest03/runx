@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 
 use runx_contracts::{JsonNumber, JsonObject, JsonValue};
 
+use crate::credentials::SecretEnv;
 use crate::sandbox::SandboxPlan;
 
 use super::framing::{content_length, find_header_end};
@@ -16,7 +17,7 @@ use super::jsonrpc::{
     initialize_request, initialized_notification, parse_mcp_tools_list, text_content,
     tool_call_request, tools_list_request,
 };
-use super::templates::{env_value, js_string};
+use super::templates::js_string;
 use super::types::{
     McpListToolsRequest, McpToolCallRequest, McpToolDescriptor, McpTransport, McpTransportError,
 };
@@ -38,10 +39,7 @@ impl McpTransport for FixtureMcpTransport {
     fn call_tool(&self, request: McpToolCallRequest) -> Result<JsonValue, McpTransportError> {
         match request.tool.as_str() {
             "echo" => Ok(text_content(js_string(request.arguments.get("message")))),
-            "env" => Ok(text_content(env_value(
-                &request.sandbox.env,
-                request.arguments.get("name"),
-            ))),
+            "env" => Ok(text_content(mcp_env_value(&request))),
             "fail" => Err(McpTransportError::tool_error(
                 -32000,
                 format!(
@@ -56,6 +54,17 @@ impl McpTransport for FixtureMcpTransport {
     }
 }
 
+fn mcp_env_value(request: &McpToolCallRequest) -> String {
+    let name = js_string(request.arguments.get("name"));
+    request
+        .sandbox
+        .env
+        .get(&name)
+        .cloned()
+        .or_else(|| request.secret_env.get(&name).map(str::to_owned))
+        .unwrap_or_default()
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ProcessMcpTransport;
 
@@ -64,7 +73,8 @@ impl ProcessMcpTransport {
         &self,
         request: McpListToolsRequest,
     ) -> Result<Vec<McpToolDescriptor>, McpTransportError> {
-        let mut client = initialize_mcp_client(&request.sandbox, request.timeout)?;
+        let mut client =
+            initialize_mcp_client(&request.sandbox, &SecretEnv::default(), request.timeout)?;
         let result = client.request(2, &tools_list_request(2))?;
         Ok(parse_mcp_tools_list(result))
     }
@@ -72,17 +82,22 @@ impl ProcessMcpTransport {
 
 impl McpTransport for ProcessMcpTransport {
     fn call_tool(&self, request: McpToolCallRequest) -> Result<JsonValue, McpTransportError> {
-        let mut client = initialize_mcp_client(&request.sandbox, request.timeout)?;
+        let mut client =
+            initialize_mcp_client(&request.sandbox, &request.secret_env, request.timeout)?;
         client.request(2, &tool_call_request(2, &request.tool, &request.arguments))
     }
 }
 
-fn spawn_mcp_server(plan: &SandboxPlan) -> Result<Child, McpTransportError> {
+fn spawn_mcp_server(
+    plan: &SandboxPlan,
+    secret_env: &SecretEnv,
+) -> Result<Child, McpTransportError> {
     Command::new(&plan.command)
         .args(&plan.args)
         .current_dir(&plan.cwd)
         .env_clear()
         .envs(&plan.env)
+        .envs(secret_env.iter())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -117,9 +132,10 @@ impl Drop for InitializedMcpClient {
 
 fn initialize_mcp_client(
     sandbox: &SandboxPlan,
+    secret_env: &SecretEnv,
     timeout: Duration,
 ) -> Result<InitializedMcpClient, McpTransportError> {
-    let mut child = spawn_mcp_server(sandbox)?;
+    let mut child = spawn_mcp_server(sandbox, secret_env)?;
     let Some(stdin) = child.stdin.take() else {
         terminate_child(&mut child);
         return Err(McpTransportError::failed("MCP server stdin unavailable."));

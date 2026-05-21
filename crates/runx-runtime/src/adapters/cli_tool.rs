@@ -22,6 +22,7 @@ impl SkillAdapter for CliToolAdapter {
 
     fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
         let started = Instant::now();
+        let credential_delivery = request.credential_delivery.clone();
         let sandbox = prepare_process_sandbox(
             &request.source,
             &request.skill_directory,
@@ -33,6 +34,7 @@ impl SkillAdapter for CliToolAdapter {
             .current_dir(&sandbox.cwd)
             .env_clear()
             .envs(&sandbox.env)
+            .envs(credential_delivery.secret_env().iter())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -43,8 +45,8 @@ impl SkillAdapter for CliToolAdapter {
         let output = child
             .wait_with_output()
             .map_err(|source| RuntimeError::io("collecting cli-tool output", source))?;
-        let stdout = truncate_utf8(output.stdout);
-        let stderr = truncate_utf8(output.stderr);
+        let stdout = credential_delivery.redact_text(truncate_utf8(output.stdout));
+        let stderr = credential_delivery.redact_text(truncate_utf8(output.stderr));
         let success = output.status.success() && !timed_out;
         Ok(SkillOutput {
             status: if success {

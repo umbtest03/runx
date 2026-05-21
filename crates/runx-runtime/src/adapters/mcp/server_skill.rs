@@ -288,6 +288,7 @@ fn invoke_mcp_server_skill(
         resolved_inputs: JsonObject::new(),
         skill_directory: skill_directory_for_execution(&execution.skill_path),
         env: execution.env.clone(),
+        credential_delivery: crate::credentials::CredentialDelivery::none(),
     };
     match execution.skill.source.source_type.as_str() {
         "mcp" => McpAdapter::default().invoke(invocation),

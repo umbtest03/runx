@@ -5,6 +5,7 @@ use runx_contracts::JsonObject;
 use runx_parser::SkillSource;
 
 use crate::RuntimeError;
+use crate::credentials::CredentialDelivery;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InvocationStatus {
@@ -20,6 +21,7 @@ pub struct SkillInvocation {
     pub resolved_inputs: JsonObject,
     pub skill_directory: PathBuf,
     pub env: BTreeMap<String, String>,
+    pub credential_delivery: CredentialDelivery,
 }
 
 #[derive(Clone, Debug, PartialEq)]

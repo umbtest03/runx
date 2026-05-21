@@ -381,6 +381,7 @@ fn invocation(tool: &str, timeout_seconds: Option<u64>, inputs: JsonObject) -> S
         resolved_inputs: JsonObject::new(),
         skill_directory: PathBuf::from("."),
         env: BTreeMap::new(),
+        credential_delivery: runx_runtime::CredentialDelivery::none(),
     }
 }
 
@@ -396,6 +397,7 @@ fn fixture_case(case_name: &str) -> Result<SkillInvocation, Box<dyn std::error::
         resolved_inputs: fixture.resolved_inputs,
         skill_directory: repo_root()?,
         env: oracle_env()?,
+        credential_delivery: runx_runtime::CredentialDelivery::none(),
     })
 }
 

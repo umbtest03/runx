@@ -5,6 +5,7 @@ use sha2::{Digest, Sha256};
 
 use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
+use crate::credentials::CredentialDelivery;
 use crate::sandbox::{prepare_mcp_process_sandbox, sandbox_metadata};
 
 use super::sandbox_metadata::mcp_process_sandbox_metadata;
@@ -50,14 +51,18 @@ where
         match self.transport.call_tool(prepared.request) {
             Ok(result) => Ok(SkillOutput {
                 status: InvocationStatus::Success,
-                stdout: super::templates::stringify_mcp_tool_result(&result)?,
+                stdout: prepared
+                    .credential_delivery
+                    .redact_text(super::templates::stringify_mcp_tool_result(&result)?),
                 stderr: String::new(),
                 exit_code: Some(0),
                 duration_ms: duration_ms(started),
                 metadata: prepared.success_metadata,
             }),
             Err(error) => Ok(failure(
-                error.sanitized_message(),
+                prepared
+                    .credential_delivery
+                    .redact_text(error.sanitized_message()),
                 started,
                 prepared.failure_metadata,
             )),
@@ -68,6 +73,7 @@ where
 #[derive(Debug)]
 struct PreparedMcpToolCall {
     request: McpToolCallRequest,
+    credential_delivery: CredentialDelivery,
     success_metadata: JsonObject,
     failure_metadata: JsonObject,
 }
@@ -82,6 +88,7 @@ fn prepare_mcp_tool_call(
         resolved_inputs,
         skill_directory,
         env,
+        credential_delivery,
         ..
     } = invocation;
     if source.source_type != "mcp" {
@@ -123,7 +130,9 @@ fn prepare_mcp_tool_call(
             arguments,
             timeout: timeout_from_source(source.timeout_seconds),
             sandbox,
+            secret_env: credential_delivery.secret_env().clone(),
         },
+        credential_delivery,
         success_metadata,
         failure_metadata,
     }))

@@ -189,6 +189,7 @@ fn runner_invocation(
         resolved_inputs: JsonObject::new(),
         skill_directory: skill_dir.to_path_buf(),
         env: env.clone(),
+        credential_delivery: crate::credentials::CredentialDelivery::none(),
     })
 }
 

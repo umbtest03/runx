@@ -4,6 +4,8 @@ use runx_contracts::AuthorityVerb;
 use runx_core::state_machine::FanoutSyncDecision;
 use thiserror::Error;
 
+use crate::credentials::CredentialDeliveryError;
+
 #[derive(Debug, Error)]
 pub enum RuntimeError {
     #[error("runtime I/O failed while {context}: {source}")]
@@ -65,6 +67,8 @@ pub enum RuntimeError {
     MissingCommand,
     #[error("sandbox violation: {message}")]
     SandboxViolation { message: String },
+    #[error("credential delivery failed: {0}")]
+    CredentialDelivery(#[from] CredentialDeliveryError),
     #[error("skill file is missing at {path}")]
     SkillFileMissing { path: PathBuf },
     #[error("skill '{skill_name}' failed: {message}")]

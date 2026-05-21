@@ -9,6 +9,7 @@ mod agent_invocation;
 pub mod approval;
 pub mod config;
 pub mod connect;
+pub mod credentials;
 pub mod dev;
 pub mod doctor;
 pub mod error;
@@ -56,6 +57,10 @@ pub use connect::{
     ConnectClient, ConnectError, ConnectOpener, HttpConnectGrant, HttpConnectListResponse,
     HttpConnectPreprovisionRequest, HttpConnectReadyResponse, HttpConnectRevokeResponse,
     load_connect_options_from_env,
+};
+pub use credentials::{
+    CredentialDelivery, CredentialDeliveryError, CredentialDeliveryProfile, CredentialMaterialRole,
+    InMemoryMaterialResolver, MaterialResolver, ResolvedCredentialMaterial, SecretEnv,
 };
 pub use dev::{
     DevFixtureResult, DevFixtureStatus, DevLoopOptions, DevReport, DevReportStatus,

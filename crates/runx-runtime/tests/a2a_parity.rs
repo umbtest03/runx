@@ -412,6 +412,7 @@ fn invocation(source: SkillSource, inputs: JsonObject) -> SkillInvocation {
         resolved_inputs: JsonObject::new(),
         skill_directory: ".".into(),
         env: BTreeMap::new(),
+        credential_delivery: runx_runtime::CredentialDelivery::none(),
     }
 }
 

@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use runx_contracts::{JsonNumber, JsonObject, JsonValue};
 
 use crate::RuntimeError;
@@ -128,10 +126,6 @@ fn stringify_content_entry(entry: &JsonValue) -> Result<String, RuntimeError> {
     }
     serde_json::to_string(entry)
         .map_err(|source| RuntimeError::json("serializing MCP content entry", source))
-}
-
-pub(super) fn env_value(env: &BTreeMap<String, String>, name: Option<&JsonValue>) -> String {
-    env.get(&js_string(name)).cloned().unwrap_or_default()
 }
 
 pub(super) fn js_string(value: Option<&JsonValue>) -> String {

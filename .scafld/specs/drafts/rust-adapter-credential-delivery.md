@@ -14,18 +14,18 @@ risk_level: high
 ## Current State
 
 Status: draft
-Current phase: not started
-Next: design the material resolver boundary and the secret-carrying channel that
-keeps secrets out of `SandboxPlan.metadata` and receipts
+Current phase: OAuth-shaped delivery boundary implemented
+Next: wire hosted/local material resolvers from the final credential envelope
+shape and add live provider delivery profiles
 Reason: the kernel already admits grants, decides credential binding, and proves
 authority over a credential while recording only a hash of the material; the
 runtime never resolves that material into a real secret nor delivers it to a
 tool process. This is the single missing layer between an admitted credential
 and a tool that can use it. It is the keystone for integrations: the catalog
 lists hundreds of providers and only `github` is wired end-to-end.
-Blockers: depends on the credential envelope v2 shape owned by
-`byo-credential-foundations` (see Dependencies). The OAuth-only fields can be
-delivered against the current `CredentialEnvelope` first.
+Blockers: live resolver storage remains in `byo-credential-foundations`; this
+slice adds the runtime channel and adapter injection against the current
+OAuth-shaped `CredentialEnvelope`.
 Review gate: not_started
 
 ## Why this exists
@@ -87,10 +87,10 @@ Current sources:
 - `crates/runx-core/src/policy/authority_proof.rs` (proof + redaction)
 
 Files impacted:
-- new `crates/runx-runtime/src/credentials/` (resolver trait, delivery profile
+- `crates/runx-runtime/src/credentials.rs` (resolver trait, delivery profile
   application, redaction guard)
-- `crates/runx-runtime/src/sandbox.rs` (a secret env channel separate from the
-  audited `env`/`metadata`)
+- `crates/runx-runtime/src/adapter.rs` (`SkillInvocation.credential_delivery`
+  as the secret-carrying channel separate from `SandboxPlan`)
 - `crates/runx-runtime/src/adapters/cli_tool.rs` and `.../mcp/adapter.rs`
   (consume the secret channel at spawn only)
 
@@ -128,8 +128,8 @@ In scope:
   metadata/proof/receipt/stdout.
 
 Out of scope:
-- Cloud-side secret storage, grant v2, credential envelope v2, BYO connect
-  session, and verification. Owned by `byo-credential-foundations`.
+- Cloud-side secret storage, the grant model, the credential envelope, BYO
+  connect session, and verification. Owned by `byo-credential-foundations`.
 - New auth modes beyond what the envelope and delivery profile express.
 - File-mount or helper-process delivery if env injection is chosen first (see
   Open Questions); add as a follow-up only if a provider needs it.
@@ -140,11 +140,12 @@ Out of scope:
   client this resolver extends).
 - `rust-policy-authority-proof-parity` (archived; the proof + redaction the
   delivery must not violate).
-- `byo-credential-foundations` (cloud; supplies credential envelope v2 with
-  optional `connection_id`, `material_kind`, `auth_mode`). The current
-  `CredentialEnvelope` requires `connection_id`
-  ([`types.rs:137`](../../crates/runx-core/src/policy/types.rs#L137)), so the
-  OAuth path can land first and BYO follows envelope v2.
+- `byo-credential-foundations` (cloud; supplies the final credential envelope
+  with optional `connection_id`, `material_kind`, `auth_mode`). The
+  `CredentialEnvelope` in core today is OAuth-shaped, requiring `connection_id`
+  ([`types.rs:137`](../../crates/runx-core/src/policy/types.rs#L137)); it gets
+  completed to that final shape there. The OAuth delivery path can land first;
+  BYO follows once the envelope is settled. No interim/versioned envelope.
 
 ## Open Questions
 
@@ -157,6 +158,27 @@ Out of scope:
 - Whether the secret channel is a new field on `SandboxPlan` (excluded from its
   `PartialEq`/serialization) or a separate value passed alongside the plan to
   the adapter. The latter keeps `SandboxPlan` purely auditable.
+  - Resolved for the first slice: `CredentialDelivery` is carried on
+    `SkillInvocation`, not `SandboxPlan`.
+
+## Validation
+
+- [x] focused runtime tests prove credential delivery and non-leakage.
+  - Command:
+    `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test credential_delivery --test mcp_adapter --test catalog_adapter --all-features -- --nocapture`
+  - Evidence: exit code 0; cli-tool and MCP both injected `GITHUB_TOKEN` only
+    at spawn and redacted the secret from stdout/metadata.
+- [x] focused runtime clippy remains clean.
+  - Command:
+    `cargo clippy --manifest-path crates/Cargo.toml -p runx-runtime --all-targets --all-features -- -D warnings`
+  - Evidence: exit code 0.
+
+## Planning Log
+
+- 2026-05-21T00:00:00Z: Added the `CredentialDelivery` secret channel,
+  `MaterialResolver` boundary, provider delivery profile, cli-tool/MCP spawn
+  injection, and redaction guard. Live material storage/resolution remains a
+  follow-up owned by BYO credential foundations.
 
 ## References
 

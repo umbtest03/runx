@@ -156,6 +156,7 @@ fn invocation_in_directory(
         resolved_inputs: JsonObject::new(),
         skill_directory,
         env,
+        credential_delivery: runx_runtime::CredentialDelivery::none(),
     }
 }
 

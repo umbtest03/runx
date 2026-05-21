@@ -51,6 +51,7 @@ where
         resolved_inputs: JsonObject::new(),
         skill_directory: skill_dir,
         env: runtime.options.env.clone(),
+        credential_delivery: crate::credentials::CredentialDelivery::none(),
     })?;
     let outputs = output_object(&output);
     let receipt = step_receipt(

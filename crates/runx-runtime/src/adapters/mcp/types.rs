@@ -5,6 +5,7 @@ use std::time::Duration;
 use runx_contracts::{JsonObject, JsonValue};
 use runx_parser::{SkillMcpServer, ValidatedSkill};
 
+use crate::credentials::SecretEnv;
 use crate::sandbox::SandboxPlan;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -14,6 +15,7 @@ pub struct McpToolCallRequest {
     pub arguments: JsonObject,
     pub timeout: Duration,
     pub sandbox: SandboxPlan,
+    pub secret_env: SecretEnv,
 }
 
 #[derive(Clone, Debug, PartialEq)]
