@@ -3,7 +3,7 @@
 Native Rust runtime for governed runx execution.
 
 This crate owns the canonical local orchestration path for Rust-backed runx:
-skill execution, graph execution, harness replay, caller reporting, sandbox
+skill execution, graph execution, harness replay, host reporting, sandbox
 preparation, receipts, history projection, adapters, and payment/authority
 runtime policy. Pure parser, core, contract, and receipt crates remain
 upstream.

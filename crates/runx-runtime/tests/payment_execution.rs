@@ -67,8 +67,7 @@ fn denied_payment_approval_emits_denied_output_and_blocks_fulfill()
         JsonValue::Bool(false)
     );
 
-    let result =
-        runtime.resume_graph_file_with_host(fixture.graph_path(), checkpoint, &mut host);
+    let result = runtime.resume_graph_file_with_host(fixture.graph_path(), checkpoint, &mut host);
     match result {
         Err(RuntimeError::GraphBlocked { step_id, reason }) => {
             assert_eq!(step_id, "fulfill");

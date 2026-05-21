@@ -216,15 +216,12 @@ findings are below that line.
   entrypoint), or `orchestrator.rs` → `entry.rs`. Pick the pair that reads as
   facade-over-engine.
 
-- **L3. `caller.rs::Caller` is off the core model.** It is the host callback
-  interface (`report(event)`, `resolve(request)`) — exactly the boundary the
-  contracts crate names `host` (`host_protocol`, `HostRunResult`,
-  `HostRunState`, `ResolutionRequest`). `Caller` doesn't connect to that word.
-  Verified: zero external consumers (CLI/SDK don't reference it), so a rename
-  is safe and runtime-local. → consider `Host` / `HostBridge` /
-  `HostInterface` so the runtime↔host boundary uses one vocabulary. Counter:
-  `Caller` is a defensible inversion-of-control name (a test `NoopCaller`
-  isn't a "host"); decision call, not a clear defect. Lower priority than L1/L2.
+- **[done] L3. `host.rs::Host` now matches the core model.** The runtime host
+  callback interface (`report(event)`, `resolve(request)`) now uses the same
+  vocabulary as the contracts crate (`host_protocol`, `HostRunResult`,
+  `HostRunState`, `ResolutionRequest`). The harness-fixture JSON field named
+  `caller` remains a wire-contract field and is not part of this Rust API
+  surface.
 
 - **L4. `adapter.rs` (the `SkillAdapter` trait + invocation types) vs
   `adapters/` (the implementations) — distinguished only by singular/plural.**
@@ -235,7 +232,7 @@ findings are below that line.
 
 - **L5. `post_merge_observer.rs` is an orphan at the runtime top level.** It is
   a runtime-side projector/observer sitting among unrelated peers (`adapter`,
-  `approval`, `caller`, `config`, `doctor`). → cluster it under a named home
+  `approval`, `host`, `config`, `doctor`). → cluster it under a named home
   (`observers/` or `signals/`), or move it into the closure flow under
   `execution/` if that is where it belongs. Structural tidiness, not a defect.
 
