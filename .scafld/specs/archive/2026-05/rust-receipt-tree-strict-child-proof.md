@@ -86,6 +86,13 @@ Objective: Complete the requested change.
 
 Changes:
 - Add or adjust focused Rust tests proving strict parent/child receipt tree proof acceptance rejects incomplete child refs.
+- Harden runtime graph sealing so child step receipts are re-sealed with the
+  parent harness ref before the parent graph receipt links their digest
+  locators.
+- Harden runtime receipt-tree verification so strict acceptance requires child
+  `parent_harness_ref` links in addition to child digest/proof checks.
+- Remove bare receipt-id child resolution; child links must use typed
+  `runx:harness_receipt:<id>` refs.
 
 Acceptance:
 - [x] `ac1` command - Receipt tree unit tests pass
@@ -100,10 +107,26 @@ Acceptance:
   - Status: pass
   - Evidence: exit code was 0
   - Source event: entry-12
+- [x] `ac3` command - Payment graph still seals through strict runtime proof
+  - Command: `cargo test --manifest-path crates/runx-runtime/Cargo.toml --test payment_execution payment_graph_seals_with_strict_parent_child_receipt_proof`
+  - Expected kind: `exit_code_zero`
+  - Status: pass
+  - Evidence: exit code was 0 on 2026-05-21
+
+Post-review update:
+- 2026-05-21: extended the earlier digest-locator strictness to runtime parent
+  links. `verify_runtime_receipt_tree_with_policy` now forces
+  `require_parent_links`, and `graph_receipt(_with_disposition)` mutates child
+  step receipts by setting `parent_harness_ref` to the graph harness ref and
+  re-sealing them before the parent receipt is sealed.
+- 2026-05-21: removed the legacy bare-id child resolver path from both
+  `runx-receipts` and the runtime resolver; tests now assert exact ids are
+  malformed child refs.
 
 ## Rollback
 
-- Revert this slice's focused runtime receipt tree test addition.
+- Revert the runtime parent-link enforcement, graph child re-sealing, and the
+  focused runtime receipt tree tests added by this slice.
 
 ## Review
 

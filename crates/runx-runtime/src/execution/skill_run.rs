@@ -9,10 +9,16 @@ use runx_parser::{
     SkillRunnerDefinition, SkillRunnerManifest, parse_runner_manifest_yaml,
     validate_runner_manifest,
 };
+#[cfg(feature = "cli-tool")]
+use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 use crate::RuntimeError;
+#[cfg(feature = "cli-tool")]
+use crate::adapter::SkillAdapter;
 use crate::adapter::{InvocationStatus, SkillInvocation, SkillOutput};
+#[cfg(feature = "cli-tool")]
+use crate::adapters::cli_tool::CliToolAdapter;
 use crate::agent_invocation::{
     AgentActInvocationSourceType, agent_act_invocation_id, agent_act_resolution_request,
 };
@@ -39,14 +45,22 @@ pub(crate) fn execute_skill_run(request: &SkillRunRequest) -> Result<JsonValue, 
     let manifest = load_runner_manifest(&skill_dir)?;
     let runner = selected_runner(&manifest)?;
     let invocation = runner_invocation(&skill_dir, runner, &request.inputs, &request.env)?;
+    if runner.source.source_type == "cli-tool" {
+        return execute_cli_tool_skill_run(request, &manifest, runner, invocation);
+    }
+
+    execute_agent_skill_run(request, &manifest, runner, invocation)
+}
+
+fn execute_agent_skill_run(
+    request: &SkillRunRequest,
+    manifest: &SkillRunnerManifest,
+    runner: &SkillRunnerDefinition,
+    invocation: SkillInvocation,
+) -> Result<JsonValue, SkillRunError> {
     let source_type = agent_invocation_source_type(&runner.source.source_type)?;
     let request_id = agent_act_invocation_id(&invocation, source_type);
-    let run_id = match (&request.run_id, &request.answers_path) {
-        (Some(run_id), Some(_)) => run_id.clone(),
-        (Some(_), None) => return Err(invalid("runx skill --run-id requires --answers")),
-        (None, Some(_)) => return Err(invalid("runx skill --answers requires --run-id")),
-        (None, None) => format!("run_{}", identifier_segment(&request_id)),
-    };
+    let run_id = agent_run_id(request, &request_id)?;
     let resolution_request = agent_request(&invocation, source_type)?;
 
     let Some(answers_path) = &request.answers_path else {
@@ -62,22 +76,48 @@ pub(crate) fn execute_skill_run(request: &SkillRunRequest) -> Result<JsonValue, 
         .map_err(|error| SkillRunError::Invalid(format!("failed to serialize answer: {error}")))?;
     let disposition = answer_disposition(&answer);
     let receipt = seal_skill_answer(&run_id, runner, &stdout, disposition)?;
-    let receipt_path = resolve_receipt_path(ReceiptPathInputs {
-        explicit_dir: request.receipt_dir.as_deref(),
-        runtime_config: None,
-        env: &request.env,
-        cwd: &request.cwd,
-    });
-    LocalReceiptStore::new(&receipt_path.path).write_receipt(&receipt)?;
+    write_skill_receipt(request, &receipt)?;
 
     Ok(JsonValue::Object(sealed_output(
-        &manifest,
+        manifest,
         &run_id,
-        &stdout,
+        &agent_skill_output(stdout, &receipt),
         &answer,
         &receipt,
         contract_json_value(&receipt)?,
     )))
+}
+
+fn agent_run_id(request: &SkillRunRequest, request_id: &str) -> Result<String, SkillRunError> {
+    match (&request.run_id, &request.answers_path) {
+        (Some(run_id), Some(_)) => Ok(run_id.clone()),
+        (Some(_), None) => Err(invalid("runx skill --run-id requires --answers")),
+        (None, Some(_)) => Err(invalid("runx skill --answers requires --run-id")),
+        (None, None) => Ok(format!("run_{}", identifier_segment(request_id))),
+    }
+}
+
+fn agent_skill_output(stdout: String, receipt: &runx_contracts::HarnessReceipt) -> SkillOutput {
+    let succeeded = receipt.seal.disposition == ClosureDisposition::Closed;
+    SkillOutput {
+        status: if succeeded {
+            InvocationStatus::Success
+        } else {
+            InvocationStatus::Failure
+        },
+        stdout,
+        stderr: if succeeded {
+            String::new()
+        } else {
+            format!(
+                "agent act closed with {}",
+                closure_disposition_label(&receipt.seal.disposition)
+            )
+        },
+        exit_code: succeeded.then_some(0),
+        duration_ms: 0,
+        metadata: JsonObject::new(),
+    }
 }
 
 fn resolve_skill_dir(path: &Path) -> Result<PathBuf, SkillRunError> {
@@ -133,9 +173,12 @@ fn runner_invocation(
     inputs: &BTreeMap<String, JsonValue>,
     env: &BTreeMap<String, String>,
 ) -> Result<SkillInvocation, SkillRunError> {
-    if !matches!(runner.source.source_type.as_str(), "agent" | "agent-step") {
+    if !matches!(
+        runner.source.source_type.as_str(),
+        "agent" | "agent-step" | "cli-tool"
+    ) {
         return Err(invalid(format!(
-            "runx skill native execution only supports agent and agent-step runners, got {}",
+            "runx skill native execution only supports agent, agent-step, and cli-tool runners, got {}",
             runner.source.source_type
         )));
     }
@@ -147,6 +190,74 @@ fn runner_invocation(
         skill_directory: skill_dir.to_path_buf(),
         env: env.clone(),
     })
+}
+
+#[cfg(feature = "cli-tool")]
+fn execute_cli_tool_skill_run(
+    request: &SkillRunRequest,
+    manifest: &SkillRunnerManifest,
+    runner: &SkillRunnerDefinition,
+    invocation: SkillInvocation,
+) -> Result<JsonValue, SkillRunError> {
+    if request.answers_path.is_some() {
+        return Err(invalid(
+            "runx skill cli-tool runners do not support --answers",
+        ));
+    }
+    let run_id = request
+        .run_id
+        .clone()
+        .unwrap_or_else(|| cli_tool_run_id(runner, &request.inputs));
+    let output = CliToolAdapter.invoke(invocation)?;
+    let disposition = if output.succeeded() {
+        ClosureDisposition::Closed
+    } else {
+        ClosureDisposition::Failed
+    };
+    let receipt = seal_skill_output(
+        &run_id,
+        runner,
+        &output,
+        disposition.clone(),
+        format!("process_{}", closure_disposition_label(&disposition)),
+        format!("cli-tool {} completed", runner.name),
+    )?;
+    write_skill_receipt(request, &receipt)?;
+    Ok(JsonValue::Object(sealed_output(
+        manifest,
+        &run_id,
+        &output,
+        &parse_output_payload(&output.stdout),
+        &receipt,
+        contract_json_value(&receipt)?,
+    )))
+}
+
+#[cfg(not(feature = "cli-tool"))]
+fn execute_cli_tool_skill_run(
+    _request: &SkillRunRequest,
+    _manifest: &SkillRunnerManifest,
+    _runner: &SkillRunnerDefinition,
+    _invocation: SkillInvocation,
+) -> Result<JsonValue, SkillRunError> {
+    Err(invalid(
+        "runx skill cli-tool execution is unavailable because runx-runtime was built without the cli-tool feature",
+    ))
+}
+
+fn write_skill_receipt(
+    request: &SkillRunRequest,
+    receipt: &runx_contracts::HarnessReceipt,
+) -> Result<(), SkillRunError> {
+    let receipt_path = resolve_receipt_path(ReceiptPathInputs {
+        explicit_dir: request.receipt_dir.as_deref(),
+        runtime_config: None,
+        env: &request.env,
+        cwd: &request.cwd,
+    });
+    LocalReceiptStore::new(&receipt_path.path)
+        .write_receipt(receipt)
+        .map_err(Into::into)
 }
 
 fn agent_invocation_source_type(
@@ -218,8 +329,6 @@ fn seal_skill_answer(
     stdout: &str,
     disposition: ClosureDisposition,
 ) -> Result<runx_contracts::HarnessReceipt, SkillRunError> {
-    let graph_name = identifier_segment(run_id);
-    let step_id = identifier_segment(&runner.name);
     let disposition_label = closure_disposition_label(&disposition);
     let succeeded = disposition == ClosureDisposition::Closed;
     let status = if succeeded {
@@ -239,15 +348,35 @@ fn seal_skill_answer(
         duration_ms: 0,
         metadata: JsonObject::new(),
     };
+    seal_skill_output(
+        run_id,
+        runner,
+        &skill_output,
+        disposition,
+        format!("agent_act_{disposition_label}"),
+        format!("agent act closed with {disposition_label}"),
+    )
+}
+
+fn seal_skill_output(
+    run_id: &str,
+    runner: &SkillRunnerDefinition,
+    output: &SkillOutput,
+    disposition: ClosureDisposition,
+    reason_code: String,
+    summary: String,
+) -> Result<runx_contracts::HarnessReceipt, SkillRunError> {
+    let graph_name = identifier_segment(run_id);
+    let step_id = identifier_segment(&runner.name);
     Ok(step_receipt_with_disposition(StepReceiptWithDisposition {
         graph_name: &graph_name,
         step_id: &step_id,
         attempt: 1,
-        output: &skill_output,
+        output,
         created_at: DEFAULT_CREATED_AT,
         disposition,
-        reason_code: format!("agent_act_{disposition_label}"),
-        summary: format!("agent act closed with {disposition_label}"),
+        reason_code,
+        summary,
     })?)
 }
 
@@ -286,23 +415,27 @@ fn json_string(value: &JsonValue) -> Option<&str> {
 fn sealed_output(
     manifest: &SkillRunnerManifest,
     run_id: &str,
-    stdout: &str,
-    answer: &JsonValue,
+    skill_output: &SkillOutput,
+    payload: &JsonValue,
     receipt: &runx_contracts::HarnessReceipt,
     receipt_value: JsonValue,
 ) -> JsonObject {
     let mut execution = JsonObject::new();
-    execution.insert("stdout".to_owned(), JsonValue::String(stdout.to_owned()));
-    execution.insert("stderr".to_owned(), JsonValue::String(String::new()));
+    execution.insert(
+        "stdout".to_owned(),
+        JsonValue::String(skill_output.stdout.clone()),
+    );
+    execution.insert(
+        "stderr".to_owned(),
+        JsonValue::String(skill_output.stderr.clone()),
+    );
     execution.insert(
         "exit_code".to_owned(),
-        if receipt.seal.disposition == ClosureDisposition::Closed {
-            JsonValue::Number(JsonNumber::I64(0))
-        } else {
-            JsonValue::Null
-        },
+        skill_output.exit_code.map_or(JsonValue::Null, |exit_code| {
+            JsonValue::Number(JsonNumber::I64(i64::from(exit_code)))
+        }),
     );
-    execution.insert("structured_output".to_owned(), answer.clone());
+    execution.insert("structured_output".to_owned(), payload.clone());
 
     let mut output = JsonObject::new();
     output.insert(
@@ -325,7 +458,7 @@ fn sealed_output(
     );
     output.insert("receipt".to_owned(), receipt_value);
     output.insert("execution".to_owned(), JsonValue::Object(execution));
-    output.insert("payload".to_owned(), answer.clone());
+    output.insert("payload".to_owned(), payload.clone());
     output
 }
 
@@ -382,6 +515,35 @@ fn identifier_segment(value: &str) -> String {
     normalize_request_id(value)
         .trim_matches(['.', '_', '-'])
         .replace('.', "-")
+}
+
+#[cfg(feature = "cli-tool")]
+fn cli_tool_run_id(runner: &SkillRunnerDefinition, inputs: &BTreeMap<String, JsonValue>) -> String {
+    let input_bytes = serde_json::to_vec(inputs).unwrap_or_default();
+    let digest = Sha256::digest(input_bytes);
+    format!(
+        "run_{}_{}",
+        identifier_segment(&runner.name),
+        hex_prefix(&digest, 12)
+    )
+}
+
+#[cfg(feature = "cli-tool")]
+fn hex_prefix(bytes: &[u8], chars: usize) -> String {
+    let full = bytes
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    full.chars().take(chars).collect()
+}
+
+#[cfg(feature = "cli-tool")]
+fn parse_output_payload(stdout: &str) -> JsonValue {
+    let trimmed = stdout.trim();
+    if trimmed.is_empty() {
+        return JsonValue::String(String::new());
+    }
+    serde_json::from_str(trimmed).unwrap_or_else(|_| JsonValue::String(trimmed.to_owned()))
 }
 
 fn contract_json_value(value: &impl serde::Serialize) -> Result<JsonValue, SkillRunError> {

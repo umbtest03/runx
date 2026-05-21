@@ -138,7 +138,12 @@ function stepReceipt(
 }
 
 function graphReceipt(graphName: string, steps: Record<string, Json>[]): Record<string, Json> {
+  const parentHarnessRef = reference("harness", `${graphName}_graph`);
   for (const step of steps) {
+    const stepHarness = step.harness;
+    if (stepHarness !== null && typeof stepHarness === "object" && !Array.isArray(stepHarness)) {
+      stepHarness.parent_harness_ref = parentHarnessRef;
+    }
     refreshProof(step);
   }
   const receiptSeal = seal("closed", "graph_closed", `graph ${graphName} completed`);

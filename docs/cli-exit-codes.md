@@ -5,13 +5,13 @@ human output.
 
 ## Exit Code 0: Sealed
 
-The command sealed successfully. For `runx skill`, `runx harness`, and
-inspection commands, the requested work or read operation succeeded.
+The command sealed successfully. For `runx skill`, `runx harness`, and native
+history reads, the requested work or read operation succeeded.
 
 Common follow-up:
 
 ```bash
-runx skill inspect <receipt-id>
+runx history <receipt-id> --json
 ```
 
 ## Exit Code 1: Failure

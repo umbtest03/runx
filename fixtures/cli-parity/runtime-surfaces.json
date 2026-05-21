@@ -13,7 +13,7 @@
     },
     {
       "id": "skill-resolution",
-      "owner": "packages/cli + packages/core",
+      "owner": "runx-cli + runx-runtime + runx-core",
       "parityClass": "fixture-backed",
       "coveredBy": [
         "skill.run",
@@ -23,29 +23,28 @@
     },
     {
       "id": "graph-runtime",
-      "owner": "packages/runtime-local",
+      "owner": "runx-runtime",
       "parityClass": "fixture-backed",
       "coveredBy": [
         "skill.run",
-        "evolve"
+        "harness"
       ],
       "notes": "Covers graph execution, branching, caller handoffs, and receipts."
     },
     {
       "id": "receipts",
-      "owner": "packages/core + packages/runtime-local",
+      "owner": "runx-receipts + runx-runtime + runx-cli",
       "parityClass": "schema-exact",
       "coveredBy": [
         "skill.run",
         "harness",
-        "history",
-        "export-receipts.trainable"
+        "history"
       ],
       "notes": "Receipt JSON and signature metadata are schema-exact parity surfaces."
     },
     {
       "id": "ledger",
-      "owner": "packages/runtime-local",
+      "owner": "runx-runtime",
       "parityClass": "schema-exact",
       "coveredBy": [
         "history"
@@ -64,7 +63,7 @@
     },
     {
       "id": "sandbox",
-      "owner": "packages/core/policy + packages/runtime-local",
+      "owner": "runx-core/policy + runx-runtime",
       "parityClass": "schema-exact",
       "coveredBy": [
         "skill.run",
@@ -74,7 +73,7 @@
     },
     {
       "id": "harness",
-      "owner": "packages/runtime-local/harness",
+      "owner": "runx-runtime harness via runx-cli",
       "parityClass": "fixture-backed",
       "coveredBy": [
         "harness",
@@ -84,7 +83,7 @@
     },
     {
       "id": "history",
-      "owner": "packages/cli",
+      "owner": "runx-cli + runx-runtime",
       "parityClass": "semantic",
       "coveredBy": [
         "history"
@@ -93,13 +92,13 @@
     },
     {
       "id": "continuation-replay",
-      "owner": "packages/runtime-local",
+      "owner": "packages/runtime-local compatibility",
       "parityClass": "fixture-backed",
       "coveredBy": [
         "replay",
         "diff"
       ],
-      "notes": "Continuation runs and replay/diff inputs must resolve to the same receipt graph semantics."
+      "notes": "Continuation runs and replay/diff inputs must resolve to the same receipt graph semantics until the native replay lane is promoted."
     },
     {
       "id": "registry",
@@ -114,7 +113,7 @@
     },
     {
       "id": "tool-catalog",
-      "owner": "packages/runtime-local/tool-catalogs",
+      "owner": "runx-runtime adapters + packages/runtime-local compatibility",
       "parityClass": "stubbed",
       "coveredBy": [
         "tool.search",
@@ -126,7 +125,7 @@
     },
     {
       "id": "mcp",
-      "owner": "packages/runtime-local/mcp",
+      "owner": "runx-runtime adapters/mcp",
       "parityClass": "stubbed",
       "coveredBy": [
         "mcp.serve"
@@ -251,7 +250,7 @@
     },
     {
       "id": "caller-mediated-resolution",
-      "owner": "packages/runtime-local",
+      "owner": "runx-runtime",
       "parityClass": "fixture-backed",
       "coveredBy": [
         "skill.run"
@@ -297,12 +296,12 @@
     },
     {
       "id": "trainable-export",
-      "owner": "packages/cli",
+      "owner": "packages/cli compatibility",
       "parityClass": "schema-exact",
       "coveredBy": [
         "export-receipts.trainable"
       ],
-      "notes": "Redacted trainable receipt export remains a contract surface."
+      "notes": "Redacted trainable receipt export remains a TypeScript compatibility contract until a native export exists."
     }
   ]
 }

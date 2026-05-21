@@ -65,7 +65,6 @@ pub struct McpServerTool {
 #[derive(Clone, Debug, PartialEq)]
 pub enum McpServerToolBehavior {
     Fixed(McpToolResult),
-    NotImplemented(String),
     Skill(Box<McpServerSkillExecution>),
 }
 

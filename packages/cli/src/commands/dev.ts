@@ -4,8 +4,6 @@ import type {
 } from "@runxhq/contracts";
 import { resolvePathFromUserInput, resolveRunxWorkspaceBase } from "@runxhq/core/config";
 
-import type { CliAgentRuntime } from "../agent-runtime.js";
-import type { Caller, RegistryStore } from "../cli-runtime-contracts.js";
 import { statusIcon, theme } from "../ui.js";
 import { type DoctorCommandArgs, handleDoctorCommand } from "./doctor.js";
 import { createDoctorDiagnostic, type DoctorReport } from "./doctor-types.js";
@@ -23,21 +21,9 @@ export interface DevCommandArgs {
   readonly receiptDir?: string;
 }
 
-export interface DevCommandDependencies {
-  readonly resolveRegistryStoreForGraphs: (env: NodeJS.ProcessEnv) => Promise<RegistryStore | undefined>;
-  readonly resolveDefaultReceiptDir: (env: NodeJS.ProcessEnv) => string;
-  readonly createNonInteractiveCaller: (
-    answers?: Readonly<Record<string, unknown>>,
-    approvals?: boolean | Readonly<Record<string, boolean>>,
-    loadAgentRuntime?: () => Promise<CliAgentRuntime | undefined>,
-  ) => Caller;
-  readonly createAgentRuntimeLoader: (env: NodeJS.ProcessEnv) => () => Promise<CliAgentRuntime | undefined>;
-}
-
 export async function handleDevCommand(
   parsed: DevCommandArgs,
   env: NodeJS.ProcessEnv,
-  deps: DevCommandDependencies,
 ): Promise<DevReport> {
   const root = resolveRunxWorkspaceBase(env);
   const unitPath = parsed.devPath ? resolvePathFromUserInput(parsed.devPath, env) : root;
@@ -58,7 +44,7 @@ export async function handleDevCommand(
   const selectedLane = parsed.devLane ?? "deterministic";
   const fixtures: DevFixtureResultContract[] = [];
   for (const fixturePath of fixturePaths) {
-    fixtures.push(await runDevFixture(root, fixturePath, selectedLane, parsed, env, deps));
+    fixtures.push(await runDevFixture(root, fixturePath, selectedLane, parsed, env));
   }
   const status = fixtures.some((fixture) => fixture.status === "failure")
     ? "failure"

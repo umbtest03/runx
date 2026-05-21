@@ -119,7 +119,7 @@ pub enum OperationalPolicyDedupeStrategy {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum OperationalPolicySourceIssueClosureMode {
+pub enum OperationalPolicyOutcomeCloseMode {
     Never,
     WhenVerified,
     WhenTerminal,
@@ -170,7 +170,7 @@ pub struct OperationalPolicy {
     pub owner_routes: Vec<OperationalPolicyOwnerRoute>,
     pub targets: Vec<OperationalPolicyTargetRule>,
     pub dedupe: OperationalPolicyDedupePolicy,
-    pub post_merge: OperationalPolicyPostMergePolicy,
+    pub outcomes: OperationalPolicyOutcomePolicy,
     pub permissions: OperationalPolicyAutomationPermissions,
 }
 
@@ -250,11 +250,11 @@ pub struct OperationalPolicyDedupePolicy {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct OperationalPolicyPostMergePolicy {
+pub struct OperationalPolicyOutcomePolicy {
     pub observe_provider: bool,
     pub verification_required: bool,
-    pub source_issue_closure_mode: OperationalPolicySourceIssueClosureMode,
-    pub publish_source_thread_closure_update: bool,
+    pub close_source_issue: OperationalPolicyOutcomeCloseMode,
+    pub publish_final_source_thread_update: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -297,7 +297,7 @@ pub struct OperationalPolicyAdmission {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub owners: Option<Vec<String>>,
     pub dedupe_strategy: OperationalPolicyDedupeStrategy,
-    pub source_issue_closure_mode: OperationalPolicySourceIssueClosureMode,
+    pub outcome_close_mode: OperationalPolicyOutcomeCloseMode,
     pub source_thread_required: bool,
     pub mutate_target_repo: bool,
     pub require_human_merge_gate: bool,
@@ -346,7 +346,7 @@ pub struct OperationalPolicyReadback {
     pub sources: Vec<OperationalPolicySourceReadback>,
     pub runners: Vec<OperationalPolicyRunnerReadback>,
     pub targets: Vec<OperationalPolicyTargetReadback>,
-    pub post_merge: OperationalPolicyPostMergePolicy,
+    pub outcomes: OperationalPolicyOutcomePolicy,
     pub permissions: OperationalPolicyAutomationPermissions,
 }
 

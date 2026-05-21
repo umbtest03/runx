@@ -10,9 +10,8 @@ Start with the checked-in hello-world skill:
 
 ```bash
 cd oss
-pnpm install
-pnpm build
-pnpm exec runx skill examples/hello-world \
+cargo build --manifest-path crates/Cargo.toml -p runx-cli
+crates/target/debug/runx skill examples/hello-world \
   --message "hello from docs" \
   --non-interactive \
   --json
@@ -25,11 +24,16 @@ For governed code changes, see [docs/issue-to-pr.md](docs/issue-to-pr.md).
 
 ## Requirements
 
-- Node.js 20+
-- pnpm 10+
-- Rust 1.85+ for native runtime and CLI work.
+Native CLI:
+
+- Rust 1.85+
 - The native Rust CLI path must stay useful without Node, pnpm, tsx, or
   TypeScript packages installed.
+
+Workspace and npm wrapper:
+
+- Node.js 20+
+- pnpm 10+
 
 ## Install For Development
 
@@ -68,14 +72,14 @@ runx init
 runx init -g --prefetch official
 runx new docs-demo
 npm create @runxhq/skill@latest docs-demo
-runx skill search sourcey
-runx skill sourcey --project .
-runx evolve
+runx list skills
+runx registry search sourcey --json
+runx skill sourcey --project . --json
 runx skill issue-to-pr --fixture /path/to/repo --task-id task-123
 runx skill /path/to/skill --run-id <run-id> --answers answers.json
-runx skill inspect <receipt-id>
+runx history <receipt-id> --json
 runx history
-runx skill add sourcey/sourcey@1.0.0 --to ./skills
+runx registry install sourcey/sourcey@1.0.0 --to ./skills --json
 runx mcp serve ./fixtures/skills/echo
 runx skill design-skill --objective "build github review skill"
 runx harness ./fixtures/harness/echo-skill.yaml
@@ -265,7 +269,7 @@ policy, approvals, and resolution requests still behave the same way.
 
 ## Receipts
 
-Local receipts are append-only JSON files under `.runx/receipts` unless `RUNX_RECEIPT_DIR` is set. `runx skill inspect` and `runx history` verify receipt signatures and surface `verified`, `unverified`, or `invalid` status.
+Local receipts are append-only JSON files under `.runx/receipts` unless `RUNX_RECEIPT_DIR` is set. `runx history` verifies receipt signatures and surfaces `verified`, `unverified`, or `invalid` status.
 
 ## Workspace Policy
 
@@ -286,8 +290,10 @@ checked-in script file and invoke that file instead.
 
 ## Trainable Exports
 
-The OSS CLI can project verified receipt lineage into newline-delimited training
-rows without mutating the original receipts:
+Trainable export is currently a TypeScript compatibility command. It can
+project verified receipt lineage into newline-delimited training rows without
+mutating the original receipts, but it is not yet part of the native Rust CLI
+surface:
 
 ```bash
 runx export-receipts --trainable

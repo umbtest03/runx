@@ -63,7 +63,7 @@ pub fn plan_target_repo_runner(
             owners: admission.owners.unwrap_or_default(),
         },
         dedupe: build_dedupe_plan(policy, request, &context.target.repo)?,
-        source_issue_closure_mode: admission.source_issue_closure_mode,
+        outcome_close_mode: admission.outcome_close_mode,
         mutate_target_repo: admission.mutate_target_repo,
         require_human_merge_gate: admission.require_human_merge_gate,
     })

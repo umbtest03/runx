@@ -281,7 +281,6 @@ fn handle_mcp_server_tool_call(
         McpServerToolBehavior::Fixed(result) => {
             json_rpc_response(id, mcp_tool_result_json(&result))
         }
-        McpServerToolBehavior::NotImplemented(message) => json_rpc_error(id, -32000, &message),
         McpServerToolBehavior::Skill(execution) => {
             match execute_mcp_server_skill(state, *execution, arguments) {
                 Ok(result) => json_rpc_response(id, mcp_tool_result_json(&result)),

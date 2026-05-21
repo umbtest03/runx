@@ -236,7 +236,7 @@ fn run_graph_replay_fixture(
         });
     let receipt = graph_receipt_with_disposition(
         &fixture.name,
-        &runs,
+        &mut runs,
         Vec::new(),
         &options.created_at,
         disposition.clone(),

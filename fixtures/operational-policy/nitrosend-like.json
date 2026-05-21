@@ -137,11 +137,11 @@
     ],
     "on_duplicate": "reuse"
   },
-  "post_merge": {
+  "outcomes": {
     "observe_provider": true,
     "verification_required": true,
-    "source_issue_closure_mode": "when_verified",
-    "publish_source_thread_closure_update": true
+    "close_source_issue": "when_verified",
+    "publish_final_source_thread_update": true
   },
   "permissions": {
     "auto_merge": false,

@@ -32,7 +32,8 @@ Use the graph harness as the executable contract:
 
 ```bash
 cd oss
-pnpm exec runx harness examples/hello-graph/harness.yaml --json
+cargo build --manifest-path crates/Cargo.toml -p runx-cli
+crates/target/debug/runx harness examples/hello-graph/harness.yaml --json
 ```
 
 The harness expects a sealed `runx.harness_receipt.v1` receipt and the ordered

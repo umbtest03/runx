@@ -5,7 +5,7 @@ import { parseToolManifestJson, validateToolManifest } from "@runxhq/core/parser
 import { parse as parseYaml } from "yaml";
 
 import { isPlainRecord } from "../../authoring-utils.js";
-import type { DevCommandArgs, DevCommandDependencies } from "../dev.js";
+import type { DevCommandArgs } from "../dev.js";
 import { resolveToolDirFromRef } from "../tool.js";
 import { assertFixtureExpectation } from "./fixture-assertions.js";
 import { resolveFixtureExecutionRoots, runProcess } from "./fixture-execution.js";
@@ -30,7 +30,6 @@ export async function runDevFixture(
   selectedLane: string,
   parsed: DevCommandArgs,
   env: NodeJS.ProcessEnv,
-  deps: DevCommandDependencies,
 ): Promise<DevFixtureResult> {
   const startedAt = Date.now();
   const fixture = parseYaml(await readFile(fixturePath, "utf8")) as unknown;
@@ -57,7 +56,7 @@ export async function runDevFixture(
   }
   if (lane === "agent") {
     return parsed.devRecord
-      ? recordReplayFixture(root, fixturePath, fixture, name, lane, target, startedAt, parsed, env, deps)
+      ? recordReplayFixture(root, fixturePath, fixture, name, lane, target, startedAt, parsed)
       : validateReplayFixture(root, fixturePath, fixture, startedAt);
   }
   if (lane !== "deterministic" && lane !== "repo-integration") {
@@ -76,7 +75,7 @@ export async function runDevFixture(
     return runToolFixture(root, fixturePath, fixture, name, lane, target, startedAt, env);
   }
   if (kind === "skill" || kind === "graph") {
-    return runSkillFixture(root, fixturePath, fixture, name, lane, target, startedAt, parsed.devRealAgents, env, deps);
+    return runSkillFixture(root, fixturePath, name, lane, target, startedAt);
   }
   return failedFixture(name, lane, target, startedAt, [{
     path: "target.kind",
@@ -151,4 +150,3 @@ export async function runToolFixture(
     await workspace.cleanup();
   }
 }
-

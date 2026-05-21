@@ -24,6 +24,9 @@ fn runtime_resolver_verifies_graph_receipt_with_children() -> Result<(), Box<dyn
     let resolver = RuntimeReceiptResolver::new(children.clone());
 
     assert_eq!(resolver.receipts().len(), 2);
+    assert!(children.iter().all(|child| {
+        child.harness.parent_harness_ref.as_ref() == Some(&root.harness.harness_ref)
+    }));
     assert!(
         runx_receipts::validate_receipt_tree_with_resolver(
             &root,
@@ -37,23 +40,17 @@ fn runtime_resolver_verifies_graph_receipt_with_children() -> Result<(), Box<dyn
 }
 
 #[test]
-fn runtime_tree_rejects_structurally_valid_root_ref_tamper()
--> Result<(), Box<dyn std::error::Error>> {
+fn runtime_tree_rejects_legacy_exact_id_child_ref() -> Result<(), Box<dyn std::error::Error>> {
     let (mut root, children) = graph_with_steps("tree_runtime_exact", &["child"])?;
     root.harness.child_harness_receipt_refs[0].uri = children[0].id.clone();
+    refresh_local_digest_and_signature(&mut root)?;
 
-    assert!(runx_receipts::verify_receipt_tree(&root, &children).valid);
     let verification = verify_runtime_receipt_tree(&root, children, ReceiptTreeConfig::default());
 
     assert_finding(
         &verification,
-        ReceiptFindingCode::SealDigestMismatch,
-        "seal.digest",
-    );
-    assert_finding(
-        &verification,
-        ReceiptFindingCode::SignatureInvalid,
-        "signature.value",
+        ReceiptFindingCode::ChildReceiptRefMalformed,
+        "harness.child_harness_receipt_refs[0]",
     );
     Ok(())
 }
@@ -136,9 +133,10 @@ fn runtime_fanout_receipt_tree_uses_explicit_receipts() -> Result<(), Box<dyn st
         )?,
     ];
     let sync_point = fanout_sync_point(&steps[..2]);
+    let mut steps = steps;
     let root = graph_receipt(
         "tree_runtime_fanout",
-        &steps,
+        &mut steps,
         vec![sync_point.clone()],
         CREATED_AT,
     )?;
@@ -204,6 +202,23 @@ fn runtime_tree_rejects_child_ref_without_digest_locator() -> Result<(), Box<dyn
         &verification,
         ReceiptFindingCode::ChildReceiptDigestMismatch,
         "runtime_receipts[0].locator",
+    );
+    Ok(())
+}
+
+#[test]
+fn runtime_tree_rejects_child_without_parent_link() -> Result<(), Box<dyn std::error::Error>> {
+    let (root, mut children) = graph_with_steps("tree_runtime_missing_parent", &["child"])?;
+    children[0].harness.parent_harness_ref = None;
+    refresh_local_digest_and_signature(&mut children[0])?;
+
+    assert!(runx_receipts::verify_receipt_tree(&root, &children).valid);
+    let verification = verify_runtime_receipt_tree(&root, children, ReceiptTreeConfig::default());
+
+    assert_finding(
+        &verification,
+        ReceiptFindingCode::ChildReceiptParentMismatch,
+        "harness.child_harness_receipt_refs[0].parent_harness_ref",
     );
     Ok(())
 }
@@ -279,7 +294,8 @@ fn graph_with_steps(
         .iter()
         .map(|step_id| step_run(graph_name, step_id, None, InvocationStatus::Success))
         .collect::<Result<Vec<_>, _>>()?;
-    let root = graph_receipt(graph_name, &steps, Vec::new(), CREATED_AT)?;
+    let mut steps = steps;
+    let root = graph_receipt(graph_name, &mut steps, Vec::new(), CREATED_AT)?;
     Ok((root, child_receipts(&steps)))
 }
 

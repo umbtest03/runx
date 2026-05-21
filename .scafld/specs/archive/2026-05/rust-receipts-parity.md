@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-receipts-parity
 created: '2026-05-18T00:00:00Z'
-updated: '2026-05-19T01:25:58Z'
+updated: '2026-05-21T00:00:00Z'
 status: completed
 harden_status: not_run
 size: large
@@ -19,7 +19,7 @@ Next: done
 Reason: task completed
 Blockers: none
 Allowed follow-up command: `none`
-Latest runner update: 2026-05-19T01:25:58Z
+Latest runner update: 2026-05-21T00:00:00Z
 Review gate: pass
 
 ## Summary
@@ -86,6 +86,11 @@ Invariants:
 - Harness receipt verification includes signature validity, hash commitments,
   authority attenuation, criterion binding, redaction commitments, child
   receipt linkage, abnormal seal validity, and external attestations present.
+- Runtime graph receipt acceptance is strict parent/child proof acceptance:
+  child links must be harness receipt refs with exact child digest locators,
+  and each child harness receipt must carry the exact parent harness ref.
+- Child receipt resolution does not support legacy aliases: bare receipt ids
+  and retired receipt namespaces are malformed.
 
 ## Objectives
 
@@ -161,4 +166,3 @@ Attack log:
 
 Findings:
 - none
-

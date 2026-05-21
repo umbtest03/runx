@@ -481,8 +481,7 @@ fn malformed_child_ref(path: &str) -> ReceiptFinding {
     ReceiptFinding {
         code: ReceiptFindingCode::ChildReceiptRefMalformed,
         path: path.to_owned(),
-        message: "child harness receipt ref must be a typed runx harness receipt URI or exact id"
-            .to_owned(),
+        message: "child harness receipt ref must be a typed runx harness receipt URI".to_owned(),
     }
 }
 
@@ -554,14 +553,6 @@ fn referenced_receipt_id(reference: &Reference) -> Option<&str> {
         .uri
         .strip_prefix("runx:harness_receipt:")
         .filter(|id| !id.is_empty())
-        .or_else(|| {
-            reference
-                .uri
-                .as_str()
-                .split_once(':')
-                .is_none()
-                .then_some(reference.uri.as_str())
-        })
 }
 
 #[cfg(test)]
@@ -591,12 +582,17 @@ mod tests {
     }
 
     #[test]
-    fn slice_adapter_accepts_exact_id_and_typed_uri() -> Result<(), serde_json::Error> {
+    fn slice_adapter_accepts_only_typed_harness_receipt_uri() -> Result<(), serde_json::Error> {
         let mut root = fixture(SUCCESS_RECEIPT)?;
         let child = child("hrn_rcpt_child_1")?;
 
         root.harness.child_harness_receipt_refs[0].uri = "hrn_rcpt_child_1".to_owned();
-        assert!(verify_receipt_tree(&root, std::slice::from_ref(&child)).valid);
+        let verification = verify_receipt_tree(&root, std::slice::from_ref(&child));
+        assert_finding(
+            &verification,
+            ReceiptFindingCode::ChildReceiptRefMalformed,
+            "harness.child_harness_receipt_refs[0]",
+        );
 
         root.harness.child_harness_receipt_refs[0].uri =
             "runx:harness_receipt:hrn_rcpt_child_1".to_owned();
@@ -628,7 +624,7 @@ mod tests {
     }
 
     #[test]
-    fn suffix_only_refs_do_not_resolve_by_suffix() -> Result<(), serde_json::Error> {
+    fn suffix_only_refs_are_malformed_not_aliases() -> Result<(), serde_json::Error> {
         let mut root = fixture(SUCCESS_RECEIPT)?;
         root.harness.child_harness_receipt_refs[0].uri = "child_1".to_owned();
         let child = child("hrn_rcpt_child_1")?;
@@ -637,7 +633,7 @@ mod tests {
 
         assert_finding(
             &verification,
-            ReceiptFindingCode::ChildReceiptMissing,
+            ReceiptFindingCode::ChildReceiptRefMalformed,
             "harness.child_harness_receipt_refs[0]",
         );
         Ok(())
@@ -902,26 +898,20 @@ mod tests {
     }
 
     #[test]
-    fn strict_tree_proof_rejects_structurally_valid_root_proof_mismatch()
-    -> Result<(), serde_json::Error> {
+    fn strict_tree_proof_rejects_legacy_exact_id_child_ref() -> Result<(), serde_json::Error> {
         let mut root = proof_root()?;
         let child = proof_child("hrn_rcpt_child_1")?;
         link_child_digest(&mut root, 0, &child)?;
         root.harness.child_harness_receipt_refs[0].uri = child.id.clone();
+        refresh_proof_digest_and_signature(&mut root)?;
         let proof_contexts = FixtureProofContexts::default();
 
-        assert!(verify_receipt_tree(&root, std::slice::from_ref(&child)).valid);
         let verification = verify_receipt_tree_proof(&root, &[child], &proof_contexts);
 
         assert_finding(
             &verification,
-            ReceiptFindingCode::SealDigestMismatch,
-            "seal.digest",
-        );
-        assert_finding(
-            &verification,
-            ReceiptFindingCode::SignatureInvalid,
-            "signature.value",
+            ReceiptFindingCode::ChildReceiptRefMalformed,
+            "harness.child_harness_receipt_refs[0]",
         );
         Ok(())
     }

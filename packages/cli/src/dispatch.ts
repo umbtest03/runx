@@ -13,7 +13,6 @@ import { createFileKnowledgeStore } from "@runxhq/core/knowledge";
 import type { ParsedArgs } from "./args.js";
 import type { CliIo, CliServices } from "./index.js";
 import type {
-  Caller,
   CliRuntimeReceipt,
   CliSkillRunResult,
   RegistryStore,
@@ -57,7 +56,6 @@ import { handleInitCommand } from "./commands/init.js";
 import { handleListCommand } from "./commands/list.js";
 import { handleMcpServeCommand } from "./commands/mcp.js";
 import { handleNewCommand } from "./commands/new.js";
-import { handlePolicyCommand, renderPolicyResult } from "./commands/policy.js";
 import {
   resolveCliRegistryStoreForGraphs,
 } from "./registry-fallback.js";
@@ -76,7 +74,6 @@ export async function dispatchCli(
   parsed: ParsedArgs,
   io: CliIo,
   env: NodeJS.ProcessEnv,
-  caller: Caller,
   services: CliServices = {},
 ): Promise<number> {
   const connectService = parsed.command === "connect" ? services.connect ?? resolveConfiguredConnectService(env) : services.connect;
@@ -192,13 +189,12 @@ export async function dispatchCli(
   }
 
   if (parsed.command === "policy" && parsed.policyAction) {
-    const result = await handlePolicyCommand(parsed, env);
-    if (parsed.json) {
-      io.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    } else {
-      io.stdout.write(renderPolicyResult(result, env));
+    if (!parsed.policyPath) {
+      throw new Error("policy path is required.");
     }
-    return result.status === "success" ? 0 : 1;
+    const args = ["policy", parsed.policyAction, resolvePathFromUserInput(parsed.policyPath, env)];
+    if (parsed.json) args.push("--json");
+    return await writeNativeRunx(io, args, env);
   }
 
   if (parsed.command === "init" && parsed.initAction) {
@@ -360,7 +356,6 @@ export async function dispatchCli(
       skillPath: await resolveRunnableSkillReference("evolve", env),
       inputs: evolveInputs,
       parsed,
-      caller,
       env,
     });
     return writeLocalSkillResult(io, env, parsed, result);
@@ -370,7 +365,6 @@ export async function dispatchCli(
     skillPath: await resolveRunnableSkillReference(parsed.skillPath ?? "", env),
     inputs: parsed.inputs,
     parsed,
-    caller,
     env,
   });
   return writeLocalSkillResult(io, env, parsed, result);
@@ -389,7 +383,6 @@ async function executeLocalSkillCommand(options: {
   readonly skillPath: string;
   readonly inputs: Readonly<Record<string, unknown>>;
   readonly parsed: ParsedArgs;
-  readonly caller: Caller;
   readonly env: NodeJS.ProcessEnv;
 }): Promise<CliSkillRunResult> {
   const env = await withBundledCliToolRoots(options.env);
@@ -397,7 +390,6 @@ async function executeLocalSkillCommand(options: {
   if (options.parsed.runner) {
     throw new Error("native runx skill execution does not support --runner; encode runner selection in X.yaml.");
   }
-  void options.caller;
 
   const args = ["skill", options.skillPath, ...inputArgs(options.inputs), "--json"];
   pushOptionalFlag(args, "--receipt-dir", resolvedReceiptDir);

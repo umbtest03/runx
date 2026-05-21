@@ -2,12 +2,16 @@ name: hello-graph
 kind: graph
 target: ./graph.yaml
 expect:
-  status: success
+  status: sealed
   steps:
     - first
     - second
   receipt:
-    kind: graph_execution
-    status: success
-    graph_name: hello-graph
-    owner: runx
+    schema: runx.harness_receipt.v1
+    harness_id: hrn_hello-graph_graph
+    state: sealed
+    disposition: closed
+    reason_code: graph_closed
+    child_receipt_refs:
+      - runx:harness_receipt:hrn_rcpt_hello-graph_first
+      - runx:harness_receipt:hrn_rcpt_hello-graph_second

@@ -1,4 +1,3 @@
-import type { DevCommandDependencies } from "../dev.js";
 import {
   failedFixture,
   resolveSkillDirFromRef,
@@ -8,19 +7,11 @@ import {
 export async function runSkillFixture(
   root: string,
   fixturePath: string,
-  fixture: Readonly<Record<string, unknown>>,
   name: string,
   lane: string,
   target: Readonly<Record<string, unknown>>,
   startedAt: number,
-  useRealAgents: boolean,
-  env: NodeJS.ProcessEnv,
-  deps: DevCommandDependencies,
 ): Promise<DevFixtureResult> {
-  void fixture;
-  void useRealAgents;
-  void env;
-  void deps;
   const ref = typeof target.ref === "string" ? target.ref : "";
   const skillPath = resolveSkillDirFromRef(root, ref);
   if (!skillPath) {

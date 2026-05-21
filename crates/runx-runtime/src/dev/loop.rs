@@ -5,6 +5,8 @@ use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use runx_contracts::{DoctorStatus, JsonObject, JsonValue};
@@ -246,6 +248,7 @@ pub(super) fn prepare_fixture_workspace(
         false,
         FixtureFileMode::Executable,
     )?;
+    initialize_fixture_git(&fixture_root, workspace.get("git"), &tokens)?;
     Ok(PreparedDevFixtureWorkspace {
         root: Some(fixture_root),
         tokens,
@@ -341,6 +344,78 @@ fn apply_executable_fixture_file_mode(_path: &Path) -> Result<(), DevError> {
     Ok(())
 }
 
+fn initialize_fixture_git(
+    root: &Path,
+    value: Option<&JsonValue>,
+    tokens: &BTreeMap<String, String>,
+) -> Result<(), DevError> {
+    let git = match value {
+        Some(JsonValue::Bool(true)) => Some(None),
+        Some(JsonValue::Object(object)) => Some(Some(object)),
+        _ => None,
+    };
+    let Some(git) = git else {
+        return Ok(());
+    };
+
+    let branch = git
+        .and_then(|object| string_field(object, "initial_branch"))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("main");
+    run_required_process("git", &["init", "-b", branch], root)?;
+    run_required_process(
+        "git",
+        &["config", "user.email", "fixture@example.com"],
+        root,
+    )?;
+    run_required_process("git", &["config", "user.name", "Runx Fixture"], root)?;
+
+    if git.and_then(|object| object.get("commit")) != Some(&JsonValue::Bool(false)) {
+        run_required_process("git", &["add", "."], root)?;
+        run_required_process("git", &["commit", "-m", "fixture baseline"], root)?;
+    }
+
+    if let Some(git) = git {
+        write_fixture_file_map(
+            root,
+            object_field(git, "dirty_files"),
+            tokens,
+            false,
+            FixtureFileMode::Regular,
+        )?;
+    }
+    Ok(())
+}
+
+fn run_required_process(command: &str, args: &[&str], cwd: &Path) -> Result<(), DevError> {
+    let output = Command::new(command)
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .map_err(|source| DevError::Spawn {
+            command: command.to_owned(),
+            source,
+        })?;
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let status = output.status.code().unwrap_or(1);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let detail = if stderr.trim().is_empty() {
+        stdout.trim()
+    } else {
+        stderr.trim()
+    };
+    Err(DevError::FixtureCommand {
+        command: format!("{} {}", command, args.join(" ")),
+        status,
+        output: detail.to_owned(),
+    })
+}
+
 fn resolve_inside_fixture_root(root: &Path, relative_path: &str) -> Result<PathBuf, DevError> {
     let relative = Path::new(relative_path);
     if relative.is_absolute() {
@@ -424,9 +499,52 @@ fn assert_output_expectation(
         }
     }
     if let Some(subset) = expectation.get("subset") {
-        assertions.extend(assert_subset(subset, output, ""));
+        let subset_output =
+            subset_assertion_output(expectation, subset, output, base_path, &mut assertions);
+        assertions.extend(assert_subset(subset, subset_output, ""));
     }
     assertions
+}
+
+fn subset_assertion_output<'a>(
+    expectation: &JsonObject,
+    subset: &JsonValue,
+    output: &'a JsonValue,
+    base_path: &str,
+    assertions: &mut Vec<DevFixtureAssertion>,
+) -> &'a JsonValue {
+    let Some(output_object) = object_value(output) else {
+        return output;
+    };
+
+    if let Some(expected_packet) = string_field(expectation, "matches_packet") {
+        let actual_schema = string_field(output_object, "schema").unwrap_or_default();
+        if actual_schema != expected_packet {
+            assertions.push(DevFixtureAssertion {
+                path: format!("{base_path}.matches_packet"),
+                expected: Some(JsonValue::String(expected_packet.to_owned())),
+                actual: Some(JsonValue::String(actual_schema.to_owned())),
+                kind: DevFixtureAssertionKind::ExactMismatch,
+                message: "Output packet schema did not match.".to_owned(),
+            });
+        }
+        if subset_addresses_packet_wrapper(subset) {
+            return output;
+        }
+        return output_object.get("data").unwrap_or(output);
+    }
+
+    if output_object.contains_key("schema") && !subset_addresses_packet_wrapper(subset) {
+        return output_object.get("data").unwrap_or(output);
+    }
+    output
+}
+
+fn subset_addresses_packet_wrapper(subset: &JsonValue) -> bool {
+    match subset {
+        JsonValue::Object(object) => object.contains_key("schema") || object.contains_key("data"),
+        _ => false,
+    }
 }
 
 fn assert_subset(
@@ -461,6 +579,13 @@ fn assert_subset(
         assertions.extend(assert_subset(value, actual_value, &path));
     }
     assertions
+}
+
+fn object_value(value: &JsonValue) -> Option<&JsonObject> {
+    match value {
+        JsonValue::Object(object) => Some(object),
+        _ => None,
+    }
 }
 
 pub(super) fn failed_fixture(
@@ -541,10 +666,16 @@ fn safe_read_dir(directory: &Path) -> Result<Vec<fs::DirEntry>, DevError> {
 }
 
 fn unique_temp_dir() -> Result<PathBuf, DevError> {
+    static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
+
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |duration| duration.as_nanos());
-    let path = env::temp_dir().join(format!("runx-fixture-{}-{nanos}", std::process::id()));
+    let temp_id = NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed);
+    let path = env::temp_dir().join(format!(
+        "runx-fixture-{}-{nanos}-{temp_id}",
+        std::process::id()
+    ));
     fs::create_dir_all(&path).map_err(|source| DevError::Io {
         path: path.clone(),
         source,
@@ -597,4 +728,107 @@ fn is_yaml_file(path: &Path) -> bool {
 
 fn elapsed_ms(started: Instant) -> u64 {
     u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn subset_expectations_unwrap_packet_data() {
+        let assertions = assert_fixture_expectation(
+            Some(&object_value_from([
+                ("status", JsonValue::String("success".to_owned())),
+                (
+                    "output",
+                    object_value_from([(
+                        "subset",
+                        object_value_from([("message", JsonValue::String("hello".to_owned()))]),
+                    )]),
+                ),
+            ])),
+            0,
+            Some(&object_value_from([
+                ("schema", JsonValue::String("runx.echo.v1".to_owned())),
+                (
+                    "data",
+                    object_value_from([("message", JsonValue::String("hello".to_owned()))]),
+                ),
+            ])),
+        );
+
+        assert!(assertions.is_empty(), "{assertions:#?}");
+    }
+
+    #[test]
+    fn matches_packet_checks_schema_and_unwraps_data() {
+        let assertions = assert_fixture_expectation(
+            Some(&object_value_from([
+                ("status", JsonValue::String("success".to_owned())),
+                (
+                    "output",
+                    object_value_from([
+                        (
+                            "matches_packet",
+                            JsonValue::String("runx.echo.v1".to_owned()),
+                        ),
+                        (
+                            "subset",
+                            object_value_from([("message", JsonValue::String("hello".to_owned()))]),
+                        ),
+                    ]),
+                ),
+            ])),
+            0,
+            Some(&object_value_from([
+                ("schema", JsonValue::String("runx.echo.v1".to_owned())),
+                (
+                    "data",
+                    object_value_from([("message", JsonValue::String("hello".to_owned()))]),
+                ),
+            ])),
+        );
+
+        assert!(assertions.is_empty(), "{assertions:#?}");
+    }
+
+    #[test]
+    fn subset_expectations_can_address_packet_wrapper() {
+        let assertions = assert_fixture_expectation(
+            Some(&object_value_from([
+                ("status", JsonValue::String("success".to_owned())),
+                (
+                    "output",
+                    object_value_from([(
+                        "subset",
+                        object_value_from([(
+                            "data",
+                            object_value_from([("message", JsonValue::String("hello".to_owned()))]),
+                        )]),
+                    )]),
+                ),
+            ])),
+            0,
+            Some(&object_value_from([
+                ("schema", JsonValue::String("runx.echo.v1".to_owned())),
+                (
+                    "data",
+                    object_value_from([("message", JsonValue::String("hello".to_owned()))]),
+                ),
+            ])),
+        );
+
+        assert!(assertions.is_empty(), "{assertions:#?}");
+    }
+
+    fn object_value_from(
+        entries: impl IntoIterator<Item = (&'static str, JsonValue)>,
+    ) -> JsonValue {
+        JsonValue::Object(
+            entries
+                .into_iter()
+                .map(|(key, value)| (key.to_owned(), value))
+                .collect(),
+        )
+    }
 }

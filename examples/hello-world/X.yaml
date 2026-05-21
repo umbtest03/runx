@@ -13,12 +13,12 @@ harness:
       inputs:
         message: hello from docs
       expect:
-        status: success
+        status: sealed
         receipt:
-          kind: skill_execution
-          status: success
-          skill_name: hello-world
-          source_type: cli-tool
+          schema: runx.harness_receipt.v1
+          state: sealed
+          disposition: closed
+          reason_code: process_closed
 
 runners:
   default:

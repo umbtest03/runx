@@ -7,10 +7,10 @@ use super::{
     OperationalPolicy, OperationalPolicyAction, OperationalPolicyAdmission,
     OperationalPolicyAdmissionRequest, OperationalPolicyAdmissionStatus,
     OperationalPolicyAutomationPermissions, OperationalPolicyDedupePolicy, OperationalPolicyError,
-    OperationalPolicyOwnerRoute, OperationalPolicyPublishMode, OperationalPolicyReadback,
-    OperationalPolicyRunnerReadback, OperationalPolicyRunnerRule, OperationalPolicyRunnerState,
-    OperationalPolicySourceIssueClosureMode, OperationalPolicySourceReadback,
-    OperationalPolicySourceRule, OperationalPolicyTargetReadback, OperationalPolicyTargetRule,
+    OperationalPolicyOutcomeCloseMode, OperationalPolicyOwnerRoute, OperationalPolicyPublishMode,
+    OperationalPolicyReadback, OperationalPolicyRunnerReadback, OperationalPolicyRunnerRule,
+    OperationalPolicyRunnerState, OperationalPolicySourceReadback, OperationalPolicySourceRule,
+    OperationalPolicyTargetReadback, OperationalPolicyTargetRule,
     OperationalPolicyValidationFinding, action_name,
 };
 
@@ -68,7 +68,7 @@ pub fn admit_operational_policy_request(
         owner_route_id: owner_route.map(|route| route.route_id.clone()),
         owners: owner_route.map(|route| route.owners.clone()),
         dedupe_strategy: policy.dedupe.strategy,
-        source_issue_closure_mode: policy.post_merge.source_issue_closure_mode,
+        outcome_close_mode: policy.outcomes.close_source_issue,
         source_thread_required: source.is_some_and(|source| source.source_thread.required),
         mutate_target_repo: policy.permissions.mutate_target_repo,
         require_human_merge_gate: policy.permissions.require_human_merge_gate,
@@ -193,7 +193,7 @@ pub fn project_operational_policy_readback(
             .iter()
             .map(|target| target_readback(policy, target))
             .collect(),
-        post_merge: policy.post_merge.clone(),
+        outcomes: policy.outcomes.clone(),
         permissions: policy.permissions.clone(),
     })
 }
@@ -526,7 +526,7 @@ fn collect_semantic_findings(
     collect_duplicates(policy, &mut findings);
     collect_source_findings(policy, &mut findings);
     collect_target_findings(policy, &mut findings);
-    collect_post_merge_findings(policy, &mut findings);
+    collect_outcome_findings(policy, &mut findings);
     findings
 }
 
@@ -754,30 +754,29 @@ fn collect_action_coverage_findings(
     }
 }
 
-fn collect_post_merge_findings(
+fn collect_outcome_findings(
     policy: &OperationalPolicy,
     findings: &mut Vec<OperationalPolicyValidationFinding>,
 ) {
-    if policy.post_merge.publish_source_thread_closure_update
+    if policy.outcomes.publish_final_source_thread_update
         && !policy
             .sources
             .iter()
             .any(|source| source.source_thread.required)
     {
         findings.push(finding(
-            "post_merge_without_source_thread",
-            "/post_merge/publish_source_thread_closure_update",
-            "source-thread closure updates require at least one source with source_thread.required=true.",
+            "outcome_without_source_thread",
+            "/outcomes/publish_final_source_thread_update",
+            "final source-thread updates require at least one source with source_thread.required=true.",
         ));
     }
-    if policy.post_merge.source_issue_closure_mode
-        == OperationalPolicySourceIssueClosureMode::WhenVerified
-        && !policy.post_merge.verification_required
+    if policy.outcomes.close_source_issue == OperationalPolicyOutcomeCloseMode::WhenVerified
+        && !policy.outcomes.verification_required
     {
         findings.push(finding(
             "source_issue_closure_without_verification",
-            "/post_merge/source_issue_closure_mode",
-            "source_issue_closure_mode=when_verified requires verification_required=true.",
+            "/outcomes/close_source_issue",
+            "close_source_issue=when_verified requires verification_required=true.",
         ));
     }
     if policy.permissions.mutate_target_repo

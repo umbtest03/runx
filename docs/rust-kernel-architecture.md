@@ -12,11 +12,14 @@ can reference them rather than rederive them.
 ## 1. Position
 
 The Rust kernel started as conformance evidence for the TypeScript trusted
-kernel, but the local runtime cutover is now underway. For local execution,
-Rust is the canonical owner once a command is advertised by the native CLI.
-TypeScript remains a client, package, product UX, docs, and compatibility-test
-surface unless a separate spec gives it ownership of a cloud or authoring
-boundary. Rust crates exist to:
+kernel, but the local runtime cutover is now the operating boundary. For local
+execution, Rust is the canonical owner once a command is advertised by the
+native CLI. That includes graph execution, harness and dogfood execution,
+receipt sealing and verification, policy and registry configuration, authority
+admission, payment authority, and local adapter orchestration. TypeScript
+remains a client, package, product UX, docs, and compatibility-test surface
+unless a separate spec gives it ownership of a cloud or authoring boundary.
+Rust crates exist to:
 
 - Prove behavioral parity through a shared fixture suite while a domain is
   still in the dual-tree window.
@@ -424,8 +427,8 @@ Sunset order (each step is its own cutover spec, not implicit):
 4. Port impure trusted-kernel domains (`artifacts`, `config`, `knowledge`,
    `receipts`, `registry`) and runtime-local. Each requires TS-side
    purification or pure/impure split first.
-5. Cut npm `@runxhq/cli` over to Rust binary entry. Delete the
-   Node-launcher path from `crates/runx-cli`.
+5. Keep npm `@runxhq/cli` as a platform-aware selector that resolves and execs
+   the Rust binary without requiring TypeScript source or tsx at runtime.
 6. Move `runx-sdk` from CLI-backed mode to `native-runtime` once the runtime
    cutover is complete. Until then, the SDK remains a Rust client over the
    authoritative CLI and shared `runx-contracts` types.
@@ -442,7 +445,8 @@ hidden TypeScript fallback.
 
 The npm `@runxhq/cli` package remains a platform-aware launcher/client wrapper,
 but local execution semantics move through `runx-runtime`, not through
-`@runxhq/runtime-local`.
+`@runxhq/runtime-local`. Installed package usage must be useful without a
+checked-out TypeScript workspace.
 
 New native command forms still require parity evidence:
 
@@ -462,10 +466,14 @@ present them as canonical.
 The one-to-one CLI matrix belongs in `fixtures/cli-parity/` and is governed by
 the `rust-cli-feature-parity-matrix` spec. The matrix is intentionally broader
 than kernel parity. It includes `skill`, `evolve`, `resume`, `replay`, `diff`,
-`search`, `add`, `inspect`, `history`, `export-receipts`, `knowledge show`,
+`search`, `add`, `inspect`, `history`, `knowledge show`,
 `connect`, `config`, `new`, `init`, `harness`, `list`, `doctor`, `dev`,
-`mcp serve`, `tool search`, `tool inspect`, and `tool build`, plus aliases and
-JSON/non-JSON modes.
+`mcp serve`, `tool search`, `tool inspect`, and `tool build`, plus any
+pre-existing aliases that the matrix explicitly preserves and JSON/non-JSON
+modes. `export-receipts --trainable` remains a TypeScript compatibility surface
+until a native export is explicitly promoted. New payment/x402 surfaces use
+clean cutover names only; `x402-pay` is canonical and does not gain
+`x402-charge`, `x402-refund`, or other runtime aliases.
 
 ## 14. Placeholder publishing strategy
 
@@ -517,23 +525,24 @@ specs executed from `oss/` have a stable local docs path.
 
 ## 17. Current Rust Kernel Status
 
-`crates/runx-core` now implements state-machine parity against the checked-in
-TypeScript oracle fixtures. This is conformance evidence only: TypeScript is
-still authoritative and no TypeScript consumer has been replaced.
-`crates/runx-core` also implements policy parity for the current fixture-backed
-policy surface. `crates/runx-contracts` now carries typed act-assignment
-and host-protocol contracts with TypeScript-generated parity fixtures. Parser,
-receipts, registry, tools, runtime, SDK, and native CLI cutover remain follow-up
-spec tracks.
+`crates/runx-core` now implements state-machine and policy parity against the
+checked-in fixture set. For still-dual consumers, those fixtures remain
+conformance evidence. For advertised native runtime and CLI paths, Rust owns
+the local policy, authority, and configuration decisions. `crates/runx-contracts`
+now carries typed act-assignment and host-protocol contracts with parity
+fixtures. Parser, receipt, registry, tool, runtime, SDK, and CLI surfaces move
+from parity evidence to authority only through their named cutover specs.
 
 ## 18. Rust implementation quality bar
 
 The Rust port must read like Rust, not like TypeScript mechanically translated
-into Rust syntax. The source of truth for behavior is TypeScript; the source
-of truth for Rust shape is Rust's own API and style conventions.
-Fixture and wire parity are mandatory; internal names, module boundaries, and
-helper structure should actively improve when the TypeScript shape is awkward
-or less idiomatic in Rust.
+into Rust syntax. For still-dual surfaces, the source of truth for behavior is
+the approved parity fixture or TypeScript oracle named by the active spec. For
+cut-over local surfaces, Rust is the behavioral source of truth. Rust's own API
+and style conventions own the implementation shape in either case.
+Fixture and wire parity are mandatory where the spec requires them; internal
+names, module boundaries, and helper structure should actively improve when the
+TypeScript shape is awkward or less idiomatic in Rust.
 
 Code shape rules:
 

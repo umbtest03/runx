@@ -304,15 +304,20 @@ Status: completed 2026-05-20.
   verifier and rejects `sig:` pseudo signatures.
 
 Phase 2: parent/child proof and fixture handoff.
-Status: completed 2026-05-20 for strict runtime tree proof acceptance; fixture
-catalogue handoff remains in later phases.
+Status: completed 2026-05-21 for strict runtime tree parent/child proof
+acceptance; fixture catalogue handoff remains in later phases.
 - Confirm leaf skill and graph parent harness receipt fixtures exist and
   validate through strict `runx-receipts` proof paths.
 - Confirm approval round-trip, graph fanout, replay, child harness, abnormal
   seal, digest tamper, signature tamper, redaction mismatch, malformed child
   ref, and external proof-missing cases are covered by Rust validation.
 - Runtime graph parent receipt verification now uses strict proof acceptance
-  where graph parent receipts are accepted as verified.
+  where graph parent receipts are accepted as verified. Runtime acceptance
+  forces child `parent_harness_ref` links, and graph sealing re-seals child
+  harness receipts with the parent harness ref before the parent links their
+  digest locators.
+- Child receipt resolution accepts only typed `runx:harness_receipt:<id>` refs;
+  bare receipt ids and retired receipt namespaces are malformed, not aliases.
 - Move or rewrite any active TS fixture expectations that still assert retired
   receipt fields.
 
@@ -365,7 +370,8 @@ Phase 6: final validation and review evidence.
 - Journal/history `verification.status` is derived from strict receipt proof
   acceptance. Structural JSON validation alone cannot produce `verified`.
 - Parent graph verification does not claim strict acceptance without resolving
-  child harness receipt refs and checking child receipt proof requirements.
+  child harness receipt refs, checking child receipt proof requirements, and
+  confirming each child receipt carries the exact parent harness ref.
 - The runtime pseudo-signature is explicitly fenced behind a
   test/development verifier policy; production acceptance requires an injected
   verifier and fails closed when none is supplied.
@@ -490,4 +496,3 @@ Attack log:
 
 Findings:
 - none
-

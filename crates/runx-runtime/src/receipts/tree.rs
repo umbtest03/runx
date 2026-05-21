@@ -110,11 +110,21 @@ pub fn verify_runtime_receipt_tree_with_policy(
 ) -> ReceiptVerification {
     let resolver = RuntimeReceiptResolver::new(receipts);
     let proof_contexts = RuntimeReceiptProofContextProvider::new(signature_policy);
-    verify_receipt_tree_proof_with_resolver(root, &resolver, config, &proof_contexts)
+    verify_receipt_tree_proof_with_resolver(
+        root,
+        &resolver,
+        runtime_receipt_tree_config(config),
+        &proof_contexts,
+    )
 }
 
 fn runtime_receipt_path(index: usize) -> String {
     format!("runtime_receipts[{index}]")
+}
+
+fn runtime_receipt_tree_config(mut config: ReceiptTreeConfig) -> ReceiptTreeConfig {
+    config.require_parent_links = true;
+    config
 }
 
 fn referenced_receipt_id(reference: &Reference) -> Option<&str> {
@@ -125,12 +135,4 @@ fn referenced_receipt_id(reference: &Reference) -> Option<&str> {
         .uri
         .strip_prefix("runx:harness_receipt:")
         .filter(|id| !id.is_empty())
-        .or_else(|| {
-            reference
-                .uri
-                .as_str()
-                .split_once(':')
-                .is_none()
-                .then_some(reference.uri.as_str())
-        })
 }

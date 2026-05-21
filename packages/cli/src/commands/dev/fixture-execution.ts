@@ -1,6 +1,3 @@
-import { isPlainRecord } from "../../authoring-utils.js";
-import type { Caller } from "../../cli-runtime-contracts.js";
-import type { DevCommandDependencies } from "../dev.js";
 import type { FixtureExecutionRoots } from "./internal.js";
 
 export function resolveFixtureExecutionRoots(
@@ -21,21 +18,6 @@ export function resolveFixtureExecutionRoots(
     cwd: workspaceRoot ?? root,
     repoRoot: root,
   };
-}
-
-export function createFixtureCaller(
-  fixture: Readonly<Record<string, unknown>>,
-  env: NodeJS.ProcessEnv,
-  deps: DevCommandDependencies,
-): Caller {
-  const caller = isPlainRecord(fixture.caller) ? fixture.caller : {};
-  const answers = isPlainRecord(caller.answers) ? caller.answers : {};
-  const approvals = isPlainRecord(caller.approvals)
-    ? Object.fromEntries(Object.entries(caller.approvals).filter(([, value]) => typeof value === "boolean")) as Readonly<Record<string, boolean>>
-    : typeof caller.approvals === "boolean"
-      ? caller.approvals
-      : undefined;
-  return deps.createNonInteractiveCaller(answers, approvals, deps.createAgentRuntimeLoader(env));
 }
 
 export async function runProcess(

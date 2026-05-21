@@ -7,7 +7,7 @@ import {
   toProjectPath,
   writeJsonFile,
 } from "../../authoring-utils.js";
-import type { DevCommandArgs, DevCommandDependencies } from "../dev.js";
+import type { DevCommandArgs } from "../dev.js";
 import { assertFixtureExpectation, selectNamedOutput } from "./fixture-assertions.js";
 import { runSkillFixture } from "./skill-fixture.js";
 import { failedFixture, type DevFixtureResult } from "./internal.js";
@@ -21,8 +21,6 @@ export async function recordReplayFixture(
   target: Readonly<Record<string, unknown>>,
   startedAt: number,
   parsed: DevCommandArgs,
-  env: NodeJS.ProcessEnv,
-  deps: DevCommandDependencies,
 ): Promise<DevFixtureResult> {
   if (!parsed.devRealAgents && !isPlainRecord(fixture.caller)) {
     return failedFixture(name, lane, target, startedAt, [{
@@ -35,7 +33,7 @@ export async function recordReplayFixture(
   }
   const kind = typeof target.kind === "string" ? target.kind : undefined;
   const result = kind === "skill" || kind === "graph"
-    ? await runSkillFixture(root, fixturePath, fixture, name, lane, target, startedAt, parsed.devRealAgents, env, deps)
+    ? await runSkillFixture(root, fixturePath, name, lane, target, startedAt)
     : failedFixture(name, lane, target, startedAt, [{
         path: "target.kind",
         expected: "skill | graph",

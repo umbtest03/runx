@@ -92,7 +92,7 @@ describe("CLI feature parity matrix", () => {
     }
   });
 
-  it("executes deterministic oracle cases against the TypeScript CLI", async () => {
+  it("executes deterministic oracle cases against the compatibility CLI wrapper", async () => {
     const executableCases = (await readOracleCases()).filter((testCase) => testCase.mode === "execute");
 
     for (const testCase of executableCases) {

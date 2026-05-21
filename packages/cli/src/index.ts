@@ -6,11 +6,9 @@ import { realpathSync } from "node:fs";
 import { stdin as processStdin, stdout as processStdout } from "node:process";
 import { pathToFileURL } from "node:url";
 
-import { resolvePathFromUserInput } from "@runxhq/core/config";
 import { errorMessage } from "@runxhq/core/util";
 
 import { isSupportedCommand, parseArgs } from "./args.js";
-import { createAgentRuntimeLoader, createInteractiveCaller, createNonInteractiveCaller, readCallerInputFile } from "./callers.js";
 import type { ConnectService } from "./commands/connect.js";
 import { dispatchCli, writeCliError } from "./dispatch.js";
 import { isHelpRequest, writeUsage } from "./help.js";
@@ -47,15 +45,7 @@ export async function runCli(
   }
 
   try {
-    const callerInput = parsed.answersPath
-      ? await readCallerInputFile(resolvePathFromUserInput(parsed.answersPath, env))
-      : { answers: {} };
-    const agentRuntimeLoader = createAgentRuntimeLoader(env);
-    const nonInteractive = parsed.nonInteractive || parsed.json;
-    const caller = nonInteractive
-      ? createNonInteractiveCaller(callerInput.answers, callerInput.approvals, agentRuntimeLoader)
-      : createInteractiveCaller(io, callerInput.answers, callerInput.approvals, { reportEvents: !parsed.json }, env, agentRuntimeLoader);
-    return await dispatchCli(parsed, io, env, caller, services);
+    return await dispatchCli(parsed, io, env, services);
   } catch (error) {
     const message = errorMessage(error);
     return writeCliError(io, message);

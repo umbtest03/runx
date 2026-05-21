@@ -11,13 +11,15 @@ use runx_contracts::{
     SuccessCriterion,
 };
 use runx_receipts::{
-    ReceiptProofContext, ReceiptProofContextProvider, ReceiptSignature,
+    ReceiptProofContext, ReceiptProofContextProvider, ReceiptSignature, ReceiptTreeConfig,
     SignatureVerificationFailure, SignatureVerifier, canonical_receipt_body_digest,
-    validate_harness_receipt_proof, validate_receipt_tree_proof,
+    validate_harness_receipt_proof,
 };
 
 use crate::adapter::SkillOutput;
 use crate::{RuntimeError, StepRun};
+
+use super::tree::validate_runtime_receipt_tree;
 
 pub fn step_receipt(
     graph_name: &str,
@@ -82,6 +84,7 @@ pub(crate) fn step_receipt_with_disposition(
         harness: harness(HarnessParts {
             graph_name,
             step_id,
+            parent_harness_ref: None,
             state: HarnessState::Sealed,
             acts: vec![act],
             child_refs: Vec::new(),
@@ -102,7 +105,7 @@ pub(crate) fn step_receipt_with_disposition(
 
 pub fn graph_receipt(
     graph_name: &str,
-    steps: &[StepRun],
+    steps: &mut [StepRun],
     sync_points: Vec<FanoutReceiptSyncPoint>,
     created_at: &str,
 ) -> Result<HarnessReceipt, RuntimeError> {
@@ -119,13 +122,15 @@ pub fn graph_receipt(
 
 pub(crate) fn graph_receipt_with_disposition(
     graph_name: &str,
-    steps: &[StepRun],
+    steps: &mut [StepRun],
     sync_points: Vec<FanoutReceiptSyncPoint>,
     created_at: &str,
     disposition: ClosureDisposition,
     reason_code: String,
     summary: String,
 ) -> Result<HarnessReceipt, RuntimeError> {
+    let parent_harness_ref = harness_ref(graph_name, "graph");
+    attach_parent_to_child_receipts(steps, &parent_harness_ref)?;
     let child_refs = steps
         .iter()
         .map(|step| child_receipt_reference(&step.receipt))
@@ -140,6 +145,7 @@ pub(crate) fn graph_receipt_with_disposition(
         harness: harness(HarnessParts {
             graph_name,
             step_id: "graph",
+            parent_harness_ref: None,
             state: HarnessState::Sealed,
             acts: Vec::new(),
             child_refs,
@@ -167,8 +173,8 @@ fn validate_local_receipt_tree(
     root: &HarnessReceipt,
     children: &[HarnessReceipt],
 ) -> Result<(), RuntimeError> {
-    let proof_contexts = RuntimeReceiptProofContextProvider::local_development();
-    validate_receipt_tree_proof(root, children, &proof_contexts).map_err(receipt_error)
+    validate_runtime_receipt_tree(root, children.iter().cloned(), ReceiptTreeConfig::default())
+        .map_err(receipt_error)
 }
 
 fn step_receipt_id(graph_name: &str, step_id: &str, attempt: u32) -> String {
@@ -196,6 +202,7 @@ fn process_reason_code(disposition: &ClosureDisposition) -> String {
 struct HarnessParts<'a> {
     graph_name: &'a str,
     step_id: &'a str,
+    parent_harness_ref: Option<Reference>,
     state: HarnessState,
     acts: Vec<Act>,
     child_refs: Vec<Reference>,
@@ -208,6 +215,7 @@ fn harness(parts: HarnessParts<'_>) -> Harness {
     let HarnessParts {
         graph_name,
         step_id,
+        parent_harness_ref,
         state,
         acts,
         child_refs,
@@ -219,10 +227,10 @@ fn harness(parts: HarnessParts<'_>) -> Harness {
     Harness {
         schema: None,
         harness_id: format!("hrn_{graph_name}_{step_id}"),
-        parent_harness_ref: None,
+        parent_harness_ref,
         state,
         host_ref: reference(ReferenceType::Host, "cli"),
-        harness_ref: reference(ReferenceType::Harness, &format!("{graph_name}_{step_id}")),
+        harness_ref: harness_ref(graph_name, step_id),
         authority: authority(),
         enforcement: enforcement(),
         idempotency: idempotency(graph_name, step_id),
@@ -617,6 +625,24 @@ fn child_receipt_reference(receipt: &HarnessReceipt) -> Reference {
         locator: Some(receipt.seal.digest.clone()),
         ..reference(ReferenceType::HarnessReceipt, &receipt.id)
     }
+}
+
+fn harness_ref(graph_name: &str, step_id: &str) -> Reference {
+    reference(ReferenceType::Harness, &format!("{graph_name}_{step_id}"))
+}
+
+fn attach_parent_to_child_receipts(
+    steps: &mut [StepRun],
+    parent_harness_ref: &Reference,
+) -> Result<(), RuntimeError> {
+    for step in steps {
+        step.receipt.harness.parent_harness_ref = Some(parent_harness_ref.clone());
+        seal_receipt(
+            &mut step.receipt,
+            RuntimeReceiptSignaturePolicy::local_development(),
+        )?;
+    }
+    Ok(())
 }
 
 fn reference_type_name(reference_type: &ReferenceType) -> &'static str {

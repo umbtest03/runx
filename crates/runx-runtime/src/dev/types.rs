@@ -181,6 +181,12 @@ pub enum DevError {
         #[source]
         source: std::io::Error,
     },
+    #[error("dev fixture command `{command}` failed with status {status}: {output}")]
+    FixtureCommand {
+        command: String,
+        status: i32,
+        output: String,
+    },
     #[error(transparent)]
     Runtime(#[from] crate::RuntimeError),
 }

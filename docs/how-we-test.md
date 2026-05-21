@@ -14,6 +14,15 @@ pnpm test:fast
 `test:fast` uses `vitest.fast.config.ts`. It includes package tests plus
 compatibility coverage for TypeScript wrapper surfaces.
 
+For canonical local runtime behavior, prefer the Rust lane directly. Payment,
+authority, receipt, harness, dogfood, registry, and policy-config changes need
+Rust coverage or a TS-free Rust CLI fixture:
+
+```bash
+cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_execution
+cargo test --manifest-path crates/Cargo.toml -p runx-cli --test x402_native_dogfood
+```
+
 For one file:
 
 ```bash
@@ -23,7 +32,7 @@ pnpm vitest run tests/examples/hello-world.test.ts
 ## Full Suite
 
 Use this before review or when changing CLI packaging, dist output, package
-exports, graph execution, receipts, or cross-package behavior:
+exports, or cross-package TypeScript wrapper behavior:
 
 ```bash
 pnpm test
@@ -62,9 +71,10 @@ test or harness so the docs fail loudly when the runtime shape changes.
 ## Adding Tests
 
 Use package-local tests for package internals and `tests/` for cross-package
-behavior. Trusted local skill, graph, harness, receipt, policy, authority, and
-payment behavior needs a Rust test or a TS-free Rust CLI fixture. TypeScript
-tests may wrap those paths, but they should not be the only proof.
+wrapper behavior. Trusted local skill, graph, harness, receipt, policy,
+authority, registry, config, and payment behavior needs a Rust test or a
+TS-free Rust CLI fixture. TypeScript tests may wrap those paths, but they
+should not be the only proof.
 
 For docs examples, keep the test focused on the public command or runtime path
 the docs promise. The hello-world and hello-graph tests are the reference shape.

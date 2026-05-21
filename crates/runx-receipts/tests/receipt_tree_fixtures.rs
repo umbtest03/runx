@@ -155,14 +155,6 @@ fn referenced_receipt_id(reference: &Reference) -> Option<&str> {
         .uri
         .strip_prefix("runx:harness_receipt:")
         .filter(|id| !id.is_empty())
-        .or_else(|| {
-            reference
-                .uri
-                .as_str()
-                .split_once(':')
-                .is_none()
-                .then_some(reference.uri.as_str())
-        })
 }
 
 fn ordered_findings(verification: &ReceiptVerification) -> Vec<ExpectedFinding> {

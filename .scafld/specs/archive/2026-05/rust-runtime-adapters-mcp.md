@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-runtime-adapters-mcp
 created: '2026-05-18T00:00:00Z'
-updated: '2026-05-20T02:48:16Z'
+updated: '2026-05-21T00:00:00Z'
 status: completed
 harden_status: not_run
 size: extra_large
@@ -144,6 +144,28 @@ Out of scope:
 - Post-cutover harness receipt proof and receipt-tree APIs.
 - At least one additional adapter complete so the trait shape is stable.
 
+## Implementation Notes
+
+The MCP adapter intentionally keeps a narrow local Content-Length JSON-RPC
+protocol layer instead of adopting `rmcp` in this slice. That was the smaller
+hard-cutover implementation because the required stdio lifecycle, synchronous
+adapter trait, process sandbox handoff, static timeout floor, response size
+caps, child termination, and sanitized failure shape are all runtime-owned
+contracts that must stay deterministic and network-free. The follow-up
+`rust-mcp-rmcp-adoption` spec records the migration map and keeps `rmcp` out of
+this completed adapter until a separate cutover can prove byte-compatible
+client/server behavior.
+
+The prior review finding
+`mcp-server-skill-may-skip-harness-receipt-seal` was closed by the focused
+`rust-mcp-server-harness-receipt-seal` slice. Current MCP server tests assert a
+single-skill `tools/call` writes a sealed `runx.harness_receipt.v1` receipt.
+
+The prior `runx mcp serve --runner` note is owned by the completed
+`rust-cli-mcp-runner-selection` slice: native CLI parsing accepts runner
+selection only to fail closed with `UnsupportedRunnerSelection`; it must not
+delegate to a legacy JavaScript path.
+
 ## Implementation Contract
 
 ### MCP Client
@@ -273,7 +295,7 @@ pnpm exec tsx scripts/generate-runtime-mcp-oracles.ts --check
 scripts/check-runtime-mcp-oracles.sh
 cargo fmt --manifest-path crates/Cargo.toml --all --check
 cargo test --manifest-path crates/Cargo.toml -p runx-runtime mcp --features mcp -- --nocapture
-cargo test --manifest-path crates/Cargo.toml -p runx-cli mcp --features mcp -- --nocapture
+cargo test --manifest-path crates/Cargo.toml -p runx-cli mcp -- --nocapture
 cargo test --manifest-path crates/Cargo.toml -p runx-runtime receipt_tree -- --nocapture
 cargo test --manifest-path crates/Cargo.toml -p runx-receipts proof -- --nocapture
 cargo clippy --manifest-path crates/Cargo.toml -p runx-runtime -p runx-cli --all-targets --features mcp -- -D warnings
@@ -331,16 +353,15 @@ Attack log:
 - `crates/runx-runtime/Cargo.toml + crates/runx-runtime/src/adapters/mod.rs`: Confirm `mcp` feature is opt-in, has no implicit fan-out to `agent`/`a2a`/`catalog`, and the module compiles only when feature is on. -> clean (Cargo.toml features list `mcp = []` (no transitive features) and `adapters/mod.rs:13-14` gates `pub mod mcp` behind `#[cfg(feature = "mcp")]`. Test files use `#![cfg(feature = "mcp")]` headers.)
 
 Findings:
-- [medium/non-blocking] `mcp-cli-runner-flag-always-errors` `runx mcp serve --runner <name>` is advertised in shim help and parsed by the launcher, but the runtime unconditionally rejects any non-None runner.
+- [resolved] `mcp-cli-runner-flag-always-errors` `runx mcp serve --runner <name>` is parsed by the native launcher and fails closed instead of delegating to JavaScript.
   - Location: `crates/runx-runtime/src/adapters/mcp.rs:156`
-  - Evidence: crates/runx-cli/src/launcher.rs:270 advertises `runx mcp serve <skill-ref...> [--runner name]`. crates/runx-cli/src/mcp.rs:31-35 + 60-64 parse `--runner` and forward it to `McpServerExecutionOptions::runner`. crates/runx-runtime/src/adapters/mcp.rs:156-160 then returns `RuntimeError::UnsupportedRunnerSelection` whenever `runner.is_some()`. Any user who passes the documented flag receives `runx: ...` error on stderr and exit code 1.
-- [low/non-blocking] `mcp-test-only-public-variants` `McpServerToolBehavior::ResumeNotImplemented` and `McpServerToolBehavior::NotImplemented(String)` are public enum variants with no production constructor; only the integration test constructs `ResumeNotImplemented`.
+  - Evidence: Follow-up `rust-cli-mcp-runner-selection` completed this as an explicit fail-closed native behavior. Current help no longer advertises `--runner`; parser coverage proves canonical and non-canonical runner selection cannot silently fall through to JS.
+- [resolved] `mcp-test-only-public-variants` test-only MCP server behavior variants are absent from the production surface.
   - Location: `crates/runx-runtime/src/adapters/mcp.rs:200`
-  - Evidence: crates/runx-runtime/src/adapters/mcp.rs:200-206 exposes both variants; ripgrep shows the only constructor is crates/runx-runtime/tests/mcp_server.rs:530 (ResumeNotImplemented). `NotImplemented(String)` has no constructor anywhere under crates/. The handler at mcp.rs:703-708 maps them to `-32000` JSON-RPC errors, so they are real surface area that downstream consumers could (mis)use.
-- [low/non-blocking] `mcp-library-decision-not-recorded` Spec Objective requires recording the MCP library decision in implementation notes; no notes section exists and `rmcp` was not adopted.
+  - Evidence: `McpServerToolBehavior` now contains only `Fixed` and `Skill`; no `ResumeNotImplemented`, `NotImplemented`, or `McpServerToolBehavior::NotImplemented` symbols remain under `crates/`.
+- [resolved] `mcp-library-decision-not-recorded` Spec Objective requires recording the MCP library decision in implementation notes; no notes section exists and `rmcp` was not adopted.
   - Location: `.scafld/specs/active/rust-runtime-adapters-mcp.md`
-  - Evidence: .scafld/specs/active/rust-runtime-adapters-mcp.md:113-114 says "Pick the Rust MCP library in Phase 1 ingest and record the decision in the implementation notes. Default candidate: `rmcp`." The spec only contains `## Implementation Contract` (line 147), no `## Implementation Notes`. crates/runx-runtime/Cargo.toml has no `rmcp` dependency and crates/runx-runtime/src/adapters/mcp.rs implements a hand-rolled Content-Length JSON-RPC framing (lines 1867-2115). The chosen path is the spec-allowed fallback ("otherwise implement the narrow local protocol layer and record why") but the rationale is not recorded.
-- [medium/non-blocking] `mcp-server-skill-may-skip-harness-receipt-seal` Single-skill execution from `runx mcp serve` writes a step receipt directly and may not seal the `runx.harness_receipt.v1` node the spec calls for.
+  - Evidence: This spec now includes `## Implementation Notes` documenting the narrow local Content-Length JSON-RPC protocol decision and deferring `rmcp` to `rust-mcp-rmcp-adoption`.
+- [resolved] `mcp-server-skill-may-skip-harness-receipt-seal` Single-skill execution from `runx mcp serve` writes a sealed `runx.harness_receipt.v1` receipt.
   - Location: `crates/runx-runtime/src/adapters/mcp.rs:1240`
-  - Evidence: Spec Implementation Contract (lines 196-199): "The server must route skill execution through the post-cutover Rust runtime/harness path that seals `runx.harness_receipt.v1` nodes and links child harness receipt refs." In crates/runx-runtime/src/adapters/mcp.rs:1240-1259, `complete_mcp_server_skill` calls `invoke_mcp_server_skill` (which dispatches directly to `McpAdapter::default().invoke` or the cli-tool adapter at lines 1282-1316) and then writes a `step_receipt` to `LocalReceiptStore`. There is no call into the harness pipeline that produces `HarnessReceipt`/seals harness_receipt refs (compare to crates/runx-runtime/src/journal.rs:242-253 where harness receipts are sealed). The graph path uses `Runtime::run_graph_until_steps_with_caller`, but the per-skill path bypasses the harness/runner module. No mcp_server test asserts a harness_receipt.v1 node is produced.
-
+  - Evidence: Follow-up `rust-mcp-server-harness-receipt-seal` completed this gap. Current `mcp_server_single_skill_call_writes_sealed_harness_receipt` reads the receipt from `LocalReceiptStore` and asserts `HarnessReceiptSchema::V1`, `HarnessState::Sealed`, and seal equality.

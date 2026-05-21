@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     JsonObject, OperationalPolicyAction, OperationalPolicyAdmission,
     OperationalPolicyDedupeStrategy, OperationalPolicyDuplicateBehavior, OperationalPolicyError,
-    OperationalPolicyPublishMode, OperationalPolicyRunnerKind, OperationalPolicyRunnerRule,
-    OperationalPolicySourceIssueClosureMode, OperationalPolicySourceProvider,
-    OperationalPolicySourceRule, OperationalPolicyTargetRule, Reference,
+    OperationalPolicyOutcomeCloseMode, OperationalPolicyPublishMode, OperationalPolicyRunnerKind,
+    OperationalPolicyRunnerRule, OperationalPolicySourceProvider, OperationalPolicySourceRule,
+    OperationalPolicyTargetRule, Reference,
 };
 
 mod plan;
@@ -71,7 +71,7 @@ pub struct TargetRepoRunnerPlan {
     pub runner: TargetRepoRunnerRunnerPlan,
     pub owner: TargetRepoRunnerOwnerPlan,
     pub dedupe: TargetRepoRunnerDedupePlan,
-    pub source_issue_closure_mode: OperationalPolicySourceIssueClosureMode,
+    pub outcome_close_mode: OperationalPolicyOutcomeCloseMode,
     pub mutate_target_repo: bool,
     pub require_human_merge_gate: bool,
 }

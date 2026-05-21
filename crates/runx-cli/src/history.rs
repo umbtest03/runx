@@ -181,7 +181,7 @@ fn render_history(
                 "\n  No receipts matched {query}.\n  Try runx history to see every local run.\n\n"
             );
         }
-        return "\n  No receipts yet. Try a run first:\n  runx evolve\n  runx skill search docs\n\n"
+        return "\n  No receipts yet. Try a run first:\n  runx skill <skill-dir> --json\n  runx harness <fixture.yaml> --json\n\n"
             .to_owned();
     }
     let mut lines = Vec::new();
@@ -220,7 +220,7 @@ fn render_history(
     }
     lines.push(String::new());
     if history.pending_runs.is_empty() {
-        lines.push("  next  runx skill inspect <receipt-id>".to_owned());
+        lines.push("  next  runx history <receipt-id> --json".to_owned());
     } else {
         lines.push(
             "  next  rerun the same runx skill <path> with --run-id and --answers".to_owned(),

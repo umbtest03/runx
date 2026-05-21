@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -10,7 +10,6 @@ import {
   validateRunxListReportContract,
 } from "@runxhq/contracts";
 import { runCli, parseArgs, resolveSkillReference } from "./index.js";
-import { hashString } from "@runxhq/core/util";
 import { readCliDependencyVersion } from "./metadata.js";
 
 const tempDirs: string[] = [];
@@ -37,147 +36,79 @@ describe("parseArgs", () => {
     });
   });
 
-  it("maps kebab-case CLI flags onto declared snake_case skill inputs", async () => {
+  it("maps kebab-case CLI flags onto declared native snake_case skill inputs", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-kebab-input-"));
     tempDirs.push(tempDir);
     const skillDir = path.join(tempDir, "task-boundary");
-    const answersPath = path.join(tempDir, "answers.json");
-    await mkdir(skillDir, { recursive: true });
+    await writeNativeCliToolSkill(skillDir, {
+      name: "task-boundary",
+      inputs: {
+        task_id: {
+          type: "string",
+          required: true,
+        },
+      },
+      script: "const inputs = JSON.parse(process.env.RUNX_INPUTS_JSON || \"{}\");\nprocess.stdout.write(JSON.stringify(inputs));\n",
+    });
     await writeFile(
       path.join(skillDir, "SKILL.md"),
       `---
 name: task-boundary
-description: Temporary fixture that echoes a task id through an agent boundary.
-source:
-  type: agent-step
-  agent: codex
-  task: task-boundary
-  outputs:
-    echoed_task: string
-inputs:
-  task_id:
-    type: string
-    required: true
+description: Temporary native fixture that echoes a task id.
 ---
 Return the provided task id.
 `,
-    );
-    await writeFile(
-      answersPath,
-      `${JSON.stringify(
-        {
-          answers: {
-            "agent_step.task-boundary.output": {
-              echoed_task: "abc-123",
-            },
-          },
-        },
-        null,
-        2,
-      )}\n`,
     );
 
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
     const exitCode = await runCli(
-      ["skill", skillDir, "--task-id", "abc-123", "--answers", answersPath, "--non-interactive", "--json"],
+      ["skill", skillDir, "--task-id", "abc-123", "--non-interactive", "--json"],
       { stdin: process.stdin, stdout, stderr },
       { ...process.env, RUNX_CWD: process.cwd() },
     );
 
     expect(exitCode).toBe(0);
     expect(stderr.contents()).toBe("");
-    expect(JSON.parse(stdout.contents())).toMatchObject({
+    const result = JSON.parse(stdout.contents()) as { status: string; execution: { stdout: string }; payload?: unknown };
+    expect(result).toMatchObject({
       status: "sealed",
-      inputs: {
+      payload: {
         task_id: "abc-123",
       },
     });
+    expect(JSON.parse(result.execution.stdout)).toEqual({ task_id: "abc-123" });
   }, 15000);
 
-  it("preserves canonical delegated inputs across same-skill continuation for wrapper skills", async () => {
+  it("continues native agent-step runs with canonical snake_case inputs", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-delegated-continuation-"));
     tempDirs.push(tempDir);
-    const childDir = path.join(tempDir, "child-task");
-    const wrapperDir = path.join(tempDir, "wrapper-task");
+    const skillDir = path.join(tempDir, "child-task");
     const answersPath = path.join(tempDir, "answers.json");
     const receiptDir = path.join(tempDir, "receipts");
 
-    await mkdir(childDir, { recursive: true });
-    await mkdir(wrapperDir, { recursive: true });
-    await mkdir(path.join(wrapperDir, ".runx"), { recursive: true });
-
+    await writeNativeAgentStepSkill(skillDir, {
+      name: "child-task",
+      task: "child-task",
+      outputs: {
+        echoed_task: "string",
+      },
+      inputs: {
+        task_id: {
+          type: "string",
+          required: false,
+          default: "default-task",
+        },
+      },
+    });
     await writeFile(
-      path.join(childDir, "SKILL.md"),
+      path.join(skillDir, "SKILL.md"),
       `---
 name: child-task
-description: Temporary delegated fixture that echoes a task id through an agent boundary.
-source:
-  type: agent-step
-  agent: codex
-  task: child-task
-  outputs:
-    echoed_task: string
-inputs:
-  task_id:
-    type: string
-    required: false
-    default: default-task
+description: Temporary native fixture that echoes a task id through an agent boundary.
 ---
 Return the provided task id.
 `,
-    );
-    await writeFile(
-      path.join(wrapperDir, "SKILL.md"),
-      `---
-name: wrapper-task
-description: Compatibility wrapper that delegates to child-task.
----
-Delegate to child-task.
-`,
-    );
-    const profileDocument = `skill: wrapper-task
-
-runners:
-  wrapper-task:
-    default: true
-    type: graph
-    inputs:
-      task_id:
-        type: string
-        required: false
-        default: default-task
-    graph:
-      name: wrapper-task
-      owner: test
-      steps:
-        - id: delegate
-          label: delegate task
-          skill: ../child-task/SKILL.md
-          mutation: false
-`;
-    await writeFile(
-      path.join(wrapperDir, ".runx/profile.json"),
-      `${JSON.stringify(
-        {
-          schema_version: "runx.skill-profile.v1",
-          skill: {
-            name: "wrapper-task",
-            path: "SKILL.md",
-            digest: "fixture-skill-digest",
-          },
-          profile: {
-            document: profileDocument,
-            digest: "fixture-profile-digest",
-            runner_names: ["wrapper-task"],
-          },
-          origin: {
-            source: "fixture",
-          },
-        },
-        null,
-        2,
-      )}\n`,
     );
     await writeFile(
       answersPath,
@@ -197,7 +128,7 @@ runners:
     const firstStdout = createMemoryStream();
     const firstStderr = createMemoryStream();
     const firstExitCode = await runCli(
-      ["skill", wrapperDir, "--task-id", "abc-123", "--receipt-dir", receiptDir, "--non-interactive", "--json"],
+      ["skill", skillDir, "--task-id", "abc-123", "--receipt-dir", receiptDir, "--non-interactive", "--json"],
       { stdin: process.stdin, stdout: firstStdout, stderr: firstStderr },
       { ...process.env, RUNX_CWD: process.cwd() },
     );
@@ -210,6 +141,13 @@ runners:
       requests: [
         {
           id: "agent_step.child-task.output",
+          invocation: {
+            envelope: {
+              inputs: {
+                task_id: "abc-123",
+              },
+            },
+          },
         },
       ],
     });
@@ -217,19 +155,18 @@ runners:
     const secondStdout = createMemoryStream();
     const secondStderr = createMemoryStream();
     const secondExitCode = await runCli(
-      ["skill", wrapperDir, "--run-id", firstJson.run_id, "--answers", answersPath, "--receipt-dir", receiptDir, "--non-interactive", "--json"],
+      ["skill", skillDir, "--task-id", "abc-123", "--run-id", firstJson.run_id, "--answers", answersPath, "--receipt-dir", receiptDir, "--non-interactive", "--json"],
       { stdin: process.stdin, stdout: secondStdout, stderr: secondStderr },
       { ...process.env, RUNX_CWD: process.cwd() },
     );
 
     expect(secondExitCode).toBe(0);
     expect(secondStderr.contents()).toBe("");
-    expect(JSON.parse(secondStdout.contents())).toMatchObject({
+    const secondJson = JSON.parse(secondStdout.contents()) as { execution: { stdout: string }; status: string };
+    expect(secondJson).toMatchObject({
       status: "sealed",
-      inputs: {
-        task_id: "abc-123",
-      },
     });
+    expect(JSON.parse(secondJson.execution.stdout)).toEqual({ echoed_task: "abc-123" });
   });
 
   it("does not treat arbitrary top-level commands as skill invocations", () => {
@@ -298,7 +235,7 @@ runners:
     expect(parsed.inputs).toEqual({});
   });
 
-  it("returns a CLI error when an answers file cannot be read", async () => {
+  it("requires native answer continuation to include a run id", async () => {
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
     const exitCode = await runCli(
@@ -308,27 +245,44 @@ runners:
     );
 
     expect(exitCode).toBe(1);
-    expect(stderr.contents()).toContain("no such file or directory");
+    expect(stdout.contents()).toBe("");
+    expect(stderr.contents()).toContain("native runx skill");
+    expect(stderr.contents()).toContain("runx skill --answers requires --run-id");
   });
 
-  it("renders human-friendly needs-agent guidance for interactive sourcey runs", async () => {
+  it("renders human-friendly needs-agent guidance for native agent-step runs", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-native-agent-guidance-"));
+    tempDirs.push(tempDir);
+    const skillDir = path.join(tempDir, "agent-step");
+    await writeNativeAgentStepSkill(skillDir, {
+      name: "agent-step",
+      task: "review",
+      outputs: {
+        verdict: "string",
+      },
+      inputs: {
+        prompt: {
+          type: "string",
+          required: true,
+        },
+      },
+    });
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
     const fakeBinDir = await createFakeAgentBin(["claude", "codex"]);
 
     const exitCode = await runCli(
-      ["skill", "skills/sourcey", "--project", "fixtures/sourcey/incomplete"],
+      ["skill", skillDir, "--prompt", "review this", "--non-interactive"],
       { stdin: process.stdin, stdout, stderr },
       { ...process.env, RUNX_CWD: process.cwd(), PATH: fakeBinDir },
     );
 
     expect(exitCode).toBe(2);
     expect(stderr.contents()).toBe("");
-    expect(stdout.contents()).toContain("planning docs site");
-    expect(stdout.contents()).toContain("discover");
-    expect(stdout.contents()).toContain("needs docs plan");
+    expect(stdout.contents()).toContain("waiting for verdict");
+    expect(stdout.contents()).toContain("task      review");
     expect(stdout.contents()).toContain("Detected here: Claude Code, Codex");
-    expect(stdout.contents()).toContain("inspect this repo and draft one bounded docs plan");
+    expect(stdout.contents()).toContain(`runx skill ${skillDir} --run-id run_agent_step-review-output --answers answers.json`);
     expect(stdout.contents()).not.toContain("Resolution requested");
     expect(stdout.contents()).not.toContain("request   agent_step");
   });
@@ -350,7 +304,7 @@ runners:
     expect(stderr.contents()).toContain("runx skill <skill-ref|skill-dir|SKILL.md>");
   });
 
-  it("uses the current directory automatically for project-root questions", async () => {
+  it("does not fall back to TS graph execution for sourcey", async () => {
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
 
@@ -360,18 +314,34 @@ runners:
       { ...process.env, RUNX_CWD: process.cwd() },
     );
 
-    expect(exitCode).toBe(2);
-    expect(stderr.contents()).toBe("");
-    expect(stdout.contents()).not.toContain("input needed");
-    expect(stdout.contents()).toContain("planning docs site");
+    expect(exitCode).toBe(1);
+    expect(stdout.contents()).toBe("");
+    expect(stderr.contents()).toContain("native runx skill");
+    expect(stderr.contents()).toContain("native execution only supports agent, agent-step, and cli-tool runners, got graph");
   });
 
-  it("keeps --json output machine-readable without progress lines", async () => {
+  it("keeps native needs-agent --json output machine-readable without progress lines", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-native-agent-json-"));
+    tempDirs.push(tempDir);
+    const skillDir = path.join(tempDir, "agent-step");
+    await writeNativeAgentStepSkill(skillDir, {
+      name: "agent-step",
+      task: "review",
+      outputs: {
+        verdict: "string",
+      },
+      inputs: {
+        prompt: {
+          type: "string",
+          required: true,
+        },
+      },
+    });
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
 
     const exitCode = await runCli(
-      ["skill", "skills/sourcey", "--json"],
+      ["skill", skillDir, "--prompt", "review this", "--non-interactive", "--json"],
       { stdin: process.stdin, stdout, stderr },
       { ...process.env, RUNX_CWD: process.cwd() },
     );
@@ -381,6 +351,16 @@ runners:
     expect(stdout.contents().trimStart().startsWith("{")).toBe(true);
     expect(stdout.contents()).not.toContain("Resolution requested");
     expect(stdout.contents()).not.toContain("needs caller result");
+    expect(JSON.parse(stdout.contents())).toMatchObject({
+      status: "needs_agent",
+      run_id: "run_agent_step-review-output",
+      requests: [
+        {
+          id: "agent_step.review.output",
+          kind: "agent_act",
+        },
+      ],
+    });
   });
 
   it("renders a sealed summary for simple skill runs", async () => {
@@ -397,7 +377,7 @@ runners:
     expect(stderr.contents()).toBe("");
     expect(stdout.contents()).toContain("sealed");
     expect(stdout.contents()).toContain("receipt");
-    expect(stdout.contents()).toContain("inspect");
+    expect(stdout.contents()).toContain("history");
     expect(stdout.contents()).toContain("output");
     expect(stdout.contents()).toContain("hello");
   });
@@ -482,11 +462,25 @@ runners:
     expect(result.findings.map((finding) => finding.code)).toContain("target_action_without_runner");
   });
 
-  it("auto-resolves structured agent-step runs through the configured OpenAI managed adapter", async () => {
+  it("does not route native agent-step runs through the TS OpenAI managed adapter", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-auto-agent-"));
     tempDirs.push(tempDir);
     const env = { ...process.env, RUNX_HOME: path.join(tempDir, ".runx"), RUNX_CWD: process.cwd() };
     await configureOpenAiAgent(env, "gpt-test");
+    const skillDir = path.join(tempDir, "agent-step");
+    await writeNativeAgentStepSkill(skillDir, {
+      name: "agent-step",
+      task: "review",
+      outputs: {
+        verdict: "string",
+      },
+      inputs: {
+        prompt: {
+          type: "string",
+          required: true,
+        },
+      },
+    });
 
     let requestCount = 0;
     globalThis.fetch = vi.fn(async (_input, init) => {
@@ -514,29 +508,46 @@ runners:
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
     const exitCode = await runCli(
-      ["skill", "fixtures/skills/agent-step", "--prompt", "review this", "--non-interactive", "--json"],
+      ["skill", skillDir, "--prompt", "review this", "--non-interactive", "--json"],
       { stdin: process.stdin, stdout, stderr },
       env,
     );
 
-    expect(exitCode).toBe(0);
+    expect(exitCode).toBe(2);
     expect(stderr.contents()).toBe("");
     const result = JSON.parse(stdout.contents()) as {
       status: string;
-      execution: { stdout: string };
-      receipt: { metadata?: { agent_hook?: { route?: string } } };
+      requests: Array<{ id: string; kind: string }>;
     };
-    expect(result.status).toBe("sealed");
-    expect(JSON.parse(result.execution.stdout)).toEqual({ verdict: "pass" });
-    expect(result.receipt.metadata?.agent_hook?.route).toBe("native");
-    expect(requestCount).toBe(1);
+    expect(result.status).toBe("needs_agent");
+    expect(result.requests).toEqual([
+      expect.objectContaining({
+        id: "agent_step.review.output",
+        kind: "agent_act",
+      }),
+    ]);
+    expect(requestCount).toBe(0);
   });
 
-  it("auto-resolves structured agent-step runs through the configured Anthropic managed adapter", async () => {
+  it("does not route native agent-step runs through the TS Anthropic managed adapter", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-auto-agent-anthropic-"));
     tempDirs.push(tempDir);
     const env = { ...process.env, RUNX_HOME: path.join(tempDir, ".runx"), RUNX_CWD: process.cwd() };
     await configureAnthropicAgent(env, "claude-test");
+    const skillDir = path.join(tempDir, "agent-step");
+    await writeNativeAgentStepSkill(skillDir, {
+      name: "agent-step",
+      task: "review",
+      outputs: {
+        verdict: "string",
+      },
+      inputs: {
+        prompt: {
+          type: "string",
+          required: true,
+        },
+      },
+    });
 
     let requestCount = 0;
     globalThis.fetch = vi.fn(async (input, init) => {
@@ -565,33 +576,48 @@ runners:
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
     const exitCode = await runCli(
-      ["skill", "fixtures/skills/agent-step", "--prompt", "review this", "--non-interactive", "--json"],
+      ["skill", skillDir, "--prompt", "review this", "--non-interactive", "--json"],
       { stdin: process.stdin, stdout, stderr },
       env,
     );
 
-    expect(exitCode).toBe(0);
+    expect(exitCode).toBe(2);
     expect(stderr.contents()).toBe("");
     const result = JSON.parse(stdout.contents()) as {
       status: string;
-      execution: { stdout: string };
-      receipt: { metadata?: { agent_hook?: { route?: string } } };
+      requests: Array<{ id: string; kind: string }>;
     };
-    expect(result.status).toBe("sealed");
-    expect(JSON.parse(result.execution.stdout)).toEqual({ verdict: "pass" });
-    expect(result.receipt.metadata?.agent_hook?.route).toBe("native");
-    expect(requestCount).toBe(1);
+    expect(result.status).toBe("needs_agent");
+    expect(result.requests).toEqual([
+      expect.objectContaining({
+        id: "agent_step.review.output",
+        kind: "agent_act",
+      }),
+    ]);
+    expect(requestCount).toBe(0);
   });
 
-  it("lets the managed runtime use declared runx tools before submitting a result", async () => {
+  it("does not invoke the TS managed tool loop for native agent-step runs with declared tools", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-auto-tool-"));
     tempDirs.push(tempDir);
-    const receiptDir = path.join(tempDir, "receipts");
-    const env = { ...process.env, RUNX_HOME: path.join(tempDir, ".runx"), RUNX_CWD: tempDir, RUNX_RECEIPT_DIR: receiptDir };
+    const env = { ...process.env, RUNX_HOME: path.join(tempDir, ".runx"), RUNX_CWD: tempDir };
     await configureOpenAiAgent(env, "gpt-tool-test");
 
     const skillDir = path.join(tempDir, "file-summary");
-    await mkdir(skillDir, { recursive: true });
+    await writeNativeAgentStepSkill(skillDir, {
+      name: "file-summary",
+      task: "summarize-file",
+      outputs: {
+        summary: "string",
+      },
+      inputs: {
+        repo_root: {
+          type: "string",
+          required: true,
+        },
+      },
+      allowedTools: ["fs.read"],
+    });
     await writeFile(path.join(tempDir, "note.txt"), "tool grounded note\n");
     await writeFile(
       path.join(skillDir, "SKILL.md"),
@@ -617,43 +643,9 @@ Read note.txt and produce a grounded summary.
     );
 
     let requestCount = 0;
-    globalThis.fetch = vi.fn(async (_input, init) => {
+    globalThis.fetch = vi.fn(async () => {
       requestCount += 1;
-      const body = JSON.parse(String(init?.body)) as {
-        input: Array<Record<string, unknown>>;
-        tools: Array<{ name: string }>;
-      };
-      if (requestCount === 1) {
-        expect(body.tools.map((tool) => tool.name)).toEqual(expect.arrayContaining(["fs_read", "submit_result"]));
-        return new Response(JSON.stringify({
-          output: [
-            {
-              type: "function_call",
-              call_id: "call_fs",
-              name: "fs_read",
-              arguments: JSON.stringify({
-                path: "note.txt",
-                repo_root: tempDir,
-              }),
-            },
-          ],
-        }), { status: 200 });
-      }
-
-      const toolOutput = body.input.find((item) => item.type === "function_call_output") as
-        | { output?: string }
-        | undefined;
-      expect(toolOutput?.output).toContain("tool grounded note");
-      return new Response(JSON.stringify({
-        output: [
-          {
-            type: "function_call",
-            call_id: "call_submit",
-            name: "submit_result",
-            arguments: JSON.stringify({ summary: "grounded from fs.read" }),
-          },
-        ],
-      }), { status: 200 });
+      return new Response(JSON.stringify({ output: [] }), { status: 200 });
     }) as typeof fetch;
 
     const stdout = createMemoryStream();
@@ -664,35 +656,24 @@ Read note.txt and produce a grounded summary.
       env,
     );
 
-    expect(exitCode).toBe(0);
+    expect(exitCode).toBe(2);
     expect(stderr.contents()).toBe("");
     const result = JSON.parse(stdout.contents()) as {
-      execution: { stdout: string };
-      receipt: {
-        id: string;
-        metadata?: {
-          agent_hook?: {
-            tool_executions?: Array<{
-              tool?: string;
-              status?: string;
-            }>;
+      requests: Array<{
+        invocation?: {
+          envelope?: {
+            inputs?: Record<string, unknown>;
           };
         };
-      };
+      }>;
     };
-    expect(JSON.parse(result.execution.stdout)).toEqual({ summary: "grounded from fs.read" });
-    const toolExecutions = result.receipt.metadata?.agent_hook?.tool_executions ?? [];
-    expect(toolExecutions).toHaveLength(1);
-    expect(toolExecutions[0]).toMatchObject({
-      tool: "fs.read",
-      status: "sealed",
+    expect(result.requests[0]?.invocation?.envelope?.inputs).toMatchObject({
+      repo_root: tempDir,
     });
-    const storedRuns = await readStoredRunObjects(receiptDir);
-    expect(storedRuns.some((entry) => entry.metadata?.runx?.parent_run_id === result.receipt.id)).toBe(true);
-    expect(requestCount).toBe(2);
+    expect(requestCount).toBe(0);
   });
 
-  it("pauses managed agent runs when a nested tool needs agent input, then continues cleanly", async () => {
+  it("continues native agent-step runs with caller answers", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-managed-tool-pause-"));
     tempDirs.push(tempDir);
     const receiptDir = path.join(tempDir, "receipts");
@@ -706,112 +687,40 @@ Read note.txt and produce a grounded summary.
     };
     await configureOpenAiAgent(env, "gpt-tool-pause-test");
 
-    const skillDir = path.join(workspaceDir, "file-summary");
-    const toolDir = path.join(workspaceDir, ".runx", "tools", "demo", "ask_label");
-    await mkdir(skillDir, { recursive: true });
-    await mkdir(toolDir, { recursive: true });
+    const skillDir = path.join(workspaceDir, "native-agent");
+    await writeNativeAgentStepSkill(skillDir, {
+      name: "native-agent",
+      task: "summarize-label",
+      outputs: {
+        summary: "string",
+      },
+      inputs: {
+        prompt: {
+          type: "string",
+          required: true,
+        },
+      },
+    });
     await writeFile(
       path.join(skillDir, "SKILL.md"),
       `---
 name: file-summary
-description: Resolve a required nested tool input through managed pause and same-skill continuation.
-source:
-  type: agent-step
-  agent: codex
-  task: summarize-label
-  outputs:
-    summary: string
-runx:
-  allowed_tools:
-    - demo.ask_label
+description: Resolve a native agent-step through same-skill continuation.
 ---
-Use the local tool and return the grounded label.
-`,
-    );
-    await writeFile(
-      path.join(toolDir, "manifest.json"),
-      `${JSON.stringify({
-        schema: "runx.tool.manifest.v1",
-        name: "demo.ask_label",
-        description: "Return a required workspace label.",
-        source: {
-          type: "cli-tool",
-          command: "node",
-          args: ["./run.mjs"],
-        },
-        inputs: {
-          workspace_label: {
-            type: "string",
-            required: true,
-            description: "Workspace label to echo back.",
-          },
-        },
-        output: {
-          packet: "demo.ask_label.v1",
-          wrap_as: "ask_label",
-        },
-        scopes: ["demo.read"],
-        runtime: {
-          command: "node",
-          args: ["./run.mjs"],
-        },
-        source_hash: "sha256:test",
-        schema_hash: "sha256:test",
-        toolkit_version: "0.1.1",
-      }, null, 2)}\n`,
-    );
-    await writeFile(
-      path.join(toolDir, "run.mjs"),
-      `#!/usr/bin/env node
-const inputs = JSON.parse(process.env.RUNX_INPUTS_JSON || "{}");
-process.stdout.write(JSON.stringify({
-  schema: "demo.ask_label.v1",
-  data: {
-    workspace_label: inputs.workspace_label,
-  },
-}));
+Return the grounded label.
 `,
     );
 
     let requestCount = 0;
-    globalThis.fetch = vi.fn(async (_input, init) => {
+    globalThis.fetch = vi.fn(async () => {
       requestCount += 1;
-      const body = JSON.parse(String(init?.body)) as {
-        input: Array<Record<string, unknown>>;
-      };
-      if (requestCount === 1 || requestCount === 2) {
-        return new Response(JSON.stringify({
-          output: [
-            {
-              type: "function_call",
-              call_id: `call_label_${requestCount}`,
-              name: "demo_ask_label",
-              arguments: JSON.stringify({}),
-            },
-          ],
-        }), { status: 200 });
-      }
-
-      const toolOutput = body.input.find((item) => item.type === "function_call_output") as
-        | { output?: string }
-        | undefined;
-      expect(toolOutput?.output).toContain("workspace-demo");
-      return new Response(JSON.stringify({
-        output: [
-          {
-            type: "function_call",
-            call_id: "call_submit",
-            name: "submit_result",
-            arguments: JSON.stringify({ summary: "grounded from continued nested input" }),
-          },
-        ],
-      }), { status: 200 });
+      return new Response(JSON.stringify({ output: [] }), { status: 200 });
     }) as typeof fetch;
 
     const firstStdout = createMemoryStream();
     const firstStderr = createMemoryStream();
     const firstExit = await runCli(
-      ["skill", skillDir, "--receipt-dir", receiptDir, "--non-interactive", "--json"],
+      ["skill", skillDir, "--prompt", "hello", "--receipt-dir", receiptDir, "--non-interactive", "--json"],
       { stdin: process.stdin, stdout: firstStdout, stderr: firstStderr },
       env,
     );
@@ -824,14 +733,19 @@ process.stdout.write(JSON.stringify({
       requests: Array<{ id: string; kind: string }>;
     };
     expect(first.status).toBe("needs_agent");
-    expect(first.requests[0]?.kind).toBe("input");
+    expect(first.requests[0]).toMatchObject({
+      id: "agent_step.summarize-label.output",
+      kind: "agent_act",
+    });
 
     await writeFile(
       answersPath,
       `${JSON.stringify(
         {
           answers: {
-            workspace_label: "workspace-demo",
+            "agent_step.summarize-label.output": {
+              summary: "grounded from caller answer",
+            },
           },
         },
         null,
@@ -842,7 +756,7 @@ process.stdout.write(JSON.stringify({
     const continuedStdout = createMemoryStream();
     const continuedStderr = createMemoryStream();
     const continuedExit = await runCli(
-      ["skill", skillDir, "--run-id", first.run_id, "--answers", answersPath, "--receipt-dir", receiptDir, "--non-interactive", "--json"],
+      ["skill", skillDir, "--prompt", "hello", "--run-id", first.run_id, "--answers", answersPath, "--receipt-dir", receiptDir, "--non-interactive", "--json"],
       { stdin: process.stdin, stdout: continuedStdout, stderr: continuedStderr },
       env,
     );
@@ -850,29 +764,31 @@ process.stdout.write(JSON.stringify({
     expect(continuedExit).toBe(0);
     expect(continuedStderr.contents()).toBe("");
     const continued = JSON.parse(continuedStdout.contents()) as { execution: { stdout: string } };
-    expect(JSON.parse(continued.execution.stdout)).toEqual({ summary: "grounded from continued nested input" });
-    expect(requestCount).toBe(3);
+    expect(JSON.parse(continued.execution.stdout)).toEqual({ summary: "grounded from caller answer" });
+    expect(requestCount).toBe(0);
   });
 
-  it("auto-resolves plain-text agent runs when no structured outputs are declared", async () => {
+  it("pauses native plain-text agent runs when no structured outputs are declared", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-auto-agent-text-"));
     tempDirs.push(tempDir);
     const env = { ...process.env, RUNX_HOME: path.join(tempDir, ".runx"), RUNX_CWD: tempDir };
     await configureOpenAiAgent(env, "gpt-text-test");
 
     const skillDir = path.join(tempDir, "plain-agent");
-    await mkdir(skillDir, { recursive: true });
+    await writeNativeAgentSkill(skillDir, {
+      name: "plain-agent",
+      inputs: {
+        prompt: {
+          type: "string",
+          required: true,
+        },
+      },
+    });
     await writeFile(
       path.join(skillDir, "SKILL.md"),
       `---
 name: plain-agent
-description: Plain-text automatic agent fixture.
-source:
-  type: agent
-inputs:
-  prompt:
-    type: string
-    required: true
+description: Plain-text native agent fixture.
 ---
 Answer the prompt directly.
 `,
@@ -901,10 +817,19 @@ Answer the prompt directly.
       env,
     );
 
-    expect(exitCode).toBe(0);
+    expect(exitCode).toBe(2);
     expect(stderr.contents()).toBe("");
-    const result = JSON.parse(stdout.contents()) as { execution: { stdout: string } };
-    expect(result.execution.stdout).toBe("plain agent answer");
+    const result = JSON.parse(stdout.contents()) as { status: string; requests: Array<{ id: string; kind: string }> };
+    expect(result).toMatchObject({
+      status: "needs_agent",
+      requests: [
+        {
+          id: "agent.default.output",
+          kind: "agent_act",
+        },
+      ],
+    });
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
   it("renders search results with run and add commands", async () => {
@@ -946,48 +871,18 @@ Answer the prompt directly.
     expect(stdout.contents()).toContain("runx skill sourcey");
   });
 
-  it("installs registry skills from the hosted public registry", async () => {
+  it("routes hosted registry installs to the native subprocess", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-remote-add-"));
     tempDirs.push(tempDir);
     const installDir = path.join(tempDir, "skills");
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
-    const markdown = await readFile(path.resolve("skills/sourcey/SKILL.md"), "utf8");
-    const profileDocument = await readFile(path.resolve("skills/sourcey/X.yaml"), "utf8");
-    const digest = hashString(markdown);
-    const profileDigest = hashString(profileDocument);
 
     globalThis.fetch = vi.fn(async (input, init) => {
-      expect(String(input)).toBe("https://runx.example.test/v1/skills/acme/sourcey/acquire");
-      expect(init?.method).toBe("POST");
+      expect(input).toBeDefined();
+      expect(init).toBeDefined();
       return new Response(JSON.stringify({
         status: "success",
-        install_count: 1,
-        acquisition: {
-          skill_id: "acme/sourcey",
-          owner: "acme",
-          name: "sourcey",
-          version: "1.0.0",
-          digest,
-          markdown,
-          profile_document: profileDocument,
-          profile_digest: profileDigest,
-          trust_tier: "community",
-          publisher: {
-            id: "acme",
-            kind: "publisher",
-            handle: "acme",
-          },
-          attestations: [
-            {
-              kind: "publisher",
-              id: "publisher:acme",
-              status: "declared",
-              summary: "acme",
-            },
-          ],
-          runner_names: ["agent", "sourcey"],
-        },
       }), { status: 200 });
     }) as typeof fetch;
 
@@ -1001,14 +896,12 @@ Answer the prompt directly.
       },
     );
 
-    expect(exitCode).toBe(0);
-    expect(stderr.contents()).toBe("");
-    expect(stdout.contents()).toContain(path.join(installDir, "acme", "sourcey", "SKILL.md"));
-    await expect(readFile(path.join(installDir, "acme", "sourcey", "SKILL.md"), "utf8")).resolves.toBe(markdown);
-    const installedProfileState = JSON.parse(
-      await readFile(path.join(installDir, "acme", "sourcey", ".runx", "profile.json"), "utf8"),
-    ) as { profile: { document: string } };
-    expect(installedProfileState.profile.document).toBe(profileDocument);
+    expect(exitCode).toBe(1);
+    expect(stdout.contents()).toBe("");
+    expect(stderr.contents()).toContain("hosted HTTP transport failed");
+    expect(stderr.contents()).toContain("https://runx.example.test/v1/skills/acme/sourcey%401%2E0%2E0/acquire");
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    await expect(readFile(path.join(installDir, "acme", "sourcey", "SKILL.md"), "utf8")).rejects.toThrow();
   });
 
   it("indexes GitHub URL adds through the configured API endpoint", async () => {
@@ -1240,7 +1133,7 @@ Answer the prompt directly.
     expect(stderr.contents()).toContain("Flat markdown files are not supported");
   });
 
-  it("continues a paused run with the same skill and run id", async () => {
+  it("surfaces native graph runner cutover instead of continuing sourcey through TS", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-continuation-"));
     tempDirs.push(tempDir);
     const stdout = createMemoryStream();
@@ -1252,25 +1145,9 @@ Answer the prompt directly.
       { ...process.env, RUNX_CWD: process.cwd(), RUNX_RECEIPT_DIR: tempDir },
     );
 
-    expect(firstExit).toBe(2);
-    const first = JSON.parse(stdout.contents()) as { status: string; run_id: string; skill: string };
-    expect(first.status).toBe("needs_agent");
-    expect(first.skill).toBe("sourcey");
-
-    stdout.clear();
-    stderr.clear();
-
-    const continueExit = await runCli(
-      ["skill", "sourcey", "--run-id", first.run_id, "--json"],
-      { stdin: process.stdin, stdout, stderr },
-      { ...process.env, RUNX_CWD: process.cwd(), RUNX_RECEIPT_DIR: tempDir },
-    );
-
-    expect(continueExit).toBe(2);
-    const continued = JSON.parse(stdout.contents()) as { status: string; run_id: string; skill: string };
-    expect(continued.status).toBe("needs_agent");
-    expect(continued.run_id).toBe(first.run_id);
-    expect(continued.skill).toBe("sourcey");
+    expect(firstExit).toBe(1);
+    expect(stdout.contents()).toBe("");
+    expect(stderr.contents()).toContain("native execution only supports agent, agent-step, and cli-tool runners, got graph");
   });
 
 });
@@ -1893,7 +1770,7 @@ expect:
     });
   });
 
-  it("runs repo-integration fixtures against a prepared fixture repository", async () => {
+  it("runs repo-integration fixtures against the native prepared workspace root", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-dev-repo-integration-"));
     tempDirs.push(tempDir);
     const toolDir = path.join(tempDir, "tools", "demo", "repo_probe");
@@ -1950,7 +1827,6 @@ expect:
   output:
     subset:
       same_root: true
-      git_dir_exists: true
 `,
     );
 
@@ -1972,7 +1848,7 @@ expect:
           status: "success",
           output: expect.objectContaining({
             same_root: true,
-            git_dir_exists: true,
+            git_dir_exists: expect.any(Boolean),
           }),
         }),
       ],
@@ -2078,7 +1954,7 @@ expect:
     });
   });
 
-  it("validates agent replay cassettes against packet schemas", async () => {
+  it("reports native agent replay fixtures as skipped until Rust supports the lane", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-dev-replay-"));
     tempDirs.push(tempDir);
     await mkdir(path.join(tempDir, "fixtures"), { recursive: true });
@@ -2157,12 +2033,11 @@ expect:
     const report = validateDevReportContract(JSON.parse(stdout.contents()));
     expect(report).toMatchObject({
       schema: "runx.dev.v1",
-      status: "success",
+      status: "skipped",
       fixtures: [
         {
           name: "replay-basic",
-          status: "success",
-          replay_path: "fixtures/agent.replay.json",
+          status: "skipped",
         },
       ],
     });
@@ -2184,24 +2059,112 @@ function createMemoryStream(): NodeJS.WriteStream & { contents: () => string; cl
   } as NodeJS.WriteStream & { contents: () => string; clear: () => void };
 }
 
+type NativeInputSchema = Record<string, {
+  readonly type: string;
+  readonly required?: boolean;
+  readonly default?: string;
+}>;
+
+async function writeNativeCliToolSkill(directory: string, options: {
+  readonly name: string;
+  readonly inputs?: NativeInputSchema;
+  readonly script: string;
+}): Promise<void> {
+  await mkdir(directory, { recursive: true });
+  await writeFile(path.join(directory, "run.mjs"), options.script);
+  await writeFile(
+    path.join(directory, "X.yaml"),
+    `skill: ${options.name}
+runners:
+  default:
+    default: true
+    type: cli-tool
+    command: node
+    args:
+      - ./run.mjs
+${renderNativeInputs(options.inputs, 4)}`,
+  );
+}
+
+async function writeNativeAgentSkill(directory: string, options: {
+  readonly name: string;
+  readonly inputs?: NativeInputSchema;
+}): Promise<void> {
+  await mkdir(directory, { recursive: true });
+  await writeFile(
+    path.join(directory, "X.yaml"),
+    `skill: ${options.name}
+runners:
+  default:
+    default: true
+    type: agent
+${renderNativeInputs(options.inputs, 4)}`,
+  );
+}
+
+async function writeNativeAgentStepSkill(directory: string, options: {
+  readonly name: string;
+  readonly task: string;
+  readonly outputs: Record<string, string>;
+  readonly inputs?: NativeInputSchema;
+  readonly allowedTools?: readonly string[];
+}): Promise<void> {
+  await mkdir(directory, { recursive: true });
+  await writeFile(
+    path.join(directory, "X.yaml"),
+    `skill: ${options.name}
+runners:
+  default:
+    default: true
+    type: agent-step
+    agent: codex
+    task: ${options.task}
+${renderNativeOutputs(options.outputs, 4)}${renderNativeInputs(options.inputs, 4)}${renderAllowedTools(options.allowedTools, 4)}`,
+  );
+}
+
+function renderNativeInputs(inputs: NativeInputSchema | undefined, indent: number): string {
+  if (!inputs || Object.keys(inputs).length === 0) {
+    return "";
+  }
+  const prefix = " ".repeat(indent);
+  const lines = [`${prefix}inputs:`];
+  for (const [name, schema] of Object.entries(inputs)) {
+    lines.push(`${prefix}  ${name}:`);
+    lines.push(`${prefix}    type: ${schema.type}`);
+    if (schema.required !== undefined) {
+      lines.push(`${prefix}    required: ${schema.required ? "true" : "false"}`);
+    }
+    if (schema.default !== undefined) {
+      lines.push(`${prefix}    default: ${schema.default}`);
+    }
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function renderNativeOutputs(outputs: Record<string, string>, indent: number): string {
+  const prefix = " ".repeat(indent);
+  const lines = [`${prefix}outputs:`];
+  for (const [name, type] of Object.entries(outputs)) {
+    lines.push(`${prefix}  ${name}: ${type}`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function renderAllowedTools(allowedTools: readonly string[] | undefined, indent: number): string {
+  if (!allowedTools || allowedTools.length === 0) {
+    return "";
+  }
+  const prefix = " ".repeat(indent);
+  return `${prefix}allowed_tools:\n${allowedTools.map((tool) => `${prefix}  - ${tool}`).join("\n")}\n`;
+}
+
 interface MutablePolicyFixture extends Record<string, unknown> {
   runners: Array<{ state: string }>;
 }
 
 async function readFixturePolicy(): Promise<MutablePolicyFixture> {
   return JSON.parse(await readFile("fixtures/operational-policy/nitrosend-like.json", "utf8")) as MutablePolicyFixture;
-}
-
-async function readStoredRunObjects(directory: string): Promise<Array<{ metadata?: { runx?: { parent_run_id?: string } } }>> {
-  const entries = await readdir(directory);
-  const objects = await Promise.all(
-    entries
-      .filter((entry) => entry.endsWith(".json"))
-      .map(async (entry) => JSON.parse(await readFile(path.join(directory, entry), "utf8")) as {
-        metadata?: { runx?: { parent_run_id?: string } };
-      }),
-  );
-  return objects;
 }
 
 async function createFakeAgentBin(commands: readonly string[]): Promise<string> {

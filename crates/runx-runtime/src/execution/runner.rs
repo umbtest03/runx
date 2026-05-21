@@ -148,7 +148,7 @@ where
             Ok(()) => {
                 let receipt = graph_receipt(
                     &graph.name,
-                    &execution.runs,
+                    &mut execution.runs,
                     execution.sync_points.clone(),
                     &self.options.created_at,
                 )?;
@@ -166,7 +166,7 @@ where
             {
                 let receipt = graph_receipt_with_disposition(
                     &graph.name,
-                    &execution.runs,
+                    &mut execution.runs,
                     execution.sync_points.clone(),
                     &self.options.created_at,
                     ClosureDisposition::Blocked,
@@ -249,7 +249,7 @@ where
         execution.run(self, graph_dir, &graph, caller, None)?;
         let receipt = graph_receipt(
             &graph.name,
-            &execution.runs,
+            &mut execution.runs,
             execution.sync_points.clone(),
             &self.options.created_at,
         )?;
