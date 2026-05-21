@@ -116,8 +116,10 @@ git diff --check -- .scafld/specs/drafts/rust-ts-sunset-runtime-local-cli-import
 - `packages/cli/src/agent-runtime.ts` still owns legacy managed-agent adapter
   resolution for the TS source backend and must be routed to the native agent
   execution boundary or sunset with the TS backend tests.
-- `packages/cli/src/commands/mcp.ts` still owns the legacy in-process TS MCP
-  server and must move to the Rust MCP server boundary.
+- `packages/cli/src/commands/mcp.ts` is covered by
+  `rust-ts-sunset-runtime-local-cli-mcp-importer-routing`; after that slice it
+  should remain a native process delegation boundary with no runtime-local or
+  adapters imports.
 - `packages/cli/src/commands/dev/skill-fixture.ts` still owns legacy TS dev
   skill/graph fixture execution and must move to Rust harness/dev execution.
 - `packages/cli/src/commands/history.ts` still owns local receipt inspection,

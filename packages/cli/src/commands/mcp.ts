@@ -1,24 +1,7 @@
-import { resolveDefaultSkillAdapters } from "@runxhq/adapters";
-import type { ResolutionRequestContract as ResolutionRequest } from "@runxhq/contracts";
-import { loadLocalSkillPackage, resolvePathFromUserInput, resolveRunxHomeDir } from "@runxhq/core/config";
-import {
-  parseSkillMarkdown,
-  validateSkill,
-} from "@runxhq/core/parser";
-import { asRecord, errorMessage } from "@runxhq/core/util";
-import {
-  resolveSkillRunner,
-  runLocalSkill,
-  type Caller,
-  type RegistryStore,
-} from "@runxhq/runtime-local";
-import { createHostBridge, type HostRunResult } from "@runxhq/runtime-local/sdk";
-import { resolveEnvToolCatalogAdapters } from "@runxhq/runtime-local/tool-catalogs";
+import { spawn } from "node:child_process";
+import process from "node:process";
 
 import type { CliIo } from "../index.js";
-import { readCliPackageMetadata } from "../metadata.js";
-import { resolveBundledCliVoiceProfilePath } from "../runtime-assets.js";
-import { resolveRunnableSkillReference } from "../skill-refs.js";
 
 export interface McpCommandArgs {
   readonly mcpRefs?: readonly string[];
@@ -27,426 +10,127 @@ export interface McpCommandArgs {
 }
 
 export interface McpCommandDependencies {
-  readonly resolveRegistryStoreForGraphs: (env: NodeJS.ProcessEnv) => Promise<RegistryStore | undefined>;
-  readonly resolveDefaultReceiptDir: (env: NodeJS.ProcessEnv) => string;
+  readonly resolveRegistryStoreForGraphs?: (env: NodeJS.ProcessEnv) => Promise<unknown>;
+  readonly resolveDefaultReceiptDir?: (env: NodeJS.ProcessEnv) => string;
 }
 
-interface JsonRpcRequest {
-  readonly jsonrpc?: "2.0";
-  readonly id?: string | number | null;
-  readonly method?: string;
-  readonly params?: unknown;
+interface NativeMcpProcessOptions {
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly cwd: string;
+  readonly env: NodeJS.ProcessEnv;
+  readonly io: CliIo;
 }
-
-interface ServedMcpTool {
-  readonly name: string;
-  readonly description: string;
-  readonly skillPath: string;
-  readonly inputSchema: Readonly<Record<string, unknown>>;
-}
-
-interface McpToolDefinition {
-  readonly name: string;
-  readonly description: string;
-  readonly inputSchema: Readonly<Record<string, unknown>>;
-  readonly call: (args: Readonly<Record<string, unknown>>) => Promise<Readonly<Record<string, unknown>>>;
-}
-
-interface SkillInput {
-  readonly type: string;
-  readonly required: boolean;
-  readonly description?: string;
-  readonly default?: unknown;
-}
-
-const noOpCaller: Caller = {
-  resolve: async () => undefined,
-  report: () => undefined,
-};
 
 export async function handleMcpServeCommand(
   parsed: McpCommandArgs,
   io: CliIo,
   env: NodeJS.ProcessEnv,
-  deps: McpCommandDependencies,
+  _deps?: McpCommandDependencies,
 ): Promise<void> {
   const skillRefs = parsed.mcpRefs ?? [];
   if (skillRefs.length === 0) {
     throw new Error("runx mcp serve requires at least one skill reference.");
   }
 
-  const registryStore = await deps.resolveRegistryStoreForGraphs(env);
-  const adapters = await resolveDefaultSkillAdapters(env);
-  const toolCatalogAdapters = resolveEnvToolCatalogAdapters(env);
-  const receiptDir = parsed.receiptDir ? resolvePathFromUserInput(parsed.receiptDir, env) : deps.resolveDefaultReceiptDir(env);
-  const runxHome = resolveRunxHomeDir(env);
-  const voiceProfilePath = await resolveBundledCliVoiceProfilePath();
-  const bridge = createHostBridge({
-    execute: async (options) =>
-      await runLocalSkill({
-        skillPath: options.skillPath,
-        inputs: options.inputs,
-        answersPath: options.answersPath,
-        caller: options.caller,
-        env,
-        receiptDir: options.receiptDir ?? receiptDir,
-        runxHome: options.runxHome ?? runxHome,
-        parentReceipt: options.parentReceipt,
-        contextFrom: options.contextFrom,
-        authResolver: options.authResolver,
-        allowedSourceTypes: options.allowedSourceTypes,
-        resumeFromRunId: options.resumeFromRunId,
-        registryStore,
-        adapters,
-        toolCatalogAdapters,
-        voiceProfilePath,
-      }),
-  });
-
-  const skillTools = await Promise.all(skillRefs.map((ref) => loadServedMcpTool(ref, parsed.runner, env)));
-  const tools: readonly McpToolDefinition[] = [
-    ...skillTools.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      inputSchema: tool.inputSchema,
-      call: async (args: Readonly<Record<string, unknown>>) => {
-        const result = await bridge.run({
-          skillPath: tool.skillPath,
-          inputs: args,
-          caller: noOpCaller,
-          receiptDir,
-          runxHome,
-        });
-        return toMcpToolResult(result);
-      },
-    })),
-  ];
-  assertUniqueToolNames(tools);
-
-  const packageMetadata = readCliPackageMetadata();
-  await serveJsonRpc(io, async (request) => {
-    if (request.method === "initialize") {
-      return {
-        jsonrpc: "2.0",
-        id: request.id,
-        result: {
-          protocolVersion: "2025-06-18",
-          capabilities: {
-            tools: {},
-          },
-          serverInfo: {
-            name: packageMetadata.name,
-            version: packageMetadata.version,
-          },
-        },
-      };
-    }
-
-    if (request.method === "ping") {
-      return {
-        jsonrpc: "2.0",
-        id: request.id,
-        result: {},
-      };
-    }
-
-    if (request.method === "tools/list") {
-      return {
-        jsonrpc: "2.0",
-        id: request.id,
-        result: {
-          tools: tools.map((tool) => ({
-            name: tool.name,
-            description: tool.description,
-            inputSchema: tool.inputSchema,
-          })),
-        },
-      };
-    }
-
-    if (request.method === "tools/call") {
-      const params = asRecord(request.params);
-      if (!params || typeof params.name !== "string") {
-        return errorResponse(request.id, -32602, "invalid tool call");
-      }
-      const tool = tools.find((candidate) => candidate.name === params.name);
-      if (!tool) {
-        return errorResponse(request.id, -32601, `tool not found: ${params.name}`);
-      }
-      const argumentsRecord = asRecord(params.arguments);
-      if (params.arguments !== undefined && !argumentsRecord) {
-        return errorResponse(request.id, -32602, "tool arguments must be an object");
-      }
-      try {
-        return {
-          jsonrpc: "2.0",
-          id: request.id,
-          result: await tool.call(argumentsRecord ?? {}),
-        };
-      } catch (error) {
-        return errorResponse(
-          request.id,
-          -32000,
-          errorMessage(error),
-        );
-      }
-    }
-
-    if (request.id === undefined || request.id === null) {
-      return undefined;
-    }
-    return errorResponse(request.id, -32601, "method not found");
-  });
-}
-
-async function loadServedMcpTool(
-  ref: string,
-  runnerName: string | undefined,
-  env: NodeJS.ProcessEnv,
-): Promise<ServedMcpTool> {
-  const skillPath = await resolveRunnableSkillReference(ref, env);
-  const skillPackage = await loadLocalSkillPackage(skillPath);
-  const rawSkill = parseSkillMarkdown(skillPackage.markdown);
-  const selection = await resolveSkillRunner(
-    validateSkill(rawSkill, { mode: "strict" }),
-    skillPath,
-    runnerName,
-  );
-  const skill = selection.skill;
-
-  return {
-    name: skill.name,
-    description: skill.description ?? `runx skill ${skill.name}`,
-    skillPath,
-    inputSchema: skillInputsToJsonSchema(skill.inputs),
-  };
-}
-
-function toMcpToolResult(result: HostRunResult): Readonly<Record<string, unknown>> {
-  const base = {
-    structuredContent: {
-      runx: result,
+  await runNativeMcpProcess({
+    command: resolveNativeRunxCommand(env),
+    args: nativeMcpServeArgs(parsed, skillRefs),
+    cwd: env.RUNX_CWD || process.cwd(),
+    env: {
+      ...process.env,
+      ...env,
+      RUNX_RUST_CLI: "1",
     },
-  };
-
-  if (result.status === "completed") {
-    return {
-      ...base,
-      content: [
-        {
-          type: "text",
-          text: result.output.trim().length > 0 ? result.output : summarizeHostResult(result),
-        },
-      ],
-    };
-  }
-
-  if (result.status === "needs_agent") {
-    return {
-      ...base,
-      content: [
-        {
-          type: "text",
-          text: summarizeHostResult(result),
-        },
-      ],
-    };
-  }
-
-  return {
-    ...base,
-    isError: true,
-    content: [
-      {
-        type: "text",
-        text: summarizeHostResult(result),
-      },
-    ],
-  };
+    io,
+  });
 }
 
-function summarizeHostResult(result: HostRunResult): string {
-  switch (result.status) {
-    case "completed":
-      return `${result.skillName} completed. Inspect receipt ${result.receiptId}.`;
-    case "needs_agent":
-      return `${result.skillName} needs agent input at ${result.runId}. Continue by rerunning the same skill with --run-id ${result.runId} --answers answers.json after resolving ${result.requests.length} request(s).`;
-    case "denied":
-      return `${result.skillName} was denied by policy${result.receiptId ? ` (receipt ${result.receiptId})` : ""}.`;
-    case "escalated":
-      return `${result.skillName} escalated. Inspect receipt ${result.receiptId}. ${result.error}`.trim();
-    case "failed":
-      return `${result.skillName} failed. Inspect receipt ${result.receiptId ?? "n/a"}. ${result.error}`.trim();
+function nativeMcpServeArgs(parsed: McpCommandArgs, skillRefs: readonly string[]): readonly string[] {
+  const args = ["mcp", "serve", ...skillRefs];
+  if (parsed.receiptDir) {
+    args.push("--receipt-dir", parsed.receiptDir);
   }
+  if (parsed.runner) {
+    args.push("--runner", parsed.runner);
+  }
+  return args;
 }
 
-function skillInputsToJsonSchema(inputs: Readonly<Record<string, SkillInput>>): Readonly<Record<string, unknown>> {
-  const properties = Object.fromEntries(
-    Object.entries(inputs).map(([name, input]) => [name, skillInputToJsonSchema(input)]),
+function resolveNativeRunxCommand(env: NodeJS.ProcessEnv): string {
+  const command = firstNonEmpty(
+    env.RUNX_RUST_CLI_BIN,
+    env.RUNX_MCP_NATIVE_BIN,
+    env.RUNX_KERNEL_EVAL_BIN,
   );
-  const required = Object.entries(inputs)
-    .filter(([, input]) => input.required)
-    .map(([name]) => name);
-  return {
-    type: "object",
-    properties,
-    required,
-    additionalProperties: false,
-  };
+  if (!command) {
+    throw new Error("runx mcp serve requires RUNX_RUST_CLI_BIN, RUNX_MCP_NATIVE_BIN, or RUNX_KERNEL_EVAL_BIN.");
+  }
+  return command;
 }
 
-function skillInputToJsonSchema(input: SkillInput): Readonly<Record<string, unknown>> {
-  const schema: Record<string, unknown> = {};
-  const normalizedType = normalizeInputType(input.type);
-  if (normalizedType) {
-    schema.type = normalizedType;
-  }
-  if (input.description) {
-    schema.description = input.description;
-  }
-  if (input.default !== undefined) {
-    schema.default = input.default;
-  }
-  return schema;
-}
+function runNativeMcpProcess(options: NativeMcpProcessOptions): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(options.command, options.args, {
+      cwd: options.cwd,
+      env: options.env,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let settled = false;
+    let stderr = "";
 
-function normalizeInputType(type: string): string | undefined {
-  switch (type) {
-    case "string":
-    case "number":
-    case "integer":
-    case "boolean":
-    case "object":
-    case "array":
-      return type;
-    default:
-      return undefined;
-  }
-}
-
-function assertUniqueToolNames(tools: readonly Pick<McpToolDefinition, "name">[]): void {
-  const seen = new Set<string>();
-  for (const tool of tools) {
-    if (seen.has(tool.name)) {
-      throw new Error(`runx mcp serve received duplicate tool name '${tool.name}'. Serve unique skill names only.`);
-    }
-    seen.add(tool.name);
-  }
-}
-
-const maxJsonRpcMessageBytes = 4 * 1024 * 1024;
-
-async function serveJsonRpc(
-  io: CliIo,
-  handleRequest: (request: JsonRpcRequest) => Promise<Readonly<Record<string, unknown>> | undefined>,
-): Promise<void> {
-  let input = Buffer.alloc(0);
-  await new Promise<void>((resolve, reject) => {
-    const onData = (chunk: Buffer | string): void => {
-      input = Buffer.concat([input, Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)]);
-      if (input.length > maxJsonRpcMessageBytes) {
-        cleanup();
-        reject(new Error(`MCP request exceeded ${maxJsonRpcMessageBytes}-byte size limit.`));
-        return;
-      }
-      parseAvailableMessages();
+    const cleanup = (): void => {
+      options.io.stdin.unpipe(child.stdin);
+      child.stdout.unpipe(options.io.stdout);
+      child.stderr.unpipe(options.io.stderr);
     };
-    const onEnd = (): void => {
-      cleanup();
-      resolve();
-    };
-    const onError = (error: Error): void => {
+
+    const rejectOnce = (error: Error): void => {
+      if (settled) return;
+      settled = true;
       cleanup();
       reject(error);
     };
-    const cleanup = (): void => {
-      io.stdin.off("data", onData);
-      io.stdin.off("end", onEnd);
-      io.stdin.off("error", onError);
-    };
 
-    io.stdin.on("data", onData);
-    io.stdin.on("end", onEnd);
-    io.stdin.on("error", onError);
-
-    function parseAvailableMessages(): void {
-      while (true) {
-        const headerEnd = input.indexOf("\r\n\r\n");
-        if (headerEnd === -1) {
-          return;
-        }
-
-        const header = input.subarray(0, headerEnd).toString("utf8");
-        const match = /Content-Length:\s*(\d+)/i.exec(header);
-        if (!match) {
-          return;
-        }
-
-        const contentLength = Number(match[1]);
-        if (!Number.isFinite(contentLength) || contentLength < 0 || contentLength > maxJsonRpcMessageBytes) {
-          cleanup();
-          reject(new Error(`MCP request declared Content-Length ${match[1]}, exceeding ${maxJsonRpcMessageBytes}-byte limit.`));
-          return;
-        }
-        const bodyStart = headerEnd + 4;
-        const bodyEnd = bodyStart + contentLength;
-        if (input.length < bodyEnd) {
-          return;
-        }
-
-        const body = input.subarray(bodyStart, bodyEnd).toString("utf8");
-        input = input.subarray(bodyEnd);
-        void dispatchBody(body);
-      }
-    }
-
-    async function dispatchBody(body: string): Promise<void> {
-      let request: JsonRpcRequest;
-      try {
-        request = JSON.parse(body) as JsonRpcRequest;
-      } catch {
-        writeFramed(io.stdout, {
-          jsonrpc: "2.0",
-          id: null,
-          error: {
-            code: -32700,
-            message: "parse error",
-          },
-        });
+    child.stdin.on("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EPIPE" || error.code === "ERR_STREAM_DESTROYED") {
         return;
       }
-      const response = await handleRequest(request);
-      if (response) {
-        writeFramed(io.stdout, response);
+      rejectOnce(new Error(`Native MCP serve stdin failed: ${error.message}`));
+    });
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    child.stdout.pipe(options.io.stdout, { end: false });
+    child.stderr.pipe(options.io.stderr, { end: false });
+    options.io.stdin.pipe(child.stdin);
+
+    child.on("error", (error) => {
+      rejectOnce(new Error(`Failed to spawn native MCP command '${options.command}': ${error.message}`));
+    });
+    child.on("close", (status, signal) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (signal) {
+        reject(new Error(`Native MCP serve exited from signal ${signal}.`));
+        return;
       }
-    }
+      if (status !== 0) {
+        reject(new Error(nativeMcpExitMessage(status, stderr)));
+        return;
+      }
+      resolve();
+    });
   });
 }
 
-function writeFramed(stream: NodeJS.WriteStream, payload: Readonly<Record<string, unknown>>): void {
-  const body = JSON.stringify(payload);
-  stream.write(`Content-Length: ${Buffer.byteLength(body, "utf8")}\r\n\r\n${body}`);
+function nativeMcpExitMessage(status: number | null, stderr: string): string {
+  const details = stderr.trim();
+  return `Native MCP serve failed with exit ${status ?? "unknown"}${details ? `: ${details}` : "."}`;
 }
 
-function errorResponse(
-  id: string | number | null | undefined,
-  code: number,
-  message: string,
-): Readonly<Record<string, unknown>> {
-  return {
-    jsonrpc: "2.0",
-    id: id ?? null,
-    error: {
-      code,
-      message,
-    },
-  };
-}
-
-
-function requiredString(value: unknown, label: string): string {
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`${label} must be a non-empty string.`);
-  }
-  return value;
+function firstNonEmpty(...values: readonly (string | undefined)[]): string | undefined {
+  return values.find((value): value is string => typeof value === "string" && value.length > 0);
 }

@@ -67,6 +67,7 @@ describe("runx mcp serve", () => {
           },
         },
       });
+      stdin.end();
 
       const responses = await responsesPromise;
       expect(responses[1]).toMatchObject({
@@ -75,7 +76,7 @@ describe("runx mcp serve", () => {
         result: {
           protocolVersion: "2025-06-18",
           serverInfo: {
-            name: "@runxhq/cli",
+            name: "runx-cli",
           },
         },
       });
@@ -116,8 +117,6 @@ describe("runx mcp serve", () => {
           },
         },
       });
-
-      stdin.end();
       await serverPromise;
     } finally {
       await rm(tempDir, { recursive: true, force: true });
@@ -145,6 +144,7 @@ function startServer(
       ...process.env,
       RUNX_CWD: process.cwd(),
       RUNX_KERNEL_EVAL_BIN: runxBinary,
+      RUNX_RUST_CLI_BIN: runxBinary,
     },
     {
       resolveRegistryStoreForGraphs: async () => undefined,
