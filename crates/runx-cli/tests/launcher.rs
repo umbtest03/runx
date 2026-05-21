@@ -23,8 +23,14 @@ fn top_level_help_and_version_are_native() {
     assert_eq!(plan(&["--version"]), LauncherAction::PrintVersion);
 
     let help = help_text();
-    assert!(help.contains("runx skill"));
-    assert!(help.contains("runx harness"));
+    assert_help_line(
+        &help,
+        "runx skill <skill-ref|skill-dir|SKILL.md> [--input k=v] [--receipt-dir dir] [--run-id id] [--answers file] [--json]",
+    );
+    assert_help_line(
+        &help,
+        "runx harness <fixture.yaml|skill-dir|SKILL.md> [--json]",
+    );
 }
 
 #[test]
@@ -66,7 +72,7 @@ fn mcp_rejects_unknown_shapes_without_delegating() {
     );
     assert_eq!(
         plan(&["mcp", "--runner=default", "serve", "fixtures/skills/echo"]),
-        LauncherAction::Error("unknown mcp subcommand --runner=default".to_owned())
+        LauncherAction::Error("runx mcp --runner must follow the serve subcommand".to_owned())
     );
 }
 
@@ -410,6 +416,24 @@ fn native_launcher_argument_errors_exit_with_usage_code() -> Result<(), Box<dyn 
 }
 
 #[test]
+fn mcp_runner_before_serve_fails_closed_in_native_binary() -> Result<(), Box<dyn std::error::Error>>
+{
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_runx"))
+        .env("RUNX_RUST_CLI", "1")
+        .env("RUNX_JS_BIN", repo_root()?.join("packages/cli/bin/runx"))
+        .env("RUNX_NPM_PACKAGE", "@runxhq/cli@0.5.22")
+        .args(["mcp", "--runner=default", "serve", "fixtures/skills/echo"])
+        .output()?;
+
+    assert_eq!(output.status.code(), Some(64));
+    assert!(
+        String::from_utf8(output.stderr)?
+            .contains("runx mcp --runner must follow the serve subcommand")
+    );
+    Ok(())
+}
+
+#[test]
 fn package_manifest_is_native_binary_shaped() -> Result<(), Box<dyn std::error::Error>> {
     let package_json = fs::read_to_string(repo_root()?.join("packages/cli/package.json"))?;
     let manifest = serde_json::from_str::<serde_json::Value>(&package_json)?;
@@ -432,6 +456,13 @@ fn repo_root() -> Result<PathBuf, Box<dyn std::error::Error>> {
     Ok(Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()?)
+}
+
+fn assert_help_line(help: &str, expected: &str) {
+    assert!(
+        help.lines().any(|line| line.trim() == expected),
+        "missing help line: {expected}"
+    );
 }
 
 fn assert_not_contains(contents: &str, needle: &str) {

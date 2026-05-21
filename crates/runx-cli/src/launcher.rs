@@ -172,6 +172,11 @@ pub fn plan_launcher(args: Vec<OsString>) -> LauncherAction {
     }
 
     if first_arg_is(&args, "mcp") {
+        if mcp_runner_before_serve(&args) {
+            return LauncherAction::Error(
+                "runx mcp --runner must follow the serve subcommand".to_owned(),
+            );
+        }
         return crate::mcp::parse_mcp_plan(&args)
             .map_or_else(LauncherAction::Error, LauncherAction::RunMcp);
     }
@@ -235,6 +240,16 @@ fn single_arg_is(args: &[OsString], expected: &str) -> bool {
 
 fn first_arg_is(args: &[OsString], expected: &str) -> bool {
     args.first().is_some_and(|arg| arg == OsStr::new(expected))
+}
+
+fn mcp_runner_before_serve(args: &[OsString]) -> bool {
+    args.iter()
+        .skip(1)
+        .take_while(|arg| arg.as_os_str() != OsStr::new("serve"))
+        .any(|arg| {
+            arg.to_str()
+                .is_some_and(|token| token == "--runner" || token.starts_with("--runner="))
+        })
 }
 
 fn native_harness_plan(args: &[OsString]) -> LauncherAction {
