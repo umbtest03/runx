@@ -26,9 +26,12 @@ source-thread ref, target PR ref, merge SHA, runner verification hook/deploy
 context, and cross-repo dedupe identity; policy source configuration from
 `runx-operational-policy-config` for source-thread publication and close mode.
 Allowed follow-up command: `scafld harden runx-post-merge-closure-observer --mark-passed`
-Latest runner update: 2026-05-20 added closed-unmerged sealed receipt
+Latest runner update: 2026-05-21 added local runtime failed-verification final
+reply projection from a sealed receipt, including review-gate, closure,
+verification, proof, and next-human-action fields, without issuing a source
+issue close command. Earlier local slices added closed-unmerged sealed receipt
 publication projection without fabricating verification proof or issuing a
-source issue close command. Earlier local slices added Rust contract-level
+source issue close command, Rust contract-level
 repeated observer signal idempotency proof for duplicate local provider
 observations, missing source-thread fail-closed routing before provider-state
 classification, stable webhook/scheduler runtime dedupe planning, sealed
@@ -159,7 +162,8 @@ Required behavior:
   one final source-thread reply, and closes/labels according to policy.
 - [ ] Merged PR with failing verification posts a final reply projected from a
   failed verification act and leaves the source issue open unless policy
-  explicitly says otherwise.
+  explicitly says otherwise. Local runtime command projection now covers this;
+  live provider posting remains pending.
 - [x] Closed-unmerged PR projects a distinct sealed observation closure and
   local source issue/source-thread publication commands without claiming a fix
   shipped or closing the source issue. Live provider posting remains pending.
@@ -320,3 +324,8 @@ Issues:
   The remaining contract language is sealed harness receipt closure plus
   `proof.verification` criteria, with no compatibility shim or legacy peer
   artifact contract.
+- 2026-05-21: Added local runtime failed-verification publication projection:
+  source issue and source-thread final replies include review gate, closure,
+  verification, proof, next human action, and receipt while avoiding source
+  issue close. Live provider adapters and target-runner source/target context
+  remain blockers.

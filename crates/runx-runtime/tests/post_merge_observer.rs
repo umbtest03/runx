@@ -1,5 +1,5 @@
 use runx_contracts::{
-    ActForm, ClosureDisposition, HarnessReceipt, PostMergeObserverRuntimeDecision,
+    ActForm, ClosureDisposition, CriterionStatus, HarnessReceipt, PostMergeObserverRuntimeDecision,
     PostMergeObserverRuntimeDedupePlan, PostMergeObserverSignalSource, PostMergeProvider,
     PostMergePullRequestObservation, PostMergePullRequestState, PostMergeVerificationObservation,
     PostMergeVerificationStatus, Reference, ReferenceType,
@@ -176,6 +176,48 @@ fn closed_unmerged_projection_publishes_without_source_issue_close()
 }
 
 #[test]
+fn failed_verification_projection_publishes_final_reply_without_source_issue_close()
+-> Result<(), Box<dyn std::error::Error>> {
+    let receipt = failed_verification_receipt()?;
+    let dedupe = dedupe_plan(&receipt, PostMergeObserverSignalSource::Webhook);
+    let mut ledger = PostMergeObserverPublicationLedger::new();
+
+    let runtime = project_post_merge_observer_publication_commands(&dedupe, &receipt, &mut ledger)?;
+
+    assert_eq!(
+        runtime.decision,
+        PostMergeObserverPublicationRuntimeDecision::Publish
+    );
+    assert_eq!(runtime.commands.len(), 2);
+    assert!(runtime.commands.iter().all(|command| {
+        !matches!(
+            command,
+            PostMergeObserverPublicationCommand::SourceIssueClose { .. }
+        )
+    }));
+    let bodies = runtime
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            PostMergeObserverPublicationCommand::SourceIssueComment { body, .. }
+            | PostMergeObserverPublicationCommand::SourceThreadReply { body, .. } => Some(body),
+            PostMergeObserverPublicationCommand::SourceIssueClose { .. } => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(bodies.len(), 2);
+    for body in bodies {
+        assert!(body.contains("Review gate: external_human"));
+        assert!(body.contains("Closure: failed_verification"));
+        assert!(body.contains("Verification: post_merge.verification_failed"));
+        assert!(body.contains("Proof: post_merge.verification_failed"));
+        assert!(body.contains("Next: review_failed_verification"));
+        assert!(!body.contains("shipped"));
+    }
+    assert!(ledger.contains(&dedupe.publication_key));
+    Ok(())
+}
+
+#[test]
 fn live_adapter_projects_observed_closure_into_publication_commands_without_network()
 -> Result<(), Box<dyn std::error::Error>> {
     let policy: runx_contracts::OperationalPolicy = serde_json::from_str(NITROSEND_LIKE)?;
@@ -265,6 +307,37 @@ fn closed_unmerged_receipt() -> Result<HarnessReceipt, serde_json::Error> {
         .retain(|act| act.form == ActForm::Observation || act.form == ActForm::Reply);
     receipt.harness.idempotency.content_hash =
         "sha256:post-merge-closure-closed-unmerged-nitrosend".to_owned();
+    receipt.harness.seal = Some(receipt.seal.clone());
+    Ok(receipt)
+}
+
+fn failed_verification_receipt() -> Result<HarnessReceipt, serde_json::Error> {
+    let mut receipt = post_merge_observer_receipt()?;
+    receipt.seal.reason_code = "failed_verification".to_owned();
+    receipt.seal.summary = "Merged PR was observed, but post-merge verification failed.".to_owned();
+    receipt.seal.disposition = ClosureDisposition::Failed;
+    receipt.seal.criteria.retain(|criterion| {
+        matches!(
+            criterion.criterion_id.as_str(),
+            "post_merge.provider_state"
+                | "post_merge.human_gate"
+                | "post_merge.verification_passed"
+                | "post_merge.source_thread_target_present"
+        )
+    });
+    for criterion in &mut receipt.seal.criteria {
+        if criterion.criterion_id == "post_merge.verification_passed" {
+            criterion.criterion_id = "post_merge.verification_failed".to_owned();
+            criterion.status = CriterionStatus::Failed;
+            criterion.summary = Some("Nitrosend dogfood verification failed.".to_owned());
+        }
+    }
+    receipt
+        .harness
+        .acts
+        .retain(|act| act.form != ActForm::Revision);
+    receipt.harness.idempotency.content_hash =
+        "sha256:post-merge-closure-failed-verification-nitrosend".to_owned();
     receipt.harness.seal = Some(receipt.seal.clone());
     Ok(receipt)
 }
