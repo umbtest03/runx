@@ -7,7 +7,7 @@ use runx_contracts::{
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
-use crate::{Caller, RuntimeError};
+use crate::{Host, RuntimeError};
 
 #[derive(Debug, Error)]
 pub enum ApprovalError {
@@ -87,7 +87,7 @@ impl LocalApprovalGateResolver {
 
     pub fn request_approval(
         &mut self,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
         id: impl Into<String>,
         gate: ApprovalGate,
     ) -> Result<ApprovalResolution, ApprovalError> {
@@ -97,8 +97,8 @@ impl LocalApprovalGateResolver {
             return Ok(cached.resolution(idempotency_key));
         }
 
-        self.report_requested(caller, &id, &gate, &idempotency_key)?;
-        let response = caller.resolve(ResolutionRequest::Approval {
+        self.report_requested(host, &id, &gate, &idempotency_key)?;
+        let response = host.resolve(ResolutionRequest::Approval {
             id: id.clone(),
             gate: gate.clone(),
         })?;
@@ -106,32 +106,32 @@ impl LocalApprovalGateResolver {
             return Ok(ApprovalResolution::Pending { idempotency_key });
         };
 
-        self.resolve_response(caller, &id, &gate, idempotency_key, response)
+        self.resolve_response(host, &id, &gate, idempotency_key, response)
     }
 
     fn report_requested(
         &mut self,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
         id: &str,
         gate: &ApprovalGate,
         idempotency_key: &str,
     ) -> Result<(), ApprovalError> {
         if self.requested.insert(idempotency_key.to_owned()) {
-            caller.report(requested_event(id, gate, idempotency_key))?;
+            host.report(requested_event(id, gate, idempotency_key))?;
         }
         Ok(())
     }
 
     fn resolve_response(
         &mut self,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
         id: &str,
         gate: &ApprovalGate,
         idempotency_key: String,
         response: ResolutionResponse,
     ) -> Result<ApprovalResolution, ApprovalError> {
         let cached = CachedApproval::from_response(response)?;
-        caller.report(resolved_event(id, gate, &idempotency_key, &cached))?;
+        host.report(resolved_event(id, gate, &idempotency_key, &cached))?;
         let resolution = cached.resolution(idempotency_key.clone());
         self.resolved.insert(idempotency_key, cached);
         Ok(resolution)
@@ -139,11 +139,11 @@ impl LocalApprovalGateResolver {
 }
 
 pub fn request_approval(
-    caller: &mut dyn Caller,
+    host: &mut dyn Host,
     id: impl Into<String>,
     gate: ApprovalGate,
 ) -> Result<ApprovalResolution, ApprovalError> {
-    LocalApprovalGateResolver::new().request_approval(caller, id, gate)
+    LocalApprovalGateResolver::new().request_approval(host, id, gate)
 }
 
 pub fn approval_idempotency_key(gate: &ApprovalGate) -> Result<String, ApprovalError> {

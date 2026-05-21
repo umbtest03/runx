@@ -22,7 +22,7 @@ use super::sync::{
 use super::{GraphCheckpoint, GraphRun, Runtime, StepRun};
 use crate::RuntimeError;
 use crate::adapter::SkillAdapter;
-use crate::caller::Caller;
+use crate::host::Host;
 use crate::journal::ExecutionJournal;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -87,7 +87,7 @@ impl GraphExecution {
         runtime: &Runtime<A>,
         graph_dir: &Path,
         graph: &ExecutionGraph,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
         max_new_steps: Option<usize>,
     ) -> Result<(), RuntimeError>
     where
@@ -105,7 +105,7 @@ impl GraphExecution {
                 &fanout_policies,
                 None,
             );
-            if self.apply_plan(runtime, graph_dir, graph, caller, &fanout_policies, plan)? {
+            if self.apply_plan(runtime, graph_dir, graph, host, &fanout_policies, plan)? {
                 break;
             }
         }
@@ -117,7 +117,7 @@ impl GraphExecution {
         runtime: &Runtime<A>,
         graph_dir: &Path,
         graph: &ExecutionGraph,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
         fanout_policies: &BTreeMap<String, FanoutGroupPolicy>,
         plan: SequentialGraphPlan,
     ) -> Result<bool, RuntimeError>
@@ -127,7 +127,7 @@ impl GraphExecution {
         match plan {
             SequentialGraphPlan::RunStep {
                 step_id, attempt, ..
-            } => self.apply_step_plan(runtime, graph_dir, graph, caller, &step_id, attempt),
+            } => self.apply_step_plan(runtime, graph_dir, graph, host, &step_id, attempt),
             SequentialGraphPlan::RunFanout {
                 group_id,
                 step_ids,
@@ -138,7 +138,7 @@ impl GraphExecution {
                     runtime,
                     graph_dir,
                     graph,
-                    caller,
+                    host,
                     fanout_policies,
                     FanoutRunPlan {
                         group_id,
@@ -177,14 +177,14 @@ impl GraphExecution {
         runtime: &Runtime<A>,
         graph_dir: &Path,
         graph: &ExecutionGraph,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
         step_id: &str,
         attempt: u32,
     ) -> Result<bool, RuntimeError>
     where
         A: SkillAdapter,
     {
-        self.run_one_step(runtime, graph_dir, graph, step_id, attempt, caller)?;
+        self.run_one_step(runtime, graph_dir, graph, step_id, attempt, host)?;
         Ok(false)
     }
 
@@ -198,7 +198,7 @@ impl GraphExecution {
         runtime: &Runtime<A>,
         graph_dir: &Path,
         graph: &ExecutionGraph,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
         fanout_policies: &BTreeMap<String, FanoutGroupPolicy>,
         plan: FanoutRunPlan,
     ) -> Result<(), RuntimeError>
@@ -211,7 +211,7 @@ impl GraphExecution {
                 runtime,
                 graph_dir,
                 graph,
-                caller,
+                host,
                 StepExecutionPlan {
                     step_id: &step_id,
                     attempt,
@@ -321,7 +321,7 @@ impl GraphExecution {
         graph: &ExecutionGraph,
         step_id: &str,
         attempt: u32,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
     ) -> Result<(), RuntimeError>
     where
         A: SkillAdapter,
@@ -330,7 +330,7 @@ impl GraphExecution {
             runtime,
             graph_dir,
             graph,
-            caller,
+            host,
             StepExecutionPlan {
                 step_id,
                 attempt,
@@ -344,7 +344,7 @@ impl GraphExecution {
         runtime: &Runtime<A>,
         graph_dir: &Path,
         graph: &ExecutionGraph,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
         plan: StepExecutionPlan<'_>,
     ) -> Result<(), RuntimeError>
     where
@@ -352,7 +352,7 @@ impl GraphExecution {
     {
         let step = find_step(graph, plan.step_id)?;
         enforce_transition_gates(graph, step, &self.runs)?;
-        self.record(caller, started_event(plan.step_id))?;
+        self.record(host, started_event(plan.step_id))?;
         self.start_step(runtime, plan.step_id);
         let run = match run_step(
             runtime,
@@ -361,7 +361,7 @@ impl GraphExecution {
             step,
             plan.attempt,
             &self.runs,
-            caller,
+            host,
         ) {
             Ok(run) => run,
             Err(error) if plan.failure_mode == StepFailureMode::RecordAndContinue => {
@@ -372,11 +372,11 @@ impl GraphExecution {
         if run.output.succeeded() {
             self.succeed_step(runtime, plan.step_id, &run);
             self.runs.push(run);
-            self.record(caller, completed_event(plan.step_id))
+            self.record(host, completed_event(plan.step_id))
         } else {
             self.fail_step(runtime, plan.step_id, &run);
-            caller.log(format!("step {} failed", plan.step_id))?;
-            self.record(caller, failed_event(plan.step_id))?;
+            host.log(format!("step {} failed", plan.step_id))?;
+            self.record(host, failed_event(plan.step_id))?;
             if plan.failure_mode == StepFailureMode::RecordAndContinue {
                 self.runs.push(run);
                 Ok(())
@@ -424,11 +424,11 @@ impl GraphExecution {
 
     pub(super) fn record(
         &mut self,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
         event: ExecutionEvent,
     ) -> Result<(), RuntimeError> {
         self.journal.push(event.clone());
-        caller.report(event)
+        host.report(event)
     }
 
     pub(super) fn finish(

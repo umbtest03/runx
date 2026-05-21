@@ -1,5 +1,5 @@
 // rust-style-allow: large-file because skill execution, graph fallback,
-// runx envelope construction, and caller plumbing for `runx mcp serve` stay
+// runx envelope construction, and host plumbing for `runx mcp serve` stay
 // adjacent to the McpServerState that orchestrates them.
 use std::collections::BTreeMap;
 use std::fs;
@@ -12,7 +12,7 @@ use runx_core::state_machine::GraphStatus;
 use runx_parser::{SkillInput, ValidatedSkill};
 
 use crate::adapter::{SkillAdapter, SkillInvocation, SkillOutput};
-use crate::caller::Caller;
+use crate::host::Host;
 use crate::receipts::step_receipt;
 use crate::receipts::store::LocalReceiptStore;
 use crate::{GraphRun, Runtime, RuntimeError, RuntimeOptions};
@@ -191,10 +191,9 @@ fn execute_mcp_server_graph(
             env: execution.env.clone(),
         },
     );
-    let mut caller = McpServerCaller::default();
-    let checkpoint =
-        runtime.run_graph_until_steps_with_caller(&graph_dir, &graph, 1, &mut caller)?;
-    if let Some(request) = caller.requests.first().cloned() {
+    let mut host = McpServerCaller::default();
+    let checkpoint = runtime.run_graph_until_steps_with_caller(&graph_dir, &graph, 1, &mut host)?;
+    if let Some(request) = host.requests.first().cloned() {
         return Ok(mcp_tool_result_from_host_result(
             McpHostRunResult::NeedsAgent {
                 skill_name: execution.skill.name.clone(),
@@ -204,7 +203,7 @@ fn execute_mcp_server_graph(
             },
         ));
     }
-    let run = runtime.resume_graph_with_caller(&graph_dir, graph, checkpoint, &mut caller)?;
+    let run = runtime.resume_graph_with_caller(&graph_dir, graph, checkpoint, &mut host)?;
     graph_run_mcp_result(&execution.skill.name, run_id, run)
 }
 
@@ -338,7 +337,7 @@ struct McpServerCaller {
     requests: Vec<ResolutionRequest>,
 }
 
-impl Caller for McpServerCaller {
+impl Host for McpServerCaller {
     fn report(&mut self, _event: ExecutionEvent) -> Result<(), RuntimeError> {
         Ok(())
     }

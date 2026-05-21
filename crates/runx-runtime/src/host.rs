@@ -2,7 +2,7 @@ use runx_contracts::{ExecutionEvent, ResolutionRequest, ResolutionResponse};
 
 use crate::RuntimeError;
 
-pub trait Caller {
+pub trait Host {
     fn report(&mut self, event: ExecutionEvent) -> Result<(), RuntimeError>;
 
     fn resolve(
@@ -18,9 +18,9 @@ pub trait Caller {
 }
 
 #[derive(Default)]
-pub struct NoopCaller;
+pub struct NoopHost;
 
-impl Caller for NoopCaller {
+impl Host for NoopHost {
     fn report(&mut self, _event: ExecutionEvent) -> Result<(), RuntimeError> {
         Ok(())
     }

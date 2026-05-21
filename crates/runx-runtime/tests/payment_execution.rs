@@ -11,7 +11,7 @@ use runx_contracts::{
 use runx_core::state_machine::GraphStatus;
 use runx_receipts::ReceiptTreeConfig;
 use runx_runtime::{
-    Caller, InvocationStatus, Runtime, RuntimeError, RuntimeOptions, SkillAdapter, SkillInvocation,
+    Host, InvocationStatus, Runtime, RuntimeError, RuntimeOptions, SkillAdapter, SkillInvocation,
     SkillOutput, validate_runtime_receipt_tree,
 };
 use serde_json::{Value, json};
@@ -735,7 +735,7 @@ impl ApprovalCaller {
     }
 }
 
-impl Caller for ApprovalCaller {
+impl Host for ApprovalCaller {
     fn report(&mut self, event: ExecutionEvent) -> Result<(), RuntimeError> {
         self.events.borrow_mut().push(event);
         Ok(())

@@ -32,6 +32,13 @@ Items touching files under active parallel work are marked **[blocked-until:
   check. Replaced with `FilterMode { All, OkOnly, InvalidOnly }` so the invalid
   state is unrepresentable (parse-don't-validate). `runx-cli/src/launcher.rs`,
   `list.rs`, `tests/launcher.rs`. Tests green.
+- **L3: `Caller` → `Host`** — the host-callback trait (`report`/`resolve`) now
+  uses the core-model word. Renamed trait `Caller` → `Host`, `NoopCaller` →
+  `NoopHost`, file `caller.rs` → `host.rs`, and the `caller` parameter/local
+  vars → `host` across the 8 runtime files + 3 test files. The harness-fixture
+  JSON field literally named `caller` was deliberately left untouched (it is a
+  wire-contract field, not the trait). Zero external consumers. clippy + fmt +
+  affected tests green.
 - **SDK pass-through fields** — investigated `SkillSearchResult.source_type`,
   `ConnectionSummary.status`/`provider` being `String`. Verdict: NOT a defect.
   The SDK is a thin subprocess bridge that mirrors CLI JSON output and never

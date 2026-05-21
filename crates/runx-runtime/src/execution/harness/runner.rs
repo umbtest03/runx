@@ -23,8 +23,8 @@ use super::fixtures::{
 use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
 use crate::agent_invocation::{AgentActInvocationSourceType, agent_act_invocation_id};
-use crate::caller::Caller;
 use crate::execution::runner::{GraphRun, Runtime, RuntimeOptions, StepRun};
+use crate::host::Host;
 use crate::receipts::{
     StepReceiptWithDisposition, graph_receipt_with_disposition, step_receipt_with_disposition,
 };
@@ -669,8 +669,8 @@ where
 {
     options.env.extend(fixture.env.clone());
     let runtime = Runtime::new(adapter, options);
-    let mut caller = FixtureCaller::new(fixture);
-    let graph_run = runtime.run_graph_file_for_harness(graph_path, &mut caller)?;
+    let mut host = FixtureCaller::new(fixture);
+    let graph_run = runtime.run_graph_file_for_harness(graph_path, &mut host)?;
     let output = replay_output_from_graph(fixture, graph_run);
     Ok(output)
 }
@@ -685,7 +685,7 @@ impl<'a> FixtureCaller<'a> {
     }
 }
 
-impl Caller for FixtureCaller<'_> {
+impl Host for FixtureCaller<'_> {
     fn report(&mut self, _event: ExecutionEvent) -> Result<(), RuntimeError> {
         Ok(())
     }

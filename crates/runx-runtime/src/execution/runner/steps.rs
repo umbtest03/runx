@@ -12,7 +12,7 @@ use super::{Runtime, StepRun};
 use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
 use crate::approval::{ApprovalResolution, request_approval};
-use crate::caller::Caller;
+use crate::host::Host;
 use crate::receipts::step_receipt;
 
 pub(super) fn output_error(run: &StepRun) -> String {
@@ -30,7 +30,7 @@ pub(super) fn run_step<A>(
     step: &GraphStep,
     attempt: u32,
     prior_runs: &[StepRun],
-    caller: &mut dyn Caller,
+    host: &mut dyn Host,
 ) -> Result<StepRun, RuntimeError>
 where
     A: SkillAdapter,
@@ -38,7 +38,7 @@ where
     let inputs = resolve_inputs(step, prior_runs)?;
     let authority = enforce_step_authority_admission(step, &inputs)?;
     if step.run.is_some() {
-        return run_native_step(runtime, graph_name, step, attempt, inputs, caller);
+        return run_native_step(runtime, graph_name, step, attempt, inputs, host);
     }
 
     let skill_dir = skill_dir(graph_dir, step)?;
@@ -79,14 +79,14 @@ pub(super) fn run_native_step<A>(
     step: &GraphStep,
     attempt: u32,
     inputs: JsonObject,
-    caller: &mut dyn Caller,
+    host: &mut dyn Host,
 ) -> Result<StepRun, RuntimeError>
 where
     A: SkillAdapter,
 {
     let run_type = run_type(step)?;
     match run_type.as_str() {
-        "approval" => run_approval_step(runtime, graph_name, step, attempt, inputs, caller),
+        "approval" => run_approval_step(runtime, graph_name, step, attempt, inputs, host),
         other => Err(RuntimeError::UnsupportedRunStep {
             step_id: step.id.clone(),
             run_type: other.to_owned(),
@@ -100,14 +100,14 @@ pub(super) fn run_approval_step<A>(
     step: &GraphStep,
     attempt: u32,
     inputs: JsonObject,
-    caller: &mut dyn Caller,
+    host: &mut dyn Host,
 ) -> Result<StepRun, RuntimeError>
 where
     A: SkillAdapter,
 {
     let gate = approval_gate(step, &inputs)?;
     let request_id = format!("{}_approval", step.id);
-    let resolution = request_approval(caller, request_id, gate.clone()).map_err(|source| {
+    let resolution = request_approval(host, request_id, gate.clone()).map_err(|source| {
         RuntimeError::InvalidRunStep {
             step_id: step.id.clone(),
             reason: source.to_string(),

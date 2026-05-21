@@ -5,7 +5,7 @@ use runx_contracts::{
     ResolutionResponseActor,
 };
 use runx_runtime::{
-    ApprovalError, Caller, LocalApprovalGateResolver, RuntimeError, request_approval,
+    ApprovalError, Host, LocalApprovalGateResolver, RuntimeError, request_approval,
 };
 
 #[test]
@@ -170,7 +170,7 @@ impl RecordingCaller {
     }
 }
 
-impl Caller for RecordingCaller {
+impl Host for RecordingCaller {
     fn report(&mut self, event: ExecutionEvent) -> Result<(), RuntimeError> {
         self.events.push(event);
         Ok(())

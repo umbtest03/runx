@@ -1,19 +1,19 @@
 //! Native Rust runtime skeleton for runx execution.
 //!
 //! The runtime owns impure boundaries: filesystem reads, subprocess execution,
-//! sandbox preparation, caller reporting, and harness receipt emission. Pure
+//! sandbox preparation, host reporting, and harness receipt emission. Pure
 //! parser/core/receipt crates stay upstream of this crate.
 
 pub mod adapter;
 mod agent_invocation;
 pub mod approval;
-pub mod caller;
 pub mod config;
 pub mod connect;
 pub mod dev;
 pub mod doctor;
 pub mod error;
 pub mod execution;
+pub mod host;
 pub mod journal;
 pub mod list;
 pub mod post_merge_observer;
@@ -45,7 +45,6 @@ pub mod adapters;
 
 pub use adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
 pub use approval::{ApprovalError, LocalApprovalGateResolver, request_approval};
-pub use caller::Caller;
 pub use config::{
     ConfigError, ConfigKey, LocalProfileSource, ManagedAgentConfig, ManagedAgentProvider,
     RunxAgentConfig, RunxConfigFile, load_local_agent_api_key, load_managed_agent_config,
@@ -70,6 +69,7 @@ pub use harness::{
     HarnessReplayOutput, load_harness_fixture, parse_harness_fixture, run_harness_fixture,
     run_harness_fixture_with_adapter,
 };
+pub use host::Host;
 pub use journal::ExecutionJournal;
 pub use list::{
     RunxListItem, RunxListItemKind, RunxListOptions, RunxListRequestedKind, RunxListStatus,

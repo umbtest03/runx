@@ -17,7 +17,7 @@ use runx_parser::ExecutionGraph;
 use super::graph::load_graph;
 use crate::RuntimeError;
 use crate::adapter::{SkillAdapter, SkillOutput};
-use crate::caller::{Caller, NoopCaller};
+use crate::host::{Host, NoopHost};
 use crate::journal::ExecutionJournal;
 use crate::receipts::{graph_receipt, graph_receipt_with_disposition};
 
@@ -103,48 +103,48 @@ where
     }
 
     pub fn run_graph_file(&self, graph_path: &Path) -> Result<GraphRun, RuntimeError> {
-        let mut caller = NoopCaller;
-        self.run_graph_file_with_caller(graph_path, &mut caller)
+        let mut host = NoopHost;
+        self.run_graph_file_with_caller(graph_path, &mut host)
     }
 
     pub fn run_graph_file_with_caller(
         &self,
         graph_path: &Path,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
     ) -> Result<GraphRun, RuntimeError> {
         let graph = load_graph(graph_path)?;
         let graph_dir = graph_path.parent().unwrap_or_else(|| Path::new("."));
-        self.run_graph_with_caller_outcome(graph_dir, graph, caller, BlockedGraphOutcome::Error)
+        self.run_graph_with_caller_outcome(graph_dir, graph, host, BlockedGraphOutcome::Error)
     }
 
     pub(crate) fn run_graph_file_for_harness(
         &self,
         graph_path: &Path,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
     ) -> Result<GraphRun, RuntimeError> {
         let graph = load_graph(graph_path)?;
         let graph_dir = graph_path.parent().unwrap_or_else(|| Path::new("."));
-        self.run_graph_with_caller_outcome(graph_dir, graph, caller, BlockedGraphOutcome::Receipt)
+        self.run_graph_with_caller_outcome(graph_dir, graph, host, BlockedGraphOutcome::Receipt)
     }
 
     pub fn run_graph_with_caller(
         &self,
         graph_dir: &Path,
         graph: ExecutionGraph,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
     ) -> Result<GraphRun, RuntimeError> {
-        self.run_graph_with_caller_outcome(graph_dir, graph, caller, BlockedGraphOutcome::Error)
+        self.run_graph_with_caller_outcome(graph_dir, graph, host, BlockedGraphOutcome::Error)
     }
 
     fn run_graph_with_caller_outcome(
         &self,
         graph_dir: &Path,
         graph: ExecutionGraph,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
         blocked_outcome: BlockedGraphOutcome,
     ) -> Result<GraphRun, RuntimeError> {
         let mut execution = GraphExecution::new(&graph);
-        match execution.run(self, graph_dir, &graph, caller, None) {
+        match execution.run(self, graph_dir, &graph, host, None) {
             Ok(()) => {
                 let receipt = graph_receipt(
                     &graph.name,
@@ -153,7 +153,7 @@ where
                     &self.options.created_at,
                 )?;
                 execution.record(
-                    caller,
+                    host,
                     ExecutionEvent::Completed {
                         message: format!("graph {} completed", graph.name),
                         data: None,
@@ -174,7 +174,7 @@ where
                     format!("graph {} blocked at {step_id}: {reason}", graph.name),
                 )?;
                 execution.record(
-                    caller,
+                    host,
                     ExecutionEvent::Completed {
                         message: format!("graph {} blocked at {step_id}", graph.name),
                         data: None,
@@ -191,19 +191,19 @@ where
         graph_path: &Path,
         max_steps: usize,
     ) -> Result<GraphCheckpoint, RuntimeError> {
-        let mut caller = NoopCaller;
-        self.run_graph_file_until_steps_with_caller(graph_path, max_steps, &mut caller)
+        let mut host = NoopHost;
+        self.run_graph_file_until_steps_with_caller(graph_path, max_steps, &mut host)
     }
 
     pub fn run_graph_file_until_steps_with_caller(
         &self,
         graph_path: &Path,
         max_steps: usize,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
     ) -> Result<GraphCheckpoint, RuntimeError> {
         let graph = load_graph(graph_path)?;
         let graph_dir = graph_path.parent().unwrap_or_else(|| Path::new("."));
-        self.run_graph_until_steps_with_caller(graph_dir, &graph, max_steps, caller)
+        self.run_graph_until_steps_with_caller(graph_dir, &graph, max_steps, host)
     }
 
     pub fn run_graph_until_steps_with_caller(
@@ -211,10 +211,10 @@ where
         graph_dir: &Path,
         graph: &ExecutionGraph,
         max_steps: usize,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
     ) -> Result<GraphCheckpoint, RuntimeError> {
         let mut execution = GraphExecution::new(graph);
-        execution.run(self, graph_dir, graph, caller, Some(max_steps))?;
+        execution.run(self, graph_dir, graph, host, Some(max_steps))?;
         Ok(execution.checkpoint(graph.name.clone()))
     }
 
@@ -223,19 +223,19 @@ where
         graph_path: &Path,
         checkpoint: GraphCheckpoint,
     ) -> Result<GraphRun, RuntimeError> {
-        let mut caller = NoopCaller;
-        self.resume_graph_file_with_caller(graph_path, checkpoint, &mut caller)
+        let mut host = NoopHost;
+        self.resume_graph_file_with_caller(graph_path, checkpoint, &mut host)
     }
 
     pub fn resume_graph_file_with_caller(
         &self,
         graph_path: &Path,
         checkpoint: GraphCheckpoint,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
     ) -> Result<GraphRun, RuntimeError> {
         let graph = load_graph(graph_path)?;
         let graph_dir = graph_path.parent().unwrap_or_else(|| Path::new("."));
-        self.resume_graph_with_caller(graph_dir, graph, checkpoint, caller)
+        self.resume_graph_with_caller(graph_dir, graph, checkpoint, host)
     }
 
     pub fn resume_graph_with_caller(
@@ -243,10 +243,10 @@ where
         graph_dir: &Path,
         graph: ExecutionGraph,
         checkpoint: GraphCheckpoint,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
     ) -> Result<GraphRun, RuntimeError> {
         let mut execution = GraphExecution::from_checkpoint(&graph, checkpoint)?;
-        execution.run(self, graph_dir, &graph, caller, None)?;
+        execution.run(self, graph_dir, &graph, host, None)?;
         let receipt = graph_receipt(
             &graph.name,
             &mut execution.runs,
@@ -254,7 +254,7 @@ where
             &self.options.created_at,
         )?;
         execution.record(
-            caller,
+            host,
             ExecutionEvent::Completed {
                 message: format!("graph {} completed", graph.name),
                 data: None,
@@ -269,10 +269,10 @@ where
         graph: &ExecutionGraph,
         checkpoint: GraphCheckpoint,
         max_steps: usize,
-        caller: &mut dyn Caller,
+        host: &mut dyn Host,
     ) -> Result<GraphCheckpoint, RuntimeError> {
         let mut execution = GraphExecution::from_checkpoint(graph, checkpoint)?;
-        execution.run(self, graph_dir, graph, caller, Some(max_steps))?;
+        execution.run(self, graph_dir, graph, host, Some(max_steps))?;
         Ok(execution.checkpoint(graph.name.clone()))
     }
 }
