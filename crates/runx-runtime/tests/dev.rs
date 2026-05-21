@@ -134,7 +134,7 @@ fn dev_presentation_matches_terminal_shape() {
 
     assert_eq!(
         render_dev_result(&report),
-        "\n  ok  dev  1 fixture(s)\n  ok  deterministic  echo-success  7ms\n  receipt  receipt-dev-1\n"
+        "\n  ✓  dev  1 fixture(s)\n  ✓  deterministic  echo-success  7ms\n  receipt  receipt-dev-1\n"
     );
 }
 

@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-kernel-blocking-promotion
 created: '2026-05-17T00:30:00Z'
-updated: '2026-05-21T00:31:00+10:00'
+updated: '2026-05-21T11:11:28+10:00'
 status: draft
 harden_status: not_run
 size: medium
@@ -436,6 +436,21 @@ Local non-promoting evidence, 2026-05-20:
   failed closed with 0 qualifying records in the probed live merged-PR window.
   The live records were outside the post-advisory window for this probe. This
   is live non-promoting evidence; the CI flip remains blocked.
+
+Local non-promoting evidence, 2026-05-21T01:11:28Z:
+- `pnpm exec vitest run --config vitest.config.ts tests/count-clean-kernel-prs.test.ts`
+  passed, 10 tests.
+- `pnpm exec tsx scripts/count-clean-kernel-prs.ts --fixture tests/fixtures/clean-kernel-prs.json --min 1`
+  passed with 4 fixture-qualified records: PRs 101, 102, 103, and 108.
+- `pnpm exec tsx scripts/count-clean-kernel-prs.ts --min 5` failed closed
+  with 4 qualifying fixture records, below the required 5.
+- `pnpm exec tsx scripts/count-clean-kernel-prs.ts --from-github --repo runxhq/runx --advisory-start 2026-05-20T00:00:00Z --min 5 --limit 100`
+  failed closed with 0 qualifying live records. The latest returned merged PR
+  was PR 36, merged at 2026-05-14T14:17:35Z, so returned live records were
+  outside the probed post-advisory window. This is not audited advisory-start
+  evidence and does not authorize the CI flip.
+- `rg -n -C 3 'Advisory Rust kernel parity|continue-on-error|check-rust-kernel-parity' .github/workflows/ci.yml`
+  confirmed the Rust kernel parity step still has `continue-on-error: true`.
 
 ## Metadata
 
