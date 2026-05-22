@@ -1,0 +1,84 @@
+use runx_parser::{
+    CatalogAudience, CatalogKind, CatalogVisibility, parse_runner_manifest_yaml,
+    validate_runner_manifest,
+};
+
+fn parse_manifest(yaml: &str) -> Result<runx_parser::SkillRunnerManifest, String> {
+    let raw = parse_runner_manifest_yaml(yaml).map_err(|error| error.to_string())?;
+    validate_runner_manifest(raw).map_err(|error| error.to_string())
+}
+
+#[test]
+fn catalog_metadata_parses_to_typed_enums() -> Result<(), String> {
+    let manifest = parse_manifest(
+        r#"
+skill: demo
+catalog:
+  kind: graph
+  audience: builder
+  visibility: private
+runners:
+  default:
+    source:
+      type: cli-tool
+      command: node
+"#,
+    )?;
+
+    let catalog = manifest
+        .catalog
+        .ok_or_else(|| "expected catalog metadata".to_owned())?;
+    assert_eq!(catalog.kind, CatalogKind::Graph);
+    assert_eq!(catalog.audience, CatalogAudience::Builder);
+    assert_eq!(catalog.visibility, CatalogVisibility::Private);
+    // Typed kinds serialize back to their original snake_case wire strings.
+    assert_eq!(catalog.kind.as_str(), "graph");
+    assert_eq!(catalog.audience.as_str(), "builder");
+    assert_eq!(catalog.visibility.as_str(), "private");
+    Ok(())
+}
+
+#[test]
+fn catalog_visibility_defaults_to_public_when_absent() -> Result<(), String> {
+    let manifest = parse_manifest(
+        r#"
+catalog:
+  kind: skill
+  audience: public
+runners:
+  default:
+    source:
+      type: cli-tool
+      command: node
+"#,
+    )?;
+
+    let catalog = manifest
+        .catalog
+        .ok_or_else(|| "expected catalog metadata".to_owned())?;
+    assert_eq!(catalog.kind, CatalogKind::Skill);
+    assert_eq!(catalog.visibility, CatalogVisibility::Public);
+    Ok(())
+}
+
+#[test]
+fn unknown_catalog_kind_fails_closed() -> Result<(), String> {
+    let raw = parse_runner_manifest_yaml(
+        r#"
+catalog:
+  kind: not-a-kind
+  audience: public
+runners:
+  default:
+    source:
+      type: cli-tool
+      command: node
+"#,
+    )
+    .map_err(|error| error.to_string())?;
+    assert!(
+        validate_runner_manifest(raw).is_err(),
+        "an unknown catalog.kind must fail closed at validation time"
+    );
+    Ok(())
+}
