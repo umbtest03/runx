@@ -25,7 +25,7 @@ struct FixtureCase {
     id: String,
     mode: String,
     cwd: Option<String>,
-    input_mode: Option<String>,
+    input_mode: Option<runx_parser::InputMode>,
     large_input_bytes: Option<usize>,
     timeout_seconds: u64,
     sandbox: FixtureSandbox,
@@ -35,8 +35,8 @@ struct FixtureCase {
 
 #[derive(Deserialize)]
 struct FixtureSandbox {
-    profile: String,
-    cwd_policy: Option<String>,
+    profile: runx_core::policy::SandboxProfile,
+    cwd_policy: Option<runx_core::policy::CwdPolicy>,
 }
 
 #[derive(Deserialize)]
@@ -123,7 +123,7 @@ fn fixture_source(
     probe_path: &Path,
 ) -> Result<SkillSource, Box<dyn std::error::Error>> {
     Ok(SkillSource {
-        source_type: "cli-tool".to_owned(),
+        source_type: runx_parser::SourceKind::CliTool,
         command: Some("node".to_owned()),
         args: vec![path_string(probe_path)?, fixture.mode.clone()],
         cwd: fixture.cwd.clone(),
@@ -136,7 +136,9 @@ fn fixture_source(
             network: None,
             writable_paths: Vec::new(),
             require_enforcement: None,
-            approved_escalation: Some(fixture.sandbox.profile == "unrestricted-local-dev"),
+            approved_escalation: Some(
+                fixture.sandbox.profile == runx_core::policy::SandboxProfile::UnrestrictedLocalDev,
+            ),
             raw: JsonObject::new(),
         }),
         server: None,

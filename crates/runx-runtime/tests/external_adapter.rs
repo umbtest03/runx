@@ -735,7 +735,7 @@ fn skill_source(
         );
     }
     Ok(SkillSource {
-        source_type: "external-adapter".to_owned(),
+        source_type: runx_parser::SourceKind::ExternalAdapter,
         command: None,
         args: Vec::new(),
         cwd: None,
@@ -773,7 +773,7 @@ fn skill_source_manifest_path(path: &str) -> Result<SkillSource, Box<dyn std::er
         JsonValue::Object(external_adapter),
     );
     Ok(SkillSource {
-        source_type: "external-adapter".to_owned(),
+        source_type: runx_parser::SourceKind::ExternalAdapter,
         command: None,
         args: Vec::new(),
         cwd: None,
@@ -807,7 +807,7 @@ fn invocation_with_env<const N: usize>(env: [(&str, String); N]) -> ExternalAdap
         adapter_id: "adapter.github.issue-intake".to_owned(),
         run_id: "run_123".to_owned(),
         step_id: "issue-intake".to_owned(),
-        source_type: "external-adapter".to_owned(),
+        source_type: runx_parser::SourceKind::ExternalAdapter,
         skill_ref: "runx/github-issue-intake".to_owned(),
         harness_ref: reference(ReferenceType::Harness, "runx:harness:hrn_123"),
         host_ref: reference(ReferenceType::Host, "runx:host:local-cli"),
