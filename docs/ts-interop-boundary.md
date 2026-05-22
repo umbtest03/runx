@@ -9,8 +9,9 @@ packages during the dual-tree window.
 Rust is canonical for trusted local runtime and execution: local skill and
 graph execution, harness and dogfood execution, receipt sealing and
 verification, history, policy and registry configuration, authority admission,
-payment authority, sandbox enforcement, built-in adapter execution, and
-external execution-adapter supervision.
+payment authority, sandbox admission/metadata, built-in adapter execution, and
+external execution-adapter supervision. Future OS sandbox enforcement belongs
+in the Rust runtime; TypeScript is not a fallback confinement layer.
 TypeScript remains for generated contracts, CLI/client wrappers,
 cloud/product integrations, host adapters, authoring tooling, docs,
 compatibility tests, and helper SDKs over language-neutral external

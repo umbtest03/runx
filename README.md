@@ -108,9 +108,10 @@ domains.
 For the generated package export index, see [docs/api-surface.md](docs/api-surface.md).
 
 `runx-runtime` is the canonical local runtime. It owns local skill, graph,
-harness, receipt, history, policy, authority, payment, sandbox enforcement,
-MCP, built-in adapter execution, and external execution-adapter supervision for
-the native CLI path.
+harness, receipt, history, policy, authority, payment, sandbox admission and
+metadata, MCP, built-in adapter execution, and external execution-adapter
+supervision for the native CLI path. OS sandbox enforcement remains a separate
+runtime hardening lane and must not be assumed from sandbox declarations alone.
 
 `@runxhq/runtime-local` and `@runxhq/adapters` are sunset TypeScript
 compatibility surfaces. They may contain wrappers, generated protocol types,
@@ -141,22 +142,22 @@ Command-surface ownership:
 | non-execution extension protocols | lane-specific Rust/cloud owners | generated types, helper SDKs, provider glue |
 | marketplace and docs tooling | TypeScript/scafld until separately cut over | canonical for authoring UX |
 
-### Local Sandbox Enforcement
+### Local Sandbox Posture
 
 `cli-tool` skills declare sandbox intent in `SKILL.md`: profile, cwd policy,
 env allowlist, network intent, and writable paths. Receipts record both the
 declared policy and the actual local enforcement mode.
 
-On Linux with `bubblewrap` (`bwrap`) available, non-unrestricted profiles run
-under a mount/network namespace and receipts show `bubblewrap` enforcement. On
-macOS or Linux without `bwrap`, the same profiles can run in a
-`declared-policy-only` mode for local development: runx still applies admission,
-cwd, env, and writable-path checks, but the receipt marks filesystem and network
-isolation as `not-enforced-local`.
+The current OSS runtime is `declared-policy-only` for local sandbox isolation:
+runx applies admission, cwd, environment shaping, input delivery, and receipt
+metadata, but it does not enforce filesystem, network, process-tree, or resource
+isolation with OS primitives. Receipts mark filesystem and network isolation as
+`not-enforced-local`.
 
 Set `sandbox.require_enforcement: true` in a skill, or
 `RUNX_SANDBOX_REQUIRE_ENFORCEMENT=true` in the environment, when a run must fail
-unless OS-level sandbox enforcement is available.
+unless a future OS-level sandbox enforcer is available. In the current OSS
+runtime, that setting fails closed.
 
 ## Capability Packs
 

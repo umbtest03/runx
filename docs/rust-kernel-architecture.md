@@ -16,8 +16,10 @@ kernel, but the local runtime cutover is now the operating boundary. For trusted
 local execution, Rust is the canonical owner once a command is advertised by
 the native CLI or runtime. That includes graph execution, harness and dogfood
 execution, receipt sealing and verification, policy and registry configuration,
-authority admission, payment authority, sandbox enforcement, and local
-built-in adapter execution plus external execution-adapter supervision.
+authority admission, payment authority, sandbox admission/metadata, and local
+built-in adapter execution plus external execution-adapter supervision. Future
+OS sandbox enforcement belongs in `runx-runtime`, but current sandbox
+declarations are not confinement by themselves.
 TypeScript remains for generated contracts,
 CLI/client wrappers, cloud/product integrations, host adapters, authoring
 tooling, docs, compatibility tests, and helper SDKs over language-neutral
@@ -36,7 +38,7 @@ Rust crates exist to:
   still in the dual-tree window.
 - Make TypeScript kernel drift explicit (intentional fixture refresh required).
 - Provide the native local CLI/runtime path for skill, graph, harness, receipt,
-  history, policy, authority, payment, sandbox enforcement, and
+  history, policy, authority, payment, sandbox admission/metadata, and
   external execution-adapter supervision.
 
 Rust is not a second source of truth for cut-over surfaces; it is the source of
@@ -113,7 +115,7 @@ runx-sdk          library: blocking CLI-backed SDK v0; future async path
 
 runx-runtime      impure: filesystem, subprocess, network, built-in adapter
                   execution, external execution-adapter supervision, MCP,
-                  sandbox enforcement
+                  sandbox admission/metadata, and future OS enforcement
                     default features: none
                     opt-in features: cli-tool, mcp, a2a, agent, catalog
                     deps: runx-contracts, runx-core, runx-parser,
