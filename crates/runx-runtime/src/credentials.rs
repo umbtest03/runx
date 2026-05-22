@@ -1,6 +1,10 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
+use runx_contracts::{
+    CredentialDeliveryMode, CredentialDeliveryObservation, CredentialDeliveryObservationStatus,
+    CredentialDeliveryPurpose, Reference, ReferenceType, sha256_prefixed,
+};
 use runx_core::policy::{CredentialBindingDecision, CredentialEnvelope};
 use thiserror::Error;
 
@@ -239,6 +243,10 @@ impl CredentialDelivery {
         let auth_mode = auth_mode.into();
         let material_ref = material_ref.into();
 
+        // Captured before the values move into the envelope/resolver below, so
+        // the run records a non-secret observation of the local provision.
+        let observation = build_local_provision_observation(&provider, &auth_mode, &material_ref);
+
         let profile =
             CredentialDeliveryProfile::env_token(provider.clone(), auth_mode.clone(), env_var)?;
         let envelope = CredentialEnvelope {
@@ -260,7 +268,10 @@ impl CredentialDelivery {
             ResolvedCredentialMaterial::access_token(material_ref, secret),
         );
 
-        Self::from_allowed_binding(&decision, &envelope, &profile, &resolver)
+        Ok(
+            Self::from_allowed_binding(&decision, &envelope, &profile, &resolver)?
+                .with_public_observation(observation),
+        )
     }
 
     pub fn from_allowed_binding<R: MaterialResolver>(
@@ -360,6 +371,45 @@ pub enum CredentialDeliveryError {
     UnsupportedDeliveryMode { mode: String },
     #[error("unsupported credential material role '{role}'")]
     UnsupportedMaterialRole { role: String },
+}
+
+/// Build the non-secret observation that records a local per-run credential
+/// provision on the sealed receipt. It carries no secret material: only the
+/// provider, profile, scoped credential reference, and a hash of the opaque
+/// material ref. The timestamp uses the runtime's deterministic default so
+/// receipts stay reproducible.
+fn build_local_provision_observation(
+    provider: &str,
+    auth_mode: &str,
+    material_ref: &str,
+) -> CredentialDeliveryObservation {
+    CredentialDeliveryObservation {
+        schema: "runx.credential_delivery.observation.v1".to_owned(),
+        observation_id: format!("local-credential-delivery/{material_ref}"),
+        request_id: format!("local-credential-provision/{material_ref}"),
+        response_id: None,
+        status: CredentialDeliveryObservationStatus::Delivered,
+        harness_ref: Reference::with_uri(
+            ReferenceType::Harness,
+            "runx:harness:local-credential-provision",
+        ),
+        host_ref: Some(Reference::with_uri(
+            ReferenceType::Host,
+            "runx:host:local-cli",
+        )),
+        profile_id: format!("{provider}-{auth_mode}"),
+        provider: provider.to_owned(),
+        purpose: CredentialDeliveryPurpose::ProviderApi,
+        delivery_mode: Some(CredentialDeliveryMode::ProcessEnv),
+        credential_refs: vec![Reference::with_uri(
+            ReferenceType::Credential,
+            format!("runx:credential:{material_ref}"),
+        )],
+        material_ref_hash: Some(sha256_prefixed(material_ref.as_bytes())),
+        delivered_roles: vec![runx_contracts::CredentialMaterialRole::AccessToken],
+        redaction_refs: None,
+        observed_at: crate::time::DEFAULT_CREATED_AT.to_owned(),
+    }
 }
 
 fn require_allowed_binding(
