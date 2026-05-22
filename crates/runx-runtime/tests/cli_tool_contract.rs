@@ -5,6 +5,7 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use runx_contracts::{JsonObject, JsonValue};
+use runx_core::policy::{CwdPolicy, SandboxProfile};
 use runx_parser::{SkillSandbox, SkillSource};
 #[cfg(feature = "cli-tool")]
 use runx_runtime::adapter::{InvocationStatus, SkillAdapter, SkillInvocation};
@@ -28,7 +29,10 @@ fn process_sandbox_always_exposes_runx_cwd_to_skill_authors()
     fs::create_dir_all(&workspace_dir)?;
 
     let plan = prepare_process_sandbox(
-        &source(None, Some(sandbox("skill-directory", "readonly"))),
+        &source(
+            None,
+            Some(sandbox(CwdPolicy::SkillDirectory, SandboxProfile::Readonly)),
+        ),
         &skill_dir,
         &JsonObject::new(),
         &[(INIT_CWD_ENV.to_owned(), path_string(&workspace_dir)?)]
@@ -54,7 +58,7 @@ fn skill_directory_cwd_policy_denies_escaped_source_cwd() -> Result<(), Box<dyn 
     let Err(error) = prepare_process_sandbox(
         &source(
             Some("../outside"),
-            Some(sandbox("skill-directory", "readonly")),
+            Some(sandbox(CwdPolicy::SkillDirectory, SandboxProfile::Readonly)),
         ),
         &skill_dir,
         &JsonObject::new(),
@@ -80,7 +84,10 @@ fn workspace_cwd_policy_denies_paths_outside_workspace() -> Result<(), Box<dyn s
     fs::create_dir_all(&workspace_dir)?;
 
     let Err(error) = prepare_process_sandbox(
-        &source(Some("../outside"), Some(sandbox("workspace", "readonly"))),
+        &source(
+            Some("../outside"),
+            Some(sandbox(CwdPolicy::Workspace, SandboxProfile::Readonly)),
+        ),
         &skill_dir,
         &JsonObject::new(),
         &[(RUNX_CWD_ENV.to_owned(), path_string(&workspace_dir)?)]
@@ -111,7 +118,7 @@ fn workspace_cwd_policy_resolves_relative_source_cwd_from_skill_directory()
     let plan = prepare_process_sandbox(
         &source(
             Some("../../fixtures"),
-            Some(sandbox("workspace", "readonly")),
+            Some(sandbox(CwdPolicy::Workspace, SandboxProfile::Readonly)),
         ),
         &skill_dir,
         &JsonObject::new(),
@@ -135,7 +142,7 @@ fn workspace_cwd_policy_defaults_to_current_dir_when_runx_cwd_is_absent()
     let plan = prepare_process_sandbox(
         &source(
             Some(path_string(&current_dir)?.as_str()),
-            Some(sandbox("workspace", "readonly")),
+            Some(sandbox(CwdPolicy::Workspace, SandboxProfile::Readonly)),
         ),
         &skill_dir,
         &JsonObject::new(),
@@ -156,7 +163,10 @@ fn relative_skill_directory_preserves_leading_parent_segments()
     let skill_dir = Path::new("../../fixtures/skills/json-output");
 
     let plan = prepare_process_sandbox(
-        &source(None, Some(sandbox("skill-directory", "readonly"))),
+        &source(
+            None,
+            Some(sandbox(CwdPolicy::SkillDirectory, SandboxProfile::Readonly)),
+        ),
         skill_dir,
         &JsonObject::new(),
         &std::env::vars().collect(),
@@ -176,7 +186,10 @@ fn oversized_inputs_spill_to_path_and_omit_inline_json() -> Result<(), Box<dyn s
     let large = "x".repeat(MAX_INLINE_INPUTS_BYTES);
 
     let plan = prepare_process_sandbox(
-        &source(None, Some(sandbox("skill-directory", "readonly"))),
+        &source(
+            None,
+            Some(sandbox(CwdPolicy::SkillDirectory, SandboxProfile::Readonly)),
+        ),
         &skill_dir,
         &[("message".to_owned(), JsonValue::String(large.clone()))]
             .into_iter()
@@ -205,7 +218,10 @@ fn oversized_per_input_env_value_is_omitted() -> Result<(), Box<dyn std::error::
     let oversized = "x".repeat(MAX_INLINE_INPUT_VALUE_BYTES + 1);
 
     let plan = prepare_process_sandbox(
-        &source(None, Some(sandbox("skill-directory", "readonly"))),
+        &source(
+            None,
+            Some(sandbox(CwdPolicy::SkillDirectory, SandboxProfile::Readonly)),
+        ),
         &skill_dir,
         &[
             ("large".to_owned(), JsonValue::String(oversized)),
@@ -236,7 +252,10 @@ fn unrestricted_local_dev_allows_custom_cwd_escape_after_approval()
     let plan = prepare_process_sandbox(
         &source(
             Some(path_string(&outside_dir)?.as_str()),
-            Some(sandbox("custom", "unrestricted-local-dev")),
+            Some(sandbox(
+                CwdPolicy::Custom,
+                SandboxProfile::UnrestrictedLocalDev,
+            )),
         ),
         &skill_dir,
         &JsonObject::new(),
@@ -255,7 +274,10 @@ fn input_env_names_match_author_visible_typescript_normalization()
     fs::create_dir_all(&skill_dir)?;
 
     let plan = prepare_process_sandbox(
-        &source(None, Some(sandbox("skill-directory", "readonly"))),
+        &source(
+            None,
+            Some(sandbox(CwdPolicy::SkillDirectory, SandboxProfile::Readonly)),
+        ),
         &skill_dir,
         &[
             (
@@ -293,7 +315,10 @@ fn input_env_name_collisions_fail_closed() -> Result<(), Box<dyn std::error::Err
     fs::create_dir_all(&skill_dir)?;
 
     let Err(error) = prepare_process_sandbox(
-        &source(None, Some(sandbox("skill-directory", "readonly"))),
+        &source(
+            None,
+            Some(sandbox(CwdPolicy::SkillDirectory, SandboxProfile::Readonly)),
+        ),
         &skill_dir,
         &[
             ("foo-bar".to_owned(), JsonValue::String("one".to_owned())),
@@ -385,7 +410,7 @@ fn source_with_args(
     timeout_seconds: Option<u64>,
 ) -> SkillSource {
     SkillSource {
-        source_type: "cli-tool".to_owned(),
+        source_type: runx_parser::SourceKind::CliTool,
         command: Some("node".to_owned()),
         args,
         cwd: cwd.map(str::to_owned),
@@ -420,7 +445,7 @@ fn invoke_node(
         skill_name: "contract-test".to_owned(),
         source: source_with_args(
             None,
-            Some(sandbox("skill-directory", "readonly")),
+            Some(sandbox(CwdPolicy::SkillDirectory, SandboxProfile::Readonly)),
             args,
             timeout_seconds,
         ),
@@ -432,15 +457,16 @@ fn invoke_node(
     })?)
 }
 
-fn sandbox(cwd_policy: &str, profile: &str) -> SkillSandbox {
+fn sandbox(cwd_policy: CwdPolicy, profile: SandboxProfile) -> SkillSandbox {
+    let approved_escalation = Some(profile == SandboxProfile::UnrestrictedLocalDev);
     SkillSandbox {
-        profile: profile.to_owned(),
-        cwd_policy: Some(cwd_policy.to_owned()),
+        profile,
+        cwd_policy: Some(cwd_policy),
         env_allowlist: None,
         network: None,
         writable_paths: Vec::new(),
         require_enforcement: None,
-        approved_escalation: Some(profile == "unrestricted-local-dev"),
+        approved_escalation,
         raw: JsonObject::new(),
     }
 }

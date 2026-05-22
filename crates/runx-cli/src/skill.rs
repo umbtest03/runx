@@ -156,6 +156,9 @@ fn finalize_local_credential(
     }
 }
 
+// rust-style-allow: long-function because this is the single skill-flag dispatch
+// match (--receipt-dir/--run-id/--answers/--json/--credential and positionals);
+// splitting the arms would scatter the CLI parse contract.
 fn parse_skill_arg(
     args: &[OsString],
     mut index: usize,
