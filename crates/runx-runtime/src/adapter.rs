@@ -7,6 +7,10 @@ use runx_parser::SkillSource;
 use crate::RuntimeError;
 use crate::credentials::CredentialDelivery;
 
+/// Metadata key under which a skill's non-secret credential-delivery
+/// observations are recorded on [`SkillOutput::metadata`].
+pub const CREDENTIAL_DELIVERY_OBSERVATIONS_METADATA: &str = "credential_delivery_observations";
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InvocationStatus {
     Success,

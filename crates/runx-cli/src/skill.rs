@@ -121,6 +121,9 @@ fn parse_secret_env(value: &str) -> Result<(String, String), String> {
     if name.is_empty() {
         return Err("runx skill --secret-env requires a non-empty env var name".to_owned());
     }
+    if secret.trim().is_empty() {
+        return Err("runx skill --secret-env requires a non-empty secret value".to_owned());
+    }
     Ok((name.to_owned(), secret.to_owned()))
 }
 

@@ -61,6 +61,18 @@ fn local_credential_is_delivered_and_redacted() -> Result<(), Box<dyn std::error
         "raw secret leaked into the run output/receipt/metadata",
     );
 
+    // (3) The sealed run records a non-secret credential-delivery observation,
+    // so the receipt carries an auditable trace that a credential was
+    // provisioned (the material ref appears only as a hash, never the secret).
+    assert!(
+        serialized.contains("credential_delivery_observations"),
+        "expected the sealed run to record a credential delivery observation, got: {serialized}",
+    );
+    assert!(
+        serialized.contains("sha256:"),
+        "expected the observation to carry a hashed material ref, got: {serialized}",
+    );
+
     Ok(())
 }
 

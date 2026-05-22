@@ -51,7 +51,7 @@ pub(crate) fn execute_skill_run(request: &SkillRunRequest) -> Result<JsonValue, 
         &request.env,
         request.local_credential.as_ref(),
     )?;
-    if runner.source.source_type == "cli-tool" {
+    if runner.source.source_type == runx_parser::SourceKind::CliTool {
         return execute_cli_tool_skill_run(request, &manifest, runner, invocation);
     }
 
@@ -64,7 +64,7 @@ fn execute_agent_skill_run(
     runner: &SkillRunnerDefinition,
     invocation: SkillInvocation,
 ) -> Result<JsonValue, SkillRunError> {
-    let source_type = agent_invocation_source_type(&runner.source.source_type)?;
+    let source_type = agent_invocation_source_type(runner.source.source_type.as_str())?;
     let request_id = agent_act_invocation_id(&invocation, source_type);
     let run_id = agent_run_id(request, &request_id)?;
     let resolution_request = agent_request(&invocation, source_type)?;
@@ -228,7 +228,11 @@ fn execute_cli_tool_skill_run(
         .run_id
         .clone()
         .unwrap_or_else(|| cli_tool_run_id(runner, &request.inputs));
-    let output = CliToolAdapter.invoke(invocation)?;
+    let credential_observation = invocation.credential_delivery.public_observation().cloned();
+    let mut output = CliToolAdapter.invoke(invocation)?;
+    if let Some(observation) = &credential_observation {
+        record_credential_observation(&mut output, observation)?;
+    }
     let disposition = if output.succeeded() {
         ClosureDisposition::Closed
     } else {
@@ -378,6 +382,28 @@ fn seal_skill_answer(
     )
 }
 
+/// Record the non-secret credential-delivery observation on the skill output so
+/// the sealed receipt carries an auditable trace that a credential was
+/// provisioned for the run. The observation contains no secret material.
+#[cfg(feature = "cli-tool")]
+fn record_credential_observation(
+    output: &mut SkillOutput,
+    observation: &runx_contracts::CredentialDeliveryObservation,
+) -> Result<(), SkillRunError> {
+    let value: JsonValue = serde_json::to_value(observation)
+        .and_then(serde_json::from_value)
+        .map_err(|error| {
+            SkillRunError::Invalid(format!(
+                "serializing credential delivery observation: {error}"
+            ))
+        })?;
+    output.metadata.insert(
+        crate::adapter::CREDENTIAL_DELIVERY_OBSERVATIONS_METADATA.to_owned(),
+        JsonValue::Array(vec![value]),
+    );
+    Ok(())
+}
+
 fn seal_skill_output(
     run_id: &str,
     runner: &SkillRunnerDefinition,
@@ -456,6 +482,15 @@ fn sealed_output(
         }),
     );
     execution.insert("structured_output".to_owned(), payload.clone());
+    if let Some(observations) = skill_output
+        .metadata
+        .get(crate::adapter::CREDENTIAL_DELIVERY_OBSERVATIONS_METADATA)
+    {
+        execution.insert(
+            crate::adapter::CREDENTIAL_DELIVERY_OBSERVATIONS_METADATA.to_owned(),
+            observations.clone(),
+        );
+    }
 
     let mut output = JsonObject::new();
     output.insert(

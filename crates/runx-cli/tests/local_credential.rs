@@ -101,6 +101,35 @@ fn cli_rejects_secret_env_without_credential() -> Result<(), Box<dyn std::error:
     Ok(())
 }
 
+#[test]
+fn cli_rejects_empty_secret_value() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = temp_root("runx-cli-local-credential-empty");
+    fs::create_dir_all(&temp)?;
+    let skill_dir = write_echo_token_skill(&temp)?;
+
+    let output = native_command()?
+        .arg("skill")
+        .arg(&skill_dir)
+        .arg("--credential")
+        .arg("github:bearer:local://github/main:repo")
+        .arg("--secret-env")
+        .arg("GITHUB_TOKEN=")
+        .arg("--json")
+        .output()?;
+
+    assert!(
+        !output.status.success(),
+        "expected an empty --secret-env value to be rejected at parse time"
+    );
+    let stderr = String::from_utf8(output.stderr)?;
+    assert!(
+        stderr.contains("non-empty secret value"),
+        "expected an error about the empty secret value, got: {stderr}"
+    );
+
+    Ok(())
+}
+
 fn native_command() -> Result<Command, Box<dyn std::error::Error>> {
     let mut command = Command::new(env!("CARGO_BIN_EXE_runx"));
     command.env_clear();
