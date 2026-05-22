@@ -149,10 +149,11 @@ export interface MaterializedArtifacts {
 export const SYSTEM_ARTIFACT_TYPES = new Set(["run_event", "receipt_link"]);
 
 export function createArtifactEnvelope(seed: ArtifactEnvelopeSeed): ArtifactEnvelope {
+  const data = omitUndefinedObjectFields(seed.data);
   const payload = {
     type: seed.type,
     version: "1" as const,
-    data: seed.data,
+    data,
   };
   const hash = hashStable(payload);
   return {
@@ -164,12 +165,35 @@ export function createArtifactEnvelope(seed: ArtifactEnvelopeSeed): ArtifactEnve
       producer: seed.producer,
       created_at: seed.createdAt ?? new Date().toISOString(),
       hash,
-      size_bytes: Buffer.byteLength(JSON.stringify(seed.data), "utf8"),
+      size_bytes: Buffer.byteLength(JSON.stringify(data), "utf8"),
       parent_artifact_id: seed.parentArtifactId ?? null,
       receipt_id: seed.receiptId ?? null,
       redacted: seed.redacted ?? false,
     },
   };
+}
+
+function omitUndefinedObjectFields(value: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
+  return omitUndefinedValue(value) as Readonly<Record<string, unknown>>;
+}
+
+function omitUndefinedValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => entry === undefined ? null : omitUndefinedValue(entry));
+  }
+  if (!isPlainObject(value)) {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, entry]) => [key, omitUndefinedValue(entry)] as const)
+      .filter((entry): entry is readonly [string, unknown] => entry[1] !== undefined),
+  );
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Object.prototype.toString.call(value) === "[object Object]";
 }
 
 export function materializeArtifacts(options: {

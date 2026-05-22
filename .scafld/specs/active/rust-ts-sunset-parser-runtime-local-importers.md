@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: rust-ts-sunset-parser-runtime-local-importers
 created: '2026-05-22T00:26:00+10:00'
-updated: '2026-05-22T11:27:25+10:00'
-status: active
+updated: '2026-05-22T11:41:15+10:00'
+status: review
 harden_status: not_run
 size: small
 risk_level: medium
@@ -13,24 +13,14 @@ risk_level: medium
 
 ## Current State
 
-Status: active
-Current phase: runtime-local direct parser imports removed; parser ingress is
-routed through the Rust parser bridge
-Next: reduce the remaining runtime-local `parser-types.js` structural consumers
-under the runtime-local sunset parent, or delete them with runtime-local
-Reason: `rust-ts-sunset-parser` is blocked by live parser consumers. The
-previous safe slice removed only the importers with local, testable replacement
-semantics; the remaining full parser-validation importers now call
-`packages/runtime-local/src/runner-local/parser-bridge.ts`, which shells to
-`runx parser eval` instead of importing `@runxhq/core/parser`.
-Blockers: no direct `@runxhq/core/parser` imports remain in runtime-local
-source. Runtime-local still has temporary `parser-types.js` structural
-consumers that are outside this parser ingress ownership slice.
-Allowed follow-up command: `scafld validate rust-ts-sunset-parser-runtime-local-importers --json`
-Latest runner update: 2026-05-22T11:27:25+10:00 removed the parser bridge's
-`parser-types.js` import, revalidated the direct parser import census, and ran
-focused parser bridge tests plus `pnpm typecheck`.
-Review gate: runtime_local_direct_parser_imports_removed
+Status: review
+Current phase: final
+Next: review
+Reason: build completed; ready for review
+Blockers: none
+Allowed follow-up command: `scafld review rust-ts-sunset-parser-runtime-local-importers`
+Latest runner update: 2026-05-22T11:41:15+10:00
+Review gate: not_started
 
 ## Summary
 
@@ -99,10 +89,14 @@ rg -l "parser-types\.js" packages/runtime-local/src -g '!node_modules' -g '!crat
 ```
 
 Observed results:
-- 22 runtime-local source files reference parser value imports or
+- 21 runtime-local source files reference parser value imports or
   `parser-types.js`.
 - 0 runtime-local source files import `@runxhq/core/parser`.
-- 22 runtime-local source files import `parser-types.js`.
+- 21 runtime-local source files import `parser-types.js`.
+
+Value importers: no direct runtime-local `@runxhq/core/parser` value importers
+remain; migrated runtime-local parser ingress now routes through the Rust parser
+bridge or local non-parser helpers listed below.
 
 Migrated value importers:
 - `packages/runtime-local/src/runner-local/parser-bridge.ts`
@@ -140,9 +134,9 @@ Migrated value importers:
   - Evidence: `pnpm exec vitest run --config vitest.config.ts packages/runtime-local/src/harness/agent-hook.test.ts`
     passed.
 - `packages/runtime-local/src/tool-catalogs/index.ts`
-  - Replacement: local `ValidatedTool` construction for imported catalog tools,
-    using the same runtime-local-normalized document shape and raw JSON as the
-    previous parser-backed construction.
+  - Replacement: local tool-catalog structural types and construction for
+    imported catalog tools, using the same runtime-local-normalized document
+    shape and raw JSON as the previous parser-backed construction.
   - Evidence: `pnpm exec vitest run --config vitest.config.ts packages/runtime-local/src/tool-catalogs/index.test.ts`
     and `pnpm typecheck` passed. Full graph-level MCP import runtime test is
     blocked by missing `RUNX_KERNEL_EVAL_BIN` before imported tool invocation.
@@ -162,7 +156,7 @@ Definition of done:
 - [x] `dod2` `parser-types.ts` remains temporary and does not gain new parser
   shape exports.
 - [x] `dod3` No parser implementation file is deleted or renamed.
-- [ ] `dod4` The parent parser census is updated after this slice lands.
+- [x] `dod4` The parent parser census is updated after this slice lands.
 
 Validation:
 - [x] `v1` Scafld validates this spec.
@@ -172,10 +166,10 @@ Validation:
   - Evidence: 2026-05-22T11:27:25+10:00 returned
     `{"ok":true,...,"valid":true}`.
 - [x] `v2` Runtime-local parser direct-import census.
-  - Command: `rg -n "@runxhq/core/parser" packages/runtime-local/src -g '!node_modules' -g '!crates/target'`
+  - Command: `bash -lc '! rg -n "@runxhq/core/parser" packages/runtime-local/src -g "!node_modules" -g "!crates/target"'`
   - Expected kind: `no_matches`
   - Status: passed
-  - Evidence: 2026-05-22T11:27:25+10:00 returned no matches.
+  - Evidence: 2026-05-22T11:38:00+10:00 returned no matches and exited zero.
 - [x] `v3` Parser implementation remains present.
   - Command: `test -d packages/core/src/parser`
   - Expected kind: `exit_code_zero`
@@ -202,7 +196,7 @@ Acceptance:
   - Command: `rg -n "@runxhq/core/parser|parser-types\.js" packages/runtime-local/src -g '!node_modules' -g '!crates/target'`
   - Expected kind: `exit_code_zero`
   - Status: passed
-  - Evidence: no direct `@runxhq/core/parser` imports remain; 22
+  - Evidence: no direct `@runxhq/core/parser` imports remain; 21
     `parser-types.js` structural consumers remain.
 - [x] `ac2` command - Value importer assignments are recorded in this spec.
   - Command: `rg -n "Migrated value importers:|Remaining blocked value importers:" .scafld/specs/active/rust-ts-sunset-parser-runtime-local-importers.md`
@@ -212,7 +206,7 @@ Acceptance:
 
 ## Phase 2: Safe Migration
 
-Status: partial
+Status: completed
 Dependencies: Phase 1
 
 Goal: make only the small importer changes that have a clear replacement and
@@ -220,10 +214,10 @@ targeted tests.
 
 Acceptance:
 - [x] `ac3` command - Runtime-local direct parser imports are removed.
-  - Command: `rg -n "@runxhq/core/parser" packages/runtime-local/src -g '!node_modules' -g '!crates/target'`
+  - Command: `bash -lc '! rg -n "@runxhq/core/parser" packages/runtime-local/src -g "!node_modules" -g "!crates/target"'`
   - Expected kind: `no_matches`
   - Status: passed
-  - Evidence: 2026-05-22T11:27:25+10:00 returned no matches.
+  - Evidence: 2026-05-22T11:38:00+10:00 returned no matches and exited zero.
 - [x] `ac4` command - Parser implementation is untouched.
   - Command: `test -d packages/core/src/parser`
   - Expected kind: `exit_code_zero`

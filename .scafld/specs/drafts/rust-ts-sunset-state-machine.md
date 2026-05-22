@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-ts-sunset-state-machine
 created: '2026-05-18T00:00:00Z'
-updated: '2026-05-22T01:11:59Z'
+updated: '2026-05-22T01:34:22Z'
 status: draft
 harden_status: not_run
 size: medium
@@ -14,58 +14,59 @@ risk_level: high
 ## Current State
 
 Status: draft, blocked
-Current phase: runtime-local importer child completed; deletion remains blocked
-Next: resolve the remaining fixture-oracle, temporary type-parity test, package
-export, and generated docs/API-surface references before approval.
+Current phase: public export removed; deletion remains blocked by fixture oracle
+Next: resolve the remaining fixture-oracle ownership and boundary deletion
+enforcement before approval.
 Reason: the deletion remains blocked, but the runtime-local importer prerequisite
-slice is now complete. A fresh 2026-05-22 importer scan finds zero
-`packages/runtime-local/src` references to `@runxhq/core/state-machine`, one root
-type-parity test importing the public export while the TS implementation still
-exists, and two fixture generator scripts importing
-`packages/core/src/state-machine/index.js` as the TypeScript oracle. Public
-surface references also remain in `docs/api-surface.md`,
-`scripts/gen-api-index.ts`, `docs/trusted-kernel-package-truth.md`, and
-`packages/core/package.json` still exposes `./state-machine`. `crates/runx-core`
-has state-machine fixture parity and runtime-local now calls the Rust kernel
-bridge for state-machine operations, but final TS deletion still needs fixture
-oracle ownership and public export/docs cleanup.
+slice is complete and the 2026-05-22 public-surface slice removed
+`packages/core/package.json` `exports["./state-machine"]`, regenerated
+`docs/api-surface.md`, updated `scripts/gen-api-index.ts`, and reframed
+`tests/runtime-local-state-machine-bridge-parity.test.ts` so it no longer
+imports `@runxhq/core/state-machine`. A fresh 2026-05-22 owned-file importer
+scan now finds no public export dependency in the owned test/package/docs
+surface, but still finds two fixture generator scripts importing
+`packages/core/src/state-machine/index.js` as the TypeScript oracle.
+`crates/runx-core` has state-machine fixture parity and runtime-local now calls
+the Rust kernel bridge for state-machine operations, but final TS deletion still
+needs fixture oracle ownership and boundary deletion enforcement.
 Blockers:
-- `tests/runtime-local-state-machine-bridge-parity.test.ts` intentionally imports
-  `@runxhq/core/state-machine` as a temporary type-parity guard while the TS
-  implementation remains present.
 - Fixture generation still imports `packages/core/src/state-machine/index.js`
   as the TypeScript oracle; fixture-generator ownership must be reassigned,
   rerouted, or retired before deletion.
-- `packages/core/package.json` still exposes `./state-machine` as the public
-  package export.
-- `docs/api-surface.md` and `scripts/gen-api-index.ts` still reflect the stable
-  public `@runxhq/core/state-machine` export; regenerate/remove those entries
-  only after the package export is actually removed.
+- Rerouting `scripts/generate-kernel-parity-fixtures.ts` to the Rust kernel is
+  not a safe local-only edit today: `buildKernelParityFixtures()` and
+  `evaluateKernelFixtureInput()` are synchronous and are imported by
+  `tests/kernel-parity-fixtures.test.ts`, `scripts/check-fixture-key-order.ts`,
+  and `scripts/validate-kernel-fixture-schemas.ts`; the available Rust kernel
+  bridge requires `RUNX_KERNEL_EVAL_BIN` or an explicit binary command.
+- `scripts/check-boundaries.mjs` still needs a future removed-export assertion
+  for `./state-machine` when that file is in scope.
 - Do not add legacy or compatibility shapes to keep the TS import path alive;
-  the remaining work must remove or reroute the final public/test/script
-  references.
+  the remaining work must remove or reroute the final script references and
+  enforce that the public export stays removed.
 Allowed follow-up command: `scafld validate rust-ts-sunset-state-machine --json`
 while blocked; do not run `scafld harden` for this draft.
-Latest runner update: 2026-05-22T01:11:59Z - importer census refreshed after
-the runtime-local child completed. Deletion remains blocked by the temporary
-type-parity test, public export/docs surfaces, and fixture-oracle ownership;
-runtime-local source importers are no longer blockers.
+Latest runner update: 2026-05-22T01:34:22Z - public export, generated API docs,
+and the temporary public-export type-parity dependency were removed. Deletion
+remains blocked by fixture-oracle ownership and boundary deletion enforcement;
+runtime-local source importers and public package/docs surfaces are no longer
+blockers.
 Review gate: not_started
 
 ## Summary
 
-Future deletion target: remove the TypeScript state-machine implementation and
-its public `@runxhq/core/state-machine` export after all live consumers are no
-longer depending on it. The current codebase is not there yet:
+Future deletion target: remove the TypeScript state-machine implementation
+after all direct source consumers are no longer depending on it. The public
+`@runxhq/core/state-machine` export has been removed without a compatibility
+alias. The current codebase is not ready for implementation deletion yet:
 `crates/runx-core` implements Rust state-machine parity against
 `fixtures/kernel/state-machine/`, and runtime-local now calls that Rust kernel
-boundary for graph execution. Final deletion is still blocked by fixture-oracle,
-type-parity, package export, and generated docs/API-surface references.
+boundary for graph execution. Final deletion is still blocked by fixture-oracle
+and boundary-enforcement follow-up work.
 
 This spec must remain blocked until the fixture generators no longer depend on
-the TS implementation as their oracle, the temporary type-parity test is removed
-or rerouted, and the public package/docs/API surfaces no longer expose
-`@runxhq/core/state-machine`.
+the TS implementation as their oracle and boundary checks enforce that the
+removed package export stays removed.
 
 ## Completed Prerequisite Slice
 
@@ -105,36 +106,24 @@ Packages:
 Current Rust parity status:
 - `crates/runx-core` currently implements state-machine parity against the
   checked-in TypeScript oracle fixtures under `fixtures/kernel/state-machine/`.
-- `docs/trusted-kernel-package-truth.md` states that TypeScript remains the
-  source of truth until a separate cutover spec changes consumers and passes the
-  relevant parity gate.
-- Kernel parity is not deletion completeness. This draft must not remove the TS
-  package export until fixture-oracle, temporary type-parity, and docs/API
-  surfaces are resolved.
+- `docs/trusted-kernel-package-truth.md` records Rust-owned state-machine kernel
+  inputs, but fixture refreshes still depend on the TypeScript oracle until the
+  generator ownership decision is made.
+- Kernel parity is not deletion completeness. The public package export has
+  been removed, but this draft must not delete the TS implementation until the
+  fixture-oracle scripts are rerouted, reassigned, or retired.
 
 Current TypeScript deletion targets:
 - `packages/core/src/state-machine/**`
-- `packages/core/package.json` export key `./state-machine`
-- Generated API-surface entries that reflect the manifest export, if still
-  present at execution time.
+- Boundary-check enforcement that `packages/core/package.json` does not regain
+  export key `./state-machine`
 - `scripts/check-boundaries.mjs` from this CWD, not `oss/scripts/...`; remove
   `state-machine` from `pureCoreDomains` only when the TS domain is actually
   deleted and add/keep a boundary assertion that `./state-machine` is no longer
   exported.
 
-Current live importers found in source by the 2026-05-22 scan after the
-prerequisite slice:
-- `packages/runtime-local/src/runner-local/orchestrator.ts`
-- `packages/runtime-local/src/runner-local/index.ts`
-- `packages/runtime-local/src/runner-local/graph-hydration.ts`
-- `packages/runtime-local/src/runner-local/graph-fanout-gates.ts`
-- `packages/runtime-local/src/runner-local/graph-governance.ts`
-- `packages/runtime-local/src/runner-local/orchestrator/hydrate-resume.ts`
-- `packages/runtime-local/src/runner-local/orchestrator/handle-run-step.ts`
-- `packages/runtime-local/src/runner-local/orchestrator/handle-run-fanout.ts`
-- `packages/runtime-local/src/runner-local/orchestrator/handle-terminal.ts`
-- `packages/runtime-local/src/runner-local/orchestrator/handle-paused.ts`
-- `tests/graph-hydration-orphan-start.test.ts`
+Current live importers found in source by the 2026-05-22 scan after the public
+surface slice:
 - `scripts/generate-kernel-parity-fixtures.ts`
 - `scripts/generate-rust-fanout-fixtures.ts`
 
@@ -144,37 +133,24 @@ Importer census command:
 rg -n "from ['\"]@runxhq/core/state-machine['\"]|from ['\"].*state-machine/index\.js['\"]" packages/runtime-local/src tests scripts --glob '!**/dist/**' --glob '!node_modules' --glob '!target'
 ```
 
-Observed result: 13 files and 13 import statements.
+Observed result after the 2026-05-22 public-surface slice: 2 files and 2 import
+statements, both direct TS source oracle imports.
 
-Runtime-local direct public-export importers:
-- `packages/runtime-local/src/runner-local/orchestrator.ts`
-- `packages/runtime-local/src/runner-local/index.ts`
-- `packages/runtime-local/src/runner-local/graph-hydration.ts`
-- `packages/runtime-local/src/runner-local/graph-fanout-gates.ts`
-- `packages/runtime-local/src/runner-local/graph-governance.ts`
-- `packages/runtime-local/src/runner-local/orchestrator/hydrate-resume.ts`
-- `packages/runtime-local/src/runner-local/orchestrator/handle-run-step.ts`
-- `packages/runtime-local/src/runner-local/orchestrator/handle-run-fanout.ts`
-- `packages/runtime-local/src/runner-local/orchestrator/handle-terminal.ts`
-- `packages/runtime-local/src/runner-local/orchestrator/handle-paused.ts`
+Runtime-local direct public-export importers: none.
 
 Non-runtime-local live importers:
-- `tests/graph-hydration-orphan-start.test.ts`
 - `scripts/generate-kernel-parity-fixtures.ts`
 - `scripts/generate-rust-fanout-fixtures.ts`
 
-The current importer scan matches the expected post-prerequisite-slice shape:
-`prepare-run.ts` and `orchestrator/run-context.ts` no longer import
-`@runxhq/core/state-machine`, while the remaining synchronous consumers and TS
-fixture oracle scripts still do.
+The current importer scan matches the expected post-public-surface-slice shape:
+runtime-local source and owned tests no longer import `@runxhq/core/state-machine`,
+while the fixture oracle scripts still directly import the TS implementation.
 
 Files impacted:
 - `packages/core/src/state-machine/` (future deletion)
-- `packages/core/package.json` (remove `exports["./state-machine"]`)
-- `scripts/check-boundaries.mjs`
-- Any generated docs/API index reflecting the removed export
-- Every current importer listed above, but only after its owning cutover or
-  retirement spec has landed.
+- `scripts/check-boundaries.mjs` (future removed-export enforcement)
+- The two current fixture-oracle importers listed above, but only after their
+  owning cutover or retirement spec has landed.
 
 Invariants:
 - No consumer regression. Deletion is allowed only after a fresh importer scan
@@ -189,11 +165,11 @@ Invariants:
 ## Objectives
 
 - Keep this draft honest about current blockers.
-- Track the exact public export removal target:
+- Keep the removed public export target recorded:
   `packages/core/package.json` `exports["./state-machine"]`.
 - Require a fresh source scan before any deletion attempt.
-- Delete the TS state-machine implementation only after runtime-local graph
-  orchestration is rerouted to Rust runtime ownership or retired.
+- Delete the TS state-machine implementation only after the fixture-oracle
+  scripts are rerouted, reassigned, or retired.
 - Update `scripts/check-boundaries.mjs` from the OSS repo root so removed
   package exports and deleted pure-core domains stay enforced.
 
@@ -201,7 +177,7 @@ Invariants:
 
 In scope:
 - Future TS state-machine deletion plan.
-- Future public export removal for `@runxhq/core/state-machine`.
+- Public export removal evidence for `@runxhq/core/state-machine`.
 - Boundary-check updates needed by that deletion.
 - Importer verification and deletion gating.
 
@@ -213,10 +189,8 @@ Out of scope:
 
 ## Dependencies
 
-- A Rust runtime cutover or retirement path for runtime-local graph
-  orchestration.
-- `rust-ts-sunset-state-machine-runtime-local-importers` for the runtime-local
-  transition/planning importer migration plan.
+- Completed prerequisite:
+  `rust-ts-sunset-state-machine-runtime-local-importers`.
 - A fixture-generator ownership decision: keep TS oracle until final deletion,
   move generation to a new owner, or retire the generator with an explicit
   fixture-freeze policy.
@@ -226,10 +200,6 @@ Out of scope:
 
 ## Open Questions
 
-- Which implementation spec, after
-  `rust-ts-sunset-state-machine-runtime-local-importers`, owns actual
-  rerouting of runtime-local graph orchestration from the TS state-machine to
-  Rust runtime-owned transitions?
 - Which spec owns fixture generation after the TS oracle is deleted?
 - Should `scripts/check-boundaries.mjs` gain a generic removed-export list so
   `./state-machine` removal is enforced the same way removed runtime-local

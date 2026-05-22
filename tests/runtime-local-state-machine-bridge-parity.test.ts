@@ -1,32 +1,33 @@
 import { describe, expect, it } from "vitest";
-import type {
-  FanoutSyncDecision as CoreFanoutSyncDecision,
-  SequentialGraphPlan as CoreSequentialGraphPlan,
-  SequentialGraphState as CoreSequentialGraphState,
-  SingleStepState as CoreSingleStepState,
-} from "@runxhq/core/state-machine";
 
 import type {
   FanoutSyncDecision,
+  SequentialGraphEvent,
   SequentialGraphPlan,
   SequentialGraphState,
   SingleStepState,
+  SingleStepEvent,
+  StepAdmissionWitness,
 } from "../packages/runtime-local/src/runner-local/kernel-bridge.js";
 
 type Assert<T extends true> = T;
-type Extends<Left, Right> = [Left] extends [Right] ? true : false;
+type IsKernelObject<T> = T extends object ? true : false;
+type SucceedEvent = Extract<SingleStepEvent, { readonly type: "succeed" }>;
+type StepSucceededEvent = Extract<SequentialGraphEvent, { readonly type: "step_succeeded" }>;
 
-type _BridgeSingleStepMatchesCore = Assert<Extends<SingleStepState, CoreSingleStepState>>;
-type _CoreSingleStepMatchesBridge = Assert<Extends<CoreSingleStepState, SingleStepState>>;
-type _BridgeSequentialStateMatchesCore = Assert<Extends<SequentialGraphState, CoreSequentialGraphState>>;
-type _CoreSequentialStateMatchesBridge = Assert<Extends<CoreSequentialGraphState, SequentialGraphState>>;
-type _BridgeSequentialPlanMatchesCore = Assert<Extends<SequentialGraphPlan, CoreSequentialGraphPlan>>;
-type _CoreSequentialPlanMatchesBridge = Assert<Extends<CoreSequentialGraphPlan, SequentialGraphPlan>>;
-type _BridgeFanoutDecisionMatchesCore = Assert<Extends<FanoutSyncDecision, CoreFanoutSyncDecision>>;
-type _CoreFanoutDecisionMatchesBridge = Assert<Extends<CoreFanoutSyncDecision, FanoutSyncDecision>>;
+type _SingleStepStateIsKernelObject = Assert<IsKernelObject<SingleStepState>>;
+type _SequentialStateIsKernelObject = Assert<IsKernelObject<SequentialGraphState>>;
+type _SequentialPlanIsKernelObject = Assert<IsKernelObject<SequentialGraphPlan>>;
+type _FanoutDecisionIsKernelObject = Assert<IsKernelObject<FanoutSyncDecision>>;
+type _SingleStepSuccessRequiresWitness = Assert<
+  SucceedEvent extends { readonly admissionWitness: StepAdmissionWitness } ? true : false
+>;
+type _SequentialStepSuccessRequiresWitness = Assert<
+  StepSucceededEvent extends { readonly admissionWitness: StepAdmissionWitness } ? true : false
+>;
 
 describe("runtime-local state-machine bridge type parity", () => {
-  it("keeps bridge state, plan, and decision result types assignable to the legacy TS surface", () => {
+  it("keeps bridge state, plan, and decision contracts owned by the Rust kernel boundary", () => {
     expect(true).toBe(true);
   });
 });

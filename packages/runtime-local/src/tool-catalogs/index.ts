@@ -1,9 +1,54 @@
 import { asRecord, hashString } from "@runxhq/core/util";
 
 import { createFixtureMcpToolCatalogAdapter } from "./fixture.js";
-import type { SkillInput, SkillSource, ValidatedTool } from "../parser-types.js";
 
 export const runtimeLocalToolCatalogsPackage = "@runxhq/runtime-local/tool-catalogs";
+
+export interface ToolCatalogSkillInput {
+  readonly type: string;
+  readonly required: boolean;
+  readonly description?: string;
+  readonly default?: unknown;
+}
+
+export interface ToolCatalogSkillSource {
+  readonly type: string;
+  readonly command?: string;
+  readonly args: readonly string[];
+  readonly cwd?: string;
+  readonly timeoutSeconds?: number;
+  readonly inputMode?: "args" | "stdin" | "none";
+  readonly server?: {
+    readonly command: string;
+    readonly args: readonly string[];
+    readonly cwd?: string;
+  };
+  readonly catalogRef?: string;
+  readonly tool?: string;
+  readonly arguments?: Readonly<Record<string, unknown>>;
+  readonly agentCardUrl?: string;
+  readonly agentIdentity?: string;
+  readonly agent?: string;
+  readonly task?: string;
+  readonly outputs?: Readonly<Record<string, unknown>>;
+  readonly raw: Record<string, unknown>;
+}
+
+export interface ToolCatalogValidatedTool {
+  readonly name: string;
+  readonly description?: string;
+  readonly source: ToolCatalogSkillSource;
+  readonly inputs: Readonly<Record<string, ToolCatalogSkillInput>>;
+  readonly scopes: readonly string[];
+  readonly risk?: unknown;
+  readonly runtime?: unknown;
+  readonly mutating?: boolean;
+  readonly runx?: Record<string, unknown>;
+  readonly raw: {
+    readonly document: Record<string, unknown>;
+    readonly raw: string;
+  };
+}
 
 export interface ToolCatalogSearchResult {
   readonly tool_id: string;
@@ -40,7 +85,7 @@ export interface ToolInspectResult {
   readonly name: string;
   readonly description?: string;
   readonly execution_source_type: string;
-  readonly inputs: Readonly<Record<string, SkillInput>>;
+  readonly inputs: Readonly<Record<string, ToolCatalogSkillInput>>;
   readonly scopes: readonly string[];
   readonly mutating?: boolean;
   readonly runtime?: unknown;
@@ -77,7 +122,7 @@ export type ToolCatalogInvokeResult =
     };
 
 export interface ToolCatalogResolvedTool {
-  readonly tool: ValidatedTool;
+  readonly tool: ToolCatalogValidatedTool;
   readonly result: ToolCatalogSearchResult;
   readonly skillDirectory: string;
   readonly referencePath: string;
@@ -145,7 +190,7 @@ export async function resolveCatalogTool(
 
 export function createToolInspectResult(options: {
   readonly ref: string;
-  readonly tool: ValidatedTool;
+  readonly tool: ToolCatalogValidatedTool;
   readonly referencePath: string;
   readonly skillDirectory: string;
   readonly provenance: ToolInspectProvenance;
@@ -199,7 +244,7 @@ export function createImportedTool(options: {
   readonly scopes?: readonly string[];
   readonly tags?: readonly string[];
 }): {
-  readonly tool: ValidatedTool;
+  readonly tool: ToolCatalogValidatedTool;
   readonly result: ToolCatalogSearchResult;
 } {
   const { document, qualifiedName, scopes, catalogRef } = importedToolDocument(options);
@@ -254,7 +299,7 @@ function importedToolDocument(options: {
   readonly tags?: readonly string[];
 }): {
   readonly document: Record<string, unknown> & {
-    readonly inputs: Readonly<Record<string, SkillInput>>;
+    readonly inputs: Readonly<Record<string, ToolCatalogSkillInput>>;
     readonly runx: Record<string, unknown>;
   };
   readonly qualifiedName: string;
@@ -297,11 +342,11 @@ function importedToolDocument(options: {
   return { document, qualifiedName, scopes, catalogRef };
 }
 
-function jsonSchemaToToolInputs(inputSchema: Readonly<Record<string, unknown>> | undefined): Record<string, SkillInput> {
+function jsonSchemaToToolInputs(inputSchema: Readonly<Record<string, unknown>> | undefined): Record<string, ToolCatalogSkillInput> {
   const schema = asRecord(inputSchema);
   const properties = asRecord(schema?.properties);
   const required = new Set(Array.isArray(schema?.required) ? schema.required.filter((value): value is string => typeof value === "string") : []);
-  const inputs: Record<string, SkillInput> = {};
+  const inputs: Record<string, ToolCatalogSkillInput> = {};
 
   for (const [name, value] of Object.entries(properties ?? {})) {
     const property = asRecord(value);
@@ -317,7 +362,7 @@ function jsonSchemaToToolInputs(inputSchema: Readonly<Record<string, unknown>> |
   return inputs;
 }
 
-function skillSourceToRaw(source: SkillSource): Record<string, unknown> {
+function skillSourceToRaw(source: ToolCatalogSkillSource): Record<string, unknown> {
   const raw: Record<string, unknown> = { type: source.type };
   if (source.command) raw.command = source.command;
   if (source.args.length > 0) raw.args = source.args;

@@ -1,5 +1,5 @@
 use runx_contracts::JsonValue;
-use runx_core::kernel_eval::{KernelEvalOutput, evaluate_kernel_document_str};
+use runx_core::kernel_eval::{KernelEvalError, KernelEvalOutput, evaluate_kernel_document_str};
 
 #[test]
 fn evaluates_policy_fixture_document() -> Result<(), Box<dyn std::error::Error>> {
@@ -60,6 +60,68 @@ fn evaluates_raw_input_document() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[test]
+fn rejects_oversized_documents_fail_closed() {
+    let source = format!(
+        r#"{{"kind":"state-machine.createSingleStepState","stepId":"{}"}}"#,
+        "a".repeat(1024 * 1024)
+    );
+
+    assert_invalid_input_contains(&source, "exceeds 1048576 bytes");
+}
+
+#[test]
+fn rejects_deeply_nested_documents_fail_closed() {
+    let source = format!(
+        r#"{{"kind":"state-machine.fanoutSyncDecisionKey","decision":{}}}"#,
+        nested_json_object(65)
+    );
+
+    assert_invalid_input_contains(&source, "exceeds JSON depth 64");
+}
+
+#[test]
+fn rejects_wide_documents_fail_closed() {
+    let fields = (0..513)
+        .map(|index| format!(r#""k{index}":null"#))
+        .collect::<Vec<_>>()
+        .join(",");
+    let source =
+        format!(r#"{{"kind":"state-machine.fanoutSyncDecisionKey","decision":{{{fields}}}}}"#);
+
+    assert_invalid_input_contains(&source, "object exceeds 512 fields");
+}
+
 fn json_value(source: &str) -> Result<JsonValue, serde_json::Error> {
     serde_json::from_str(source)
+}
+
+fn nested_json_object(depth: usize) -> String {
+    let mut source = String::from(r#"{"leaf":"value"}"#);
+    for _ in 0..depth {
+        source = format!(r#"{{"child":{source}}}"#);
+    }
+    source
+}
+
+fn assert_invalid_input_contains(source: &str, expected_message: &str) {
+    let result = evaluate_kernel_document_str(source);
+
+    match result {
+        Err(KernelEvalError::InvalidInput(message)) => {
+            assert!(message.contains(expected_message), "{message}");
+        }
+        other => {
+            assert_eq!(
+                other.map(|output| output_kind(&output)),
+                Err(KernelEvalError::InvalidInput(expected_message.to_owned()))
+            );
+        }
+    }
+}
+
+fn output_kind(output: &KernelEvalOutput) -> &'static str {
+    match output {
+        KernelEvalOutput::Output { .. } => "output",
+    }
 }

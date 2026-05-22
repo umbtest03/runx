@@ -62,7 +62,7 @@ for (const entry of packages) {
   }
   if (entry.manifest.name === "@runxhq/core") {
     lines.push(
-      "Kernel parity fixtures under `fixtures/kernel/` provide conformance evidence for the stable `@runxhq/core/state-machine` and `@runxhq/core/policy` exports during the Rust port.",
+      "Kernel parity fixtures under `fixtures/kernel/` provide conformance evidence for stable `@runxhq/core/policy` exports and Rust-owned state-machine behavior during the Rust port.",
     );
     lines.push("");
   }

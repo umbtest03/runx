@@ -54,7 +54,7 @@ Version: `0.2.5`
 
 Runx trusted kernel domains: parser, state machine, policy, registry, knowledge, config, and artifacts.
 
-Kernel parity fixtures under `fixtures/kernel/` provide conformance evidence for the stable `@runxhq/core/state-machine` and `@runxhq/core/policy` exports during the Rust port.
+Kernel parity fixtures under `fixtures/kernel/` provide conformance evidence for stable `@runxhq/core/policy` exports and Rust-owned state-machine behavior during the Rust port.
 
 Version: `0.1.6`
 
@@ -68,7 +68,6 @@ Version: `0.1.6`
 | `@runxhq/core/parser` | `./dist/src/parser/index.d.ts` | `./dist/src/parser/index.js` |
 | `@runxhq/core/policy` | `./dist/src/policy/index.d.ts` | `./dist/src/policy/index.js` |
 | `@runxhq/core/registry` | `./dist/src/registry/index.d.ts` | `./dist/src/registry/index.js` |
-| `@runxhq/core/state-machine` | `./dist/src/state-machine/index.d.ts` | `./dist/src/state-machine/index.js` |
 | `@runxhq/core/util` | `./dist/src/util/index.d.ts` | `./dist/src/util/index.js` |
 
 ## @runxhq/create-skill

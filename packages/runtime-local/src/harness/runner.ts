@@ -138,7 +138,7 @@ export interface HarnessSuiteResult {
   readonly targetPath: string;
   readonly skillPath: string;
   readonly profileSourcePath: string;
-  readonly status: "success" | "failure";
+  readonly status: "sealed" | "failure";
   readonly cases: readonly HarnessRunResult[];
   readonly assertionErrors: readonly string[];
 }
@@ -235,7 +235,7 @@ async function runInlineHarnessSuite(targetPath: string, options: HarnessRunOpti
     targetPath: resolved.skillPath,
     skillPath: resolved.skillPath,
     profileSourcePath: resolved.profileSourcePath,
-    status: assertionErrors.length === 0 ? "success" : "failure",
+    status: assertionErrors.length === 0 ? "sealed" : "failure",
     cases,
     assertionErrors,
   };
@@ -375,7 +375,7 @@ function createInlineHarnessFixture(entry: RunnerHarnessCase, skillPath: string)
     inputs: entry.inputs,
     env: entry.env,
     caller: entry.caller,
-    expect: entry.expect as HarnessResultExpectation,
+    expect: validateExpectation(entry.expect as Record<string, unknown>),
   };
 }
 
@@ -611,7 +611,7 @@ function validateReceiptExpectation(value: Record<string, unknown> | undefined):
     status: optionalSuccessFailure(value.status, "expect.receipt.status"),
     source_type: optionalString(value.source_type, "expect.receipt.source_type"),
     owner: optionalString(value.owner, "expect.receipt.owner"),
-    schema: optionalHarnessReceiptSchema(value.schema, "expect.receipt.schema"),
+    schema: optionalHarnessReceiptSchema(value.schema, "expect.receipt.schema") ?? harnessReceiptSchema,
     body_digest: optionalString(value.body_digest, "expect.receipt.body_digest"),
     receipt_digest: optionalString(value.receipt_digest, "expect.receipt.receipt_digest"),
     harness_id: optionalString(value.harness_id, "expect.receipt.harness_id"),

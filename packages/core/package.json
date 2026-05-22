@@ -44,10 +44,6 @@
       "types": "./dist/src/registry/index.d.ts",
       "import": "./dist/src/registry/index.js"
     },
-    "./state-machine": {
-      "types": "./dist/src/state-machine/index.d.ts",
-      "import": "./dist/src/state-machine/index.js"
-    },
     "./util": {
       "types": "./dist/src/util/index.d.ts",
       "import": "./dist/src/util/index.js"

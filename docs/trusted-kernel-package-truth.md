@@ -46,7 +46,7 @@ under the strict inline-code policy.
 
 The initial pure-kernel Rust parity surface is:
 
-- `@runxhq/core/state-machine`
+- Rust-owned state-machine kernel inputs
 - `@runxhq/core/policy`
 - `@runxhq/core/policy/sandbox`
 - authority-proof and scope-admission policy helpers

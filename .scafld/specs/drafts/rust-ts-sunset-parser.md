@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: rust-ts-sunset-parser
 created: '2026-05-18T00:00:00Z'
-updated: '2026-05-22T00:26:00+10:00'
+updated: '2026-05-22T11:41:15+10:00'
 status: draft
 harden_status: not_run
 size: medium
@@ -17,18 +17,20 @@ Status: draft
 Current phase: blocked
 Next: wait for parser importer migration specs to remove live TS consumers.
 Reason: draft created under `plans/rust-takeover.md`. Third TS sunset. On
-2026-05-22 this draft was rechecked again and the deletion objective is not
-currently valid because 54 live files still import `@runxhq/core/parser`,
-relative `packages/core/src/parser` modules, or runtime-local parser type
-surfaces.
-Blockers: parser importers still live after `rust-ts-sunset-policy` completion.
+2026-05-22 this draft was rechecked after the runtime-local direct parser import
+slice completed. Deletion is still not valid: 52 live files still import
+`@runxhq/core/parser`, reference relative/direct parser source paths, or carry
+runtime-local parser structural type surfaces.
+Blockers: parser importers still live after `rust-ts-sunset-policy` completion,
+but runtime-local direct imports are no longer one of the blockers.
 Allowed follow-up command: none while blocked; do not run `scafld harden`
 for this draft.
-Latest runner update: 2026-05-22T00:26:00+10:00 importer census refreshed;
-deletion remains blocked and no harden/build should run for this draft until
-owning importer migration specs clear the census. The deletion parent is split
-into importer-class work below, with `rust-ts-sunset-parser-runtime-local-importers`
-owning the runtime-local parser value/type surface.
+Latest runner update: 2026-05-22T11:41:15+10:00 importer census refreshed after
+`rust-ts-sunset-parser-runtime-local-importers` removed runtime-local direct
+`@runxhq/core/parser` imports. Deletion remains blocked by CLI command readers,
+core internal consumers, fixture/oracle generators, tests, and temporary
+runtime-local `parser-types.js` structural consumers owned by the runtime-local
+sunset parent.
 Review gate: blocked
 
 ## Summary
@@ -41,9 +43,10 @@ consumer reads from `@runxhq/core/parser`.
 checkout. Do not approve or execute the deletion phase until the importer census
 below is clean.
 
-2026-05-22 validation update: the importer census still finds 54 files.
-The largest surviving groups are runtime-local execution/parser-type surfaces,
-CLI command readers, fixture/oracle generators, and tests. This update is
+2026-05-22 11:41 validation update: runtime-local direct parser imports are
+gone, but the importer census still finds 52 files. The largest surviving groups
+are CLI command readers, core internal consumers, fixture/oracle generators,
+tests, and runtime-local parser structural type surfaces. This update is
 inspection evidence only; it does not make deletion executable.
 
 ## Context
@@ -111,21 +114,18 @@ rg -l "(\.\./parser|\.\./\.\./parser|packages/core/src/parser)" packages/core sc
 rg -n "@runxhq/core/parser|\.\./parser|packages/core/src/parser" packages tests scripts --glob '!packages/core/src/parser/**' | wc -l
 ```
 
-Observed results on 2026-05-22:
+Observed results on 2026-05-22T11:41:15+10:00:
 
-- 33 files import `@runxhq/core/parser`.
+- 25 files import `@runxhq/core/parser`.
 - 6 files refer to relative or direct `packages/core/src/parser` paths outside
   the parser directory.
 - 21 files import runtime-local `parser-types.js` structural parser surfaces.
-- 62 total import/reference hits remain outside `packages/core/src/parser/**`.
-- 54 union files still reference the parser package or source path.
+- 54 total import/reference hits remain outside `packages/core/src/parser/**`.
+- 52 union files still reference the parser package, source path, or structural
+  runtime-local parser type surface.
 
 Representative live production importers:
 
-- `packages/runtime-local/src/runner-local/execution-targets.ts`
-- `packages/runtime-local/src/runner-local/index.ts`
-- `packages/runtime-local/src/harness/runner.ts`
-- `packages/runtime-local/src/sdk/index.ts`
 - `packages/cli/src/commands/doctor.ts`
 - `packages/cli/src/commands/mcp.ts`
 - `packages/cli/src/commands/tool.ts`
@@ -135,9 +135,10 @@ Representative live production importers:
 
 Importer-class work split:
 
-- `rust-ts-sunset-parser-runtime-local-importers`: runtime-local parser value
-  imports and the local `parser-types.js` structural surface. This is a safe
-  migration slice and must not delete parser code.
+- `rust-ts-sunset-parser-runtime-local-importers`: completed the runtime-local
+  direct parser import migration. Remaining runtime-local `parser-types.js`
+  structural consumers are temporary runtime-local type surfaces owned by the
+  runtime-local sunset parent, not parser value imports.
 - CLI command readers: `packages/cli/src/commands/{dev/fixture-runner,
   doctor-structure,doctor,list,tool}.ts`.
 - Core internal consumers: `packages/core/src/config/index.ts`,

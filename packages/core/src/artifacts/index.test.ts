@@ -18,6 +18,51 @@ import {
 } from "./index.js";
 
 describe("ledger tamper evidence", () => {
+  it("normalizes undefined artifact data before hashing and ledger append", async () => {
+    await withReceiptDir("undefined-normalize", async (receiptDir) => {
+      const runId = "rx_undefined0000000000000000a";
+      const withUndefined = createArtifactEnvelope({
+        type: "test_artifact",
+        data: {
+          keep: "yes",
+          drop: undefined,
+          nested: {
+            value: "nested",
+            drop: undefined,
+          },
+          items: ["kept", undefined, { nested: undefined, value: true }],
+        },
+        runId,
+        producer: { skill: "ledger-test", runner: "vitest" },
+        createdAt: "2026-04-29T00:00:00.000Z",
+      });
+      const withoutUndefined = createArtifactEnvelope({
+        type: "test_artifact",
+        data: {
+          keep: "yes",
+          nested: {
+            value: "nested",
+          },
+          items: ["kept", null, { value: true }],
+        },
+        runId,
+        producer: { skill: "ledger-test", runner: "vitest" },
+        createdAt: "2026-04-29T00:00:00.000Z",
+      });
+
+      expect(withUndefined.data).toEqual(withoutUndefined.data);
+      expect(withUndefined.meta.hash).toBe(withoutUndefined.meta.hash);
+      expect(withUndefined.meta.artifact_id).toBe(withoutUndefined.meta.artifact_id);
+      expect(withUndefined.meta.size_bytes).toBe(Buffer.byteLength(JSON.stringify(withUndefined.data), "utf8"));
+      expect(() => canonicalJsonStringify({ entry: withUndefined })).not.toThrow();
+
+      await appendLedgerEntries({ receiptDir, runId, entries: [withUndefined] });
+      await expect(inspectLedger(receiptDir, runId)).resolves.toMatchObject({
+        verification: { status: "valid", entryCount: 1 },
+      });
+    });
+  });
+
   it("writes chained ledger records while preserving the artifact read model", async () => {
     await withReceiptDir("chained", async (receiptDir) => {
       const runId = "rx_chain00000000000000000000000a";

@@ -91,10 +91,11 @@ exploitable bypass or secret exposure; **Medium** = hardening / defense-in-depth
   that the witness step id and receipt id match the step being sealed, so a
   runner cannot transition a step to succeeded through the kernel without an
   admission/receipt witness.
-- **C7 [Medium] — kernel-eval input surface.** `kernel_eval.rs` exposes
-  evaluators (`is_payment_authority_subset`, etc.) via JSON `to_value(...)`. If
-  externally reachable, add input limits + fuzzing (deeply-nested objects →
-  recursion/stack exhaustion in canonical-JSON; oversized inputs).
+- **C7 [Medium] — DONE (input limits).** `kernel_eval.rs` now fails closed before
+  dispatch on oversized kernel-eval documents and structurally excessive JSON:
+  max document bytes, JSON depth, node count, array length, object field count,
+  object key bytes, and string bytes. Added fail-closed tests for oversized,
+  deeply nested, and wide documents. Fuzzing remains a follow-up hardening item.
 
 ## Runtime findings (`runx-runtime`)
 
@@ -264,6 +265,12 @@ work.
 - 2026-05-22T11:08:00+10:00: `cargo test --manifest-path crates/Cargo.toml -p
   runx-runtime --test payment_execution --test stripe_spt_payment --test
   payment_ledger_projection --test payment_state -- --nocapture` passed.
+- 2026-05-22T11:38:00+10:00: `cargo test --manifest-path crates/Cargo.toml -p
+  runx-core --test kernel_eval -- --nocapture` passed.
+- 2026-05-22T11:38:00+10:00: `cargo test --manifest-path crates/Cargo.toml -p
+  runx-core --lib kernel_eval -- --nocapture` passed.
+- 2026-05-22T11:38:00+10:00: `cargo clippy --manifest-path crates/Cargo.toml -p
+  runx-core --all-targets -- -D warnings` passed.
 
 ## Origin
 

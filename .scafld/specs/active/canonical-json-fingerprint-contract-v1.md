@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: canonical-json-fingerprint-contract-v1
 created: '2026-05-21T12:19:24Z'
-updated: '2026-05-22T01:25:00Z'
+updated: '2026-05-22T01:38:05Z'
 status: active
 harden_status: not_run
 size: medium
@@ -20,62 +20,14 @@ tree; remaining runtime-local/adapter/core legacy helper decisions still
 pending
 Next: decide broader runtime-local, adapter, and core legacy helper survivorship
 cleanup in the owning slice
-Reason: the shared `@runxhq/contracts` helper is now executable and verified,
-and TypeScript receipt canonical JSON is pinned to Rust receipt canonicalization
-through a shared oracle fixture. Cloud now uses the shared helper for stable
-JSON and full `sha256:` commitments where harness routes had same-contract
-hashers or truncated digest labels. Core ledger chain hashing now uses the same
-helper for its `runx.stable-json.v1` label, and `push_outbox`/file-thread short
-IDs are explicitly internal truncated fragments rather than `sha256:`
-commitments.
+Reason: the shared `@runxhq/contracts` helper is executable and verified. Cloud,
+core ledger, bundled `push_outbox`, file-thread, and focused CLI/script callers
+now route contractual JSON hashes through the shared helper or document their
+remaining opaque short-fragment use.
 Blockers: remaining phases still need non-cloud survivorship cleanup owned by
 runtime-local, adapter, and core legacy helper follow-up specs.
 Allowed follow-up command: `scafld handoff canonical-json-fingerprint-contract-v1`
-Latest runner update: 2026-05-21T23:10:00+10:00 added
-`packages/contracts/src/canonical-json.ts`, exported it from the package root,
-and added fixtures under `fixtures/contracts/canonical-json/`. Focused tests,
-typecheck, schema generation check, and spec validation passed.
-Follow-up: 2026-05-21T13:21:35Z completed Phase 1 call-site/tag inventory.
-The inventory classifies stable JSON, harness receipt, signal source event,
-ledger, runtime-local stdout/stderr/input hashes, projection fingerprints,
-`push_outbox` IDs, file hashes, and known truncated `sha256:` labels before any
-helper rewiring.
-Follow-up: 2026-05-21T13:39:10Z canonicalized
-`fixtures/contracts/canonical-json/runx-stable-json-v1.cases.json` key order so
-the global contract fixture key-order check passes.
-Follow-up: 2026-05-21T13:59:43Z completed Phase 3 for covered
-`fixtures/contracts/harness-spine/*` harness receipt fixtures by adding a shared
-oracle under `fixtures/contracts/canonical-json/`; Rust asserts full/body
-canonical JSON and digests against the oracle, and TypeScript compares
-`canonicalJsonStringify(fixture.expected)` plus body-stripped digests against
-the same oracle.
-Follow-up: 2026-05-21T14:05:00Z fixed external-adapter fixture key order so the
-global contract fixture key-order gate is green again.
-Follow-up: 2026-05-22T00:12:23+10:00 completed the cloud API/db slice:
-`cloud/packages/db/src/stable-json.ts` is a compatibility export of
-`@runxhq/contracts` canonical JSON, cloud DB comparison payloads omit
-`undefined` optional fields before canonical comparison, and
-`cloud/packages/api/src/harness-routes.ts` now uses `canonicalJsonStringify` and
-`sha256Prefixed` for signal source fingerprints, harness proof packet hashes,
-and formerly truncated `sha256:` harness commitments. Short hashes remain only
-for opaque IDs.
-Follow-up: 2026-05-22T00:42:00+10:00 completed the focused canonical non-cloud
-and `push_outbox` lane. `packages/core/src/artifacts/index.ts` now hashes
-ledger chain payloads with `canonicalJsonStringify` plus `sha256Hex` for the
-advertised `runx.stable-json.v1` contract. `packages/core/src/knowledge/file-thread.ts`
-and both `push_outbox` tool copies use an `opaqueCanonicalJsonHashFragment`
-helper for short `entry_` IDs and `push:` cursors, with comments documenting
-that those fragments are internal and not `sha256:` commitments. The two
-`push_outbox` manifests have refreshed `source_hash` values.
-Follow-up: 2026-05-22T11:25:00+10:00 reviewed the focused CLI/script hash
-slice that was already present in the worktree before this runner started.
-`packages/cli/src/authoring-utils.ts` routes `sha256Stable` and deep structural
-comparison through `@runxhq/contracts` canonical JSON; `packages/cli/src/commands/tool.ts`,
-`packages/cli/src/commands/doctor.ts`, and `packages/cli/src/scaffold.ts` use
-that helper for schema hashes while raw source-content hashing uses
-`sha256Prefixed` over byte chunks; `scripts/check-contract-fixture-key-order.ts`
-and `scripts/generate-rust-harness-fixtures.ts` now use the contracts canonical
-helper. No additional safe code edits remained in this ownership slice.
+Latest runner update: 2026-05-22T01:38:05Z
 Review gate: not_started
 
 ## Summary
@@ -302,7 +254,7 @@ Validation:
 
 ## Phase 1: Tag Inventory
 
-Status: done
+Status: completed
 Dependencies: none
 
 Objective: Complete this phase.
@@ -314,51 +266,38 @@ Changes:
 - Classification:
   - `runx.stable-json.v1` is the structured JSON byte contract now owned by
     `@runxhq/contracts`. Ledger schemas advertise this label; ledger chain
-    hashing in `packages/core/src/artifacts/index.ts` is a contractual caller
-    and should migrate only after conformance tests prove byte identity.
+    hashing in `packages/core/src/artifacts/index.ts` is a contractual caller.
   - `runx.harness-receipt.c14n.v1` is owned by Rust receipt canonicalization in
-    `crates/runx-receipts`. TypeScript runtime-local and cloud code currently
-    stamp this label, but they must be treated as untrusted until Phase 3 proves
-    fixture parity.
+    `crates/runx-receipts`; TypeScript parity is pinned through shared oracle
+    fixtures for the covered harness-spine receipts.
   - `runx.signal-source-event.c14n.v1` is a cloud source-event fingerprint over
-    a stable JSON subset. It can use the shared helper after cloud test coverage
-    pins the exact event shape.
+    a stable JSON subset and now uses the shared helper in the completed cloud
+    slice.
   - `runx.stdout-hash.v1` and `runx.stderr-hash.v1` are raw string SHA-256
     contracts, not `runx.stable-json.v1` callers.
-  - `runx.input-hash.v1` is a TypeScript runtime-local structured input hash.
-    It is a sunset surface; do not rewire it ahead of the runtime-local sunset
-    decision.
-  - `runx.fingerprint.c14n.v1` covers Aster/target/opportunity projection
-    fixtures. It is projection-specific and is not automatically equivalent to
-    `runx.stable-json.v1`.
-  - `push_outbox` IDs and cursors are internal bundled-tool identifiers. They
-    may keep a pinned vendored helper unless the standalone bundle policy
-    allows importing `@runxhq/contracts`.
+  - `runx.input-hash.v1` is a TypeScript runtime-local structured input hash
+    and remains a sunset surface outside this slice.
+  - `runx.fingerprint.c14n.v1` covers projection fixtures and is not
+    automatically equivalent to `runx.stable-json.v1`.
+  - `push_outbox` IDs and cursors are internal opaque identifiers, not
+    `sha256:` commitments.
   - Tool file/binary hashes, release artifact hashes, skill markdown digests,
     and profile digests are raw byte/string hashes and remain out of scope.
-  - Cloud `harness-routes.ts` `shortHash` call sites and
-    `scripts/dogfood-github-issue-to-pr.mjs` produce truncated values under
-    `sha256:` labels. Those labels must be reclassified or replaced before any
-    helper migration claims full SHA-256 semantics.
 
 Acceptance:
-- Stable-hash call sites are classified before replacement begins. Done.
+- none
 
 ## Phase 2: Contract Helper
 
-Goal: add the TypeScript helper in the surviving contracts package.
-
-Status: done for the additive helper slice
+Status: completed
 Dependencies: Phase 1
-Note: executed before full Phase 1 because it does not rewire existing
-call sites or change published hashes. Replacement work still depends on tag
-inventory.
+
+Goal: add the TypeScript helper in the surviving contracts package.
 
 Changes:
 - Implemented canonical JSON and SHA-256 helpers under `oss/packages/contracts`.
 - Exported helpers from the package root.
-- Added explicit unsupported-value tests for `undefined`, array holes,
-  functions, symbols, `BigInt`, non-finite numbers, and unpaired surrogates.
+- Added explicit unsupported-value tests for `undefined`, array holes, functions, symbols, `BigInt`, non-finite numbers, and unpaired surrogates.
 
 Acceptance:
 - The helper has no dependency on `@runxhq/core`, runtime-local, or cloud code.

@@ -198,17 +198,15 @@ fn fixture_script() -> Result<PathBuf, std::io::Error> {
 
 fn credential_delivery() -> Result<CredentialDelivery, Box<dyn std::error::Error>> {
     let profile = CredentialDeliveryProfile::env_token("github", "oauth_bearer", "GITHUB_TOKEN")?;
-    let credential = CredentialEnvelope {
-        kind: "credential_envelope.v1".to_owned(),
-        grant_id: "grant-github".to_owned(),
-        provider: "github".to_owned(),
-        auth_mode: "oauth_bearer".to_owned(),
-        material_kind: "access_token".to_owned(),
-        connection_id: None,
-        scopes: vec!["issues:write".to_owned()],
-        grant_reference: None,
-        material_ref: "secret://github/main".to_owned(),
-    };
+    let credential: CredentialEnvelope = serde_json::from_value(serde_json::json!({
+        "kind": "credential_envelope.v1",
+        "grant_id": "grant-github",
+        "provider": "github",
+        "auth_mode": "oauth_bearer",
+        "material_kind": "access_token",
+        "scopes": ["issues:write"],
+        "material_ref": "secret://github/main"
+    }))?;
     let resolver = InMemoryMaterialResolver::with_material(
         "secret://github/main",
         ResolvedCredentialMaterial::access_token("secret://github/main", "ghs_TEST_SECRET_TOKEN"),
