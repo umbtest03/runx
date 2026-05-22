@@ -79,6 +79,6 @@ Body
         .map_err(|error| error.to_string())?;
 
     assert!(skill.runx.is_none());
-    assert_eq!(skill.source.source_type, "agent");
+    assert_eq!(skill.source.source_type.as_str(), "agent");
     Ok(())
 }

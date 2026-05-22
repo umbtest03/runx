@@ -128,7 +128,7 @@ fn fixture_source(
         args: vec![path_string(probe_path)?, fixture.mode.clone()],
         cwd: fixture.cwd.clone(),
         timeout_seconds: Some(fixture.timeout_seconds),
-        input_mode: fixture.input_mode.clone(),
+        input_mode: fixture.input_mode,
         sandbox: Some(SkillSandbox {
             profile: fixture.sandbox.profile.clone(),
             cwd_policy: fixture.sandbox.cwd_policy.clone(),

@@ -110,8 +110,10 @@ Phase 3 — Sandbox enums (A). `SkillSandbox.profile` reuses the existing
 already defined/re-exported, no new enum. Acceptance: `cargo test -p
 runx-parser -p runx-runtime`; sandbox fixtures unchanged.
 
-Phase 4a — Parser SourceKind/InputMode (A). Closed 8-variant `SourceKind`
-(incl. `ExternalAdapter`) + `InputMode` (`args|stdin|none`) in `runx-parser`,
+Phase 4a — Parser SourceKind/InputMode (A). Closed 9-variant `SourceKind`
+(incl. `Agent` — the default source — and `ExternalAdapter`; the harden's
+8-variant count missed the `agent` default, caught at build) + `InputMode`
+(`args|stdin|none`) in `runx-parser`,
 serde kebab-rename; `validate_source` plus its helpers (`validate_mcp_server`,
 `validate_catalog_ref`, `validate_mcp_tool`, `validate_a2a_url`,
 `validate_agent`, `validate_task`, `validate_hook`,
@@ -160,6 +162,33 @@ through the enum's `as_str()`/serde, do not revert to `String`. No migration
 shims (greenfield).
 
 ## Done (executed)
+
+- **Executable scope, all phases (2026-05-22).** Built on a verified-green tree;
+  workspace `cargo clippy --all-targets --all-features -- -D warnings`, `cargo
+  fmt --check`, and `check-rust-core-style.mjs` (no new findings) all clean.
+  - Phase 1 (C): `Reference::runx(type, id)` (runx-URI) + `Reference::with_uri`
+    (explicit URI) in `runx-contracts`; collapsed all four runtime `reference()`
+    builders (`seal`, `target_runner`, `credentials`, `external_adapter` — the
+    last two had *different* semantics than the harden assumed, hence two
+    constructors) and the `runx-receipts` `reference_type_name`. `ReferenceType::
+    as_str()` + the 3 contracts-internal `sha256` folds (prior step).
+  - Phase 2 (A): `CatalogKind`/`CatalogAudience`/`CatalogVisibility` typed;
+    `CatalogMetadata` parsed once; registry build/round-trip consumers convert at
+    the boundary via `as_str()`.
+  - Phase 3 (A): `SkillSandbox.profile: SandboxProfile`, `cwd_policy:
+    Option<CwdPolicy>` (reused the existing `runx_core::policy` enums; added
+    `as_str()` to them); runtime `sandbox.rs`/`mcp` consumers use the enums.
+  - Phase 4a/4b (A): `SourceKind` (parsed once in `validate_source`, fail-closed
+    on unknown) + `InputMode`; runtime `source_type` swept across the adapter
+    guards (typed `== SourceKind::X`), serialize/format sites (`as_str()`/
+    `Display`), and ~12 files + tests. **Correction caught at build: the set is
+    9 variants, not 8 — `Agent` (the default skill source, `default_agent_
+    source`) was missing from the harden's enumeration.**
+  - Out of scope / unchanged: the pre-existing `--all-features` failure
+    `agent_parity::harness_replay_runs_agent_skill_fixture` is a Codex-era
+    agent-harness-replay test (expects adapter-resolver behavior the harness
+    replaced with fixture-answer replay); it fails identically on committed HEAD
+    and is independent of this work.
 
 - **CLI FilterMode** — `ListPlan { ok_only: bool, invalid_only: bool }` had a
   representable-but-invalid `(true, true)` state guarded only by a runtime

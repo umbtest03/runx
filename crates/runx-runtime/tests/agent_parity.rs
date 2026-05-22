@@ -26,10 +26,10 @@ fn agent_step_invocation_id_and_envelope_shape() -> Result<(), Box<dyn std::erro
     let output = AgentAdapter::agent_step(config(), &resolver).invoke(SkillInvocation {
         env,
         ..invocation(
-            "agent-step",
+            runx_parser::SourceKind::AgentStep,
             "fixture.step",
             source(
-                "agent-step",
+                runx_parser::SourceKind::AgentStep,
                 Some("assistant"),
                 Some("draft release notes"),
                 None,
@@ -114,9 +114,14 @@ fn agent_plain_text_success() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let output = AgentAdapter::agent(config(), &resolver).invoke(invocation(
-        "agent",
+        runx_parser::SourceKind::Agent,
         "fixture.agent",
-        source("agent", Some("assistant"), Some("summarize"), None),
+        source(
+            runx_parser::SourceKind::Agent,
+            Some("assistant"),
+            Some("summarize"),
+            None,
+        ),
         JsonObject::new(),
     ))?;
 
@@ -164,10 +169,10 @@ fn agent_step_structured_json_payload_success() -> Result<(), Box<dyn std::error
     .into();
 
     let output = AgentAdapter::agent_step(config(), &resolver).invoke(invocation(
-        "agent-step",
+        runx_parser::SourceKind::AgentStep,
         "fixture.structured",
         source(
-            "agent-step",
+            runx_parser::SourceKind::AgentStep,
             Some("assistant"),
             Some("structured"),
             Some(outputs),
@@ -201,9 +206,14 @@ fn provider_error_failure_sanitizes_stderr_and_metadata() -> Result<(), Box<dyn 
     let resolver = RecordingResolver::failure("provider leaked sk-secret-value");
 
     let output = AgentAdapter::agent_step(config(), &resolver).invoke(invocation(
-        "agent-step",
+        runx_parser::SourceKind::AgentStep,
         "fixture.fail",
-        source("agent-step", Some("assistant"), Some("fail"), None),
+        source(
+            runx_parser::SourceKind::AgentStep,
+            Some("assistant"),
+            Some("fail"),
+            None,
+        ),
         JsonObject::new(),
     ))?;
 
@@ -224,9 +234,14 @@ fn provider_error_failure_sanitizes_stderr_and_metadata() -> Result<(), Box<dyn 
 fn unsupported_source_type_returns_runtime_error() -> Result<(), Box<dyn std::error::Error>> {
     let resolver = RecordingResolver::success(JsonValue::String("unused".to_owned()), None);
     let error = AgentAdapter::agent(config(), &resolver).invoke(invocation(
-        "agent-step",
+        runx_parser::SourceKind::AgentStep,
         "fixture.unsupported",
-        source("agent-step", Some("assistant"), Some("task"), None),
+        source(
+            runx_parser::SourceKind::AgentStep,
+            Some("assistant"),
+            Some("task"),
+            None,
+        ),
         JsonObject::new(),
     ));
 
@@ -323,7 +338,7 @@ impl AgentResolver for &RecordingResolver {
 }
 
 fn invocation(
-    source_type: &str,
+    source_type: runx_parser::SourceKind,
     skill_name: &str,
     source: SkillSource,
     inputs: JsonObject,
@@ -337,18 +352,18 @@ fn invocation(
         env: BTreeMap::new(),
         credential_delivery: runx_runtime::CredentialDelivery::none(),
     };
-    request.source.source_type = source_type.to_owned();
+    request.source.source_type = source_type;
     request
 }
 
 fn source(
-    source_type: &str,
+    source_type: runx_parser::SourceKind,
     agent: Option<&str>,
     task: Option<&str>,
     outputs: Option<JsonObject>,
 ) -> SkillSource {
     SkillSource {
-        source_type: source_type.to_owned(),
+        source_type,
         command: None,
         args: Vec::new(),
         cwd: None,

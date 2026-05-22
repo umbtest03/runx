@@ -58,6 +58,7 @@ pub enum SourceKind {
     Mcp,
     Catalog,
     A2a,
+    Agent,
     AgentStep,
     HarnessHook,
     Graph,
@@ -71,6 +72,7 @@ impl SourceKind {
             SourceKind::Mcp => "mcp",
             SourceKind::Catalog => "catalog",
             SourceKind::A2a => "a2a",
+            SourceKind::Agent => "agent",
             SourceKind::AgentStep => "agent-step",
             SourceKind::HarnessHook => "harness-hook",
             SourceKind::Graph => "graph",
@@ -642,18 +644,17 @@ pub(crate) fn validate_catalog_metadata(
             )));
         }
     };
-    let audience = match required_string(value.get("audience"), &format!("{label}.audience"))?
-        .as_str()
-    {
-        "public" => CatalogAudience::Public,
-        "builder" => CatalogAudience::Builder,
-        "operator" => CatalogAudience::Operator,
-        _ => {
-            return Err(validation_error(format!(
-                "{label}.audience must be public, builder, or operator."
-            )));
-        }
-    };
+    let audience =
+        match required_string(value.get("audience"), &format!("{label}.audience"))?.as_str() {
+            "public" => CatalogAudience::Public,
+            "builder" => CatalogAudience::Builder,
+            "operator" => CatalogAudience::Operator,
+            _ => {
+                return Err(validation_error(format!(
+                    "{label}.audience must be public, builder, or operator."
+                )));
+            }
+        };
     let visibility = match optional_string(value.get("visibility"), &format!("{label}.visibility"))?
         .as_deref()
     {
@@ -763,6 +764,7 @@ fn parse_source_kind(value: &str, field: &str) -> Result<SourceKind, ValidationE
         "mcp" => Ok(SourceKind::Mcp),
         "catalog" => Ok(SourceKind::Catalog),
         "a2a" => Ok(SourceKind::A2a),
+        "agent" => Ok(SourceKind::Agent),
         "agent-step" => Ok(SourceKind::AgentStep),
         "harness-hook" => Ok(SourceKind::HarnessHook),
         "graph" => Ok(SourceKind::Graph),

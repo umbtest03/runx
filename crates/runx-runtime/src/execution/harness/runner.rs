@@ -1010,8 +1010,8 @@ fn replay_agent_skill_fixture(
     let source_type =
         AgentActInvocationSourceType::from_contract_value(invocation.source.source_type.as_str())
             .ok_or_else(|| RuntimeError::UnsupportedAdapter {
-                adapter_type: invocation.source.source_type.as_str().to_owned(),
-            })?;
+            adapter_type: invocation.source.source_type.as_str().to_owned(),
+        })?;
     let request_id = agent_act_invocation_id(invocation, source_type);
     let mut metadata = JsonObject::new();
     metadata.insert(

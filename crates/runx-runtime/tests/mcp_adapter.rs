@@ -353,7 +353,7 @@ fn invocation(tool: &str, timeout_seconds: Option<u64>, inputs: JsonObject) -> S
     SkillInvocation {
         skill_name: "fixture.mcp".to_owned(),
         source: SkillSource {
-            source_type: "mcp".to_owned(),
+            source_type: runx_parser::SourceKind::Mcp,
             command: None,
             args: Vec::new(),
             cwd: None,
@@ -422,8 +422,8 @@ fn sandbox_env_invocation(name: &str) -> Result<SkillInvocation, RuntimeError> {
     inputs.insert("name".to_owned(), JsonValue::String(name.to_owned()));
     let mut request = fixture_invocation("env", Some(5), inputs)?;
     request.source.sandbox = Some(SkillSandbox {
-        profile: "readonly".to_owned(),
-        cwd_policy: Some("workspace".to_owned()),
+        profile: runx_core::policy::SandboxProfile::Readonly,
+        cwd_policy: Some(runx_core::policy::CwdPolicy::Workspace),
         env_allowlist: Some(vec!["PATH".to_owned(), "ALLOWED_VALUE".to_owned()]),
         network: None,
         writable_paths: Vec::new(),
