@@ -20,7 +20,7 @@ fn payment_rail_receipts_carry_proof_and_scoped_credential_refs()
     let act = &receipt.acts[0];
 
     let verification_refs: Vec<_> = act
-        .criteria
+        .criterion_bindings
         .iter()
         .flat_map(|criterion| criterion.verification_refs.iter())
         .collect();
@@ -32,7 +32,7 @@ fn payment_rail_receipts_carry_proof_and_scoped_credential_refs()
     }));
     // The scoped credential ref rides on the criterion evidence refs.
     let evidence_refs: Vec<_> = act
-        .criteria
+        .criterion_bindings
         .iter()
         .flat_map(|criterion| criterion.evidence_refs.iter())
         .collect();

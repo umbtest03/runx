@@ -79,7 +79,14 @@ fn loads_active_harness_fixtures_without_retired_receipt_fields() -> Result<(), 
                 field: "expect.receipt".to_owned(),
             })?;
         assert_eq!(receipt.schema, ReceiptSchema::V1);
-        assert_eq!(receipt.state.as_deref(), Some("sealed"));
+        // A suspended (deferred) run carries the "deferred" state; every
+        // terminal seal carries "sealed".
+        let expected_state = if expected_disposition == ClosureDisposition::Deferred {
+            "deferred"
+        } else {
+            "sealed"
+        };
+        assert_eq!(receipt.state.as_deref(), Some(expected_state));
         assert_eq!(receipt.disposition, Some(expected_disposition));
     }
     Ok(())
@@ -160,8 +167,8 @@ fn parses_harness_graph_fixture_contract() -> Result<(), HarnessFixtureError> {
     assert_eq!(
         receipt.child_receipt_refs,
         vec![
-            "runx:receipt:hrn_rcpt_sequential-echo_first",
-            "runx:receipt:hrn_rcpt_sequential-echo_second"
+            "runx:receipt:sha256:3e9617d1d7d0494106096a195a0369ffdfee9e24a54bea74967019339733c569",
+            "runx:receipt:sha256:da09438dd433579faf33fc206a4b1183bfafc8ad7b5c03859fb453a6badd4603"
         ]
     );
     Ok(())
@@ -300,7 +307,7 @@ fn replays_payment_approval_graph_fixture_with_rail_proof() -> Result<(), Box<dy
             })?;
     assert_eq!(
         fulfill_act
-            .criteria
+            .criterion_bindings
             .iter()
             .flat_map(|criterion| criterion.verification_refs.iter())
             .map(|reference| reference.uri.as_str())
@@ -432,7 +439,12 @@ fn fixture_path(relative_path: &str) -> PathBuf {
 }
 
 fn assert_oracle(relative_path: &str, actual: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let expected = std::fs::read_to_string(fixture_path(relative_path))?;
+    let path = fixture_path(relative_path);
+    if std::env::var("RUNX_REGEN_FIXTURES").is_ok() {
+        std::fs::write(&path, format!("{actual}\n"))?;
+        return Ok(());
+    }
+    let expected = std::fs::read_to_string(path)?;
     assert_eq!(expected, format!("{actual}\n"), "{relative_path}");
     Ok(())
 }

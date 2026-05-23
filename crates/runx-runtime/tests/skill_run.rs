@@ -100,7 +100,8 @@ fn native_skill_run_resumes_and_seals_receipt() -> Result<(), Box<dyn std::error
     let closure = object_field(output, "closure").ok_or("missing closure")?;
     assert_eq!(string_field(closure, "disposition"), Some("declined"));
     let receipt_id = string_field(output, "receipt_id").ok_or("missing receipt_id")?;
-    assert!(receipt_id.starts_with("hrn_rcpt_issue-intake-run_"));
+    // Receipt ids are content-addressed (`id = hash(canonical_body)`).
+    assert!(receipt_id.starts_with("sha256:"));
     assert!(receipt_dir.join(format!("{receipt_id}.json")).exists());
 
     let receipt = LocalReceiptStore::new(&receipt_dir).read_exact(receipt_id)?;
@@ -111,7 +112,7 @@ fn native_skill_run_resumes_and_seals_receipt() -> Result<(), Box<dyn std::error
     assert_eq!(serde_json::to_value(&receipt.seal.disposition)?, "declined");
     assert_eq!(receipt.acts.len(), 1);
     assert_eq!(
-        serde_json::to_value(&receipt.acts[0].criteria[0].status)?,
+        serde_json::to_value(&receipt.acts[0].criterion_bindings[0].status)?,
         "failed"
     );
 

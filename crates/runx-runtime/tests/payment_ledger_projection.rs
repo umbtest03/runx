@@ -74,10 +74,10 @@ fn x402_happy_settlement_projection_matches_golden_fixture()
         ],
     })?;
 
-    assert_eq!(
-        serde_json::to_value(projection)?,
-        golden("fixtures/ledger-projections/x402-pay-ledger-happy-settlement.json")?
-    );
+    assert_golden(
+        &serde_json::to_value(projection)?,
+        "fixtures/ledger-projections/x402-pay-ledger-happy-settlement.json",
+    )?;
     Ok(())
 }
 
@@ -118,10 +118,10 @@ fn x402_governed_refusal_projection_matches_golden_fixture()
         ],
     })?;
 
-    assert_eq!(
-        serde_json::to_value(projection)?,
-        golden("fixtures/ledger-projections/x402-pay-ledger-governed-refusal.json")?
-    );
+    assert_golden(
+        &serde_json::to_value(projection)?,
+        "fixtures/ledger-projections/x402-pay-ledger-governed-refusal.json",
+    )?;
     Ok(())
 }
 
@@ -138,23 +138,28 @@ fn x402_projection_artifact_writer_persists_under_receipt_dir_and_returns_event_
         serde_json::from_str(&std::fs::read_to_string(&artifact.path)?)?;
 
     assert_eq!(persisted, projection);
+    // The artifact file stem is the content-addressed receipt id (the part after
+    // the `runx:receipt:` prefix on the projection's source receipt ref).
+    let receipt_stem = projection
+        .source_receipt_id
+        .strip_prefix("runx:receipt:")
+        .expect("source receipt ref");
     assert_eq!(
         artifact.path,
         temp.path()
             .join("artifacts")
             .join("payment-ledger")
             .join("x402-pay")
-            .join("hrn_rcpt_x402-pay-paid-echo_graph.json")
+            .join(format!("{receipt_stem}.json"))
     );
     assert_eq!(
         artifact.event_payload,
         PaymentLedgerProjectedEventPayload {
             kind: "payment_ledger_projected".to_owned(),
             payment_profile: "x402-pay".to_owned(),
-            projection_artifact_id:
-                "x402-pay:runx:receipt:hrn_rcpt_x402-pay-paid-echo_graph".to_owned(),
+            projection_artifact_id: format!("x402-pay:{}", projection.source_receipt_id),
             projection_artifact_path: artifact.path.to_string_lossy().into_owned(),
-            source_receipt_id: "runx:receipt:hrn_rcpt_x402-pay-paid-echo_graph".to_owned(),
+            source_receipt_id: projection.source_receipt_id.clone(),
             scenario_id: "P1.5".to_owned(),
             disposition: projection.disposition.clone(),
         }
@@ -229,7 +234,7 @@ fn x402_projection_event_persists_after_sealed_graph_receipt()
     assert_eq!(record["entry"]["data"]["kind"], "payment_ledger_projected");
     assert_eq!(
         record["entry"]["data"]["detail"]["source_receipt_id"],
-        "runx:receipt:hrn_rcpt_x402-pay-paid-echo_graph"
+        Value::String(format!("runx:receipt:{}", graph.id))
     );
     assert_eq!(record["entry"]["meta"]["run_id"], "gx_x402-pay-paid-echo");
     assert!(second.is_ok(), "second write must be idempotent");
@@ -374,4 +379,17 @@ fn golden(path: &str) -> Result<Value, Box<dyn std::error::Error>> {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let contents = std::fs::read_to_string(root.join(path))?;
     Ok(serde_json::from_str(&contents)?)
+}
+
+fn assert_golden(actual: &Value, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    if std::env::var("RUNX_REGEN_FIXTURES").is_ok() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        std::fs::write(
+            root.join(path),
+            format!("{}\n", serde_json::to_string_pretty(actual)?),
+        )?;
+        return Ok(());
+    }
+    assert_eq!(*actual, golden(path)?);
+    Ok(())
 }

@@ -12,13 +12,19 @@ import {
 import {
   actFormSchema,
   authorityTermSchema,
+  closureSchema,
+  criterionBindingSchema,
   criterionStatusSchema,
+  decisionSchema,
   fanoutReceiptSyncPointSchema,
   harnessAuthorityAttenuationSchema,
+  intentSchema,
   receiptIssuerSchema,
   receiptSignatureSchema,
   redactionCommitmentAlgorithmSchema,
   referenceSchema,
+  revisionDetailsSchema,
+  verificationDetailsSchema,
 } from "./spine.js";
 
 /**
@@ -26,10 +32,16 @@ import {
  *
  * One flat artifact, each top-level key answering one question: integrity
  * (envelope), dedup (idempotency), what ran (subject), what allowed it
- * (authority), what was done (acts), the outcome (seal), and graph/resume
- * lineage. Planner deliberation and full per-act detail are referenced
- * (`lineage.journal_ref`, `acts[].detail_ref`), not inlined. Verification is a
- * read-time projection, never part of the signed body.
+ * (authority), the inbound triggers (`signals[]`), the reasoning
+ * (`decisions[]`), what was done (`acts[]`), the outcome (seal), and
+ * graph/resume lineage. The reasoning and the full acts (intent, success
+ * criteria, criterion bindings) are INLINE: the proof and the training signal
+ * are the same artifact. Only the bulky per-act execution I/O (the
+ * agent-context envelope) is referenced via `acts[].context_ref` +
+ * `artifact_refs` and hydrated by projections. The post-run verdict is a
+ * `review`/`verification` act in `acts[]` (or a follow-up receipt linked by
+ * `lineage`), never a side contract. Verification is computed at read time,
+ * never part of the signed body.
  */
 
 /** The canonicalization byte contract this receipt's digest commits under. */
@@ -48,10 +60,21 @@ export const receiptCommitmentSchema = Type.Object(
   { additionalProperties: false },
 );
 
+/** Where the run's input came from, a human-readable preview, and a content hash. */
+export const receiptInputContextSchema = Type.Object(
+  {
+    source: nonEmptyString(),
+    preview: Type.String(),
+    value_hash: nonEmptyString(),
+  },
+  { additionalProperties: false },
+);
+
 export const receiptSubjectSchema = Type.Object(
   {
     kind: stringEnum(["skill", "graph"] as const),
     ref: referenceSchema,
+    input_context: Type.Optional(receiptInputContextSchema),
     commitments: Type.Array(receiptCommitmentSchema),
   },
   { additionalProperties: false },
@@ -113,16 +136,29 @@ export const receiptCriterionSchema = Type.Object(
   { additionalProperties: false },
 );
 
+/**
+ * What was done, rich and inline. The act's semantic core (intent, success
+ * criteria, criterion bindings, outcome) stays in the signed body; only the
+ * bulky execution I/O (the agent-context envelope: instructions/inputs/output
+ * and tool calls) is referenced via `context_ref` and hydrated by projections.
+ */
 export const receiptActSchema = Type.Object(
   {
     id: nonEmptyString(),
     form: actFormSchema,
+    intent: intentSchema,
     summary: nonEmptyString(),
-    criteria: Type.Array(receiptCriterionSchema),
+    criterion_bindings: Type.Array(criterionBindingSchema),
     by: Type.Optional(receiptRunnerProvenanceSchema),
+    source_refs: Type.Array(referenceSchema),
+    target_refs: Type.Array(referenceSchema),
     artifact_refs: Type.Array(referenceSchema),
-    // Full intent/target/source/surface refs and form-specific bodies live here.
-    detail_ref: Type.Optional(referenceSchema),
+    // The agent-context envelope (instructions/inputs/output/tool-calls) is
+    // referenced here and hydrated by the trainable/inspection projections.
+    context_ref: Type.Optional(referenceSchema),
+    closure: closureSchema,
+    revision: Type.Optional(revisionDetailsSchema),
+    verification: Type.Optional(verificationDetailsSchema),
   },
   { additionalProperties: false },
 );
@@ -143,6 +179,7 @@ export const receiptSealSchema = Type.Object(
     reason_code: nonEmptyString(),
     summary: nonEmptyString(),
     closed_at: dateTimeStringSchema(),
+    last_observed_at: dateTimeStringSchema(),
     criteria: Type.Array(receiptCriterionSchema),
   },
   { additionalProperties: false },
@@ -154,9 +191,6 @@ export const receiptLineageSchema = Type.Object(
     previous: Type.Optional(referenceSchema),
     children: Type.Array(referenceSchema),
     sync: Type.Array(fanoutReceiptSyncPointSchema),
-    signal_refs: Type.Array(referenceSchema),
-    // Commits the planner deliberation (former decisions[]) by reference.
-    journal_ref: Type.Optional(referenceSchema),
     // Open resolution request when seal.disposition === "deferred".
     resume_ref: Type.Optional(referenceSchema),
   },
@@ -175,6 +209,10 @@ export const receiptV1Schema = Type.Object(
     idempotency: receiptIdempotencySchema,
     subject: receiptSubjectSchema,
     authority: receiptAuthoritySchema,
+    // Inbound triggers: runx:signal: references; the body lives in the signal.
+    signals: Type.Array(referenceSchema),
+    // Governance reasoning, inline (admit / escalate / defer / close).
+    decisions: Type.Array(decisionSchema),
     acts: Type.Array(receiptActSchema),
     seal: receiptSealSchema,
     lineage: Type.Optional(receiptLineageSchema),

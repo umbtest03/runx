@@ -1,7 +1,7 @@
 use runx_contracts::{ClosureDisposition, Receipt, ReceiptSchema};
 use runx_receipts::{
-    ReceiptFindingCode, ReceiptProofContextProvider, canonical_receipt_body_digest,
-    canonical_receipt_digest, verify_receipt_proof,
+    ReceiptProofContextProvider, canonical_receipt_body_digest, canonical_receipt_digest,
+    verify_receipt_proof,
 };
 
 use crate::execution::harness::fixtures::{HarnessExpectedStatus, ReceiptExpectation};
@@ -65,6 +65,20 @@ fn assert_receipt(
     actual: &Receipt,
 ) -> Result<(), HarnessReplayError> {
     assert_receipt_proof(actual)?;
+    if std::env::var("RUNX_REGEN_FIXTURES").is_ok() {
+        let summary = summarize_receipt(actual);
+        let body_digest = canonical_receipt_body_digest(actual).map_err(receipt_digest_error)?;
+        let receipt_digest = canonical_receipt_digest(actual).map_err(receipt_digest_error)?;
+        eprintln!(
+            "REGEN id={} receipt_id={} body_digest={} receipt_digest={} child_refs=[{}]",
+            actual.subject.reference.uri,
+            actual.id,
+            body_digest,
+            receipt_digest,
+            summary.child_receipt_refs.join(",")
+        );
+        return Ok(());
+    }
     assert_equal(
         "expect.receipt.schema",
         schema_name(&expected.schema),
@@ -167,22 +181,12 @@ fn assert_receipt_proof(receipt: &Receipt) -> Result<(), HarnessReplayError> {
     let proof_contexts = RuntimeReceiptProofContextProvider::local_development();
     let context = proof_contexts.proof_context(receipt);
     let verification = verify_receipt_proof(receipt, &context);
-    // The decision -> act-id integrity property is journal-dependent and reported
-    // as `unverified` by plain proof verification; the runtime confirms it through
-    // the in-hand journal, so it is not a blocking replay finding.
-    let blocking: Vec<_> = verification
-        .findings
-        .iter()
-        .filter(|finding| {
-            !matches!(finding.code, ReceiptFindingCode::DecisionIntegrityUnverified)
-        })
-        .collect();
-    if blocking.is_empty() {
+    if verification.valid {
         Ok(())
     } else {
         Err(HarnessReplayError::ReceiptProofInvalid {
             receipt_id: receipt.id.clone(),
-            findings: format!("{blocking:?}"),
+            findings: format!("{:?}", verification.findings),
         })
     }
 }
@@ -207,11 +211,10 @@ fn summarize_receipt(receipt: &Receipt) -> HarnessReplayReceipt {
         reason_code: receipt.seal.reason_code.clone(),
         act_ids: receipt.acts.iter().map(|act| act.id.clone()).collect(),
         decision_ids: receipt
-            .lineage
-            .as_ref()
-            .and_then(|lineage| lineage.journal_ref.as_ref())
-            .map(|reference| vec![reference.uri.clone()])
-            .unwrap_or_default(),
+            .decisions
+            .iter()
+            .map(|decision| decision.decision_id.clone())
+            .collect(),
         child_receipt_refs: receipt
             .lineage
             .as_ref()
@@ -226,8 +229,8 @@ fn summarize_receipt(receipt: &Receipt) -> HarnessReplayReceipt {
         verification_refs: receipt
             .acts
             .iter()
-            .flat_map(|act| act.criteria.iter())
-            .flat_map(|criterion| criterion.verification_refs.iter())
+            .flat_map(|act| act.criterion_bindings.iter())
+            .flat_map(|binding| binding.verification_refs.iter())
             .map(|reference| reference.uri.clone())
             .collect(),
     }

@@ -240,10 +240,7 @@ fn persists_sealed_payment_step_state_for_replay_and_reuse_lookups()
 
     let entry = lookup_payment_idempotency_entry(&env, &graph_dir, &input.idempotency_key)?
         .ok_or("sealed idempotency entry should be available through public lookup")?;
-    assert_eq!(
-        entry.receipt_ref,
-        "hrn_rcpt_x402-pay-idempotency-replay_fulfill"
-    );
+    assert_eq!(entry.receipt_ref, receipt.id);
     assert_eq!(entry.rail_proof_ref, "receipt-proof:mock:paid-echo-001");
     assert_eq!(entry.receipt_created_at, receipt.created_at);
     assert_eq!(entry.receipt_digest, receipt.digest);

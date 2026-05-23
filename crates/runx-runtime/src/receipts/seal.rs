@@ -2,17 +2,18 @@
 // signature policy, and local proof sealing stay together until the runtime
 // receipt builder is split out.
 use runx_contracts::{
-    ActForm, AuthorityAttenuation, AuthoritySubsetResult, ClosureDisposition, CriterionStatus,
-    Decision, DecisionChoice, DecisionInputs, DecisionJustification, FanoutReceiptSyncPoint,
-    JsonObject, JsonValue, Lineage, ProofKind, RECEIPT_CANONICALIZATION, Receipt, ReceiptAct,
-    ReceiptAuthority, ReceiptCriterion, ReceiptEnforcement, ReceiptIdempotency, ReceiptIssuer,
-    ReceiptIssuerType, ReceiptSchema, ReceiptSubjectKind, Reference, ReferenceType, Seal,
-    SignatureAlgorithm, Subject,
+    ActForm, AuthorityAttenuation, AuthoritySubsetResult, Closure, ClosureDisposition,
+    CriterionBinding, CriterionStatus, Decision, DecisionChoice, DecisionInputs,
+    DecisionJustification, FanoutReceiptSyncPoint, Intent, JsonObject, JsonValue, Lineage,
+    ProofKind, RECEIPT_CANONICALIZATION, Receipt, ReceiptAct, ReceiptAuthority, ReceiptCriterion,
+    ReceiptEnforcement, ReceiptIdempotency, ReceiptIssuer, ReceiptIssuerType, ReceiptSchema,
+    ReceiptSubjectKind, Reference, ReferenceType, Seal, SignatureAlgorithm, Subject,
+    SuccessCriterion,
 };
 use runx_receipts::{
-    ReceiptJournal, ReceiptJournalDecision, ReceiptProofContext, ReceiptProofContextProvider,
-    ReceiptSignature, ReceiptTreeConfig, SignatureVerificationFailure, SignatureVerifier,
-    canonical_receipt_body_digest,
+    ReceiptProofContext, ReceiptProofContextProvider, ReceiptSignature, ReceiptTreeConfig,
+    SignatureVerificationFailure, SignatureVerifier, canonical_receipt_body_digest,
+    content_addressed_receipt_id,
 };
 
 use crate::adapter::SkillOutput;
@@ -102,7 +103,7 @@ pub(crate) fn step_receipt_with_disposition_and_policy(
         summary,
     } = params;
     let output_refs = output_refs(output);
-    let act = observation_act(step_id, output, disposition.clone(), &output_refs);
+    let act = observation_act(step_id, output, created_at, disposition.clone(), &output_refs);
     let seal_criterion = ReceiptCriterion {
         criterion_id: "process_exit".to_owned(),
         status: if output.succeeded() {
@@ -115,17 +116,19 @@ pub(crate) fn step_receipt_with_disposition_and_policy(
         summary: Some(output_summary(output)),
     };
     let seal = seal(disposition, reason_code, summary, created_at, vec![seal_criterion]);
+    let decisions = decisions(step_id, &act, &output_refs.signal_refs, &output_refs.artifact_refs);
     let mut receipt = build_receipt(BuildReceipt {
         id: step_receipt_id(graph_name, step_id, attempt),
         graph_name,
         node_id: step_id,
         kind: ReceiptSubjectKind::Skill,
         created_at,
+        decisions,
         acts: vec![act],
         seal,
         children: Vec::new(),
         sync_points: Vec::new(),
-        signal_refs: output_refs.signal_refs,
+        signals: output_refs.signal_refs,
     });
     seal_receipt(&mut receipt, signature_policy)?;
     Ok(receipt)
@@ -206,32 +209,51 @@ fn graph_receipt_with_disposition_and_policy(
     closure: GraphClosure,
     signature_policy: RuntimeReceiptSignaturePolicy<'_>,
 ) -> Result<Receipt, RuntimeError> {
-    let receipt_id = format!("hrn_rcpt_{graph_name}");
-    attach_parent_to_child_receipts(steps, &receipt_id, signature_policy)?;
+    let build_graph_receipt = |children: Vec<Reference>| {
+        let seal = seal(
+            closure.disposition.clone(),
+            closure.reason_code.clone(),
+            closure.summary.clone(),
+            created_at,
+            Vec::new(),
+        );
+        build_receipt(BuildReceipt {
+            // Placeholder id; `seal_receipt` content-addresses it. The content
+            // address excludes lineage, so it is stable across the parent-link
+            // pass below regardless of which children are attached.
+            id: format!("hrn_rcpt_{graph_name}"),
+            graph_name,
+            node_id: "graph",
+            kind: ReceiptSubjectKind::Graph,
+            created_at,
+            decisions: Vec::new(),
+            acts: Vec::new(),
+            seal,
+            children,
+            sync_points: sync_points.clone(),
+            signals: Vec::new(),
+        })
+    };
+
+    // Pass 1: seal the graph receipt with no children to learn its stable
+    // content-addressed id (lineage is excluded from the address).
+    let mut receipt = build_graph_receipt(Vec::new());
+    seal_receipt(&mut receipt, signature_policy)?;
+    let parent_ref = Reference::runx(ReferenceType::Receipt, &receipt.id);
+
+    // Attach the parent link to each child and re-seal them (ids are stable
+    // because lineage is excluded from the content address; only digests move).
+    attach_parent_to_child_receipts(steps, &parent_ref, signature_policy)?;
     let child_refs = steps
         .iter()
         .map(|step| child_receipt_reference(&step.receipt))
         .collect::<Vec<_>>();
-    let seal = seal(
-        closure.disposition,
-        closure.reason_code,
-        closure.summary,
-        created_at,
-        Vec::new(),
-    );
-    let mut receipt = build_receipt(BuildReceipt {
-        id: receipt_id,
-        graph_name,
-        node_id: "graph",
-        kind: ReceiptSubjectKind::Graph,
-        created_at,
-        acts: Vec::new(),
-        seal,
-        children: child_refs,
-        sync_points,
-        signal_refs: Vec::new(),
-    });
+
+    // Pass 2: re-seal the graph with the final child refs. The content address
+    // is unchanged (lineage excluded); only the full digest commits the children.
+    let mut receipt = build_graph_receipt(child_refs);
     seal_receipt(&mut receipt, signature_policy)?;
+
     let children = steps
         .iter()
         .map(|step| step.receipt.clone())
@@ -282,11 +304,12 @@ struct BuildReceipt<'a> {
     node_id: &'a str,
     kind: ReceiptSubjectKind,
     created_at: &'a str,
+    decisions: Vec<Decision>,
     acts: Vec<ReceiptAct>,
     seal: Seal,
     children: Vec<Reference>,
     sync_points: Vec<FanoutReceiptSyncPoint>,
-    signal_refs: Vec<Reference>,
+    signals: Vec<Reference>,
 }
 
 fn build_receipt(parts: BuildReceipt<'_>) -> Receipt {
@@ -296,19 +319,18 @@ fn build_receipt(parts: BuildReceipt<'_>) -> Receipt {
         node_id,
         kind,
         created_at,
+        decisions,
         acts,
         seal,
         children,
         sync_points,
-        signal_refs,
+        signals,
     } = parts;
     let lineage = Lineage {
         parent: None,
         previous: None,
         children,
         sync: sync_points,
-        signal_refs,
-        journal_ref: None,
         resume_ref: None,
     };
     Receipt {
@@ -322,6 +344,8 @@ fn build_receipt(parts: BuildReceipt<'_>) -> Receipt {
         idempotency: idempotency(graph_name, node_id),
         subject: subject(graph_name, node_id, kind),
         authority: authority(),
+        signals,
+        decisions,
         acts,
         seal,
         lineage: Some(lineage),
@@ -329,54 +353,44 @@ fn build_receipt(parts: BuildReceipt<'_>) -> Receipt {
     }
 }
 
-/// The planner deliberation written beside the receipt and committed by
-/// `lineage.journal_ref`.
-fn receipt_journal(receipt: &Receipt) -> ReceiptJournal {
-    let node_id = receipt
-        .acts
-        .first()
-        .map(|act| act.id.clone())
-        .unwrap_or_else(|| receipt.id.clone());
-    let selected_act_id = receipt.acts.first().map(|act| act.id.clone());
-    let signal_refs = receipt
-        .lineage
-        .as_ref()
-        .map(|lineage| lineage.signal_refs.clone())
-        .unwrap_or_default();
-    ReceiptJournal {
-        receipt_id: receipt.id.clone(),
-        decisions: vec![ReceiptJournalDecision {
-            decision: Decision {
-                decision_id: format!("dec_{node_id}"),
-                choice: DecisionChoice::Open,
-                inputs: DecisionInputs {
-                    signal_refs: signal_refs.clone(),
-                    ..DecisionInputs::default()
-                },
-                proposed_intent: runx_contracts::Intent {
-                    purpose: format!("Open runtime node {node_id}"),
-                    legitimacy: "Local graph execution requested this node".to_owned(),
-                    success_criteria: Vec::new(),
-                    constraints: Vec::new(),
-                    derived_from: Vec::new(),
-                },
-                selected_act_id,
-                selected_harness_ref: None,
-                justification: DecisionJustification {
-                    summary: "runtime graph planner selected this node".to_owned(),
-                    evidence_refs: signal_refs,
-                },
-                closure: None,
-                artifact_refs: Vec::new(),
-            },
-        }],
-    }
+/// The planner deliberation, inline in `decisions[]`. The `selected_act_id`
+/// integrity property is checked against the inline `acts[]` at verify time.
+fn decisions(
+    node_id: &str,
+    act: &ReceiptAct,
+    signal_refs: &[Reference],
+    artifact_refs: &[Reference],
+) -> Vec<Decision> {
+    vec![Decision {
+        decision_id: format!("dec_{node_id}"),
+        choice: DecisionChoice::Open,
+        inputs: DecisionInputs {
+            signal_refs: signal_refs.to_vec(),
+            ..DecisionInputs::default()
+        },
+        proposed_intent: Intent {
+            purpose: format!("Open runtime node {node_id}"),
+            legitimacy: "Local graph execution requested this node".to_owned(),
+            success_criteria: Vec::new(),
+            constraints: Vec::new(),
+            derived_from: Vec::new(),
+        },
+        selected_act_id: Some(act.id.clone()),
+        selected_harness_ref: None,
+        justification: DecisionJustification {
+            summary: "runtime graph planner selected this node".to_owned(),
+            evidence_refs: signal_refs.to_vec(),
+        },
+        closure: None,
+        artifact_refs: artifact_refs.to_vec(),
+    }]
 }
 
 fn observation_act(
     step_id: &str,
     output: &SkillOutput,
-    _disposition: ClosureDisposition,
+    performed_at: &str,
+    disposition: ClosureDisposition,
     refs: &OutputRefs,
 ) -> ReceiptAct {
     let mut artifact_refs = refs.artifact_refs.clone();
@@ -384,8 +398,19 @@ fn observation_act(
     ReceiptAct {
         id: format!("act_{step_id}"),
         form: ActForm::Observation,
+        intent: Intent {
+            purpose: format!("Run graph step {step_id}"),
+            legitimacy: "Runtime graph execution was admitted by the local harness".to_owned(),
+            success_criteria: vec![SuccessCriterion {
+                criterion_id: "process_exit".to_owned(),
+                statement: "cli-tool exits successfully".to_owned(),
+                required: true,
+            }],
+            constraints: Vec::new(),
+            derived_from: Vec::new(),
+        },
         summary: format!("Executed graph step {step_id}"),
-        criteria: vec![ReceiptCriterion {
+        criterion_bindings: vec![CriterionBinding {
             criterion_id: "process_exit".to_owned(),
             status: if output.succeeded() {
                 CriterionStatus::Verified
@@ -397,8 +422,18 @@ fn observation_act(
             summary: Some(output_summary(output)),
         }],
         by: None,
+        source_refs: refs.source_refs.clone(),
+        target_refs: Vec::new(),
         artifact_refs,
-        detail_ref: None,
+        context_ref: None,
+        closure: Closure {
+            disposition,
+            reason_code: "process_exit".to_owned(),
+            summary: output_summary(output),
+            closed_at: performed_at.to_owned(),
+        },
+        revision: None,
+        verification: None,
     }
 }
 
@@ -414,6 +449,7 @@ fn seal(
         reason_code,
         summary,
         closed_at: closed_at.to_owned(),
+        last_observed_at: closed_at.to_owned(),
         criteria,
     }
 }
@@ -427,6 +463,7 @@ fn subject(graph_name: &str, node_id: &str, kind: ReceiptSubjectKind) -> Subject
             ReferenceType::Harness,
             format!("hrn_{graph_name}_{node_id}"),
         ),
+        input_context: None,
         commitments: Vec::new(),
     }
 }
@@ -675,10 +712,9 @@ fn child_receipt_reference(receipt: &Receipt) -> Reference {
 
 fn attach_parent_to_child_receipts(
     steps: &mut [StepRun],
-    parent_receipt_id: &str,
+    parent_ref: &Reference,
     signature_policy: RuntimeReceiptSignaturePolicy<'_>,
 ) -> Result<(), RuntimeError> {
-    let parent_ref = Reference::runx(ReferenceType::Receipt, parent_receipt_id);
     for step in steps {
         step.receipt
             .lineage
@@ -716,17 +752,13 @@ fn seal_receipt(
     signature_policy: RuntimeReceiptSignaturePolicy<'_>,
 ) -> Result<(), RuntimeError> {
     signature_policy.prepare_receipt(receipt)?;
-    // Write the planner deliberation as a separate journal artifact and commit
-    // it by hash on lineage.journal_ref before the body digest is computed.
-    let journal = receipt_journal(receipt);
-    let journal_digest = journal.digest();
-    receipt
-        .lineage
-        .get_or_insert_with(Lineage::default)
-        .journal_ref = Some(Reference {
-        locator: Some(journal_digest),
-        ..Reference::runx(ReferenceType::Decision, &format!("{}_journal", receipt.id))
-    });
+    // Content-address the id over the canonical body (id = hash(canonical_body),
+    // excluding id/signature/digest/metadata/lineage) before the digest commits
+    // it. Lineage is excluded so parent<->child wiring does not perturb the id.
+    receipt.id =
+        content_addressed_receipt_id(receipt).map_err(|error| RuntimeError::ReceiptInvalid {
+            message: error.to_string(),
+        })?;
     let digest =
         canonical_receipt_body_digest(receipt).map_err(|error| RuntimeError::ReceiptInvalid {
             message: error.to_string(),
@@ -736,34 +768,7 @@ fn seal_receipt(
 
     let proof_contexts = RuntimeReceiptProofContextProvider::new(signature_policy);
     let context = proof_contexts.proof_context(receipt);
-    validate_receipt_proof_allowing_journal(receipt, &context).map_err(receipt_error)
-}
-
-/// Plain proof verification reports the journal-dependent decision integrity as
-/// `unverified`; at seal time that is the expected (not-yet-confirmed) state, so
-/// the runtime confirms it with the in-hand journal and ignores the lone
-/// journal-dependent finding.
-fn validate_receipt_proof_allowing_journal(
-    receipt: &Receipt,
-    context: &ReceiptProofContext<'_>,
-) -> Result<(), runx_receipts::ReceiptVerification> {
-    let verification = runx_receipts::verify_receipt_proof(receipt, context);
-    let blocking: Vec<_> = verification
-        .findings
-        .iter()
-        .filter(|finding| {
-            !matches!(
-                finding.code,
-                runx_receipts::ReceiptFindingCode::DecisionIntegrityUnverified
-            )
-        })
-        .cloned()
-        .collect();
-    if blocking.is_empty() {
-        Ok(())
-    } else {
-        Err(runx_receipts::ReceiptVerification::from_findings(blocking))
-    }
+    runx_receipts::validate_receipt_proof(receipt, &context).map_err(receipt_error)
 }
 
 pub(crate) fn proof_context<'a>(

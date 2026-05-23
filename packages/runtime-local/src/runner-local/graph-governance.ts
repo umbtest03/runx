@@ -841,31 +841,37 @@ function signReceipt(options: {
         teardown_refs: [],
       },
     },
+    // Inbound triggers live at the top level; the body lives in the signal.
+    signals: harness.signal_refs ?? [],
+    // Governance reasoning, inline.
+    decisions: harness.decisions ?? [],
+    // Rich-inline acts: intent + success criteria + criterion bindings stay in
+    // the signed body; bulky agent I/O is referenced via context_ref.
     acts: harness.acts.map((act) => ({
       id: act.act_id,
       form: act.form,
+      intent: act.intent,
       summary: act.summary,
-      criteria: (act.criterion_bindings ?? []).map((binding) => ({
-        criterion_id: binding.criterion_id,
-        status: binding.status,
-        evidence_refs: binding.evidence_refs ?? [],
-        verification_refs: binding.verification_refs ?? [],
-        summary: binding.summary,
-      })),
+      criterion_bindings: act.criterion_bindings ?? [],
+      source_refs: act.source_refs ?? [],
+      target_refs: act.target_refs ?? [],
       artifact_refs: act.artifact_refs ?? [],
+      closure: act.closure,
+      revision: act.revision,
+      verification: act.verification,
     })),
     seal: {
       disposition: options.seal.disposition,
       reason_code: options.seal.reason_code,
       summary: options.seal.summary,
       closed_at: options.seal.closed_at,
+      last_observed_at: options.seal.closed_at,
       criteria: options.seal.criteria ?? [],
     },
     lineage: {
       parent: harness.parent_harness_ref ?? undefined,
       children: harness.child_receipt_refs ?? [],
       sync: options.syncPoints && options.syncPoints.length > 0 ? options.syncPoints : [],
-      signal_refs: harness.signal_refs ?? [],
     },
     metadata: options.metadata,
   };
@@ -1053,6 +1059,7 @@ function sealRecord(options: {
     criteria: options.criteria,
     verification_summary: {
       signature_valid: true,
+      content_address_valid: true,
       hash_commitments_valid: true,
       authority_attenuation_valid: true,
       criteria_bound: options.criteria.length > 0,

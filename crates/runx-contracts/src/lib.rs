@@ -86,8 +86,8 @@ pub use harness::{
     FanoutReceiptDecision, FanoutReceiptStrategy, FanoutReceiptSyncPoint, Lineage,
     RECEIPT_CANONICALIZATION, RECEIPT_SCHEMA, Receipt, ReceiptAct, ReceiptAuthority,
     ReceiptCommitment, ReceiptCommitmentScope, ReceiptCriterion, ReceiptEnforcement,
-    ReceiptIdempotency, ReceiptIssuer, ReceiptIssuerType, ReceiptSchema, ReceiptSignature,
-    ReceiptSubjectKind, RunnerProvenance, Seal, SignatureAlgorithm, Subject,
+    ReceiptIdempotency, ReceiptInputContext, ReceiptIssuer, ReceiptIssuerType, ReceiptSchema,
+    ReceiptSignature, ReceiptSubjectKind, RunnerProvenance, Seal, SignatureAlgorithm, Subject,
 };
 pub use host_protocol::{
     AgentActInvocation, AgentActSourceType, ApprovalDecision, ApprovalGate, ExecutionEvent,

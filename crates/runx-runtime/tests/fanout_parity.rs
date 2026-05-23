@@ -142,14 +142,14 @@ fn fanout_threshold_pause_blocks_followup() -> Result<(), Box<dyn std::error::Er
     );
     let checkpoint = runtime
         .run_graph_file_until_steps(Path::new("../../fixtures/graphs/fanout/threshold.yaml"), 2)?;
-    assert_eq!(
-        checkpoint
-            .steps
-            .iter()
-            .map(|step| step.receipt.id.clone())
-            .collect::<Vec<_>>(),
-        expected.sync_point.branch_receipts
-    );
+    let checkpoint_ids = checkpoint
+        .steps
+        .iter()
+        .map(|step| step.receipt.id.clone())
+        .collect::<Vec<_>>();
+    // Branch receipt ids are content-addressed; assert count + content address.
+    assert_eq!(checkpoint_ids.len(), expected.sync_point.branch_receipts.len());
+    assert!(checkpoint_ids.iter().all(|id| id.starts_with("sha256:")));
     Ok(())
 }
 
@@ -313,8 +313,31 @@ fn assert_receipt_tree(run: &runx_runtime::GraphRun) {
 }
 
 fn assert_sync_points(run: &runx_runtime::GraphRun, expected: &[FanoutReceiptSyncPoint]) {
-    assert_eq!(run.sync_points, expected);
-    assert_eq!(run.receipt.sync_points, expected);
+    // `branch_receipts` are content-addressed ids assigned at seal time, so we
+    // compare the structural sync points ignoring them, then assert the actual
+    // branch receipts are content-addressed and the expected count.
+    let strip = |points: &[FanoutReceiptSyncPoint]| {
+        points.iter().map(expected_without_receipts).collect::<Vec<_>>()
+    };
+    assert_eq!(strip(&run.sync_points), strip(expected));
+    let lineage_sync = run
+        .receipt
+        .lineage
+        .as_ref()
+        .map(|lineage| lineage.sync.clone())
+        .unwrap_or_default();
+    assert_eq!(strip(&lineage_sync), strip(expected));
+    for (actual, expected_point) in run.sync_points.iter().zip(expected.iter()) {
+        assert_eq!(actual.branch_receipts.len(), expected_point.branch_receipts.len());
+        assert!(
+            actual
+                .branch_receipts
+                .iter()
+                .all(|id| id.starts_with("sha256:")),
+            "branch receipts must be content-addressed: {:?}",
+            actual.branch_receipts
+        );
+    }
 }
 
 fn output_status(step: &runx_runtime::StepRun) -> &'static str {

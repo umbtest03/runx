@@ -520,7 +520,7 @@ fn sealed_receipt_projects_publication_and_close_authority()
     );
     assert_eq!(
         projection.receipt_ref.uri,
-        "runx:receipt:hrn_rcpt_post_merge_nitrosend_77_188"
+        "runx:receipt:sha256:f555bc0212bd8f6d271e92a593c377a15df68ddb74b0e4beab4e9a9f88f8447b"
     );
     Ok(())
 }

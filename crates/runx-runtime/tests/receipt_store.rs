@@ -8,8 +8,15 @@ use runx_runtime::receipts::{RuntimeReceiptSignaturePolicy, step_receipt};
 use runx_runtime::{InvocationStatus, LocalReceiptStore, ReceiptStoreError, SkillOutput};
 use serde_json::json;
 
-const SUCCESS_RECEIPT_ID: &str = "hrn_rcpt_store_alpha";
-const ABNORMAL_RECEIPT_ID: &str = "hrn_rcpt_store_beta";
+// Receipt ids are content-addressed (`id = hash(canonical_body)`), so the
+// store fixtures derive their ids from the sealed receipt rather than a literal.
+fn success_receipt_id() -> String {
+    success_receipt().expect("success receipt").id
+}
+
+fn abnormal_receipt_id() -> String {
+    abnormal_receipt().expect("abnormal receipt").id
+}
 
 #[test]
 fn missing_store_fails_closed() -> Result<(), Box<dyn std::error::Error>> {
@@ -99,7 +106,7 @@ fn exact_read_does_not_use_partial_or_suffix_lookup() -> Result<(), Box<dyn std:
     let temp = TestDir::new()?;
     write_json(
         temp.path(),
-        &receipt_file_name(SUCCESS_RECEIPT_ID),
+        &receipt_file_name(&success_receipt_id()),
         &success_receipt()?,
     )?;
     let store = LocalReceiptStore::new(temp.path());
@@ -116,43 +123,40 @@ fn exact_read_does_not_use_partial_or_suffix_lookup() -> Result<(), Box<dyn std:
 #[test]
 fn exact_read_list_and_rebuild_index_succeed() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TestDir::new()?;
-    write_json(
-        temp.path(),
-        &receipt_file_name(SUCCESS_RECEIPT_ID),
-        &success_receipt()?,
-    )?;
-    write_json(
-        temp.path(),
-        &receipt_file_name(ABNORMAL_RECEIPT_ID),
-        &abnormal_receipt()?,
-    )?;
+    let success = success_receipt()?;
+    let abnormal = abnormal_receipt()?;
+    write_json(temp.path(), &receipt_file_name(&success.id), &success)?;
+    write_json(temp.path(), &receipt_file_name(&abnormal.id), &abnormal)?;
     fs::write(temp.path().join("notes.txt"), "ignored")?;
     let store = LocalReceiptStore::new(temp.path());
 
-    let receipt = store.read_exact(SUCCESS_RECEIPT_ID)?;
+    let receipt = store.read_exact(&success.id)?;
     let listed = store.list()?;
     let index = store.rebuild_index()?;
     let loaded_index = store.load_index()?;
 
-    assert_eq!(receipt.id, SUCCESS_RECEIPT_ID);
+    let mut expected_ids = vec![success.id.clone(), abnormal.id.clone()];
+    expected_ids.sort();
+
+    assert_eq!(receipt.id, success.id);
     assert_eq!(
         listed
             .iter()
-            .map(|receipt| receipt.id.as_str())
+            .map(|receipt| receipt.id.clone())
             .collect::<Vec<_>>(),
-        vec![SUCCESS_RECEIPT_ID, ABNORMAL_RECEIPT_ID]
+        expected_ids
     );
     assert_eq!(
         index
             .entries
             .iter()
-            .map(|entry| entry.receipt_id.as_str())
+            .map(|entry| entry.receipt_id.clone())
             .collect::<Vec<_>>(),
-        vec![SUCCESS_RECEIPT_ID, ABNORMAL_RECEIPT_ID]
+        expected_ids
     );
     assert_eq!(
         index.entries[0].file_name,
-        receipt_file_name(SUCCESS_RECEIPT_ID)
+        receipt_file_name(&expected_ids[0])
     );
     assert_eq!(loaded_index.entries, index.entries);
     assert!(temp.path().join("index.json").exists());
@@ -251,7 +255,7 @@ fn load_index_rejects_indexed_structural_receipt_with_invalid_proof()
             "generated_at": "1",
             "entries": [{
                 "receipt_id": receipt.id,
-                "file_name": receipt_file_name(SUCCESS_RECEIPT_ID),
+                "file_name": receipt_file_name(&receipt.id),
                 "created_at": receipt.created_at
             }]
         }),
@@ -360,7 +364,7 @@ fn stale_index_is_typed_error() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TestDir::new()?;
     write_json(
         temp.path(),
-        &receipt_file_name(SUCCESS_RECEIPT_ID),
+        &receipt_file_name(&success_receipt_id()),
         &success_receipt()?,
     )?;
     write_json(
@@ -399,7 +403,7 @@ fn receipt_store_error_display_does_not_leak_absolute_paths()
         .to_string(),
         ReceiptStoreError::ReceiptProofInvalid {
             path: PathBuf::from("/Users/kam/private/runx-receipts"),
-            receipt_id: SUCCESS_RECEIPT_ID.to_owned(),
+            receipt_id: success_receipt_id(),
             message: "bad".to_owned(),
         }
         .to_string(),

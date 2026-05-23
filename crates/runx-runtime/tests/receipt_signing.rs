@@ -35,12 +35,13 @@ fn production_step_receipt_uses_real_ed25519_signature() -> Result<(), Box<dyn E
     assert!(!receipt.signature.value.starts_with("sig:"));
     assert!(!serde_json::to_string(&receipt)?.contains("QkJCQkJC"));
     let verification = verify_receipt_proof(&receipt, &proof_context(&verifier));
-    // The decision -> act-id integrity property is journal-dependent and reported
-    // as `unverified`; everything else must verify cleanly.
-    assert!(verification.findings.iter().all(|finding| matches!(
-        finding.code,
-        ReceiptFindingCode::DecisionIntegrityUnverified
-    )));
+    // The decision -> act-id integrity property is now checked inline against
+    // `acts[]` (no journal), so a sealed production receipt verifies cleanly.
+    assert!(
+        verification.valid,
+        "production receipt must verify cleanly: {:?}",
+        verification.findings
+    );
     Ok(())
 }
 

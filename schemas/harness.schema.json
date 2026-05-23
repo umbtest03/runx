@@ -12656,6 +12656,7 @@
               "type": "object",
               "required": [
                 "signature_valid",
+                "content_address_valid",
                 "hash_commitments_valid",
                 "authority_attenuation_valid",
                 "criteria_bound",
@@ -12664,6 +12665,9 @@
               ],
               "properties": {
                 "signature_valid": {
+                  "type": "boolean"
+                },
+                "content_address_valid": {
                   "type": "boolean"
                 },
                 "hash_commitments_valid": {

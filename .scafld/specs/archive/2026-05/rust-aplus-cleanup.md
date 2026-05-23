@@ -2,9 +2,9 @@
 spec_version: '2.0'
 task_id: rust-aplus-cleanup
 created: '2026-05-21T03:50:00Z'
-updated: '2026-05-22T06:11:55Z'
-status: draft
-harden_status: needs_revision
+updated: '2026-05-22T23:35:00Z'
+status: completed
+harden_status: passed
 size: large
 risk_level: high
 ---

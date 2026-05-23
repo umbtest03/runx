@@ -10,15 +10,15 @@
     "hello from graph\n\n"
   ],
   "createdAt": "2026-05-18T00:00:00Z",
-  "graphSealDigest": "sha256:8c6662ae4383424493088253bfd7242c93b86614b326c03f28a28b1473c1685f",
+  "graphSealDigest": "sha256:d2213925ec0850b1ba909e33fb88a596927aa3987edba18288d3f925665faa88",
   "childSealDigests": [
-    "sha256:d6d1a017d8c881000d7c9ac688a6dde7fb8eecd79cfa48fedfe6b3a34d3d8f4a",
-    "sha256:c86aaef6d38e2b2a16ff75e59c587f4cb0c3a50c5df2ad8c68cb79e758052d68"
+    "sha256:7f94184f4891b5c4c2a0084e5544275b6298f8e5e7dd9d78591249e3fa170f71",
+    "sha256:1cf06353023ac666dad1b48a63c3e70175ec9da423b352ae8f90ecf9995ef5a9"
   ],
-  "sandboxProfile": "process-boundary",
-  "graphReceiptId": "hrn_rcpt_hello-graph",
+  "enforcementProfileHash": "sha256:runtime-skeleton-enforcement",
+  "graphReceiptId": "sha256:802c0f62bcfc409109f73ccae9f17467c27a7349d8671e239da310b803ec681f",
   "childReceiptIds": [
-    "hrn_rcpt_hello-graph_first",
-    "hrn_rcpt_hello-graph_second"
+    "sha256:48412f439894bee2fc28f206cd7f184074d07c595dcd65bc1013c0fb362f7014",
+    "sha256:cd1feee223bbca64b08abd97a4dc84ef4528c18c626c327a7f8173a03aa435d4"
   ]
 }

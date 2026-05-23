@@ -379,7 +379,7 @@ fn receipt_has_payment_rail_proof(
     rail_proof_ref: &str,
 ) -> bool {
     receipt.acts.iter().any(|act| {
-        act.criteria
+        act.criterion_bindings
             .iter()
             .flat_map(|criterion| criterion.verification_refs.iter())
             .any(|reference| {

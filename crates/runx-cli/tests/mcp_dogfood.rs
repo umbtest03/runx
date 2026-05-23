@@ -89,10 +89,10 @@ fn mcp_native_binary_dogfoods_streaming_skill_calls_and_receipts()
         let receipt = read_json_file(&receipt_path)?;
         assert_eq!(
             path_text(&receipt, &["schema"])?,
-            runx_contracts::HARNESS_RECEIPT_SCHEMA
+            runx_contracts::RECEIPT_SCHEMA
         );
         assert_eq!(path_text(&receipt, &["id"])?, receipt_id);
-        assert_eq!(path_text(&receipt, &["harness", "state"])?, "sealed");
+        assert_eq!(path_text(&receipt, &["seal", "disposition"])?, "closed");
         assert!(
             receipt.get("seal").is_some(),
             "missing receipt seal in {}",

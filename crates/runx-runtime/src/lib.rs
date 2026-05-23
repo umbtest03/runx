@@ -85,7 +85,8 @@ pub use list::{
 };
 pub use orchestrator::{
     GraphRunRequest, HarnessRunRequest, LocalOrchestrator, OrchestratorError, RunContinuation,
-    RunRequest, RunResult, RunStatus, SkillRunRequest,
+    RunCredentialRequest, RunCredentialResolver, RunRequest, RunResult, RunStatus,
+    ResolvedRunCredential, SkillRunRequest, connected_credential_request,
 };
 pub use outbox_provider::{
     ThreadOutboxProviderProcessOutcome, ThreadOutboxProviderProcessSupervisor,

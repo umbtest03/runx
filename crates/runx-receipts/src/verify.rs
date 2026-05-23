@@ -1,26 +1,22 @@
 use std::collections::BTreeSet;
 
 use runx_contracts::{
-    AuthorityAttenuation, Receipt, ReceiptAct, ReceiptCommitment, ReceiptCriterion, Reference,
+    ActForm, AuthorityAttenuation, Decision, Receipt, ReceiptAct, ReceiptCommitment, Reference,
     ReferenceType, Seal,
 };
 
 mod finding;
-mod journal;
 mod projection;
 mod proof;
 
 pub use finding::{ReceiptError, ReceiptFinding, ReceiptFindingCode, ReceiptVerification};
-pub use journal::{
-    ReceiptJournal, ReceiptJournalDecision, validate_receipt_with_journal,
-    verify_receipt_with_journal,
-};
 pub use projection::{
     ReceiptProofFindingSummary, ReceiptProofStatus, ReceiptProofStatusKind, receipt_proof_status,
 };
 pub use proof::{
     ReceiptProofContext, SignatureVerificationFailure, SignatureVerifier,
-    compute_verification_summary, validate_receipt_proof, verify_receipt_proof,
+    compute_verification_summary, receipt_id_is_content_addressed, validate_receipt_proof,
+    verify_receipt_proof,
 };
 
 pub fn validate_receipt(receipt: &Receipt) -> Result<(), ReceiptVerification> {
@@ -66,6 +62,7 @@ impl Verifier {
             self.check_child_receipt_refs("lineage.children", &lineage.children);
         }
         self.check_acts(&receipt.acts);
+        self.check_decisions(&receipt.decisions, &receipt.acts);
         self.check_seal_criteria(receipt, &receipt.seal);
     }
 
@@ -122,12 +119,59 @@ impl Verifier {
 
     fn check_acts(&mut self, acts: &[ReceiptAct]) {
         for (index, act) in acts.iter().enumerate() {
+            let act_path = format!("acts[{index}]");
             if act.id.is_empty() {
                 self.push(
                     ReceiptFindingCode::ActFormDetailsInvalid,
-                    format!("acts[{index}].id"),
+                    format!("{act_path}.id"),
                     "acts must carry a non-empty id",
                 );
+            }
+            match act.form {
+                ActForm::Revision => {
+                    if act.revision.is_none() || act.verification.is_some() {
+                        self.push(
+                            ReceiptFindingCode::ActFormDetailsInvalid,
+                            act_path,
+                            "revision acts require revision details and must not carry verification details",
+                        );
+                    }
+                }
+                ActForm::Verification => {
+                    if act.verification.is_none() || act.revision.is_some() {
+                        self.push(
+                            ReceiptFindingCode::ActFormDetailsInvalid,
+                            act_path,
+                            "verification acts require verification details and must not carry revision details",
+                        );
+                    }
+                }
+                ActForm::Reply | ActForm::Review | ActForm::Observation => {
+                    if act.revision.is_some() || act.verification.is_some() {
+                        self.push(
+                            ReceiptFindingCode::ActFormDetailsInvalid,
+                            act_path,
+                            "reply, review, and observation acts must not carry revision or verification details",
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// The reasoning is inline; the `selected_act_id` integrity property is
+    /// checked against the inline `acts[]` (no journal).
+    fn check_decisions(&mut self, decisions: &[Decision], acts: &[ReceiptAct]) {
+        let act_ids = act_ids(acts);
+        for (index, decision) in decisions.iter().enumerate() {
+            if let Some(act_id) = &decision.selected_act_id {
+                if !act_ids.contains(act_id) {
+                    self.push(
+                        ReceiptFindingCode::DecisionSelectedActMissing,
+                        format!("decisions[{index}].selected_act_id"),
+                        "selected act id must refer to an act in the receipt",
+                    );
+                }
             }
         }
     }
@@ -137,7 +181,7 @@ impl Verifier {
         for (index, criterion) in seal.criteria.iter().enumerate() {
             let criterion_path = format!("seal.criteria[{index}]");
             // A rolled-up seal criterion must be backed by a per-act criterion
-            // binding of the same id (the seal rolls up act criteria).
+            // binding (or declared success criterion) of the same id.
             if !receipt.acts.is_empty() && !act_criteria.contains(&criterion.criterion_id) {
                 self.push(
                     ReceiptFindingCode::SealCriterionUnbound,
@@ -188,8 +232,17 @@ impl Verifier {
 
 fn act_criterion_ids(acts: &[ReceiptAct]) -> BTreeSet<String> {
     acts.iter()
-        .flat_map(|act| act.criteria.iter())
-        .map(|criterion: &ReceiptCriterion| criterion.criterion_id.clone())
+        .flat_map(|act| {
+            act.criterion_bindings
+                .iter()
+                .map(|binding| binding.criterion_id.clone())
+                .chain(
+                    act.intent
+                        .success_criteria
+                        .iter()
+                        .map(|criterion| criterion.criterion_id.clone()),
+                )
+        })
         .collect()
 }
 

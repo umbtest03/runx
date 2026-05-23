@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: runx-receipt-clean-shape-v1
 created: '2026-05-22T07:36:10Z'
-updated: '2026-05-22T10:35:30Z'
-status: review
+updated: '2026-05-22T14:44:54Z'
+status: cancelled
 harden_status: in_progress
 size: large
 risk_level: high
@@ -13,12 +13,12 @@ risk_level: high
 
 ## Current State
 
-Status: review
+Status: cancelled
 Current phase: final
-Next: repair
-Reason: review gate fail: 6 finding(s), 3 completion blocker(s)
+Next: done
+Reason: cancel
 Blockers: none
-Allowed follow-up command: `scafld handoff runx-receipt-clean-shape-v1`
+Allowed follow-up command: `none`
 Latest runner update: 2026-05-22T12:37:23Z
 Review gate: fail
 
@@ -42,14 +42,22 @@ The durable URI prefix moves `runx:harness_receipt:` -> `runx:receipt:`, and
 decision there is no stored-data migration: pre-cutover receipts and the
 payment-ledger projection are re-seeded from source, not read by new code.
 
-The current shape conflates three artifacts into one: durable proof, planner
-deliberation, and per-act detail. The receipt nests a `harness` sub-object that
-forces a mandatory duplicated `seal` (`verify.rs` checks `seal == harness.seal`),
-inlines planner deliberation (`decisions[]`) that no consumer reads, and restates
-the skill's declared contract in every act (`intent.success_criteria`) instead of
-recording result bindings. The clean shape flattens the `harness` wrapper (which
-removes the seal duplication by construction), references deliberation and per-act
-detail instead of inlining them, and keeps the load-bearing proof inspectable.
+A receipt is a **signed, sealed run**: one self-contained reasoning episode that
+serves every consumer (verifier, LLM trainer, human inspector, cloud) from one
+artifact. The current `harness_receipt` is rich but incoherent, and the fixes are
+coherence and correctness, NOT decomposition: flatten the `harness` wrapper (which by
+construction removes the duplicated `seal` that `verify.rs` checks twice); keep the
+reasoning (`decisions[]`) and the full acts (`intent`, `success_criteria`,
+`criterion_bindings`) **inline**, because that is simultaneously the proof, the
+training signal, and the inspection narrative; fold the redundant hash encodings into
+one scoped `subject.commitments`; collapse the eleven-state machine into
+`seal.disposition`; move the self-graded `verification_summary` out of the signed body
+(verification is computed at read time); and promote the training-load-bearing fields
+(`subject.input_context`, top-level `resolution`, `acts[].by`) to first class. The
+bulky execution I/O (agent-context envelope, produced bodies) is referenced via
+`acts[].context_ref` + `artifact_refs` and hydrated by projections, never inlined into
+the signed proof and never stripped of the semantic core. There is no journal and no
+per-act exile: the receipt is the whole episode.
 
 ## Context
 
@@ -88,11 +96,12 @@ Flat top-level keys, each answering one question; everything optional-when-empty
   `ci`, `verifier`); `signature.alg` stays `Ed25519`.
 - `idempotency`: `{intent_key, trigger_fingerprint, content_hash}` (cloud dedup +
   payment safety; top-level).
-- `subject`: `{kind: skill|graph, ref, commitments[]}` where each commitment is
-  `{scope, algorithm, value, canonicalization}` and `scope` is one of
-  `input|output|stdout|stderr|error`. This unifies the old `seal.hash_commitments`
-  and `enforcement.stdout_hash`/`stderr_hash` into one scoped list, so there is one
-  way to commit a byte stream, not three.
+- `subject`: `{kind: skill|graph, ref, input_context?, commitments[]}`.
+  `input_context` is `{source, preview, value_hash}` (the input signal for training
+  and inspection). Each commitment is `{scope, algorithm, value, canonicalization}`
+  with `scope` one of `input|output|stdout|stderr|error`, unifying the old
+  `seal.hash_commitments` and `enforcement.stdout_hash`/`stderr_hash` into one scoped
+  list, so there is one way to commit a byte stream, not three.
 - `authority`: `actor_ref`, `grant_refs`, `scope_refs`, `attenuation`
   (`{parent_authority_ref, subset_proof?}`), `authority_proof_refs`, `mandate_ref`,
   `terms[]`, `enforcement: {profile_hash, redaction_refs, setup_refs[],
@@ -102,15 +111,26 @@ Flat top-level keys, each answering one question; everything optional-when-empty
   `bounds.payment` with the cap/rail/single_use_spend magnet fields). Nothing here is
   collapsed to a hash; the policy *profile* is hashed (`enforcement.profile_hash`),
   the granted *authority* stays readable.
-- `acts[]`: `{id, form, summary, criteria[]: {criterion_id, status, evidence_refs,
-  verification_refs}, by?, artifact_refs[], detail_ref}`. `form` is one of the five
-  act forms (`observation`, `reply`, `review`, `revision`, `verification`); `status`
-  is one of the five criterion statuses (`verified|failed|pending|not_applicable|
-  unknown`). `by` is optional runner provenance (`{provider, model, prompt_version}`)
-  for agent acts. `detail_ref` points to an `act-receipt` for the full
-  intent/target/source/surface refs and the form-specific bodies (`RevisionDetails`,
-  `VerificationDetails`). The restated `intent.success_criteria` declaration is gone:
-  the receipt records *result bindings*, not the skill's declared contract.
+- `signals[]`: the triggering/feeding signals as `runx:signal:` references (signal
+  authenticity, trust level, and body live in the referenced `signal` artifact).
+- `decisions[]`: the reasoning trace, **inline and rich** (not journaled):
+  `{decision_id, choice, inputs, proposed_intent, justification {summary,
+  evidence_refs}, selected_act_id?, closure?}`. `choice` is one of the eight decision
+  choices (`open|continue|spawn_child|escalate|defer|close|decline|monitor`). The
+  *why* lives in the receipt; nothing is exiled to a journal.
+- `acts[]`: what was done, **rich and inline**:
+  `{id, form, intent {purpose, legitimacy, success_criteria[{criterion_id, statement,
+  required}]}, summary, criterion_bindings[{criterion_id, status, evidence_refs,
+  verification_refs, summary?}], by?, source_refs[], target_refs[], artifact_refs[],
+  context_ref?, closure, revision?, verification?}`. `form` is one of the five act
+  forms (`observation|reply|review|revision|verification`); `status` one of the five
+  criterion statuses (`verified|failed|pending|not_applicable|unknown`). `by` is
+  runner provenance (`{provider, model, prompt_version}`) for agent acts. The act's
+  semantic core (intent, criteria, outcome) stays inline; the **bulky execution I/O**
+  (the agent-context envelope: instructions/inputs/output/tool-calls, and produced
+  bodies) is referenced via `context_ref` + `artifact_refs` and hydrated by the
+  trainable/inspection projections. `intent.success_criteria` is kept (it is both
+  proof signal and training signal), not stripped to bare bindings.
 - `seal`: `{disposition, reason_code, summary, closed_at, criteria}`. One seal, no
   `harness.seal` twin. `disposition` is the eight-value closure enum
   (`closed|deferred|superseded|declined|blocked|failed|killed|timed_out`). `criteria`
@@ -118,15 +138,17 @@ Flat top-level keys, each answering one question; everything optional-when-empty
   body**: signature/attenuation/redaction validity is *computed by a verifier at read
   time* (it is verifier output, not issuer-asserted proof), so the receipt no longer
   carries a self-graded report card.
-- `lineage` (optional): `{parent, previous?, children[], sync[], signal_refs[],
-  journal_ref, resume_ref?}`. `kind: graph` + `lineage.children/sync` makes skill and
-  graph one model. `lineage.previous` is the prior receipt on a resume (former
-  `revision.previous_ref`); `revision.sequence` is dropped (orderable from the
-  `previous` chain). `signal_refs[]` is the triggering-signal lineage (signal detail,
-  authenticity, and trust level live in the referenced `signal` artifact).
-  `journal_ref` commits the planner deliberation (former `decisions[]`) by reference
-  instead of inlining it. `resume_ref` carries the open resolution request when
-  `seal.disposition = deferred` (see non-terminal receipts below).
+- `resolution` (optional): the operator/outcome verdict, the supervised label:
+  `{outcome {code, summary}, source, decided_at, issuer, signature?}`. First-class
+  because it is the reward signal for training, not buried in a downstream projection.
+- `lineage` (optional): `{parent?, previous?, children[], sync[], resume_ref?}`.
+  `kind: graph` + `lineage.children/sync` makes skill and graph one model.
+  `lineage.previous` is the prior receipt on a resume (former `revision.previous_ref`;
+  `revision.sequence` is dropped, orderable from the `previous` chain). `resume_ref`
+  carries the open resolution request when `seal.disposition = deferred` (see
+  non-terminal receipts below). There is no `journal_ref`: the reasoning is `decisions[]`,
+  inline.
+- `metadata` (optional): a read-aid, explicitly **excluded from the signed `digest`**.
 
 ### Non-terminal (suspended) receipts
 
@@ -148,23 +170,30 @@ invariant: **every durable receipt has exactly one `seal`; `deferred` is how
 "not done yet" is expressed.** No `seal: null` special case, no separate top-level
 `state` field.
 
-### Journal verification contract
+### Verification is computed, never stored
 
-Moving `decisions[]` out must not weaken the `selected_act_id` integrity guarantee.
-The journal is a local artifact written beside the receipt in the receipt dir,
-committed by `lineage.journal_ref` (a hash). Two-tier verify, fail-closed:
+The receipt carries facts + a signature; it never carries its own verdict. A verifier
+recomputes the body `digest` under `runx.receipt.c14n.v1`, checks the `signature`
+against `issuer.public_key_sha256`, binds `seal.criteria` to `acts[].criterion_bindings`,
+checks every `decision.selected_act_id` resolves to a real `acts[].id` (inline, no
+journal), and validates `authority.attenuation` against `authority_proof_refs`. The
+result is a *returned* `ReceiptVerificationSummary` (verifier output), not a field of
+the signed body. This removes the original self-graded `seal.verification_summary` and
+the need for any journal: the `selected_act_id` integrity property holds against the
+inline `decisions[]`/`acts[]`.
 
-- `verify(receipt)` — checks shape, signature, digest, seal↔act criteria binding, and
-  authority attenuation against `authority_proof_refs`. Journal-dependent checks
-  (every `decision.selected_act_id` resolves to a real `acts[].id`) are reported
-  `unverified`, never silently passed.
-- `verify_with_journal(receipt, journal)` — additionally loads the journal, asserts
-  its hash equals `journal_ref`, and runs the act-id integrity check. This is the only
-  path that yields a fully `verified` verdict. A present-but-missing or
-  hash-mismatched journal is `invalid`, not `unverified`.
+### The receipt is the spine; consumers are projections
 
-The journal shares the receipt's trust boundary (same dir, same issuer); there is no
-cross-trust-boundary journal read.
+Every consumer reads the one signed receipt; none gets a bespoke slice:
+- **verification** — the computed summary above.
+- **trainable export** — a *hydrating* projection: it embeds the rich receipt (intent,
+  decisions/reasoning, criteria, outcome, resolution) and joins the referenced bulk
+  (`acts[].context_ref` → agent-context I/O, `acts[].artifact_refs` → produced bodies)
+  into a complete training example, computing verification on read rather than trusting
+  a stored field.
+- **history/inspection**, **cloud dedup/metering** (`idempotency` + `seal`), **payment
+  ledger** (`authority.terms[].bounds.payment` + spend acts), **lineage/replay**
+  (`lineage`) are all pure functions over the sealed receipt.
 
 ## Edge and variant coverage
 
@@ -172,9 +201,10 @@ The cutover must not silently drop a variant. Every enum and structure in the cu
 `runx.harness_receipt.v1` model (verified against `crates/runx-contracts/src/` and
 `packages/contracts/src/schemas/spine.ts`, which agree with each other — the cloud
 `receipt.schema.json` is the lone simplified outlier this cutover also corrects) maps
-to the clean shape as follows. "Kept" = inspectable in the receipt; "Journal" =
-moved to the referenced planner journal; "Act-receipt" = moved behind `detail_ref`;
-"Projection" = computed at read time, not in the signed body.
+to the clean shape as follows. "Kept" = inline and inspectable in the receipt; "Ref" =
+the bulky payload is referenced and hydrated by projections (the semantic core stays
+inline); "Projection" = computed at read time, not in the signed body; "Dropped" =
+runtime-only bookkeeping with no consumer.
 
 Enums (every variant preserved unless noted):
 
@@ -182,14 +212,14 @@ Enums (every variant preserved unless noted):
 | --- | --- | --- |
 | HarnessState | 11: forming, admitted, running, waiting, delegated, sealing, sealed, killed, timed_out, failed, superseded | Collapsed. Live states are runtime-only (never durable); `sealed/killed/timed_out/failed/superseded` map to `seal.disposition`; `waiting/delegated` map to `seal.disposition=deferred` + `resume_ref`. |
 | ClosureDisposition (seal) | 8: closed, deferred, superseded, declined, blocked, failed, killed, timed_out | Kept verbatim as `seal.disposition`. |
-| ActForm | 5: observation, reply, review, revision, verification | Kept as `acts[].form`; form-specific bodies (RevisionDetails, VerificationDetails) → Act-receipt. |
-| CriterionStatus | 5: verified, failed, pending, not_applicable, unknown | Kept as `acts[].criteria[].status`; rolled up in `seal.criteria`. |
-| DecisionChoice | 8: open, continue, spawn_child, escalate, defer, close, decline, monitor | Journal. The receipt records outcomes (acts+seal), not deliberation; `selected_act_id` integrity preserved via `verify_with_journal`. |
+| ActForm | 5: observation, reply, review, revision, verification | Kept inline as `acts[].form`; form-specific bodies (`revision`/`verification`) inline on the act. |
+| CriterionStatus | 5: verified, failed, pending, not_applicable, unknown | Kept inline as `acts[].criterion_bindings[].status`; rolled up in `seal.criteria`. |
+| DecisionChoice | 8: open, continue, spawn_child, escalate, defer, close, decline, monitor | Kept inline in `decisions[].choice` (the reasoning is in the receipt; `selected_act_id` integrity checked inline against `acts[]`). |
 | AuthorityResourceFamily | 10 (github_repo … publication) | Kept in `authority.terms[].resource_family`. |
 | AuthorityVerb | 17 (read … spawn_child) | Kept in `authority.terms[].verbs`. |
 | AuthorityCapability | 9 | Kept in `authority.terms[].capabilities`. |
 | AuthorityConditionPredicate | 9 | Kept in `authority.terms[].conditions[].predicate`. |
-| SignalType / SignalTrustLevel | 11 / 5 | Referenced via `lineage.signal_refs`; detail in the `signal` artifact. |
+| SignalType / SignalTrustLevel | 11 / 5 | Referenced via top-level `signals[]`; detail in the `signal` artifact. |
 | ReferenceType | ~35 | Becomes the URI scheme of self-describing `runx:<type>:<id>` ref strings (`HarnessReceipt`→`Receipt`). |
 | Fanout strategy / decision | 3 (all,any,quorum) / 4 (proceed,halt,pause,escalate) | Kept in `lineage.sync[]` (incl. `gate`). |
 | IssuerType / SignatureAlgorithm | 4 (local,hosted,ci,verifier) / Ed25519 | Kept in `envelope.issuer.type` / `signature.alg`. |
@@ -205,32 +235,39 @@ Structures (where each current field goes):
 | `seal.{canonicalization,digest}` | Moved to envelope (`canonicalization`) + `digest`. |
 | `seal.verification_summary` (6 booleans) | Projection (verifier-computed at read time). |
 | `seal.{redaction_refs,artifact_refs,hash_commitments}` | `redaction_refs`→`authority.enforcement.redaction_refs`; `artifact_refs`→`acts[].artifact_refs`; `hash_commitments`→`subject.commitments[]`. |
-| `harness.{decisions[]}` (+proposed_intent, inputs, justification, closure) | Journal, committed by `lineage.journal_ref`. |
-| `harness.acts[].{intent.success_criteria,constraints,derived_from,legitimacy,purpose}` | Act-receipt (`detail_ref`); receipt keeps result bindings only. |
-| `harness.acts[].{criterion_bindings}` | Kept as `acts[].criteria[]`. |
-| `harness.acts[].{source_refs,target_refs,surface_refs,harness_refs,verification_refs,closure,performed_at}` | Act-receipt (`detail_ref`); `artifact_refs`/`verification_refs` summary kept on the act. |
+| `harness.{decisions[]}` (+proposed_intent, inputs, justification, closure) | Kept **inline** as `decisions[]` (the reasoning trace; no journal). |
+| `harness.acts[].{intent.purpose,legitimacy,success_criteria,constraints,derived_from}` | Kept **inline** on `acts[].intent` (proof + training signal). |
+| `harness.acts[].{criterion_bindings}` | Kept inline as `acts[].criterion_bindings`. |
+| `harness.acts[].{source_refs,target_refs,artifact_refs,closure}` | Kept inline; bulky execution I/O referenced via `acts[].context_ref` (agent-context envelope) and hydrated by projections. |
 | `harness.authority.*` (terms, attenuation, proof refs, mandate) | Kept inspectably under flat `authority` (incl. `terms[].bounds.payment`). |
 | `harness.enforcement.{sandbox,profile_hash,version,redaction_refs,std*_hash,setup/teardown}` | `profile_hash`+`redaction_refs`+`setup/teardown_refs`→`authority.enforcement`; `std*_hash`→`subject.commitments[]`; `sandbox`/`version` → committed inside `profile_hash`. |
 | `harness.idempotency.*` | Kept top-level (`idempotency`). |
 | `harness.revision.{sequence,previous_ref}` | `previous_ref`→`lineage.previous`; `sequence` dropped (orderable from chain). |
-| `harness.{host_ref,harness_ref,parent_harness_ref}` | `parent_harness_ref`→`lineage.parent`; `host_ref`/`harness_ref` → journal (runtime identity, not proof). |
-| `harness.{signal_refs,child_harness_receipt_refs}` | `lineage.signal_refs` / `lineage.children`. |
+| `harness.{host_ref,harness_ref,parent_harness_ref}` | `parent_harness_ref`→`lineage.parent`; `host_ref`/`harness_ref` **dropped** (runtime identity, not proof; the run is identified by `id`). |
+| `harness.{signal_refs,child_harness_receipt_refs}` | top-level `signals[]` / `lineage.children`. |
 | `sync_points[]` | `lineage.sync[]`. |
-| Reference object `{schema,type,uri,provider,locator,label,observed_at}` | Self-describing `runx:<type>:<id>` URI string; rich metadata (provider/locator/label/observed_at) lives in the referenced artifact. |
+| `seal.verification_summary` | **Projection** (verifier-computed at read time; not a signed field). |
+| Reference object `{schema,type,uri,provider,locator,label,observed_at}` | Self-describing `runx:<type>:<id>` URI; rich metadata lives in the referenced artifact. |
 
-Two edges that previously had no clean home and now do: runner provenance
-(`acts[].by` for the trainable-export projection) and suspended runs (`deferred` +
-`resume_ref` instead of a `seal: null` carve-out).
+Three edges that previously had no clean home and now do: runner provenance
+(`acts[].by`), hydratable agent I/O for training (`acts[].context_ref` + `artifact_refs`),
+and suspended runs (`deferred` + `resume_ref` instead of a `seal: null` carve-out).
 
 ## Objectives
 
 - Define `runx.receipt.v1` as the single receipt contract, flat (no `harness`
   wrapper), one seal, idempotency top-level, authority fully inspectable.
-- Move planner deliberation (former `decisions[]`) into a referenced journal
-  artifact committed by `journal_ref` hash; preserve the act-id integrity property
-  through journal verification.
-- Reference per-act detail via `act-receipt` (`detail_ref`) instead of inlining
-  intent/target/source/surface refs.
+- Keep the reasoning **inline**: `decisions[]` (choice + proposed_intent +
+  justification) and full `acts[]` (intent + success_criteria + criterion_bindings)
+  live in the receipt. No journal, no `detail_ref` exile. The `selected_act_id`
+  integrity property is checked inline against `acts[]`.
+- Reference only the **bulky** per-act execution I/O via `acts[].context_ref`
+  (agent-context envelope) + `artifact_refs`, and make the trainable export a
+  *hydrating* projection that joins them into a complete training example.
+- Move verification out of the signed body: it is computed at read time
+  (`ReceiptVerificationSummary` is a verifier return, never a receipt field).
+- Promote training-load-bearing fields to first class: `subject.input_context`,
+  top-level `resolution` (the outcome verdict / supervised label), `acts[].by`.
 - Cut the Rust contracts, the receipts kernel (canonical/verify), signing
   (`runx-runtime/src/receipts/signing.rs`), the runtime emitter, and cloud reads over
   to `runx.receipt.v1` in one move.
@@ -240,14 +277,11 @@ Two edges that previously had no clean home and now do: runner provenance
 - Move the durable identity: `ReferenceType::HarnessReceipt` -> `ReferenceType::Receipt`
   and `HARNESS_RECEIPT_REF_PREFIX = "runx:harness_receipt:"` -> `"runx:receipt:"`
   (`crates/runx-runtime/src/journal.rs`, `payment_ledger.rs`, the tree prefix strips).
-- Pin journal-ref semantics: the planner journal is a local artifact written beside
-  the receipt in the receipt dir; `lineage.journal_ref` resolves there; verification
-  fails closed if `journal_ref` is present but the journal is missing or its hash
-  mismatches; no cross-trust-boundary read (the journal shares the receipt's trust).
-- Delete the old shape entirely across all ~250 OSS files plus cloud: no
-  `harness_receipt`/`HarnessReceipt`/`harness-receipt`/`harness.seal` token,
-  `runx.harness_receipt.v1` schema, fixtures, or `runx:harness_receipt:` URI remains.
-  No alias, no dual-shape, no compat code, no stored-data migration shim.
+- Delete the old shape entirely across all OSS files plus cloud: no
+  `harness_receipt`/`HarnessReceipt`/`harness-receipt`/`harness.seal`/
+  `runx.harness_receipt.v1`/`runx:harness_receipt:` token, and no journal vestige
+  (`ReceiptJournal`/`journal_ref`/`verify_with_journal`) remains. No alias, no
+  dual-shape, no compat code, no stored-data migration shim.
 
 ## Scope
 
@@ -298,8 +332,8 @@ Out of scope (and explicitly forbidden):
 
 ## Risks
 
-- Digest change: flattening, the single seal, and `decisions[]` -> `journal_ref`
-  change what the body commits. This is a deliberate version break
+- Digest change: flattening and the single seal change what the body commits (it now
+  commits the inline `decisions[]`/`acts[]`). This is a deliberate version break
   (`runx.receipt.v1` / `runx.receipt.c14n.v1`), not an in-place mutation. All
   fixtures and the oracle regenerate together.
 - Coordinated cutover with no bridge: because there is no compat layer, the emitter,
@@ -309,8 +343,9 @@ Out of scope (and explicitly forbidden):
 - Lost proof by over-collapsing: `idempotency`, `authority.terms.bounds.payment`,
   attenuation/proof refs, and the hash commitments are durable proof. The shape keeps
   them; acceptance asserts they survive.
-- Journal integrity: moving deliberation out must not weaken the `selected_act_id`
-  integrity guarantee; the journal is committed by `journal_ref` and verified.
+- Training completeness: the bulky agent I/O lives behind `acts[].context_ref` +
+  `artifact_refs`; the trainable projection must hydrate them and upstream capture must
+  retain them, or full-content training data is lost. Acceptance asserts a rich row.
 - Blast radius: the no-compat rename touches ~250 OSS files plus cloud, the
   `ReferenceType` enum, the durable URI prefix, and the payment-ledger projection. It
   must land as one coordinated change; partial application leaves the tree non-compiling
@@ -326,9 +361,12 @@ Profile: strict
 Definition of done:
 - [ ] `dod1` `runx.receipt.v1` is the only receipt contract: flat top level (no
   `harness` wrapper), exactly one `seal`, `idempotency` top-level, `subject` with
-  `kind: skill|graph` and `commitments[]`, `authority` carrying
-  `terms[].bounds.payment` inspectably, `acts[]` with `criteria` bindings and
-  `detail_ref`, optional `lineage` with `journal_ref`.
+  `kind: skill|graph` + `input_context` + scoped `commitments[]`, `authority` carrying
+  `terms[].bounds.payment` inspectably, **inline** `decisions[]` (choice +
+  proposed_intent + justification) and **inline rich** `acts[]` (`intent` with
+  `success_criteria`, `criterion_bindings`, `by`, `context_ref`, `artifact_refs`), one
+  `seal` with no `verification_summary`, optional top-level `resolution`, optional
+  `lineage` (no `journal_ref`).
 - [ ] `dod2` No back-compat remains: a scan finds no `harness_receipt`,
   `HarnessReceipt`, `harness-receipt`, `harness.seal`, `runx.harness_receipt.v1`, or
   `runx:harness_receipt:` token in the OSS tree (`crates`, `schemas`, `fixtures`,
@@ -341,15 +379,25 @@ Definition of done:
 - [ ] `dod9` Durable identity moved: `ReferenceType::Receipt` replaces
   `ReferenceType::HarnessReceipt`, the prefix is `runx:receipt:`, and
   `payment_ledger.rs` projects over the new prefix.
-- [ ] `dod10` Journal-ref semantics hold: the journal is written beside the receipt;
-  verification of a receipt whose `journal_ref` is missing or hash-mismatched fails
-  closed; a tampered `selected_act_id` is caught via the journal.
+- [ ] `dod10` Verification is computed, not stored: `verify` recomputes the digest,
+  checks the signature, binds `seal.criteria` to `acts[].criterion_bindings`, checks
+  `decision.selected_act_id` against inline `acts[]`, and validates attenuation, and
+  RETURNS a `ReceiptVerificationSummary`. No `verification_summary` field exists on the
+  signed receipt; no journal exists.
+- [ ] `dod11` The trainable export is a rich hydrating projection: a projected row
+  embeds the rich receipt (intent, decisions/justification, criteria, outcome,
+  resolution) and joins `acts[].context_ref` + `artifact_refs` into a complete training
+  example; it computes verification on read rather than reading a stored summary. A
+  projected row contains `intent.purpose`, `success_criteria` statements, decision
+  justifications, and criterion outcomes, not just ids.
 - [ ] `dod3` The receipts kernel operates on the flat shape: the body digest commits
-  `idempotency`/`subject`/`authority`/`acts`/`seal`/`lineage`; `verify.rs` no longer
-  has a seal-equality check; the `selected_act_id` integrity property is verified via
-  the journal.
-- [ ] `dod4` The runtime emits `runx.receipt.v1`, writes the planner journal as a
-  separate artifact, and records `lineage.journal_ref`. No seal is written twice.
+  `idempotency`/`subject`/`authority`/`signals`/`decisions`/`acts`/`seal`/`resolution`/
+  `lineage` (excluding `signature`/`digest`/`metadata`); `verify.rs` has no
+  seal-equality check; the `selected_act_id` integrity property is verified inline
+  against `acts[]` (no journal).
+- [ ] `dod4` The runtime emits `runx.receipt.v1` with inline rich `decisions[]`/`acts[]`
+  (populating real `intent`/`success_criteria`/`criterion_bindings`), writes exactly one
+  seal, and writes no journal artifact.
 - [ ] `dod5` Cloud dedup (`idempotency.*`) and status (`seal.disposition`,
   `seal.closed_at`) resolve against the flat shape with no field-path changes beyond
   the wrapper removal.
@@ -373,16 +421,20 @@ Validation:
   - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime receipt`
   - Expected kind: `exit_code_zero`
   - Status: pending
-- [ ] `v4` No-compat sweep (OSS): zero old-shape references remain.
-  - Command: `! rg -n 'harness_receipt|HarnessReceipt|harness-receipt|harness\.seal|runx:harness_receipt:' crates schemas fixtures packages`
+- [ ] `v4` No-compat sweep (OSS): zero old-shape or journal references remain.
+  - Command: `! rg -n 'harness_receipt|HarnessReceipt|harness-receipt|harness\.seal|runx\.harness_receipt\.v1|runx:harness_receipt:|ReceiptJournal|journal_ref|verify_with_journal' crates schemas fixtures packages`
   - Expected kind: `exit_code_zero`
   - Status: pending
 - [ ] `v5` Canonical-json oracle covers the new receipt c14n.
   - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-receipts canonical`
   - Expected kind: `exit_code_zero`
   - Status: pending
-- [ ] `v6` No-compat sweep (cloud) + cloud db tests pass against the flat shape.
-  - Command: `cd ../cloud && rg -n 'harness_receipt|HarnessReceipt|runx:harness_receipt:' packages; test $? -eq 1 && pnpm --filter @runx/db test`
+- [ ] `v6` No-compat sweep (cloud, full dod2 regex) + cloud typecheck + api/db tests.
+  - Command: `cd ../cloud && rg -n 'harness_receipt|HarnessReceipt|harness-receipt|harness\.seal|runx\.harness_receipt\.v1|runx:harness_receipt:' packages; test $? -eq 1 && pnpm typecheck && npx vitest run packages/api packages/db`
+  - Expected kind: `exit_code_zero`
+  - Status: pending
+- [ ] `v7` The trainable export hydrates a rich training row (dod11).
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime trainable; npx vitest run packages/cli/src/trainable-receipts`
   - Expected kind: `exit_code_zero`
   - Status: pending
 

@@ -53,17 +53,46 @@ describe("trainable receipts export", () => {
 
       const rows = stdout.contents().trim().split("\n").map((line) => JSON.parse(line));
       expect(rows).toHaveLength(1);
-      expect(rows[0]).toMatchObject({
+      const row = rows[0];
+      expect(row).toMatchObject({
         kind: "runx.trainable-receipt-row.v1",
         receipt_id: fixture.id,
         disposition: "closed",
-        act_ids: ["act_echo"],
         actor_ref: {
           type: "principal",
         },
       });
-      expect(typeof rows[0].exported_at).toBe("string");
-      expect(rows[0].receipt.id).toBe(fixture.id);
+      expect(typeof row.exported_at).toBe("string");
+      expect(row.receipt.id).toBe(fixture.id);
+
+      // A rich trainable row carries intent purposes, success-criteria
+      // statements, decision justifications, and criterion OUTCOMES (not ids).
+      expect(row.acts[0].intent_purpose).toBe("Execute the requested skill step");
+      expect(row.acts[0].success_criteria[0]).toMatchObject({
+        criterion_id: "process_exit",
+        statement: "cli-tool exits successfully",
+        required: true,
+      });
+      expect(row.acts[0].criterion_outcomes[0]).toMatchObject({
+        criterion_id: "process_exit",
+        status: "verified",
+      });
+      expect(row.acts[0].criterion_outcomes[0].summary).toBe("cli-tool exited successfully");
+      expect(row.decisions[0].justification).toBe(
+        "runtime graph planner selected this node",
+      );
+      expect(row.decisions[0].selected_act_id).toBe("act_echo");
+      // The training INPUT and OUTCOME are present.
+      expect(row.input?.source).toContain("runx:signal:");
+      expect(row.outcome.disposition).toBe("closed");
+      expect(row.outcome.criteria[0].criterion_id).toBe("process_exit");
+      // Verification is computed on read.
+      expect(row.verification).toMatchObject({
+        criteria_bound: true,
+        selected_acts_resolved: true,
+        signature_present: true,
+        digest_present: true,
+      });
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

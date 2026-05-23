@@ -1,24 +1,24 @@
 {
-  "schema_version": "runx.payment_ledger_projection.v1",
-  "payment_profile": "x402-pay",
-  "scenario_id": "P1.5",
-  "source_receipt_id": "runx:receipt:hrn_rcpt_x402-pay-paid-echo_graph",
-  "disposition": "settled",
   "accrual": {
     "amount_minor": 125,
-    "currency": "USD",
-    "rail": "mock",
     "counterparty": "merchant:paid-echo",
-    "operation": "paid.echo",
+    "currency": "USD",
     "idempotency_key": "payment:paid-echo-001",
+    "operation": "paid.echo",
+    "rail": "mock",
     "rail_proof_refs": [
       "receipt-proof:mock:paid-echo-001"
     ]
   },
-  "refusal": null,
+  "disposition": "settled",
   "evidence_refs": [
     "hrn_x402-pay-paid-echo_fulfill",
-    "runx:receipt:hrn_rcpt_x402-pay-paid-echo_fulfill",
+    "runx:receipt:sha256:86dcc83774dec6dc8e55ea4e2b23201a9802a32148728c7d6128da46871a106a",
     "runx:payment-capability:paid-echo-spend-1"
-  ]
+  ],
+  "payment_profile": "x402-pay",
+  "refusal": null,
+  "scenario_id": "P1.5",
+  "schema_version": "runx.payment_ledger_projection.v1",
+  "source_receipt_id": "runx:receipt:sha256:cf9cc8cfc1de489e2dc8230c56e1552580f59a66b12111db4812cbdc0db66894"
 }

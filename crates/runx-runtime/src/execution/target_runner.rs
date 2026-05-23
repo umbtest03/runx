@@ -11,11 +11,13 @@ use sha2::{Digest, Sha256};
 use url::Url;
 
 use runx_contracts::{
-    ActForm, AuthorityAttenuation, AuthoritySubsetProof, AuthoritySubsetResult, ClosureDisposition,
-    CriterionStatus, JsonNumber, JsonObject, JsonValue, Lineage, RECEIPT_CANONICALIZATION, Receipt,
-    ReceiptAct, ReceiptAuthority, ReceiptCriterion, ReceiptEnforcement, ReceiptIdempotency,
-    ReceiptIssuer, ReceiptIssuerType, ReceiptSchema, ReceiptSubjectKind, Reference, ReferenceType,
-    Seal, SignatureAlgorithm, Subject, TargetRepoRunnerDedupeLookupExecution,
+    ActForm, AuthorityAttenuation, AuthoritySubsetProof, AuthoritySubsetResult, ChangePlan,
+    ChangeRequest, Closure, ClosureDisposition, CriterionBinding, CriterionStatus, Intent,
+    JsonNumber, JsonObject, JsonValue, Lineage, RECEIPT_CANONICALIZATION, Receipt, ReceiptAct,
+    ReceiptAuthority, ReceiptCriterion, ReceiptEnforcement, ReceiptIdempotency, ReceiptIssuer,
+    ReceiptIssuerType, ReceiptSchema, ReceiptSubjectKind, Reference, ReferenceType, RevisionDetails,
+    Seal, SignatureAlgorithm, Subject, SuccessCriterion, TargetSurface,
+    TargetRepoRunnerDedupeLookupExecution,
     TargetRepoRunnerDedupeLookupObservation, TargetRepoRunnerDedupeLookupPlan,
     TargetRepoRunnerDedupeResult, TargetRepoRunnerExecutionPlan,
     TargetRepoRunnerExistingPullRequest, TargetRepoRunnerPlan, TargetRepoRunnerPlanError,
@@ -26,7 +28,7 @@ use runx_contracts::{
     plan_target_repo_runner_execution, plan_target_repo_runner_pull_request_receipt,
     plan_target_repo_runner_source_publication_receipt,
 };
-use runx_receipts::{canonical_receipt_body_digest, validate_receipt};
+use runx_receipts::{canonical_receipt_body_digest, content_addressed_receipt_id, validate_receipt};
 
 pub use crate::runtime_http::{
     HostedHttpError as TargetRepoRunnerHttpError, HostedHttpHeader as TargetRepoRunnerHttpHeader,
@@ -1543,6 +1545,7 @@ fn target_repo_runner_revision_receipt(
         act_id,
         criterion_id,
         summary: &summary,
+        created_at,
         target_repo_ref: &target_repo_ref,
         source_thread_ref: &execution.pull_request_receipt.source_thread_ref,
         source_issue_ref: execution.pull_request_receipt.source_issue_ref.as_ref(),
@@ -1587,15 +1590,15 @@ fn target_repo_runner_revision_receipt(
         subject: Subject {
             kind: ReceiptSubjectKind::Skill,
             reference: Reference::runx(ReferenceType::Harness, "target-runner"),
+            input_context: None,
             commitments: Vec::new(),
         },
         authority: target_runner_authority(execution),
+        signals: vec![execution.execution_plan.source_thread_ref.clone()],
+        decisions: Vec::new(),
         acts: vec![act],
         seal,
-        lineage: Some(Lineage {
-            signal_refs: vec![execution.execution_plan.source_thread_ref.clone()],
-            ..Lineage::default()
-        }),
+        lineage: Some(Lineage::default()),
         metadata: Some(revision_receipt_metadata(execution)),
     };
     seal_revision_receipt(&mut receipt)?;
@@ -1685,11 +1688,27 @@ fn target_repo_runner_source_publication_receipt_node(
     let mut role_refs = vec![observation.pull_request_ref.clone()];
     role_refs.extend(target_refs.clone());
     role_refs.extend(observation.published_refs.clone());
+    let success_criteria = vec![SuccessCriterion {
+        criterion_id: criterion_id.to_owned(),
+        statement: "Target pull request is published to the source issue/thread".to_owned(),
+        required: true,
+    }];
     let act = ReceiptAct {
         id: act_id.to_owned(),
         form: ActForm::Reply,
+        intent: Intent {
+            purpose: format!(
+                "Publish target pull request {} to source",
+                observation.pull_request_ref.uri
+            ),
+            legitimacy: "Target runner is authorized to reply on the source issue/thread"
+                .to_owned(),
+            success_criteria,
+            constraints: Vec::new(),
+            derived_from: vec![observation.source_thread_ref.clone()],
+        },
         summary: summary.clone(),
-        criteria: vec![ReceiptCriterion {
+        criterion_bindings: vec![CriterionBinding {
             criterion_id: criterion_id.to_owned(),
             status: CriterionStatus::Verified,
             evidence_refs: evidence_refs.clone(),
@@ -1697,11 +1716,21 @@ fn target_repo_runner_source_publication_receipt_node(
             summary: Some(summary.clone()),
         }],
         by: None,
+        source_refs: vec![observation.source_thread_ref.clone()],
+        target_refs: target_refs.clone(),
         artifact_refs: role_refs,
-        detail_ref: Some(Reference::runx(
+        context_ref: Some(Reference::runx(
             ReferenceType::Act,
-            &format!("{act_id}_detail"),
+            &format!("{act_id}_context"),
         )),
+        closure: Closure {
+            disposition: ClosureDisposition::Closed,
+            reason_code: criterion_id.to_owned(),
+            summary: summary.clone(),
+            closed_at: created_at.to_owned(),
+        },
+        revision: None,
+        verification: None,
     };
     let seal = receipt_seal(ReceiptSealInputs {
         reason_code: "target_runner_source_published",
@@ -1742,15 +1771,17 @@ fn target_repo_runner_source_publication_receipt_node(
         subject: Subject {
             kind: ReceiptSubjectKind::Skill,
             reference: Reference::runx(ReferenceType::Harness, "target-runner-source-publication"),
+            input_context: None,
             commitments: Vec::new(),
         },
         authority: source_publication_authority(request, created_at),
+        signals: vec![observation.source_thread_ref.clone()],
+        decisions: Vec::new(),
         acts: vec![act],
         seal,
         lineage: Some(Lineage {
             parent: Some(request.revision_receipt_ref.clone()),
             previous: Some(request.revision_receipt_ref.clone()),
-            signal_refs: vec![observation.source_thread_ref.clone()],
             ..Lineage::default()
         }),
         metadata: Some(source_publication_receipt_metadata(request, observation)),
@@ -1763,6 +1794,7 @@ struct RevisionActInput<'a> {
     act_id: &'a str,
     criterion_id: &'a str,
     summary: &'a str,
+    created_at: &'a str,
     target_repo_ref: &'a Reference,
     source_thread_ref: &'a Reference,
     source_issue_ref: Option<&'a Reference>,
@@ -1771,14 +1803,16 @@ struct RevisionActInput<'a> {
     verification_refs: &'a [Reference],
 }
 
-// The receipt records result bindings only; the full intent/target/surface refs
-// and the revision body live behind `detail_ref` (an act-receipt). The role refs
-// the projection needs (repo/PR/thread/issue) ride on the act's artifact_refs.
+// The act keeps its full intent, success criteria, criterion bindings, and the
+// revision body inline (proof + training signal). The bulky agent-context I/O is
+// referenced via `context_ref`. The role refs the projection needs
+// (repo/PR/thread/issue) ride on the act's target/artifact refs.
 fn revision_act(input: RevisionActInput<'_>) -> ReceiptAct {
     let RevisionActInput {
         act_id,
         criterion_id,
         summary,
+        created_at,
         target_repo_ref,
         source_thread_ref,
         source_issue_ref,
@@ -1796,23 +1830,68 @@ fn revision_act(input: RevisionActInput<'_>) -> ReceiptAct {
         role_refs.push(source_issue_ref.clone());
     }
     role_refs.extend(artifact_refs.iter().cloned());
+    let success_criteria = vec![SuccessCriterion {
+        criterion_id: criterion_id.to_owned(),
+        statement: "Target pull request is ready for human review".to_owned(),
+        required: true,
+    }];
+    let revision = RevisionDetails {
+        change_request: ChangeRequest {
+            request_id: format!("{act_id}_request"),
+            summary: summary.to_owned(),
+            target_surfaces: vec![TargetSurface {
+                surface_ref: pull_request_ref.clone(),
+                mutating: true,
+                rationale: Some("Open the target pull request".to_owned()),
+            }],
+            success_criteria: success_criteria.clone(),
+        },
+        change_plan: ChangePlan {
+            plan_id: format!("{act_id}_plan"),
+            summary: summary.to_owned(),
+            steps: vec!["Prepare and publish the target pull request".to_owned()],
+            risks: Vec::new(),
+        },
+        target_surfaces: Vec::new(),
+        invariants: Vec::new(),
+        verification: None,
+        handoff_refs: Vec::new(),
+        revision_refs: Vec::new(),
+    };
     ReceiptAct {
         id: act_id.to_owned(),
         form: ActForm::Revision,
+        intent: Intent {
+            purpose: format!("Open target pull request {}", pull_request_ref.uri),
+            legitimacy: "Target runner is authorized to open the target pull request".to_owned(),
+            success_criteria,
+            constraints: Vec::new(),
+            derived_from: vec![source_thread_ref.clone()],
+        },
         summary: summary.to_owned(),
-        criteria: vec![ReceiptCriterion {
+        criterion_bindings: vec![CriterionBinding {
             criterion_id: criterion_id.to_owned(),
             status: CriterionStatus::Verified,
-            evidence_refs: target_refs,
+            evidence_refs: target_refs.clone(),
             verification_refs: verification_refs.to_vec(),
             summary: Some(summary.to_owned()),
         }],
         by: None,
+        source_refs: vec![source_thread_ref.clone()],
+        target_refs,
         artifact_refs: role_refs,
-        detail_ref: Some(Reference::runx(
+        context_ref: Some(Reference::runx(
             ReferenceType::Act,
-            &format!("{act_id}_detail"),
+            &format!("{act_id}_context"),
         )),
+        closure: Closure {
+            disposition: ClosureDisposition::Closed,
+            reason_code: criterion_id.to_owned(),
+            summary: summary.to_owned(),
+            closed_at: created_at.to_owned(),
+        },
+        revision: Some(revision),
+        verification: None,
     }
 }
 
@@ -1994,6 +2073,7 @@ fn receipt_seal(inputs: ReceiptSealInputs<'_>) -> Seal {
         reason_code: inputs.reason_code.to_owned(),
         summary: inputs.summary.to_owned(),
         closed_at: inputs.created_at.to_owned(),
+        last_observed_at: inputs.created_at.to_owned(),
         criteria: vec![ReceiptCriterion {
             criterion_id: inputs.criterion_id.to_owned(),
             status: CriterionStatus::Verified,
@@ -2005,6 +2085,8 @@ fn receipt_seal(inputs: ReceiptSealInputs<'_>) -> Seal {
 }
 
 fn seal_revision_receipt(receipt: &mut Receipt) -> Result<(), TargetRepoRunnerRuntimeError> {
+    receipt.id = content_addressed_receipt_id(receipt)
+        .map_err(|error| TargetRepoRunnerRuntimeError::Receipt(error.to_string()))?;
     let digest = canonical_receipt_body_digest(receipt)
         .map_err(|error| TargetRepoRunnerRuntimeError::Receipt(error.to_string()))?;
     receipt.digest = digest.clone();

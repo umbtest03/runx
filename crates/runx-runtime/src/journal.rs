@@ -303,10 +303,9 @@ pub fn project_receipt_journal_with_policy(
         harness_ref: Some(subject_uri.clone()),
         act_ref: None,
         decision_ref: receipt
-            .lineage
-            .as_ref()
-            .and_then(|lineage| lineage.journal_ref.as_ref())
-            .map(|reference| reference.uri.clone()),
+            .decisions
+            .first()
+            .map(|decision| format!("runx:decision:{}", decision.decision_id)),
         artifact_refs: Vec::new(),
         status: Some(disposition_status(&receipt.seal.disposition)),
         verification: Some(verification),
@@ -471,16 +470,9 @@ fn verification_status(
     let proof_contexts = RuntimeReceiptProofContextProvider::new(signature_policy);
     let context = proof_contexts.proof_context(receipt);
     let verification = verify_receipt_proof(receipt, &context);
-    // The decision -> act-id integrity property is journal-dependent and reported
-    // as `unverified` by plain proof verification; the runtime confirms it through
-    // the in-hand journal, so it never downgrades the read-time status.
-    let blocking: Vec<_> = verification
-        .findings
-        .iter()
-        .filter(|finding| {
-            !matches!(finding.code, ReceiptFindingCode::DecisionIntegrityUnverified)
-        })
-        .collect();
+    // The decision -> act-id integrity property is checked inline against
+    // `acts[]` by `verify_receipt`; no journal indirection remains.
+    let blocking: Vec<_> = verification.findings.iter().collect();
     if blocking.is_empty() {
         if signature_policy.can_report_production_verified() {
             "verified".to_owned()

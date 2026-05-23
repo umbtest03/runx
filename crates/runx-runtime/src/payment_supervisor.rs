@@ -353,7 +353,7 @@ pub fn receipt_act_has_payment_rail_proof(
     receipt.acts.iter().any(|act| {
         act.id == act_id
             && act
-                .criteria
+                .criterion_bindings
                 .iter()
                 .flat_map(|criterion| criterion.verification_refs.iter())
                 .any(|reference| {

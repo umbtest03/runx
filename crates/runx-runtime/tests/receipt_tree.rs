@@ -161,7 +161,7 @@ fn runtime_tree_rejects_structurally_valid_child_proof_tamper()
     assert_finding(
         &verification,
         ReceiptFindingCode::SealDigestMismatch,
-        "runtime_receipts[0].seal.digest",
+        "runtime_receipts[0].digest",
     );
     assert_finding(
         &verification,

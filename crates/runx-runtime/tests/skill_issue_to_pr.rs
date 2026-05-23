@@ -30,7 +30,9 @@ fn issue_to_pr_generated_fixtures_replay_to_needs_agent_receipts()
         validate_receipt_tree(&output.receipt, &output.step_receipts)
             .map_err(|verification| format!("{case_name}: {:?}", verification.findings))?;
         assert_eq!(output.receipt.acts.len(), 0);
-        assert_eq!(output.receipt.harness.decisions.len(), 1);
+        // The flat graph receipt carries no inline decisions; governance
+        // reasoning lives on the per-step child receipts.
+        assert_eq!(output.receipt.decisions.len(), 0);
         assert!(
             !output.receipt.lineage.as_ref().map(|l| l.children.as_slice()).unwrap_or_default().is_empty(),
             "{case_name}: graph receipt should cite child harness receipts"

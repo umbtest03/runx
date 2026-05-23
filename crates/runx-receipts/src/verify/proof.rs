@@ -5,7 +5,7 @@ use runx_contracts::{
     ReceiptVerificationSummary, Reference, SignatureAlgorithm,
 };
 
-use crate::canonical_receipt_body_digest;
+use crate::{canonical_receipt_body_digest, content_addressed_receipt_id};
 
 use super::{ReceiptFinding, ReceiptFindingCode, ReceiptVerification, verify_receipt};
 
@@ -26,9 +26,9 @@ pub fn validate_receipt_proof(
     }
 }
 
-/// Read-time proof verification. Computes signature/digest/attenuation validity;
-/// the `selected_act_id` integrity property is journal-dependent and reported as
-/// an `unverified` finding here (see `verify_receipt_with_journal`).
+/// Read-time proof verification. Computes signature/digest/attenuation validity
+/// on top of the structural checks (which include the inline `selected_act_id`
+/// integrity property against `acts[]`).
 #[must_use]
 pub fn verify_receipt_proof(
     receipt: &Receipt,
@@ -41,7 +41,6 @@ pub fn verify_receipt_proof(
     };
     verifier.check_body_digest(receipt);
     verifier.check_signature(receipt);
-    verifier.note_journal_dependent(receipt);
     findings.extend(verifier.findings);
     ReceiptVerification::from_findings(findings)
 }
@@ -58,6 +57,15 @@ pub struct ReceiptProofContext<'a> {
 struct ProofVerifier<'a> {
     context: &'a ReceiptProofContext<'a>,
     findings: Vec<ReceiptFinding>,
+}
+
+/// Whether `receipt.id` equals its content address `hash(canonical_body)` under
+/// `runx.receipt.c14n.v1`. The runtime asserts this at seal time and the
+/// trainable projection verifies it on read; it is intentionally NOT a
+/// per-node structural check so synthetic tree fixtures stay address-agnostic.
+#[must_use]
+pub fn receipt_id_is_content_addressed(receipt: &Receipt) -> bool {
+    content_addressed_receipt_id(receipt).is_ok_and(|content_id| receipt.id == content_id)
 }
 
 impl ProofVerifier<'_> {
@@ -111,24 +119,6 @@ impl ProofVerifier<'_> {
         }
     }
 
-    fn note_journal_dependent(&mut self, receipt: &Receipt) {
-        // The decision -> act-id integrity property lives in the planner journal
-        // committed by `lineage.journal_ref`; plain proof verification cannot
-        // confirm it and reports it as unverified rather than silently passing.
-        let has_journal = receipt
-            .lineage
-            .as_ref()
-            .and_then(|lineage| lineage.journal_ref.as_ref())
-            .is_some();
-        if has_journal {
-            self.push(
-                ReceiptFindingCode::DecisionIntegrityUnverified,
-                "lineage.journal_ref",
-                "decision -> act-id integrity is journal-dependent; verify_with_journal to confirm",
-            );
-        }
-    }
-
     fn push(
         &mut self,
         code: ReceiptFindingCode,
@@ -174,6 +164,7 @@ pub fn compute_verification_summary(
         .all(|commitment| context.verified_hash_commitments.contains(&commitment.value));
     ReceiptVerificationSummary {
         signature_valid,
+        content_address_valid: receipt_id_is_content_addressed(receipt),
         hash_commitments_valid,
         authority_attenuation_valid,
         criteria_bound,

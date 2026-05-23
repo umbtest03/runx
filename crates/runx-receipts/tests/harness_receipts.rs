@@ -7,11 +7,11 @@ use runx_contracts::{
     ReceiptSignature, Reference, ReferenceType,
 };
 use runx_receipts::{
-    ReceiptFindingCode, ReceiptJournal, ReceiptProofContext, ReceiptProofStatusKind,
-    ReceiptVerification, SignatureVerificationFailure, SignatureVerifier,
-    canonical_receipt_body_digest, canonical_receipt_digest, canonical_receipt_json,
-    receipt_proof_status, validate_receipt, validate_receipt_proof, validate_receipt_tree,
-    verify_receipt, verify_receipt_proof, verify_receipt_tree, verify_receipt_with_journal,
+    ReceiptFindingCode, ReceiptProofContext, ReceiptProofStatusKind, ReceiptVerification,
+    SignatureVerificationFailure, SignatureVerifier, canonical_receipt_body_digest,
+    canonical_receipt_digest, canonical_receipt_json, receipt_proof_status, validate_receipt,
+    validate_receipt_proof, validate_receipt_tree, verify_receipt, verify_receipt_proof,
+    verify_receipt_tree,
 };
 
 const SUCCESS_RECEIPT: &str =
@@ -270,63 +270,25 @@ fn strict_proof_reports_unsupported_issuer() -> Result<(), serde_json::Error> {
 }
 
 #[test]
-fn journal_verification_catches_tampered_selected_act_id() -> Result<(), serde_json::Error> {
-    use runx_contracts::{
-        Decision, DecisionChoice, DecisionInputs, DecisionJustification, Intent,
-    };
-    use runx_receipts::ReceiptJournalDecision;
-
+fn inline_decision_integrity_catches_tampered_selected_act_id() -> Result<(), serde_json::Error> {
     let mut receipt = fixture(SUCCESS_RECEIPT)?;
-    let journal = ReceiptJournal {
-        receipt_id: receipt.id.clone(),
-        decisions: vec![ReceiptJournalDecision {
-            decision: Decision {
-                decision_id: "dec_1".to_owned(),
-                choice: DecisionChoice::Open,
-                inputs: DecisionInputs::default(),
-                proposed_intent: Intent {
-                    purpose: "open".to_owned(),
-                    legitimacy: "test".to_owned(),
-                    success_criteria: Vec::new(),
-                    constraints: Vec::new(),
-                    derived_from: Vec::new(),
-                },
-                selected_act_id: Some("missing_act".to_owned()),
-                selected_harness_ref: None,
-                justification: DecisionJustification {
-                    summary: "test".to_owned(),
-                    evidence_refs: Vec::new(),
-                },
-                closure: None,
-                artifact_refs: Vec::new(),
-            },
-        }],
-    };
-    let journal_digest = journal.digest();
-    receipt.lineage.get_or_insert_with(Default::default).journal_ref = Some(Reference {
-        locator: Some(journal_digest),
-        ..Reference::runx(ReferenceType::Decision, "journal")
-    });
+    // The reasoning is inline; the selected_act_id integrity property is checked
+    // against the inline acts[] with no journal indirection.
+    assert!(!receipt.decisions.is_empty());
+    receipt.decisions[0].selected_act_id = Some("missing_act".to_owned());
 
-    let verification = verify_receipt_with_journal(&receipt, &journal);
+    let verification = verify_receipt(&receipt);
     assert_finding(&verification, ReceiptFindingCode::DecisionSelectedActMissing);
     Ok(())
 }
 
 #[test]
-fn journal_verification_fails_closed_on_hash_mismatch() -> Result<(), serde_json::Error> {
-    let mut receipt = fixture(SUCCESS_RECEIPT)?;
-    let journal = ReceiptJournal {
-        receipt_id: receipt.id.clone(),
-        decisions: Vec::new(),
-    };
-    receipt.lineage.get_or_insert_with(Default::default).journal_ref = Some(Reference {
-        locator: Some("sha256:wrong".to_owned()),
-        ..Reference::runx(ReferenceType::Decision, "journal")
-    });
+fn inline_decision_integrity_accepts_real_selected_act_id() -> Result<(), serde_json::Error> {
+    let receipt = fixture(SUCCESS_RECEIPT)?;
+    let act_id = receipt.acts[0].id.clone();
+    assert_eq!(receipt.decisions[0].selected_act_id.as_deref(), Some(act_id.as_str()));
 
-    let verification = verify_receipt_with_journal(&receipt, &journal);
-    assert_finding(&verification, ReceiptFindingCode::JournalHashMismatch);
+    assert!(validate_receipt(&receipt).is_ok());
     Ok(())
 }
 

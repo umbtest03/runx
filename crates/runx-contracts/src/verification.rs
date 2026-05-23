@@ -49,6 +49,7 @@ pub struct Verification {
 #[serde(deny_unknown_fields)]
 pub struct ReceiptVerificationSummary {
     pub signature_valid: bool,
+    pub content_address_valid: bool,
     pub hash_commitments_valid: bool,
     pub authority_attenuation_valid: bool,
     pub criteria_bound: bool,

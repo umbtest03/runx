@@ -184,6 +184,7 @@ fn base(id: &str) -> Receipt {
         subject: Subject {
             kind: ReceiptSubjectKind::Skill,
             reference: Reference::runx(ReferenceType::Harness, id),
+            input_context: None,
             commitments: Vec::new(),
         },
         authority: ReceiptAuthority {
@@ -204,12 +205,15 @@ fn base(id: &str) -> Receipt {
                 teardown_refs: Vec::new(),
             },
         },
+        signals: Vec::new(),
+        decisions: Vec::new(),
         acts: Vec::new(),
         seal: Seal {
             disposition: ClosureDisposition::Closed,
             reason_code: "closed".to_owned(),
             summary: "closed".to_owned(),
             closed_at: "2026-05-22T00:00:00Z".to_owned(),
+            last_observed_at: "2026-05-22T00:00:00Z".to_owned(),
             criteria: Vec::new(),
         },
         lineage: Some(Lineage::default()),

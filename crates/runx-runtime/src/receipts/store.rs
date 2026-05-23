@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use runx_contracts::{RECEIPT_SCHEMA, Receipt};
-use runx_receipts::{ReceiptFindingCode, ReceiptProofContextProvider, verify_receipt_proof};
+use runx_receipts::{ReceiptProofContextProvider, verify_receipt_proof};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -546,23 +546,13 @@ fn verify_stored_receipt_proof(
     let proof_contexts = RuntimeReceiptProofContextProvider::new(signature_policy);
     let context = proof_contexts.proof_context(receipt);
     let verification = verify_receipt_proof(receipt, &context);
-    // The decision -> act-id integrity check is journal-dependent and reported
-    // as `unverified` by plain proof verification; the store proves it through
-    // the journal at higher layers, so it is not a blocking finding here.
-    let blocking: Vec<_> = verification
-        .findings
-        .iter()
-        .filter(|finding| {
-            !matches!(finding.code, ReceiptFindingCode::DecisionIntegrityUnverified)
-        })
-        .collect();
-    if blocking.is_empty() {
+    if verification.valid {
         Ok(())
     } else {
         Err(ReceiptStoreError::ReceiptProofInvalid {
             path: path.to_path_buf(),
             receipt_id: receipt.id.clone(),
-            message: format!("{blocking:?}"),
+            message: format!("{:?}", verification.findings),
         })
     }
 }

@@ -42,7 +42,7 @@ fn stripe_spt_payment_seals_happy_path_with_scoped_proof() -> Result<(), Box<dyn
     let fulfill = step_run(&run.steps, "fulfill")?;
     assert!(
         fulfill.receipt.acts[0]
-            .criteria
+            .criterion_bindings
             .iter()
             .flat_map(|criterion| criterion.verification_refs.iter())
             .any(|reference| reference.uri == STRIPE_SPT_PROOF_REF
@@ -52,7 +52,7 @@ fn stripe_spt_payment_seals_happy_path_with_scoped_proof() -> Result<(), Box<dyn
     );
     assert!(
         fulfill.receipt.acts[0]
-            .criteria
+            .criterion_bindings
             .iter()
             .flat_map(|criterion| criterion.evidence_refs.iter())
             .any(|reference| reference.uri == STRIPE_SPT_CREDENTIAL_REF),

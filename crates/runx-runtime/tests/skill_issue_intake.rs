@@ -23,7 +23,7 @@ fn issue_intake_generated_fixtures_replay_to_receipts()
         validate_receipt(&output.receipt)
             .map_err(|verification| format!("{case_name}: {:?}", verification.findings))?;
         assert_eq!(output.receipt.acts.len(), 1);
-        assert_eq!(output.receipt.harness.decisions.len(), 1);
+        assert_eq!(output.receipt.decisions.len(), 1);
 
         let payload = skill_payload(&output)?;
         assert_object_field(&payload, "intake_report", case_name)?;
@@ -32,12 +32,11 @@ fn issue_intake_generated_fixtures_replay_to_receipts()
         assert_object_field(&payload, "decision", case_name)?;
 
         assert!(
-            !output.receipt.harness.signal_refs.is_empty(),
+            !output.receipt.signals.is_empty(),
             "{case_name}: receipt should bind the emitted signal"
         );
         let act = output
             .receipt
-            .harness
             .acts
             .first()
             .ok_or("missing contained act")?;
@@ -46,13 +45,11 @@ fn issue_intake_generated_fixtures_replay_to_receipts()
             "{case_name}: act should bind source event refs"
         );
         assert!(
-            !act.surface_refs.is_empty(),
+            !act.artifact_refs.is_empty(),
             "{case_name}: act should bind target surface refs"
         );
         assert_eq!(
-            output.receipt.harness.decisions[0]
-                .selected_act_id
-                .as_deref(),
+            output.receipt.decisions[0].selected_act_id.as_deref(),
             Some(act.id.as_str())
         );
     }

@@ -14,7 +14,7 @@ struct ExpectedSummary {
     created_at: String,
     graph_seal_digest: String,
     child_seal_digests: Vec<String>,
-    sandbox_profile: String,
+    enforcement_profile_hash: String,
     graph_receipt_id: String,
     child_receipt_ids: Vec<String>,
 }
@@ -43,16 +43,26 @@ fn hello_graph_matches_post_cutover_fixture() -> Result<(), Box<dyn std::error::
         expected.stdout
     );
     assert_eq!(run.receipt.created_at, expected.created_at);
+    if std::env::var("RUNX_REGEN_FIXTURES").is_ok() {
+        eprintln!(
+            "REGEN-HELLO graph_seal_digest={} child_seal_digests={:?} graph_receipt_id={} child_receipt_ids={:?}",
+            run.receipt.digest,
+            run.steps.iter().map(|s| s.receipt.digest.clone()).collect::<Vec<_>>(),
+            run.receipt.id,
+            run.steps.iter().map(|s| s.receipt.id.clone()).collect::<Vec<_>>(),
+        );
+        return Ok(());
+    }
     assert_eq!(run.receipt.digest, expected.graph_seal_digest);
     assert_eq!(
-        run.receipt.harness.enforcement.sandbox.profile,
-        expected.sandbox_profile
+        run.receipt.authority.enforcement.profile_hash,
+        expected.enforcement_profile_hash
     );
     for step in &run.steps {
         assert_eq!(step.receipt.created_at, expected.created_at);
         assert_eq!(
-            step.receipt.harness.enforcement.sandbox.profile,
-            expected.sandbox_profile
+            step.receipt.authority.enforcement.profile_hash,
+            expected.enforcement_profile_hash
         );
     }
     assert_eq!(

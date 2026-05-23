@@ -3,15 +3,22 @@
 //!
 //! One flat artifact, each top-level key answering one question: integrity
 //! (envelope), dedup (idempotency), what ran (subject), what allowed it
-//! (authority), what was done (acts), the outcome (seal), and graph/resume
-//! lineage. Planner deliberation and full per-act detail are referenced
-//! (`lineage.journal_ref`, `acts[].detail_ref`), not inlined. Verification is a
-//! read-time projection, never part of the signed body.
+//! (authority), the inbound triggers (`signals[]`), the reasoning
+//! (`decisions[]`), what was done (`acts[]`), the outcome (seal), and graph/resume
+//! lineage. The post-run verdict is a `review`/`verification` act in `acts[]`
+//! (or a follow-up receipt linked by `lineage`), never a side contract. The
+//! reasoning and the full acts (intent, success criteria, criterion
+//! bindings) are INLINE: that is simultaneously the proof, the training signal,
+//! and the inspection narrative. Only the bulky per-act execution I/O (the
+//! agent-context envelope: instructions/inputs/output) is referenced via
+//! `acts[].context_ref` + `artifact_refs` and hydrated by projections.
+//! Verification is computed at read time, never part of the signed body.
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ActForm, AuthorityAttenuation, AuthorityTerm, ClosureDisposition, CriterionStatus,
-    HashAlgorithm, JsonObject, Reference,
+    AuthorityAttenuation, AuthorityTerm, ClosureDisposition, Closure, CriterionBinding,
+    CriterionStatus, Decision, HashAlgorithm, Intent, JsonObject, Reference, RevisionDetails,
+    VerificationDetails, ActForm,
 };
 
 /// Logical schema name for the governance receipt.
@@ -88,12 +95,24 @@ pub enum ReceiptSubjectKind {
     Graph,
 }
 
+/// The input signal for training and inspection: where the run's input came
+/// from, a human-readable preview, and a content hash for integrity.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReceiptInputContext {
+    pub source: String,
+    pub preview: String,
+    pub value_hash: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Subject {
     pub kind: ReceiptSubjectKind,
     #[serde(rename = "ref")]
     pub reference: Reference,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_context: Option<ReceiptInputContext>,
     #[serde(default)]
     pub commitments: Vec<ReceiptCommitment>,
 }
@@ -160,21 +179,36 @@ pub struct ReceiptCriterion {
     pub summary: Option<String>,
 }
 
+/// What was done, rich and inline. The act's semantic core (intent, success
+/// criteria, criterion bindings, outcome) stays in the signed body; only the
+/// bulky execution I/O (the agent-context envelope: instructions/inputs/output
+/// and tool calls) is referenced via `context_ref` and hydrated by projections.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptAct {
     pub id: String,
     pub form: ActForm,
+    pub intent: Intent,
     pub summary: String,
     #[serde(default)]
-    pub criteria: Vec<ReceiptCriterion>,
+    pub criterion_bindings: Vec<CriterionBinding>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub by: Option<RunnerProvenance>,
     #[serde(default)]
+    pub source_refs: Vec<Reference>,
+    #[serde(default)]
+    pub target_refs: Vec<Reference>,
+    #[serde(default)]
     pub artifact_refs: Vec<Reference>,
-    // Full intent/target/source/surface refs and form-specific bodies live here.
+    /// The agent-context envelope (instructions/inputs/output/tool-calls) is
+    /// referenced here and hydrated by the trainable/inspection projections.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub detail_ref: Option<Reference>,
+    pub context_ref: Option<Reference>,
+    pub closure: Closure,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revision: Option<RevisionDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification: Option<VerificationDetails>,
 }
 
 /// Exactly one seal. `deferred` expresses a suspended (waiting/delegated) run.
@@ -185,6 +219,9 @@ pub struct Seal {
     pub reason_code: String,
     pub summary: String,
     pub closed_at: String,
+    /// The last time the run was observed (advances for `deferred`/`monitor`
+    /// runs awaiting a follow-up verdict); equals `closed_at` for terminal seals.
+    pub last_observed_at: String,
     #[serde(default)]
     pub criteria: Vec<ReceiptCriterion>,
 }
@@ -200,11 +237,6 @@ pub struct Lineage {
     pub children: Vec<Reference>,
     #[serde(default)]
     pub sync: Vec<FanoutReceiptSyncPoint>,
-    #[serde(default)]
-    pub signal_refs: Vec<Reference>,
-    // Commits the planner deliberation (former decisions[]) by reference.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub journal_ref: Option<Reference>,
     // Open resolution request when seal.disposition == "deferred".
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resume_ref: Option<Reference>,
@@ -243,9 +275,11 @@ pub struct ReceiptSignature {
 
 /// The single signed governance receipt: `runx.receipt.v1`.
 ///
-/// `metadata` is a runtime-local read aid (skill name, source type, actor
-/// labels for history projection) and is NOT part of the canonical signed body
-/// (the canonicalizer strips it); it never appears in the TS contract.
+/// `decisions[]` (the reasoning, with `proposed_intent` + `justification`) and
+/// `acts[]` (intent, success criteria, criterion bindings) are inline: the proof
+/// and the training signal are the same artifact. `metadata` is a runtime-local
+/// read aid (skill name, source type, actor labels for history projection) and
+/// is NOT part of the canonical signed body (the canonicalizer strips it).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Receipt {
@@ -259,6 +293,12 @@ pub struct Receipt {
     pub idempotency: ReceiptIdempotency,
     pub subject: Subject,
     pub authority: ReceiptAuthority,
+    /// Inbound triggers for this run: `runx:signal:` references whose
+    /// authenticity/trust/body live in the signal artifact.
+    #[serde(default)]
+    pub signals: Vec<Reference>,
+    #[serde(default)]
+    pub decisions: Vec<Decision>,
     #[serde(default)]
     pub acts: Vec<ReceiptAct>,
     pub seal: Seal,

@@ -566,7 +566,7 @@ fn validate_receipt_rail_proof(
         .acts
         .iter()
         .find(|act| {
-            act.criteria
+            act.criterion_bindings
                 .iter()
                 .flat_map(|criterion| criterion.verification_refs.iter())
                 .any(|reference| is_matching_payment_rail_proof(reference, settlement))
@@ -668,10 +668,12 @@ fn source_receipt_file_stem(source_receipt_id: &str) -> Result<&str, PaymentLedg
             source_receipt_id: source_receipt_id.to_owned(),
         });
     };
+    // Content-addressed ids are `sha256:<hex>`, so the `:` separator is allowed
+    // alongside the legacy `_`/`-` identifier characters; path separators are not.
     if receipt_id.is_empty()
         || !receipt_id
             .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | ':'))
     {
         return Err(PaymentLedgerProjectionError::InvalidSourceReceiptId {
             source_receipt_id: source_receipt_id.to_owned(),

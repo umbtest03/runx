@@ -6,13 +6,19 @@ use std::fs;
 use std::path::Path;
 
 use runx_contracts::{
-    ActForm, AuthorityAttenuation, ClosureDisposition, CriterionStatus, HashAlgorithm, Lineage,
-    RECEIPT_CANONICALIZATION, Receipt, ReceiptAct, ReceiptAuthority, ReceiptCommitment,
-    ReceiptCommitmentScope, ReceiptCriterion, ReceiptEnforcement, ReceiptIdempotency, ReceiptIssuer,
-    ReceiptIssuerType, ReceiptSchema, ReceiptSignature, ReceiptSubjectKind, Reference, ReferenceType,
-    Seal, SignatureAlgorithm, Subject,
+    ActForm, AuthorityAttenuation, ChangePlan, ChangeRequest, Closure, ClosureDisposition,
+    CriterionBinding, CriterionStatus, Decision, DecisionChoice, DecisionInputs,
+    DecisionJustification, HashAlgorithm, Intent, Lineage, RECEIPT_CANONICALIZATION, Receipt,
+    ReceiptAct, ReceiptAuthority, ReceiptCommitment, ReceiptCommitmentScope, ReceiptCriterion,
+    ReceiptEnforcement, ReceiptIdempotency, ReceiptInputContext, ReceiptIssuer, ReceiptIssuerType,
+    ReceiptSchema, ReceiptSignature, ReceiptSubjectKind, Reference, ReferenceType,
+    RevisionDetails, Seal, SignatureAlgorithm, Subject, SuccessCriterion,
+    Verification, VerificationCheck, VerificationDetails, VerificationStatus,
 };
-use runx_receipts::{canonical_receipt_body_digest, canonical_receipt_digest, canonical_receipt_json};
+use runx_receipts::{
+    canonical_receipt_body_digest, canonical_receipt_digest, canonical_receipt_json,
+    content_addressed_receipt_id,
+};
 use serde_json::{Value, json};
 
 fn main() {
@@ -101,6 +107,7 @@ fn oracle_case(name: &str, fixture: &str, receipt: &Receipt) -> Value {
 }
 
 fn sealed(mut receipt: Receipt) -> Receipt {
+    receipt.id = content_addressed_receipt_id(&receipt).unwrap();
     let digest = canonical_receipt_body_digest(&receipt).unwrap();
     receipt.digest = digest.clone();
     receipt.signature.value = format!("sig:{digest}");
@@ -131,6 +138,11 @@ fn base(id: &str, kind: ReceiptSubjectKind, subject_id: &str) -> Receipt {
         subject: Subject {
             kind,
             reference: Reference::runx(ReferenceType::Harness, subject_id),
+            input_context: Some(ReceiptInputContext {
+                source: format!("runx:signal:{subject_id}"),
+                preview: format!("Run {subject_id}"),
+                value_hash: format!("sha256:{}", "6".repeat(64)),
+            }),
             commitments: vec![ReceiptCommitment {
                 scope: ReceiptCommitmentScope::Output,
                 algorithm: HashAlgorithm::Sha256,
@@ -156,12 +168,15 @@ fn base(id: &str, kind: ReceiptSubjectKind, subject_id: &str) -> Receipt {
                 teardown_refs: Vec::new(),
             },
         },
+        signals: Vec::new(),
+        decisions: Vec::new(),
         acts: Vec::new(),
         seal: Seal {
             disposition: ClosureDisposition::Closed,
             reason_code: "process_closed".to_owned(),
             summary: "closed".to_owned(),
             closed_at: "2026-05-22T00:00:00Z".to_owned(),
+            last_observed_at: "2026-05-22T00:00:00Z".to_owned(),
             criteria: Vec::new(),
         },
         lineage: Some(Lineage::default()),
@@ -169,23 +184,90 @@ fn base(id: &str, kind: ReceiptSubjectKind, subject_id: &str) -> Receipt {
     }
 }
 
-fn success_receipt() -> Receipt {
-    let mut receipt = base("hrn_rcpt_echo_success", ReceiptSubjectKind::Skill, "echo_success");
-    receipt.acts = vec![ReceiptAct {
-        id: "act_echo".to_owned(),
+const CREATED_AT: &str = "2026-05-22T00:00:00Z";
+
+fn observation_intent(criterion_id: &str, statement: &str) -> Intent {
+    Intent {
+        purpose: "Execute the requested skill step".to_owned(),
+        legitimacy: "Local harness admitted this run".to_owned(),
+        success_criteria: vec![SuccessCriterion {
+            criterion_id: criterion_id.to_owned(),
+            statement: statement.to_owned(),
+            required: true,
+        }],
+        constraints: Vec::new(),
+        derived_from: Vec::new(),
+    }
+}
+
+fn observation_act(
+    id: &str,
+    summary: &str,
+    status: CriterionStatus,
+    disposition: ClosureDisposition,
+    binding_summary: &str,
+) -> ReceiptAct {
+    ReceiptAct {
+        id: id.to_owned(),
         form: ActForm::Observation,
-        summary: "Executed graph step echo".to_owned(),
-        criteria: vec![ReceiptCriterion {
+        intent: observation_intent("process_exit", "cli-tool exits successfully"),
+        summary: summary.to_owned(),
+        criterion_bindings: vec![CriterionBinding {
             criterion_id: "process_exit".to_owned(),
-            status: CriterionStatus::Verified,
+            status,
             evidence_refs: Vec::new(),
             verification_refs: Vec::new(),
-            summary: Some("cli-tool exited successfully".to_owned()),
+            summary: Some(binding_summary.to_owned()),
         }],
         by: None,
+        source_refs: Vec::new(),
+        target_refs: Vec::new(),
         artifact_refs: Vec::new(),
-        detail_ref: None,
-    }];
+        context_ref: Some(Reference::runx(ReferenceType::Act, &format!("{id}_context"))),
+        closure: Closure {
+            disposition,
+            reason_code: "process_exit".to_owned(),
+            summary: binding_summary.to_owned(),
+            closed_at: CREATED_AT.to_owned(),
+        },
+        revision: None,
+        verification: None,
+    }
+}
+
+fn open_decision(act_id: &str) -> Decision {
+    Decision {
+        decision_id: format!("dec_{act_id}"),
+        choice: DecisionChoice::Open,
+        inputs: DecisionInputs::default(),
+        proposed_intent: Intent {
+            purpose: format!("Open node for {act_id}"),
+            legitimacy: "Local graph execution requested this node".to_owned(),
+            success_criteria: Vec::new(),
+            constraints: Vec::new(),
+            derived_from: Vec::new(),
+        },
+        selected_act_id: Some(act_id.to_owned()),
+        selected_harness_ref: None,
+        justification: DecisionJustification {
+            summary: "runtime graph planner selected this node".to_owned(),
+            evidence_refs: Vec::new(),
+        },
+        closure: None,
+        artifact_refs: Vec::new(),
+    }
+}
+
+fn success_receipt() -> Receipt {
+    let mut receipt = base("hrn_rcpt_echo_success", ReceiptSubjectKind::Skill, "echo_success");
+    receipt.acts = vec![observation_act(
+        "act_echo",
+        "Executed graph step echo",
+        CriterionStatus::Verified,
+        ClosureDisposition::Closed,
+        "cli-tool exited successfully",
+    )];
+    receipt.decisions = vec![open_decision("act_echo")];
     receipt.seal.summary = "cli-tool exited successfully".to_owned();
     receipt.seal.criteria = vec![ReceiptCriterion {
         criterion_id: "process_exit".to_owned(),
@@ -194,26 +276,20 @@ fn success_receipt() -> Receipt {
         verification_refs: Vec::new(),
         summary: Some("cli-tool exited successfully".to_owned()),
     }];
+    receipt.signals = vec![Reference::runx(ReferenceType::Signal, "echo_success")];
     receipt
 }
 
 fn abnormal_receipt() -> Receipt {
     let mut receipt = base("hrn_rcpt_echo_abnormal", ReceiptSubjectKind::Skill, "echo_abnormal");
-    receipt.acts = vec![ReceiptAct {
-        id: "act_echo".to_owned(),
-        form: ActForm::Observation,
-        summary: "Executed graph step echo".to_owned(),
-        criteria: vec![ReceiptCriterion {
-            criterion_id: "process_exit".to_owned(),
-            status: CriterionStatus::Failed,
-            evidence_refs: Vec::new(),
-            verification_refs: Vec::new(),
-            summary: Some("cli-tool failed".to_owned()),
-        }],
-        by: None,
-        artifact_refs: Vec::new(),
-        detail_ref: None,
-    }];
+    receipt.acts = vec![observation_act(
+        "act_echo",
+        "Executed graph step echo",
+        CriterionStatus::Failed,
+        ClosureDisposition::Failed,
+        "cli-tool failed",
+    )];
+    receipt.decisions = vec![open_decision("act_echo")];
     receipt.seal.disposition = ClosureDisposition::Failed;
     receipt.seal.reason_code = "process_failed".to_owned();
     receipt.seal.summary = "cli-tool failed".to_owned();
@@ -258,24 +334,126 @@ fn post_merge_receipt() -> Receipt {
         )
     };
     let verification_ref = Reference::runx(ReferenceType::Verification, "ver_post_merge_verified");
-    let acts = [
-        ("act_observe", ActForm::Observation),
-        ("act_verify", ActForm::Verification),
-        ("act_reply", ActForm::Reply),
-        ("act_revise", ActForm::Revision),
+    let post_merge_criteria = [
+        "post_merge.provider_state",
+        "post_merge.human_gate",
+        "post_merge.verification_passed",
+        "post_merge.source_thread_target_present",
+        "post_merge.close_policy_authorized",
     ];
-    receipt.acts = acts
+    let act_artifacts = vec![issue_ref.clone(), pr_ref.clone(), slack_ref.clone()];
+    // The observation act declares and binds the post-merge criteria the seal
+    // rolls up; the other forms carry their form-specific bodies inline.
+    let observe_intent = Intent {
+        purpose: "Observe the post-merge state of the target pull request".to_owned(),
+        legitimacy: "Post-merge observer is authorized to inspect provider state".to_owned(),
+        success_criteria: post_merge_criteria
+            .iter()
+            .map(|id| SuccessCriterion {
+                criterion_id: (*id).to_owned(),
+                statement: format!("{id} holds"),
+                required: true,
+            })
+            .collect(),
+        constraints: Vec::new(),
+        derived_from: vec![pr_ref.clone(), slack_ref.clone()],
+    };
+    let observe_bindings = post_merge_criteria
         .iter()
-        .map(|(id, form)| ReceiptAct {
-            id: (*id).to_owned(),
-            form: form.clone(),
-            summary: format!("post-merge {id}"),
-            criteria: Vec::new(),
-            by: None,
-            artifact_refs: vec![issue_ref.clone(), pr_ref.clone(), slack_ref.clone()],
-            detail_ref: None,
+        .map(|id| CriterionBinding {
+            criterion_id: (*id).to_owned(),
+            status: CriterionStatus::Verified,
+            evidence_refs: vec![pr_ref.clone()],
+            verification_refs: vec![verification_ref.clone()],
+            summary: Some(format!("{id} verified")),
         })
-        .collect();
+        .collect::<Vec<_>>();
+    let verification = Verification {
+        schema: None,
+        verification_id: Some("ver_post_merge_verified".to_owned()),
+        status: VerificationStatus::Passed,
+        checks: vec![VerificationCheck {
+            check_id: "post_merge.verification_passed".to_owned(),
+            criterion_ids: vec!["post_merge.verification_passed".to_owned()],
+            status: VerificationStatus::Passed,
+            summary: Some("Nitrosend dogfood verification passed.".to_owned()),
+            checked_refs: vec![pr_ref.clone()],
+            evidence_refs: vec![verification_ref.clone()],
+            verified_at: Some(CREATED_AT.to_owned()),
+        }],
+        verified_at: Some(CREATED_AT.to_owned()),
+        evidence_refs: vec![verification_ref.clone()],
+    };
+    let revision = RevisionDetails {
+        change_request: ChangeRequest {
+            request_id: "act_revise_request".to_owned(),
+            summary: "Ship the target pull request".to_owned(),
+            target_surfaces: Vec::new(),
+            success_criteria: Vec::new(),
+        },
+        change_plan: ChangePlan {
+            plan_id: "act_revise_plan".to_owned(),
+            summary: "Open and merge the target pull request".to_owned(),
+            steps: vec!["Open PR".to_owned(), "Merge PR".to_owned()],
+            risks: Vec::new(),
+        },
+        target_surfaces: Vec::new(),
+        invariants: Vec::new(),
+        verification: None,
+        handoff_refs: Vec::new(),
+        revision_refs: Vec::new(),
+    };
+    let post_merge_act = |id: &str, form: ActForm| ReceiptAct {
+        id: id.to_owned(),
+        form: form.clone(),
+        intent: match form {
+            ActForm::Observation => observe_intent.clone(),
+            _ => Intent {
+                purpose: format!("post-merge {id}"),
+                legitimacy: "Post-merge observer is authorized for this act".to_owned(),
+                success_criteria: Vec::new(),
+                constraints: Vec::new(),
+                derived_from: Vec::new(),
+            },
+        },
+        summary: format!("post-merge {id}"),
+        criterion_bindings: match form {
+            ActForm::Observation => observe_bindings.clone(),
+            _ => Vec::new(),
+        },
+        by: None,
+        source_refs: vec![slack_ref.clone(), issue_ref.clone()],
+        target_refs: vec![pr_ref.clone()],
+        artifact_refs: act_artifacts.clone(),
+        context_ref: Some(Reference::runx(ReferenceType::Act, &format!("{id}_context"))),
+        closure: Closure {
+            disposition: ClosureDisposition::Closed,
+            reason_code: "merged_verified".to_owned(),
+            summary: format!("post-merge {id} closed"),
+            closed_at: CREATED_AT.to_owned(),
+        },
+        revision: if matches!(form, ActForm::Revision) {
+            Some(revision.clone())
+        } else {
+            None
+        },
+        verification: if matches!(form, ActForm::Verification) {
+            Some(VerificationDetails {
+                criterion_ids: vec!["post_merge.verification_passed".to_owned()],
+                verification: verification.clone(),
+                deployment_ref: None,
+            })
+        } else {
+            None
+        },
+    };
+    receipt.acts = vec![
+        post_merge_act("act_observe", ActForm::Observation),
+        post_merge_act("act_verify", ActForm::Verification),
+        post_merge_act("act_reply", ActForm::Reply),
+        post_merge_act("act_revise", ActForm::Revision),
+    ];
+    receipt.decisions = vec![open_decision("act_observe")];
     receipt.seal.reason_code = "merged_verified".to_owned();
     receipt.seal.summary = "Target PR shipped and verified.".to_owned();
     receipt.seal.criteria = vec![

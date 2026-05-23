@@ -23,6 +23,28 @@ pub fn canonical_receipt_body_digest(receipt: &Receipt) -> Result<String, Receip
     canonical_receipt_body_json(receipt).map(|json| sha256_prefixed(json.as_bytes()))
 }
 
+/// The canonical body that the content-addressed `id` commits: every intrinsic
+/// run field except the envelope's `id` (which it derives), `signature`,
+/// `digest`, the runtime-local `metadata` read aid, and `lineage`. `lineage` is
+/// post-hoc graph wiring (parent/children refs) attached after the children's
+/// own ids are known; excluding it breaks the parent<->child id circularity
+/// while keeping the address stable. The full `digest` still commits `lineage`.
+pub fn canonical_receipt_identity_json(receipt: &Receipt) -> Result<String, ReceiptError> {
+    let mut value = receipt_json(receipt)?;
+    strip_body_proof_fields(&mut value);
+    if let JsonValue::Object(map) = &mut value {
+        map.remove("id");
+        map.remove("lineage");
+    }
+    canonical_json_value(&value)
+}
+
+/// `id = hash(canonical_body)` under `runx.receipt.c14n.v1`: the content address
+/// of this receipt. References to a receipt use this id.
+pub fn content_addressed_receipt_id(receipt: &Receipt) -> Result<String, ReceiptError> {
+    canonical_receipt_identity_json(receipt).map(|json| sha256_prefixed(json.as_bytes()))
+}
+
 fn receipt_json(receipt: &Receipt) -> Result<JsonValue, ReceiptError> {
     let value = serde_json::to_value(receipt).map_err(|source| ReceiptError::Serialization {
         message: source.to_string(),

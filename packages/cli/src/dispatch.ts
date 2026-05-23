@@ -321,6 +321,9 @@ export async function dispatchCli(
     for await (const record of streamTrainableReceipts({
       receiptDir,
       runxHome: env.RUNX_HOME,
+      // Hydrate `acts[].context_ref` + `artifact_refs` from the conventional
+      // sibling artifacts directory when present.
+      artifactDir: path.join(receiptDir, "..", "artifacts"),
       since: parsed.exportSince,
       until: parsed.exportUntil,
       status: parsed.exportStatus,

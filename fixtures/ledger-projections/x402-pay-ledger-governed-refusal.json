@@ -1,27 +1,27 @@
 {
-  "schema_version": "runx.payment_ledger_projection.v1",
-  "payment_profile": "x402-pay",
-  "scenario_id": "P1.3",
-  "source_receipt_id": "runx:receipt:hrn_rcpt_x402-pay-negative-cap-exceeded_graph",
-  "disposition": "refused",
   "accrual": {
     "amount_minor": 0,
-    "currency": "USD",
-    "rail": "mock",
     "counterparty": "merchant:paid-echo",
-    "operation": "paid.echo",
+    "currency": "USD",
     "idempotency_key": "payment:paid-echo-cap-exceeded-001",
+    "operation": "paid.echo",
+    "rail": "mock",
     "rail_proof_refs": []
   },
-  "refusal": {
-    "reason_code": "cap_exceeded",
-    "refused_stage": "reserve",
-    "rail_call_performed": false,
-    "ledger_spend_recorded": false
-  },
+  "disposition": "refused",
   "evidence_refs": [
     "hrn_x402-pay-negative-cap-exceeded_reserve",
-    "runx:receipt:hrn_rcpt_x402-pay-negative-cap-exceeded_reserve",
+    "runx:receipt:sha256:f957d87a324a67f97d971b423fc4b7f61e763244cd2bb2c468fae3141e7deb76",
     "runx:payment-capability:paid-echo-cap-exceeded-spend"
-  ]
+  ],
+  "payment_profile": "x402-pay",
+  "refusal": {
+    "ledger_spend_recorded": false,
+    "rail_call_performed": false,
+    "reason_code": "cap_exceeded",
+    "refused_stage": "reserve"
+  },
+  "scenario_id": "P1.3",
+  "schema_version": "runx.payment_ledger_projection.v1",
+  "source_receipt_id": "runx:receipt:sha256:00613524ebc6c468349cdd5c7de020fe5ec5e969f4b664194ffc9a29981887a6"
 }

@@ -1,7 +1,7 @@
 use runx_contracts::{Receipt, Reference, ReferenceType};
 use runx_receipts::{
-    ReceiptFindingCode, ReceiptResolveResult, ReceiptResolver, ReceiptTreeConfig,
-    ReceiptVerification, ResolvedReceipt, verify_receipt_tree_proof_with_resolver,
+    ReceiptResolveResult, ReceiptResolver, ReceiptTreeConfig, ReceiptVerification, ResolvedReceipt,
+    verify_receipt_tree_proof_with_resolver,
 };
 
 use super::seal::{RuntimeReceiptProofContextProvider, RuntimeReceiptSignaturePolicy};
@@ -116,17 +116,7 @@ pub fn verify_runtime_receipt_tree_with_policy(
         runtime_receipt_tree_config(config),
         &proof_contexts,
     );
-    // The decision -> act-id integrity property is journal-dependent and
-    // reported as `unverified` by plain proof verification; the runtime confirms
-    // it through the in-hand journal, so it is not a blocking tree finding.
-    let blocking: Vec<_> = verification
-        .findings
-        .into_iter()
-        .filter(|finding| {
-            !matches!(finding.code, ReceiptFindingCode::DecisionIntegrityUnverified)
-        })
-        .collect();
-    ReceiptVerification::from_findings(blocking)
+    verification
 }
 
 fn runtime_receipt_path(index: usize) -> String {

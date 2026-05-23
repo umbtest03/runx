@@ -760,6 +760,7 @@ export const harnessSealCriterionSchema = Type.Object(
 export const receiptVerificationSummarySchema = Type.Object(
   {
     signature_valid: Type.Boolean(),
+    content_address_valid: Type.Boolean(),
     hash_commitments_valid: Type.Boolean(),
     authority_attenuation_valid: Type.Boolean(),
     criteria_bound: Type.Boolean(),

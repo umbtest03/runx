@@ -12,6 +12,6 @@ expect:
   receipt:
     schema: runx.receipt.v1
     harness_id: hrn_x402-pay-idempotency-crash-recovery_graph
-    state: sealed
+    state: deferred
     disposition: deferred
     reason_code: x402_idempotency_recovery_escalated

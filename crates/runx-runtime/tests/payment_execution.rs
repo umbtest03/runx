@@ -143,7 +143,7 @@ fn payment_graph_seals_with_strict_parent_child_receipt_proof()
     let fulfill = step_run(&run.steps, "fulfill")?;
     assert!(
         fulfill.receipt.acts[0]
-            .criteria
+            .criterion_bindings
             .iter()
             .flat_map(|criterion| criterion.verification_refs.iter())
             .any(|reference| reference.uri == X402_APPROVAL_PROOF_REF
@@ -327,7 +327,7 @@ fn x402_paid_echo_returns_echo_only_after_sealed_payment_proof()
     let fulfill = step_run(&run.steps, "fulfill")?;
     assert!(
         fulfill.receipt.acts[0]
-            .criteria
+            .criterion_bindings
             .iter()
             .flat_map(|criterion| criterion.verification_refs.iter())
             .any(

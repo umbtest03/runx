@@ -9,7 +9,7 @@ mod verify;
 
 pub use canonical::{
     canonical_receipt_body_digest, canonical_receipt_body_json, canonical_receipt_digest,
-    canonical_receipt_json,
+    canonical_receipt_identity_json, canonical_receipt_json, content_addressed_receipt_id,
 };
 pub use runx_contracts::{
     RECEIPT_CANONICALIZATION, RECEIPT_SCHEMA, Receipt, ReceiptIssuer, ReceiptIssuerType,
@@ -23,12 +23,11 @@ pub use tree::{
     verify_receipt_tree_with_resolver,
 };
 pub use verify::{
-    ReceiptError, ReceiptFinding, ReceiptFindingCode, ReceiptJournal, ReceiptJournalDecision,
-    ReceiptProofContext, ReceiptProofFindingSummary, ReceiptProofStatus, ReceiptProofStatusKind,
-    ReceiptVerification, SignatureVerificationFailure, SignatureVerifier,
-    compute_verification_summary, receipt_proof_status, validate_receipt, validate_receipt_proof,
-    validate_receipt_with_journal, verify_receipt, verify_receipt_proof,
-    verify_receipt_with_journal,
+    ReceiptError, ReceiptFinding, ReceiptFindingCode, ReceiptProofContext,
+    ReceiptProofFindingSummary, ReceiptProofStatus, ReceiptProofStatusKind, ReceiptVerification,
+    SignatureVerificationFailure, SignatureVerifier, compute_verification_summary,
+    receipt_id_is_content_addressed, receipt_proof_status, validate_receipt,
+    validate_receipt_proof, verify_receipt, verify_receipt_proof,
 };
 
 #[cfg(test)]

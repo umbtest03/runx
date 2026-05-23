@@ -8,15 +8,15 @@ expect:
   status: sealed
   receipt:
     schema: runx.receipt.v1
-    body_digest: sha256:65e5f69ac3dda8b250bd81d13706485b6b2569dbf648230c468af99f4159539a
-    receipt_digest: sha256:a9f51d9338d7f3ef4e59e055e411503e1bf27a6ddec3e66a41ee23c30cc254a1
+    body_digest: sha256:7a1d84738ea438dc9b8f38e171e779d2cae26c011981fbe765123e63b0b73187
+    receipt_digest: sha256:d9d133bb448af855086ed77ff4cdecd78184bcec574bca6d78867d3886205fd8
     harness_id: hrn_x402-pay-approval_graph
     state: sealed
     disposition: closed
     reason_code: graph_closed
     child_receipt_refs:
-      - runx:receipt:hrn_rcpt_x402-pay-approval_approve-spend
-      - runx:receipt:hrn_rcpt_x402-pay-approval_fulfill
+      - runx:receipt:sha256:52e7c50c456df404c8035bd61adbc9d8569c185ba021f92f78c17af8b25fac3c
+      - runx:receipt:sha256:2c62cf2ece1da3e9e893575013af294c67e40bd2aca96122448c3eba6551a578
   steps:
     - approve-spend
     - fulfill

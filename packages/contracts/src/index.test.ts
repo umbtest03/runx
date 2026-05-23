@@ -414,6 +414,7 @@ describe("@runxhq/contracts", () => {
       reason_code: "revision_ready",
       summary: "Revision act completed and reviewable PR was observed.",
       closed_at: "2026-05-18T00:03:00Z",
+      last_observed_at: "2026-05-18T00:03:00Z",
       criteria: [{
         criterion_id: "crit_revision_reviewable",
         status: "verified",
@@ -440,9 +441,6 @@ describe("@runxhq/contracts", () => {
       evidence_refs: [issueRef],
     })).toMatchObject({ schema: "runx.signal.v1", signal_type: "issue_opened" });
 
-    void intent;
-    void verification;
-    void criterion;
     expect(validateReceiptContract({
       schema: "runx.receipt.v1",
       id: "hrn_rcpt_123",
@@ -507,24 +505,70 @@ describe("@runxhq/contracts", () => {
           teardown_refs: [],
         },
       },
+      signals: [{ type: "signal", uri: "runx:signal:sig_101" }],
+      decisions: [{
+        decision_id: "dec_revision",
+        choice: "open",
+        inputs: {
+          signal_refs: [{ type: "signal", uri: "runx:signal:sig_101" }],
+          target_ref: null,
+          opportunity_refs: [],
+          selection_ref: null,
+        },
+        proposed_intent: intent,
+        selected_act_id: "act_revision",
+        selected_harness_ref: null,
+        justification: {
+          summary: "The authenticated issue authorizes a bounded checkout revision.",
+          evidence_refs: [issueRef],
+        },
+        closure: null,
+        artifact_refs: [],
+      }],
       acts: [{
         id: "act_revision",
         form: "revision",
+        intent,
         summary: "Prepared a reviewable checkout retry revision.",
-        criteria: [{
+        criterion_bindings: [{
           criterion_id: "crit_revision_reviewable",
           status: "verified",
           evidence_refs: [{ type: "github_pull_request", uri: "github://runxhq/example/pulls/102" }],
           verification_refs: [{ type: "verification", uri: "runx:verification:check_pr_open" }],
+          summary: "Reviewable PR observed.",
         }],
+        source_refs: [issueRef],
+        target_refs: [{ type: "github_repo", uri: "github://runxhq/example" }],
         artifact_refs: [{ type: "artifact", uri: "runx:artifact:summary_1" }],
-        detail_ref: { type: "act", uri: "runx:act:act_revision_detail" },
+        context_ref: { type: "act", uri: "runx:act:act_revision_context" },
+        closure: {
+          disposition: "closed",
+          reason_code: "revision_ready",
+          summary: "Revision act completed.",
+          closed_at: "2026-05-18T00:03:00Z",
+        },
+        revision: {
+          change_request: {
+            request_id: "cr_checkout_retry",
+            summary: "Fix checkout retry behavior.",
+            target_surfaces: [],
+            success_criteria: [criterion],
+          },
+          change_plan: {
+            plan_id: "cp_checkout_retry",
+            summary: "Adjust retry guard and open a PR.",
+            steps: ["Edit retry guard", "Open PR"],
+          },
+          target_surfaces: [],
+          invariants: [],
+          verification,
+          handoff_refs: [],
+        },
       }],
       seal,
       lineage: {
         children: [],
         sync: [],
-        signal_refs: [{ type: "signal", uri: "runx:signal:sig_101" }],
       },
     })).toMatchObject({
       schema: "runx.receipt.v1",
