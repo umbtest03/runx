@@ -34,7 +34,10 @@ fn act_assignment_fixtures_match_typescript() -> Result<(), serde_json::Error> {
 
         assert_eq!(actual, fixture.expected.envelope);
         assert_eq!(actual.idempotency.intent_key, fixture.expected.intent_key);
-        assert_eq!(actual.idempotency.trigger_key, fixture.expected.trigger_key);
+        assert_eq!(
+            actual.idempotency.trigger_key.as_deref(),
+            fixture.expected.trigger_key.as_deref()
+        );
         assert_eq!(
             actual.idempotency.content_hash,
             fixture.expected.content_hash

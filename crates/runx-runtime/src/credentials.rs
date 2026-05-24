@@ -72,8 +72,8 @@ impl CredentialDeliveryProfile {
             });
         }
         Ok(Self {
-            provider: profile.provider.clone(),
-            auth_mode: profile.auth_mode.clone(),
+            provider: profile.provider.to_string(),
+            auth_mode: profile.auth_mode.to_string(),
             env_bindings,
         })
     }
@@ -387,9 +387,9 @@ fn build_local_provision_observation(
     material_ref: &str,
 ) -> CredentialDeliveryObservation {
     CredentialDeliveryObservation {
-        schema: "runx.credential_delivery.observation.v1".to_owned(),
-        observation_id: format!("local-credential-delivery/{material_ref}"),
-        request_id: format!("local-credential-provision/{material_ref}"),
+        schema: runx_contracts::CredentialDeliveryObservationSchema::V1,
+        observation_id: format!("local-credential-delivery/{material_ref}").into(),
+        request_id: format!("local-credential-provision/{material_ref}").into(),
         response_id: None,
         status: CredentialDeliveryObservationStatus::Delivered,
         harness_ref: Reference::with_uri(
@@ -400,18 +400,18 @@ fn build_local_provision_observation(
             ReferenceType::Host,
             "runx:host:local-cli",
         )),
-        profile_id: format!("{provider}-{auth_mode}"),
-        provider: provider.to_owned(),
+        profile_id: format!("{provider}-{auth_mode}").into(),
+        provider: provider.into(),
         purpose: CredentialDeliveryPurpose::ProviderApi,
         delivery_mode: Some(CredentialDeliveryMode::ProcessEnv),
         credential_refs: vec![Reference::with_uri(
             ReferenceType::Credential,
             format!("runx:credential:{material_ref}"),
         )],
-        material_ref_hash: Some(sha256_prefixed(material_ref.as_bytes())),
+        material_ref_hash: Some(sha256_prefixed(material_ref.as_bytes()).into()),
         delivered_roles: vec![runx_contracts::CredentialMaterialRole::AccessToken],
         redaction_refs: None,
-        observed_at: crate::time::DEFAULT_CREATED_AT.to_owned(),
+        observed_at: crate::time::DEFAULT_CREATED_AT.into(),
     }
 }
 

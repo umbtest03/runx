@@ -282,7 +282,7 @@ fn inline_decision_integrity_catches_tampered_selected_act_id() -> Result<(), se
     // The reasoning is inline; the selected_act_id integrity property is checked
     // against the inline acts[] with no journal indirection.
     assert!(!receipt.decisions.is_empty());
-    receipt.decisions[0].selected_act_id = Some("missing_act".to_owned());
+    receipt.decisions[0].selected_act_id = Some("missing_act".into());
 
     let verification = verify_receipt(&receipt);
     assert_finding(

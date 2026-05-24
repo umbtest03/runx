@@ -1,9 +1,10 @@
 //! Authority algebra: terms, capabilities, verbs, attenuation, and payment bounds.
 use serde::{Deserialize, Serialize};
 
+use crate::schema::{IsoDateTime, NonEmptyString, RunxSchema};
 use crate::{JsonNumber, JsonObject, Reference};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthorityResourceFamily {
     GithubRepo,
@@ -189,37 +190,41 @@ pub struct AuthorityTerm {
     pub credential_ref: Option<Reference>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthoritySubsetRelation {
     Equal,
     Subset,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthoritySubsetComparison {
-    pub child_term_id: String,
-    pub parent_term_id: String,
+    pub child_term_id: NonEmptyString,
+    pub parent_term_id: NonEmptyString,
     pub relation: AuthoritySubsetRelation,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 pub enum AuthoritySubsetResult {
     #[serde(rename = "subset")]
     Subset,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(
+    id = "runx.authority_subset_proof.v1",
+    url = "https://schemas.runx.dev/runx/authority/subset-proof/v1.json"
+)]
 pub struct AuthoritySubsetProof {
     pub parent_authority_ref: Reference,
-    pub comparison_algorithm: String,
+    pub comparison_algorithm: NonEmptyString,
     pub result: AuthoritySubsetResult,
     pub compared_terms: Vec<AuthoritySubsetComparison>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_ref: Option<Reference>,
-    pub checked_at: String,
+    pub checked_at: IsoDateTime,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

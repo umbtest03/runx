@@ -102,7 +102,7 @@ fn provider_process_fetch_shapes_readback_receipt() -> Result<(), Box<dyn std::e
 #[test]
 fn provider_process_rejects_http_endpoint_manifest() -> Result<(), Box<dyn std::error::Error>> {
     let mut manifest = manifest_with_fixture_args(&["push"])?;
-    manifest.transport.endpoint = Some("https://example.test/provider".to_owned());
+    manifest.transport.endpoint = Some("https://example.test/provider".into());
 
     let result = ThreadOutboxProviderProcessSupervisor::default().invoke_push(
         &manifest,
@@ -163,7 +163,7 @@ fn manifest_with_fixture_args(
     let mut manifest = manifest_fixture()?;
     let mut args = vec![fixture_script()?.to_string_lossy().into_owned()];
     args.extend(fixture_args.iter().map(|arg| (*arg).to_owned()));
-    manifest.transport.command = Some("sh".to_owned());
+    manifest.transport.command = Some("sh".into());
     manifest.transport.args = Some(args);
     Ok(manifest)
 }
@@ -220,10 +220,10 @@ fn credential_delivery() -> Result<CredentialDelivery, Box<dyn std::error::Error
         &resolver,
     )?
     .with_public_observation(CredentialDeliveryObservation {
-        schema: "runx.credential_delivery.observation.v1".to_owned(),
-        observation_id: "cred_obs_123".to_owned(),
-        request_id: "cred_req_123".to_owned(),
-        response_id: Some("cred_resp_123".to_owned()),
+        schema: runx_contracts::CredentialDeliveryObservationSchema::V1,
+        observation_id: "cred_obs_123".into(),
+        request_id: "cred_req_123".into(),
+        response_id: Some("cred_resp_123".into()),
         status: CredentialDeliveryObservationStatus::Delivered,
         harness_ref: Reference {
             reference_type: ReferenceType::Harness,
@@ -243,8 +243,8 @@ fn credential_delivery() -> Result<CredentialDelivery, Box<dyn std::error::Error
             observed_at: None,
             proof_kind: None,
         }),
-        profile_id: "github-provider-api-env".to_owned(),
-        provider: "github".to_owned(),
+        profile_id: "github-provider-api-env".into(),
+        provider: "github".into(),
         purpose: CredentialDeliveryPurpose::ProviderApi,
         delivery_mode: Some(CredentialDeliveryMode::ProcessEnv),
         credential_refs: vec![Reference {
@@ -256,7 +256,7 @@ fn credential_delivery() -> Result<CredentialDelivery, Box<dyn std::error::Error
             observed_at: None,
             proof_kind: None,
         }],
-        material_ref_hash: Some("sha256:material-ref".to_owned()),
+        material_ref_hash: Some("sha256:material-ref".into()),
         delivered_roles: vec![CredentialMaterialRole::AccessToken],
         redaction_refs: Some(vec![Reference {
             reference_type: ReferenceType::RedactionPolicy,
@@ -267,7 +267,7 @@ fn credential_delivery() -> Result<CredentialDelivery, Box<dyn std::error::Error
             observed_at: None,
             proof_kind: None,
         }]),
-        observed_at: "2026-05-22T00:00:00Z".to_owned(),
+        observed_at: "2026-05-22T00:00:00Z".into(),
     });
     Ok(delivery)
 }

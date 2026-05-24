@@ -40,8 +40,8 @@ pub use act::{
 };
 pub use act_assignment::{
     ActAssignment, ActAssignmentActor, ActAssignmentHost, ActAssignmentHostKind,
-    ActAssignmentIdempotency, BuildActAssignment, IntentKeyInput, derive_content_hash,
-    derive_intent_key, derive_trigger_key,
+    ActAssignmentIdempotency, ActAssignmentSchema, BuildActAssignment, IntentKeyInput,
+    derive_content_hash, derive_intent_key, derive_trigger_key,
 };
 pub use artifact::{ARTIFACT_SCHEMA, Artifact, ArtifactProducedBy, ArtifactSchema};
 pub use aster::{
@@ -59,10 +59,12 @@ pub use authority::{
     PaymentCredentialForm,
 };
 pub use credential_delivery::{
-    CredentialDeliveryBrokerResponse, CredentialDeliveryEnvBinding, CredentialDeliveryHandle,
-    CredentialDeliveryMode, CredentialDeliveryObservation, CredentialDeliveryObservationStatus,
-    CredentialDeliveryProfile, CredentialDeliveryPurpose, CredentialDeliveryRequest,
-    CredentialDeliveryStatus, CredentialMaterialRole,
+    CredentialDeliveryBrokerResponse, CredentialDeliveryBrokerResponseSchema,
+    CredentialDeliveryEnvBinding, CredentialDeliveryHandle, CredentialDeliveryMode,
+    CredentialDeliveryObservation, CredentialDeliveryObservationSchema,
+    CredentialDeliveryObservationStatus, CredentialDeliveryProfile,
+    CredentialDeliveryProfileSchema, CredentialDeliveryPurpose, CredentialDeliveryRequest,
+    CredentialDeliveryRequestSchema, CredentialDeliveryStatus, CredentialMaterialRole,
 };
 pub use decision::{
     Closure, ClosureDisposition, Decision, DecisionChoice, DecisionInputs, DecisionJustification,
@@ -78,13 +80,16 @@ pub use execution::{
 };
 pub use external_adapter::{
     EXTERNAL_ADAPTER_PROTOCOL_VERSION, ExternalAdapterArtifactObservation,
-    ExternalAdapterCancellationFrame, ExternalAdapterCredentialNeed,
-    ExternalAdapterCredentialPurpose, ExternalAdapterCredentialReference,
-    ExternalAdapterCredentialRequest, ExternalAdapterErrorObservation,
-    ExternalAdapterHostResolutionFrame, ExternalAdapterInvocation, ExternalAdapterManifest,
-    ExternalAdapterResponse, ExternalAdapterSandboxIntent, ExternalAdapterStatus,
-    ExternalAdapterTelemetryObservation, ExternalAdapterTelemetryValue, ExternalAdapterTimeouts,
-    ExternalAdapterTransport, ExternalAdapterTransportKind,
+    ExternalAdapterCancellationFrame, ExternalAdapterCancellationSchema,
+    ExternalAdapterCredentialNeed, ExternalAdapterCredentialPurpose,
+    ExternalAdapterCredentialReference, ExternalAdapterCredentialRequest,
+    ExternalAdapterCredentialRequestSchema, ExternalAdapterErrorObservation,
+    ExternalAdapterHostResolutionFrame, ExternalAdapterHostResolutionSchema,
+    ExternalAdapterInvocation, ExternalAdapterInvocationSchema, ExternalAdapterManifest,
+    ExternalAdapterManifestSchema, ExternalAdapterProtocolVersion, ExternalAdapterResponse,
+    ExternalAdapterSandboxIntent, ExternalAdapterStatus, ExternalAdapterTelemetryObservation,
+    ExternalAdapterTelemetryValue, ExternalAdapterTimeouts, ExternalAdapterTransport,
+    ExternalAdapterTransportKind,
 };
 pub use fingerprint::{Fingerprint, FingerprintAlgorithm, hex_lower, sha256_hex, sha256_prefixed};
 pub use host_protocol::{
@@ -156,16 +161,19 @@ pub use target_runner::{
 pub use thread_outbox_provider::{
     THREAD_OUTBOX_PROVIDER_PROTOCOL_VERSION, ThreadOutboxProviderCredentialNeed,
     ThreadOutboxProviderCredentialProfile, ThreadOutboxProviderError, ThreadOutboxProviderFetch,
-    ThreadOutboxProviderFetchProviderTarget, ThreadOutboxProviderFetchTarget,
-    ThreadOutboxProviderFetchThreadTarget, ThreadOutboxProviderIdempotency,
-    ThreadOutboxProviderIdempotencyObservation, ThreadOutboxProviderIdempotencyStatus,
-    ThreadOutboxProviderLocator, ThreadOutboxProviderManifest, ThreadOutboxProviderObservation,
+    ThreadOutboxProviderFetchProviderTarget, ThreadOutboxProviderFetchSchema,
+    ThreadOutboxProviderFetchTarget, ThreadOutboxProviderFetchThreadTarget,
+    ThreadOutboxProviderIdempotency, ThreadOutboxProviderIdempotencyObservation,
+    ThreadOutboxProviderIdempotencyStatus, ThreadOutboxProviderLocator,
+    ThreadOutboxProviderManifest, ThreadOutboxProviderManifestSchema,
+    ThreadOutboxProviderObservation, ThreadOutboxProviderObservationSchema,
     ThreadOutboxProviderObservationStatus, ThreadOutboxProviderOperation,
-    ThreadOutboxProviderPayloadFormat, ThreadOutboxProviderPush,
-    ThreadOutboxProviderReadbackSummary, ThreadOutboxProviderReceiptCapabilities,
-    ThreadOutboxProviderReceiptContext, ThreadOutboxProviderRedactionCapabilities,
-    ThreadOutboxProviderRenderedPayload, ThreadOutboxProviderThreadLocator,
-    ThreadOutboxProviderTransport, ThreadOutboxProviderTransportKind,
+    ThreadOutboxProviderPayloadFormat, ThreadOutboxProviderProtocolVersion,
+    ThreadOutboxProviderPush, ThreadOutboxProviderPushSchema, ThreadOutboxProviderReadbackSummary,
+    ThreadOutboxProviderReceiptCapabilities, ThreadOutboxProviderReceiptContext,
+    ThreadOutboxProviderRedactionCapabilities, ThreadOutboxProviderRenderedPayload,
+    ThreadOutboxProviderThreadLocator, ThreadOutboxProviderTransport,
+    ThreadOutboxProviderTransportKind,
 };
 pub use verification::{
     ReceiptVerificationSummary, VERIFICATION_SCHEMA, Verification, VerificationCheck,

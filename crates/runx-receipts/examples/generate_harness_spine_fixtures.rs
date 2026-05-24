@@ -193,11 +193,11 @@ const CREATED_AT: &str = "2026-05-22T00:00:00Z";
 
 fn observation_intent(criterion_id: &str, statement: &str) -> Intent {
     Intent {
-        purpose: "Execute the requested skill step".to_owned(),
-        legitimacy: "Local harness admitted this run".to_owned(),
+        purpose: "Execute the requested skill step".into(),
+        legitimacy: "Local harness admitted this run".into(),
         success_criteria: vec![SuccessCriterion {
-            criterion_id: criterion_id.to_owned(),
-            statement: statement.to_owned(),
+            criterion_id: criterion_id.into(),
+            statement: statement.into(),
             required: true,
         }],
         constraints: Vec::new(),
@@ -234,9 +234,9 @@ fn observation_act(
         )),
         closure: Closure {
             disposition,
-            reason_code: "process_exit".to_owned(),
-            summary: binding_summary.to_owned(),
-            closed_at: CREATED_AT.to_owned(),
+            reason_code: "process_exit".into(),
+            summary: binding_summary.into(),
+            closed_at: CREATED_AT.into(),
         },
         revision: None,
         verification: None,
@@ -245,20 +245,20 @@ fn observation_act(
 
 fn open_decision(act_id: &str) -> Decision {
     Decision {
-        decision_id: format!("dec_{act_id}"),
+        decision_id: format!("dec_{act_id}").into(),
         choice: DecisionChoice::Open,
         inputs: DecisionInputs::default(),
         proposed_intent: Intent {
-            purpose: format!("Open node for {act_id}"),
-            legitimacy: "Local graph execution requested this node".to_owned(),
+            purpose: format!("Open node for {act_id}").into(),
+            legitimacy: "Local graph execution requested this node".into(),
             success_criteria: Vec::new(),
             constraints: Vec::new(),
             derived_from: Vec::new(),
         },
-        selected_act_id: Some(act_id.to_owned()),
+        selected_act_id: Some(act_id.into()),
         selected_harness_ref: None,
         justification: DecisionJustification {
-            summary: "runtime graph planner selected this node".to_owned(),
+            summary: "runtime graph planner selected this node".into(),
             evidence_refs: Vec::new(),
         },
         closure: None,
@@ -364,13 +364,13 @@ fn post_merge_receipt() -> Receipt {
     // The observation act declares and binds the post-merge criteria the seal
     // rolls up; the other forms carry their form-specific bodies inline.
     let observe_intent = Intent {
-        purpose: "Observe the post-merge state of the target pull request".to_owned(),
-        legitimacy: "Post-merge observer is authorized to inspect provider state".to_owned(),
+        purpose: "Observe the post-merge state of the target pull request".into(),
+        legitimacy: "Post-merge observer is authorized to inspect provider state".into(),
         success_criteria: post_merge_criteria
             .iter()
             .map(|id| SuccessCriterion {
-                criterion_id: (*id).to_owned(),
-                statement: format!("{id} holds"),
+                criterion_id: (*id).into(),
+                statement: format!("{id} holds").into(),
                 required: true,
             })
             .collect(),
@@ -428,8 +428,8 @@ fn post_merge_receipt() -> Receipt {
         intent: match form {
             ActForm::Observation => observe_intent.clone(),
             _ => Intent {
-                purpose: format!("post-merge {id}"),
-                legitimacy: "Post-merge observer is authorized for this act".to_owned(),
+                purpose: format!("post-merge {id}").into(),
+                legitimacy: "Post-merge observer is authorized for this act".into(),
                 success_criteria: Vec::new(),
                 constraints: Vec::new(),
                 derived_from: Vec::new(),
@@ -450,9 +450,9 @@ fn post_merge_receipt() -> Receipt {
         )),
         closure: Closure {
             disposition: ClosureDisposition::Closed,
-            reason_code: "merged_verified".to_owned(),
-            summary: format!("post-merge {id} closed"),
-            closed_at: CREATED_AT.to_owned(),
+            reason_code: "merged_verified".into(),
+            summary: format!("post-merge {id} closed").into(),
+            closed_at: CREATED_AT.into(),
         },
         revision: if matches!(form, ActForm::Revision) {
             Some(revision.clone())

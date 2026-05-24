@@ -98,7 +98,7 @@ impl LocalApprovalGateResolver {
 
         self.report_requested(host, &id, &gate, &idempotency_key)?;
         let response = host.resolve(ResolutionRequest::Approval {
-            id: id.clone(),
+            id: id.clone().into(),
             gate: gate.clone(),
         })?;
         let Some(response) = response else {
@@ -222,7 +222,10 @@ fn resolved_event(
 fn event_data(id: &str, gate: &ApprovalGate, idempotency_key: &str) -> JsonObject {
     let mut data = JsonObject::new();
     data.insert("request_id".to_owned(), JsonValue::String(id.to_owned()));
-    data.insert("gate_id".to_owned(), JsonValue::String(gate.id.clone()));
+    data.insert(
+        "gate_id".to_owned(),
+        JsonValue::String(gate.id.as_str().to_owned()),
+    );
     if let Some(gate_type) = &gate.gate_type {
         data.insert("gate_type".to_owned(), JsonValue::String(gate_type.clone()));
     }

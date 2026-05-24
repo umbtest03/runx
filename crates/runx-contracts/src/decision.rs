@@ -1,9 +1,10 @@
 //! Decision contracts: choices, justifications, and closure dispositions.
 use serde::{Deserialize, Serialize};
 
+use crate::schema::{IsoDateTime, NonEmptyString, RunxSchema};
 use crate::{Intent, Reference};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DecisionChoice {
     Open,
@@ -16,7 +17,7 @@ pub enum DecisionChoice {
     Monitor,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DecisionInputs {
     #[serde(default)]
@@ -27,15 +28,15 @@ pub struct DecisionInputs {
     pub selection_ref: Option<Reference>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DecisionJustification {
-    pub summary: String,
+    pub summary: NonEmptyString,
     #[serde(default)]
     pub evidence_refs: Vec<Reference>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ClosureDisposition {
     Closed,
@@ -48,23 +49,24 @@ pub enum ClosureDisposition {
     TimedOut,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Closure {
     pub disposition: ClosureDisposition,
-    pub reason_code: String,
-    pub summary: String,
-    pub closed_at: String,
+    pub reason_code: NonEmptyString,
+    pub summary: NonEmptyString,
+    pub closed_at: IsoDateTime,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.decision.v1")]
 pub struct Decision {
-    pub decision_id: String,
+    pub decision_id: NonEmptyString,
     pub choice: DecisionChoice,
     pub inputs: DecisionInputs,
     pub proposed_intent: Intent,
-    pub selected_act_id: Option<String>,
+    pub selected_act_id: Option<NonEmptyString>,
     pub selected_harness_ref: Option<Reference>,
     pub justification: DecisionJustification,
     pub closure: Option<Closure>,

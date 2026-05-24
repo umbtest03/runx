@@ -171,7 +171,7 @@ impl Verifier {
         let act_ids = act_ids(acts);
         for (index, decision) in decisions.iter().enumerate() {
             if let Some(act_id) = &decision.selected_act_id {
-                if !act_ids.contains(act_id) {
+                if !act_ids.contains(act_id.as_str()) {
                     self.push(
                         ReceiptFindingCode::DecisionSelectedActMissing,
                         format!("decisions[{index}].selected_act_id"),
@@ -246,7 +246,7 @@ fn act_criterion_ids(acts: &[ReceiptAct]) -> BTreeSet<String> {
                     act.intent
                         .success_criteria
                         .iter()
-                        .map(|criterion| criterion.criterion_id.clone()),
+                        .map(|criterion| criterion.criterion_id.as_str().to_owned()),
                 )
         })
         .collect()

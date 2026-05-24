@@ -3,8 +3,10 @@
 //! `rust-contract-pipeline-inversion`.
 //!
 //! Supported today: named-field structs (honoring `#[serde(rename)]`,
-//! `#[serde(rename_all)]`, `#[serde(skip)]`, `Option<T>` and `#[serde(default)]`
-//! optionality, and `#[serde(deny_unknown_fields)]`), unit-only enums (rendered
+//! `#[serde(rename_all)]`, `#[serde(skip)]`, `Option<T>` /
+//! `#[serde(skip_serializing_if)]` / `#[serde(default)]` optionality (an
+//! `Option<T>` without any omittability is required-but-nullable), and
+//! `#[serde(deny_unknown_fields)]`), unit-only enums (rendered
 //! as `anyOf` of `const`), and data-carrying enums under serde's default
 //! (externally-tagged), internally-tagged (`#[serde(tag = "...")]`), and
 //! `#[serde(untagged)]` representations (each rendered as an `anyOf` of variant
@@ -29,7 +31,25 @@ fn expand(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let ident = &input.ident;
     let identity = runx_identity(&input.attrs)?;
     let identity_expr = match identity {
-        Some(logical) => quote! { ::core::option::Option::Some(#logical) },
+        Some(Identity::Runx { logical, url }) => {
+            let url_expr = match url {
+                Some(url) => quote! { ::core::option::Option::Some(#url) },
+                None => quote! { ::core::option::Option::None },
+            };
+            quote! {
+                ::core::option::Option::Some(
+                    ::runx_contracts::schema::Identity::Runx {
+                        logical: #logical,
+                        url: #url_expr,
+                    },
+                )
+            }
+        }
+        Some(Identity::BareId { url }) => quote! {
+            ::core::option::Option::Some(
+                ::runx_contracts::schema::Identity::BareId { url: #url },
+            )
+        },
         None => quote! { ::core::option::Option::None },
     };
 
@@ -107,11 +127,27 @@ fn struct_field_properties(
         };
         let (inner_ty, optional) = unwrap_option(&field.ty);
         let field_default = serde_default(&field.attrs);
-        let required = !(optional || field_default || container_default);
+        let has_skip = serde_skip_serializing_if(&field.attrs);
+        // An `Option<T>` is OMITTABLE (not required, plain inner schema) when it
+        // can leave the wire absent: it carries `skip_serializing_if`, a field
+        // `#[serde(default)]`, or the container defaults. Otherwise an
+        // `Option<T>` is REQUIRED-BUT-NULLABLE: it must appear, and its property
+        // schema is the inner schema unioned with `null`.
+        let omittable = optional && (has_skip || field_default || container_default);
+        let required = !(omittable || field_default || container_default);
+        let nullable = optional && !omittable;
+        let inner_schema = quote! {
+            <#inner_ty as ::runx_contracts::schema::RunxSchema>::json_schema()
+        };
+        let property_schema = if nullable {
+            quote! { ::runx_contracts::schema::nullable(#inner_schema) }
+        } else {
+            inner_schema
+        };
         properties.push(quote! {
             ::runx_contracts::schema::Property::new(
                 #wire_name,
-                <#inner_ty as ::runx_contracts::schema::RunxSchema>::json_schema(),
+                #property_schema,
                 #required,
             )
         });
@@ -307,25 +343,57 @@ fn unwrap_option(ty: &Type) -> (Type, bool) {
     (ty.clone(), false)
 }
 
-/// `#[runx_schema(id = "runx.reference.v1")]` on the type, if present.
-fn runx_identity(attrs: &[syn::Attribute]) -> syn::Result<Option<String>> {
+/// The top-level identity an emitted document carries, parsed from the
+/// `#[runx_schema(...)]` attribute. Mirrors `runx_contracts::schema::Identity`.
+enum Identity {
+    /// `id = "runx.reference.v1"`, optionally with `url = "<full $id>"` when the
+    /// canonical `$id` does not match the mechanical transform of the logical
+    /// name.
+    Runx {
+        logical: String,
+        url: Option<String>,
+    },
+    /// `spec_id = "https://runx.ai/spec/question.schema.json"`: a bare `$id`
+    /// with no `x-runx-schema` marker (the legacy `runx.ai/*` documents).
+    BareId { url: String },
+}
+
+/// `#[runx_schema(id = "runx.reference.v1")]`, `#[runx_schema(id = "...", url =
+/// "...")]`, or `#[runx_schema(spec_id = "https://...")]` on the type, if
+/// present.
+fn runx_identity(attrs: &[syn::Attribute]) -> syn::Result<Option<Identity>> {
     for attr in attrs {
         if !attr.path().is_ident("runx_schema") {
             continue;
         }
-        let mut found = None;
+        let mut logical: Option<String> = None;
+        let mut url: Option<String> = None;
+        let mut spec_id: Option<String> = None;
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("id") {
                 let value = meta.value()?;
                 let lit: syn::LitStr = value.parse()?;
-                found = Some(lit.value());
+                logical = Some(lit.value());
+                Ok(())
+            } else if meta.path.is_ident("url") {
+                let value = meta.value()?;
+                let lit: syn::LitStr = value.parse()?;
+                url = Some(lit.value());
+                Ok(())
+            } else if meta.path.is_ident("spec_id") {
+                let value = meta.value()?;
+                let lit: syn::LitStr = value.parse()?;
+                spec_id = Some(lit.value());
                 Ok(())
             } else {
                 Err(meta.error("unsupported runx_schema attribute"))
             }
         })?;
-        if found.is_some() {
-            return Ok(found);
+        if let Some(url) = spec_id {
+            return Ok(Some(Identity::BareId { url }));
+        }
+        if let Some(logical) = logical {
+            return Ok(Some(Identity::Runx { logical, url }));
         }
     }
     Ok(None)
@@ -413,6 +481,15 @@ fn serde_default(attrs: &[syn::Attribute]) -> bool {
 
 fn serde_untagged(attrs: &[syn::Attribute]) -> bool {
     serde_flag(attrs, "untagged")
+}
+
+/// Whether a field carries `#[serde(skip_serializing_if = "...")]`. Such a field
+/// can be omitted from the wire, so an `Option<T>` with it is optional rather
+/// than required-but-nullable.
+fn serde_skip_serializing_if(attrs: &[syn::Attribute]) -> bool {
+    serde_string_value(attrs, "skip_serializing_if")
+        .map(|value| value.is_some())
+        .unwrap_or(false)
 }
 
 fn serde_skip(attrs: &[syn::Attribute]) -> bool {

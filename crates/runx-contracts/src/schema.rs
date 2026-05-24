@@ -38,13 +38,33 @@ impl Property {
     }
 }
 
+/// The top-level identity envelope a contract document carries.
+///
+/// Most contracts are `Runx { logical }`: a `schemas.runx.dev` `$id` derived
+/// from the logical name, the `x-runx-schema` marker, and an optional `schema`
+/// const discriminant. A handful of legacy contracts carry only a bare `$id`
+/// (the `runx.ai/spec` and `runx.ai/schemas` documents) with no
+/// `x-runx-schema` and no injected `schema` discriminant; those use `BareId`.
+pub enum Identity<'a> {
+    /// Logical-name identity: `schemas.runx.dev` `$id`, `x-runx-schema` marker,
+    /// and an injected optional `schema` const. The `$id` is `url` when given
+    /// (for the few logical names whose canonical `$id` does not match the
+    /// mechanical [`schema_id_url`] transform), otherwise derived.
+    Runx {
+        logical: &'a str,
+        url: Option<&'a str>,
+    },
+    /// A bare `$id` with no `x-runx-schema` marker and no injected `schema`
+    /// discriminant (the `runx.ai/spec` / `runx.ai/schemas` documents).
+    BareId { url: &'a str },
+}
+
 /// Assemble an object schema in the committed shape. When `identity` is set the
-/// document carries the `$schema` / `$id` / `x-runx-schema` envelope of a
-/// top-level contract; nested objects pass `None`.
+/// document carries the top-level envelope; nested objects pass `None`.
 pub fn object_schema(
     properties: Vec<Property>,
     deny_unknown: bool,
-    identity: Option<&str>,
+    identity: Option<Identity<'_>>,
 ) -> Value {
     let mut required: Vec<Value> = Vec::new();
     let mut props = Map::new();
@@ -56,19 +76,29 @@ pub fn object_schema(
     }
 
     let mut schema = Map::new();
-    if let Some(logical) = identity {
+    if let Some(identity) = identity {
         schema.insert(
             "$schema".to_owned(),
             json!("https://json-schema.org/draft/2020-12/schema"),
         );
-        schema.insert("$id".to_owned(), json!(schema_id_url(logical)));
-        schema.insert("x-runx-schema".to_owned(), json!(logical));
-        // Every top-level contract carries an optional `schema` discriminant
-        // whose const equals its logical name. Emit it from the identity so no
-        // type needs a redundant marker field.
-        props
-            .entry("schema".to_owned())
-            .or_insert_with(|| const_string(logical));
+        match identity {
+            Identity::Runx { logical, url } => {
+                let id = url
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| schema_id_url(logical));
+                schema.insert("$id".to_owned(), json!(id));
+                schema.insert("x-runx-schema".to_owned(), json!(logical));
+                // Every top-level contract carries an optional `schema`
+                // discriminant whose const equals its logical name. Emit it
+                // from the identity so no type needs a redundant marker field.
+                props
+                    .entry("schema".to_owned())
+                    .or_insert_with(|| const_string(logical));
+            }
+            Identity::BareId { url } => {
+                schema.insert("$id".to_owned(), json!(url));
+            }
+        }
     }
     schema.insert("additionalProperties".to_owned(), json!(!deny_unknown));
     schema.insert("type".to_owned(), json!("object"));
@@ -94,6 +124,14 @@ pub fn string_enum(variants: &[&str]) -> Value {
 /// representations all collapse to an `anyOf` of variant subschemas).
 pub fn any_of(variants: Vec<Value>) -> Value {
     json!({ "anyOf": variants })
+}
+
+/// A required-but-nullable property schema: the inner type's schema unioned with
+/// `null`. Matches the committed shape for an `Option<T>` field that has no
+/// `skip_serializing_if` (it must be present on the wire but may be `null`):
+/// `{ "anyOf": [<T schema>, { "type": "null" }] }`.
+pub fn nullable(inner: Value) -> Value {
+    json!({ "anyOf": [inner, { "type": "null" }] })
 }
 
 /// An externally-tagged data variant: a single-key object `{ "<tag>": <inner> }`

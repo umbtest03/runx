@@ -126,10 +126,10 @@ fn approval_dedupes_resolved_gate_by_canonical_idempotency_key()
 fn approval_optional_fields_omit_null_via_host_protocol_serde()
 -> Result<(), Box<dyn std::error::Error>> {
     let request = ResolutionRequest::Approval {
-        id: "req_approval".to_owned(),
+        id: "req_approval".into(),
         gate: ApprovalGate {
-            id: "workspace-write".to_owned(),
-            reason: "Allow workspace write".to_owned(),
+            id: "workspace-write".into(),
+            reason: "Allow workspace write".into(),
             gate_type: None,
             summary: None,
         },
@@ -186,8 +186,8 @@ impl Host for RecordingHost {
 
 fn gate() -> ApprovalGate {
     ApprovalGate {
-        id: "workspace-write".to_owned(),
-        reason: "Allow workspace write".to_owned(),
+        id: "workspace-write".into(),
+        reason: "Allow workspace write".into(),
         gate_type: Some("sandbox".to_owned()),
         summary: Some(summary()),
     }

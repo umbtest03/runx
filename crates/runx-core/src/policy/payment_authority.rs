@@ -757,7 +757,7 @@ mod tests {
     fn denies_subset_proof_that_does_not_match_terms() {
         let scenario = PaymentScenario::standard();
         let mut proof = scenario.subset_proof.clone();
-        proof.compared_terms[0].child_term_id = "other-child".to_owned();
+        proof.compared_terms[0].child_term_id = "other-child".into();
 
         assert_eq!(
             scenario.authorize_with(AuthorizationOverride {
@@ -956,15 +956,15 @@ mod tests {
     fn subset_proof(child: &AuthorityTerm, parent: &AuthorityTerm) -> AuthoritySubsetProof {
         AuthoritySubsetProof {
             parent_authority_ref: parent.resource_ref.clone(),
-            comparison_algorithm: "runx.payment-authority-subset.v1".to_owned(),
+            comparison_algorithm: "runx.payment-authority-subset.v1".into(),
             result: AuthoritySubsetResult::Subset,
             compared_terms: vec![AuthoritySubsetComparison {
-                child_term_id: child.term_id.clone(),
-                parent_term_id: parent.term_id.clone(),
+                child_term_id: child.term_id.clone().into(),
+                parent_term_id: parent.term_id.clone().into(),
                 relation: AuthoritySubsetRelation::Subset,
             }],
             proof_ref: None,
-            checked_at: "2026-05-22T00:00:00Z".to_owned(),
+            checked_at: "2026-05-22T00:00:00Z".into(),
         }
     }
 
@@ -1059,14 +1059,14 @@ mod tests {
 
     fn selected_decision() -> Decision {
         Decision {
-            decision_id: "decision_payment_reservation".to_owned(),
+            decision_id: "decision_payment_reservation".into(),
             choice: DecisionChoice::Continue,
             inputs: DecisionInputs::default(),
             proposed_intent: intent(),
-            selected_act_id: Some(ACT_ID.to_owned()),
+            selected_act_id: Some(ACT_ID.into()),
             selected_harness_ref: None,
             justification: DecisionJustification {
-                summary: "reservation selected a bounded spend act".to_owned(),
+                summary: "reservation selected a bounded spend act".into(),
                 evidence_refs: Vec::new(),
             },
             closure: None,
@@ -1084,8 +1084,8 @@ mod tests {
 
     fn intent() -> Intent {
         Intent {
-            purpose: "complete a bounded checkout payment".to_owned(),
-            legitimacy: "authorized by selected reservation decision".to_owned(),
+            purpose: "complete a bounded checkout payment".into(),
+            legitimacy: "authorized by selected reservation decision".into(),
             success_criteria: Vec::new(),
             constraints: Vec::new(),
             derived_from: Vec::new(),

@@ -1,6 +1,7 @@
 //! Host protocol contracts: execution events, resolution requests, host-run lifecycle.
 use serde::{Deserialize, Serialize};
 
+use crate::schema::{NonEmptyString, RunxSchema};
 use crate::{JsonObject, JsonValue};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -68,33 +69,34 @@ pub enum ExecutionEvent {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ResolutionRequest {
     Input {
-        id: String,
+        id: NonEmptyString,
         questions: Vec<Question>,
     },
     Approval {
-        id: String,
+        id: NonEmptyString,
         gate: ApprovalGate,
     },
     AgentAct {
-        id: String,
+        id: NonEmptyString,
         invocation: AgentActInvocation,
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(spec_id = "https://runx.ai/spec/question.schema.json")]
 pub struct Question {
-    pub id: String,
-    pub prompt: String,
+    pub id: NonEmptyString,
+    pub prompt: NonEmptyString,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub required: bool,
     #[serde(rename = "type")]
-    pub question_type: String,
+    pub question_type: NonEmptyString,
 }
 
 /// Host protocol approval request gate carried by `ResolutionRequest::Approval`.
@@ -103,11 +105,12 @@ pub struct Question {
 /// approval decision with `gate_id`, `gate_type`, and `decision` fields after
 /// policy evaluation. Keep this shape aligned with the host resolution request
 /// schema; do not use it as the authority-proof decision record.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(spec_id = "https://runx.ai/spec/approval-gate.schema.json")]
 pub struct ApprovalGate {
-    pub id: String,
-    pub reason: String,
+    pub id: NonEmptyString,
+    pub reason: NonEmptyString,
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub gate_type: Option<String>,
     /// Shallow summary payload. `rust-resolution-payload-parity` owns any
@@ -116,15 +119,15 @@ pub struct ApprovalGate {
     pub summary: Option<JsonObject>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AgentActInvocation {
-    pub id: String,
+    pub id: NonEmptyString,
     pub source_type: AgentActSourceType,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent: Option<String>,
+    pub agent: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub task: Option<String>,
+    pub task: Option<NonEmptyString>,
     /// Intentionally opaque agent-act envelope.
     ///
     /// `AgentActInvocation` is typed at the protocol edge, but the envelope's
@@ -132,15 +135,16 @@ pub struct AgentActInvocation {
     pub envelope: JsonValue,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum AgentActSourceType {
     Agent,
     AgentStep,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(spec_id = "https://runx.ai/spec/resolution-response.schema.json")]
 pub struct ResolutionResponse {
     pub actor: ResolutionResponseActor,
     /// Shallow response payload. `rust-resolution-payload-parity` owns any
@@ -148,7 +152,7 @@ pub struct ResolutionResponse {
     pub payload: JsonValue,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ResolutionResponseActor {
     Human,
