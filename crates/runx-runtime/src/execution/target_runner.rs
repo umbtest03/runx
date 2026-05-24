@@ -1691,8 +1691,8 @@ fn target_repo_runner_source_publication_receipt_node(
     role_refs.extend(target_refs.clone());
     role_refs.extend(observation.published_refs.clone());
     let success_criteria = vec![SuccessCriterion {
-        criterion_id: criterion_id.to_owned(),
-        statement: "Target pull request is published to the source issue/thread".to_owned(),
+        criterion_id: criterion_id.into(),
+        statement: "Target pull request is published to the source issue/thread".into(),
         required: true,
     }];
     let act = ReceiptAct {
@@ -1702,9 +1702,9 @@ fn target_repo_runner_source_publication_receipt_node(
             purpose: format!(
                 "Publish target pull request {} to source",
                 observation.pull_request_ref.uri
-            ),
-            legitimacy: "Target runner is authorized to reply on the source issue/thread"
-                .to_owned(),
+            )
+            .into(),
+            legitimacy: "Target runner is authorized to reply on the source issue/thread".into(),
             success_criteria,
             constraints: Vec::new(),
             derived_from: vec![observation.source_thread_ref.clone()],
@@ -1727,9 +1727,9 @@ fn target_repo_runner_source_publication_receipt_node(
         )),
         closure: Closure {
             disposition: ClosureDisposition::Closed,
-            reason_code: criterion_id.to_owned(),
-            summary: summary.clone(),
-            closed_at: created_at.to_owned(),
+            reason_code: criterion_id.into(),
+            summary: summary.clone().into(),
+            closed_at: created_at.into(),
         },
         revision: None,
         verification: None,
@@ -1836,8 +1836,8 @@ fn revision_act(input: RevisionActInput<'_>) -> ReceiptAct {
     }
     role_refs.extend(artifact_refs.iter().cloned());
     let success_criteria = vec![SuccessCriterion {
-        criterion_id: criterion_id.to_owned(),
-        statement: "Target pull request is ready for human review".to_owned(),
+        criterion_id: criterion_id.into(),
+        statement: "Target pull request is ready for human review".into(),
         required: true,
     }];
     let revision = revision_change_set(act_id, summary, pull_request_ref, success_criteria.clone());
@@ -1845,8 +1845,8 @@ fn revision_act(input: RevisionActInput<'_>) -> ReceiptAct {
         id: act_id.to_owned(),
         form: ActForm::Revision,
         intent: Intent {
-            purpose: format!("Open target pull request {}", pull_request_ref.uri),
-            legitimacy: "Target runner is authorized to open the target pull request".to_owned(),
+            purpose: format!("Open target pull request {}", pull_request_ref.uri).into(),
+            legitimacy: "Target runner is authorized to open the target pull request".into(),
             success_criteria,
             constraints: Vec::new(),
             derived_from: vec![source_thread_ref.clone()],
@@ -1869,9 +1869,9 @@ fn revision_act(input: RevisionActInput<'_>) -> ReceiptAct {
         )),
         closure: Closure {
             disposition: ClosureDisposition::Closed,
-            reason_code: criterion_id.to_owned(),
-            summary: summary.to_owned(),
-            closed_at: created_at.to_owned(),
+            reason_code: criterion_id.into(),
+            summary: summary.into(),
+            closed_at: created_at.into(),
         },
         revision: Some(revision),
         verification: None,
@@ -1951,11 +1951,11 @@ fn source_publication_authority(
             parent_authority_ref: Some(request.revision_receipt_ref.clone()),
             subset_proof: Some(AuthoritySubsetProof {
                 parent_authority_ref: request.revision_receipt_ref.clone(),
-                comparison_algorithm: "runx.target-runner.publication-subset.v1".to_owned(),
+                comparison_algorithm: "runx.target-runner.publication-subset.v1".into(),
                 result: AuthoritySubsetResult::Subset,
                 compared_terms: Vec::new(),
                 proof_ref: None,
-                checked_at: created_at.to_owned(),
+                checked_at: created_at.into(),
             }),
         },
         mandate_ref: None,

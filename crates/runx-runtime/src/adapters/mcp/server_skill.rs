@@ -389,14 +389,15 @@ fn input_resolution_request(
         .iter()
         .filter(|(name, input)| input.required && missing_input(inputs.get(*name)))
         .map(|(name, input)| Question {
-            id: name.clone(),
+            id: name.clone().into(),
             prompt: input
                 .description
                 .clone()
-                .unwrap_or_else(|| format!("Provide {name}.")),
+                .unwrap_or_else(|| format!("Provide {name}."))
+                .into(),
             description: input.description.clone(),
             required: true,
-            question_type: input.input_type.clone(),
+            question_type: input.input_type.clone().into(),
         })
         .collect::<Vec<_>>();
     (!questions.is_empty()).then(|| ResolutionRequest::Input {
@@ -405,10 +406,11 @@ fn input_resolution_request(
             identifier_segment(&skill.name),
             questions
                 .iter()
-                .map(|question| identifier_segment(&question.id))
+                .map(|question| identifier_segment(question.id.as_str()))
                 .collect::<Vec<_>>()
                 .join(".")
-        ),
+        )
+        .into(),
         questions,
     })
 }

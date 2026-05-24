@@ -217,7 +217,7 @@ fn summarize_receipt(receipt: &Receipt) -> HarnessReplayReceipt {
         decision_ids: receipt
             .decisions
             .iter()
-            .map(|decision| decision.decision_id.clone())
+            .map(|decision| decision.decision_id.as_str().to_owned())
             .collect(),
         child_receipt_refs: receipt
             .lineage

@@ -1,30 +1,31 @@
 //! Act algebra: intents, governed acts, success criteria, and verification details.
 use serde::{Deserialize, Serialize};
 
+use crate::schema::{NonEmptyString, RunxSchema};
 use crate::{ActRef, Closure, Reference, Verification};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SuccessCriterion {
-    pub criterion_id: String,
-    pub statement: String,
+    pub criterion_id: NonEmptyString,
+    pub statement: NonEmptyString,
     pub required: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Intent {
-    pub purpose: String,
-    pub legitimacy: String,
+    pub purpose: NonEmptyString,
+    pub legitimacy: NonEmptyString,
     #[serde(default)]
     pub success_criteria: Vec<SuccessCriterion>,
     #[serde(default)]
-    pub constraints: Vec<String>,
+    pub constraints: Vec<NonEmptyString>,
     #[serde(default)]
     pub derived_from: Vec<Reference>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CriterionStatus {
     Verified,
@@ -34,7 +35,7 @@ pub enum CriterionStatus {
     Unknown,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ActForm {
     Revision,

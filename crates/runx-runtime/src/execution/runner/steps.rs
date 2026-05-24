@@ -483,8 +483,8 @@ pub(super) fn approval_gate(
     let gate_type = optional_input_string(step, inputs, "gate_type")?;
     let summary = approval_summary(inputs);
     Ok(ApprovalGate {
-        id: gate_id,
-        reason,
+        id: gate_id.into(),
+        reason: reason.into(),
         gate_type,
         summary,
     })
@@ -508,7 +508,10 @@ pub(super) fn approval_outputs(
 ) -> Result<JsonObject, RuntimeError> {
     let mut data = JsonObject::new();
     data.insert("approved".to_owned(), approved_value(resolution));
-    data.insert("gate_id".to_owned(), JsonValue::String(gate.id.clone()));
+    data.insert(
+        "gate_id".to_owned(),
+        JsonValue::String(gate.id.as_str().to_owned()),
+    );
     data.insert(
         "idempotency_key".to_owned(),
         JsonValue::String(resolution.idempotency_key().to_owned()),

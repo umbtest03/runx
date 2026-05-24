@@ -7,19 +7,14 @@ use std::process::{Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
 use runx_contracts::{
-    JsonValue, THREAD_OUTBOX_PROVIDER_PROTOCOL_VERSION, ThreadOutboxProviderFetch,
-    ThreadOutboxProviderManifest, ThreadOutboxProviderObservation,
-    ThreadOutboxProviderObservationStatus, ThreadOutboxProviderOperation, ThreadOutboxProviderPush,
-    ThreadOutboxProviderTransportKind,
+    JsonValue, ThreadOutboxProviderFetch, ThreadOutboxProviderManifest,
+    ThreadOutboxProviderObservation, ThreadOutboxProviderObservationStatus,
+    ThreadOutboxProviderOperation, ThreadOutboxProviderPush, ThreadOutboxProviderTransportKind,
 };
 use thiserror::Error;
 
 use crate::credentials::CredentialDelivery;
 
-const MANIFEST_SCHEMA: &str = "runx.thread_outbox_provider.manifest.v1";
-const PUSH_SCHEMA: &str = "runx.thread_outbox_provider.push.v1";
-const FETCH_SCHEMA: &str = "runx.thread_outbox_provider.fetch.v1";
-const OBSERVATION_SCHEMA: &str = "runx.thread_outbox_provider.observation.v1";
 const DEFAULT_TIMEOUT_MS: u64 = 5_000;
 const DEFAULT_OUTPUT_LIMIT_BYTES: usize = 1_048_576;
 
@@ -250,14 +245,8 @@ fn validate_manifest(
     manifest: &ThreadOutboxProviderManifest,
     operation: ThreadOutboxProviderOperation,
 ) -> Result<(), ThreadOutboxProviderSupervisorError> {
-    if manifest.schema != MANIFEST_SCHEMA {
-        return Err(
-            ThreadOutboxProviderSupervisorError::UnsupportedManifestSchema {
-                schema: manifest.schema.clone(),
-            },
-        );
-    }
-    validate_protocol(&manifest.protocol_version)?;
+    // `schema` and `protocol_version` are const-typed contract enums, so the
+    // wire decoder already rejects any other value; no runtime re-check needed.
     if !manifest.supported_operations.contains(&operation) {
         return Err(ThreadOutboxProviderSupervisorError::UnsupportedOperation {
             operation: format!("{operation:?}"),
@@ -276,14 +265,8 @@ fn validate_push(
     manifest: &ThreadOutboxProviderManifest,
     push: &ThreadOutboxProviderPush,
 ) -> Result<(), ThreadOutboxProviderSupervisorError> {
-    if push.schema != PUSH_SCHEMA {
-        return Err(
-            ThreadOutboxProviderSupervisorError::UnsupportedRequestSchema {
-                schema: push.schema.clone(),
-            },
-        );
-    }
-    validate_protocol(&push.protocol_version)?;
+    // `schema` / `protocol_version` are const-typed enums; the decoder enforces
+    // them, so only request identity needs a runtime check.
     validate_request_identity(manifest, push.adapter_id.as_str(), push.provider.as_str())
 }
 
@@ -291,14 +274,8 @@ fn validate_fetch(
     manifest: &ThreadOutboxProviderManifest,
     fetch: &ThreadOutboxProviderFetch,
 ) -> Result<(), ThreadOutboxProviderSupervisorError> {
-    if fetch.schema != FETCH_SCHEMA {
-        return Err(
-            ThreadOutboxProviderSupervisorError::UnsupportedRequestSchema {
-                schema: fetch.schema.clone(),
-            },
-        );
-    }
-    validate_protocol(&fetch.protocol_version)?;
+    // `schema` / `protocol_version` are const-typed enums; the decoder enforces
+    // them, so only request identity needs a runtime check.
     validate_request_identity(manifest, fetch.adapter_id.as_str(), fetch.provider.as_str())
 }
 
@@ -309,27 +286,17 @@ fn validate_request_identity(
 ) -> Result<(), ThreadOutboxProviderSupervisorError> {
     if manifest.adapter_id != adapter_id {
         return Err(ThreadOutboxProviderSupervisorError::AdapterIdMismatch {
-            manifest: manifest.adapter_id.clone(),
+            manifest: manifest.adapter_id.to_string(),
             request: adapter_id.to_owned(),
         });
     }
     if manifest.provider != provider {
         return Err(ThreadOutboxProviderSupervisorError::ProviderMismatch {
-            manifest: manifest.provider.clone(),
+            manifest: manifest.provider.to_string(),
             request: provider.to_owned(),
         });
     }
     Ok(())
-}
-
-fn validate_protocol(protocol_version: &str) -> Result<(), ThreadOutboxProviderSupervisorError> {
-    if protocol_version == THREAD_OUTBOX_PROVIDER_PROTOCOL_VERSION {
-        Ok(())
-    } else {
-        Err(ThreadOutboxProviderSupervisorError::UnsupportedProtocol {
-            protocol_version: protocol_version.to_owned(),
-        })
-    }
 }
 
 fn process_command(
@@ -426,27 +393,21 @@ fn validate_observation(
     request: &ThreadOutboxProviderRequest<'_>,
     observation: &ThreadOutboxProviderObservation,
 ) -> Result<(), ThreadOutboxProviderSupervisorError> {
-    if observation.schema != OBSERVATION_SCHEMA {
-        return Err(
-            ThreadOutboxProviderSupervisorError::UnsupportedObservationSchema {
-                schema: observation.schema.clone(),
-            },
-        );
-    }
-    validate_protocol(&observation.protocol_version)?;
+    // `schema` / `protocol_version` are const-typed enums enforced by the
+    // decoder; only cross-field identity needs runtime validation.
     if observation.adapter_id != manifest.adapter_id {
         return Err(
             ThreadOutboxProviderSupervisorError::ObservationAdapterMismatch {
-                expected: manifest.adapter_id.clone(),
-                actual: observation.adapter_id.clone(),
+                expected: manifest.adapter_id.to_string(),
+                actual: observation.adapter_id.to_string(),
             },
         );
     }
     if observation.provider != manifest.provider {
         return Err(
             ThreadOutboxProviderSupervisorError::ObservationProviderMismatch {
-                expected: manifest.provider.clone(),
-                actual: observation.provider.clone(),
+                expected: manifest.provider.to_string(),
+                actual: observation.provider.to_string(),
             },
         );
     }
@@ -463,7 +424,7 @@ fn validate_observation(
         return Err(
             ThreadOutboxProviderSupervisorError::ObservationRequestMismatch {
                 expected: request.request_id().to_owned(),
-                actual: observation.request_id.clone(),
+                actual: observation.request_id.to_string(),
             },
         );
     }

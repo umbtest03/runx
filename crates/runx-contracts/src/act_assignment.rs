@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::schema::{IsoDateTime, NonEmptyString, RunxSchema};
 use crate::{JsonObject, JsonValue};
 
 mod hash;
@@ -12,7 +13,13 @@ use hash::{sha256_prefixed, stable_hash_json};
 pub const ACT_ASSIGNMENT_SCHEMA: &str = "runx.act_assignment.v1";
 pub const SHA256_ALGORITHM: &str = "sha256";
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+pub enum ActAssignmentSchema {
+    #[serde(rename = "runx.act_assignment.v1")]
+    V1,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ActAssignmentHostKind {
     Cli,
@@ -21,7 +28,12 @@ pub enum ActAssignmentHostKind {
     System,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+// `ActAssignmentActor` / `ActAssignmentHost` fields stay `String`: they feed the
+// fixture-backed idempotency hash pipeline (`normalize_*`, `derive_*`) which is
+// parity-sensitive and must not be reshaped. The committed `minLength: 1` on
+// these nested fields is therefore not enforced by the emitter; corpus values
+// keep them non-empty so accept/reject parity holds.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ActAssignmentActor {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -34,7 +46,7 @@ pub struct ActAssignmentActor {
     pub provider_identity: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ActAssignmentHost {
     pub kind: ActAssignmentHostKind,
@@ -46,25 +58,26 @@ pub struct ActAssignmentHost {
     pub actor: Option<ActAssignmentActor>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ActAssignmentIdempotency {
     pub algorithm: String,
-    pub intent_key: String,
+    pub intent_key: NonEmptyString,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub trigger_key: Option<String>,
-    pub content_hash: String,
+    pub trigger_key: Option<NonEmptyString>,
+    pub content_hash: NonEmptyString,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.act_assignment.v1")]
 pub struct ActAssignment {
-    pub schema: String,
-    pub skill_ref: String,
-    pub runner: String,
+    pub schema: ActAssignmentSchema,
+    pub skill_ref: NonEmptyString,
+    pub runner: NonEmptyString,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub source_ref: Option<String>,
-    pub requested_at: String,
+    pub source_ref: Option<NonEmptyString>,
+    pub requested_at: IsoDateTime,
     pub host: ActAssignmentHost,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input_overrides: Option<JsonObject>,
@@ -94,11 +107,11 @@ impl BuildActAssignment {
         let content_hash = derive_content_hash(input_overrides.clone());
 
         ActAssignment {
-            schema: ACT_ASSIGNMENT_SCHEMA.to_owned(),
-            skill_ref: self.skill_ref.clone(),
-            runner: self.runner.clone(),
-            source_ref: source_ref.clone(),
-            requested_at: self.requested_at,
+            schema: ActAssignmentSchema::V1,
+            skill_ref: self.skill_ref.clone().into(),
+            runner: self.runner.clone().into(),
+            source_ref: source_ref.clone().map(Into::into),
+            requested_at: self.requested_at.into(),
             host,
             input_overrides: input_overrides.clone(),
             idempotency: ActAssignmentIdempotency {
@@ -108,9 +121,10 @@ impl BuildActAssignment {
                     runner: self.runner,
                     source_ref,
                     input_overrides,
-                }),
-                trigger_key,
-                content_hash,
+                })
+                .into(),
+                trigger_key: trigger_key.map(Into::into),
+                content_hash: content_hash.into(),
             },
         }
     }

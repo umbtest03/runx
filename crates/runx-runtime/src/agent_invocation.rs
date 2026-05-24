@@ -38,7 +38,7 @@ pub(crate) fn agent_act_resolution_request(
 ) -> ResolutionRequest {
     let id = agent_act_invocation_id(request, source_type);
     ResolutionRequest::AgentAct {
-        id: id.clone(),
+        id: id.clone().into(),
         invocation: build_agent_act_invocation(request, source_type),
     }
 }
@@ -64,10 +64,10 @@ pub(crate) fn build_agent_act_invocation(
     source_type: AgentActInvocationSourceType,
 ) -> AgentActInvocation {
     AgentActInvocation {
-        id: agent_act_invocation_id(request, source_type),
+        id: agent_act_invocation_id(request, source_type).into(),
         source_type: source_type.contract_source_type(),
-        agent: request.source.agent.clone(),
-        task: request.source.task.clone(),
+        agent: request.source.agent.clone().map(Into::into),
+        task: request.source.task.clone().map(Into::into),
         envelope: JsonValue::Object(envelope(request, source_type)),
     }
 }

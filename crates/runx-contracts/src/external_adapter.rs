@@ -1,12 +1,50 @@
 //! External adapter contract types.
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::schema::RunxSchema;
+use crate::schema::{IsoDateTime, NonEmptyString, RunxSchema};
 use crate::{JsonNumber, JsonObject, Reference, ResolutionRequest};
 
 pub const EXTERNAL_ADAPTER_PROTOCOL_VERSION: &str = "runx.external_adapter.v1";
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// The const `protocol_version` discriminant shared by every external-adapter
+/// frame.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+pub enum ExternalAdapterProtocolVersion {
+    #[serde(rename = "runx.external_adapter.v1")]
+    V1,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+pub enum ExternalAdapterManifestSchema {
+    #[serde(rename = "runx.external_adapter.manifest.v1")]
+    V1,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+pub enum ExternalAdapterCredentialRequestSchema {
+    #[serde(rename = "runx.external_adapter.credential_request.v1")]
+    V1,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+pub enum ExternalAdapterInvocationSchema {
+    #[serde(rename = "runx.external_adapter.invocation.v1")]
+    V1,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+pub enum ExternalAdapterHostResolutionSchema {
+    #[serde(rename = "runx.external_adapter.host_resolution.v1")]
+    V1,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+pub enum ExternalAdapterCancellationSchema {
+    #[serde(rename = "runx.external_adapter.cancellation.v1")]
+    V1,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExternalAdapterTransportKind {
     Process,
@@ -22,7 +60,7 @@ pub enum ExternalAdapterStatus {
     Cancelled,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExternalAdapterCredentialPurpose {
     ProviderApi,
@@ -31,54 +69,55 @@ pub enum ExternalAdapterCredentialPurpose {
     WebhookVerification,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ExternalAdapterTransport {
     pub kind: ExternalAdapterTransportKind,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub command: Option<String>,
+    pub command: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub args: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub endpoint: Option<String>,
+    pub endpoint: Option<NonEmptyString>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ExternalAdapterCredentialNeed {
     pub purpose: ExternalAdapterCredentialPurpose,
-    pub provider: String,
+    pub provider: NonEmptyString,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_refs: Option<Vec<Reference>>,
     pub required: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ExternalAdapterSandboxIntent {
-    pub profile: String,
+    pub profile: NonEmptyString,
     pub network: bool,
-    pub cwd_policy: String,
+    pub cwd_policy: NonEmptyString,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub writable_paths: Option<Vec<String>>,
+    pub writable_paths: Option<Vec<NonEmptyString>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ExternalAdapterTimeouts {
     pub startup_ms: u64,
     pub invocation_ms: u64,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.external_adapter.manifest.v1")]
 pub struct ExternalAdapterManifest {
-    pub schema: String,
-    pub protocol_version: String,
-    pub adapter_id: String,
-    pub name: String,
-    pub version: String,
-    pub supported_source_types: Vec<String>,
+    pub schema: ExternalAdapterManifestSchema,
+    pub protocol_version: ExternalAdapterProtocolVersion,
+    pub adapter_id: NonEmptyString,
+    pub name: NonEmptyString,
+    pub version: NonEmptyString,
+    pub supported_source_types: Vec<NonEmptyString>,
     pub transport: ExternalAdapterTransport,
     pub timeouts: ExternalAdapterTimeouts,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -88,46 +127,48 @@ pub struct ExternalAdapterManifest {
     pub metadata: Option<JsonObject>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ExternalAdapterCredentialReference {
     pub credential_ref: Reference,
-    pub provider: String,
+    pub provider: NonEmptyString,
     pub purpose: ExternalAdapterCredentialPurpose,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.external_adapter.credential_request.v1")]
 pub struct ExternalAdapterCredentialRequest {
-    pub schema: String,
-    pub protocol_version: String,
-    pub request_id: String,
-    pub adapter_id: String,
-    pub invocation_id: String,
+    pub schema: ExternalAdapterCredentialRequestSchema,
+    pub protocol_version: ExternalAdapterProtocolVersion,
+    pub request_id: NonEmptyString,
+    pub adapter_id: NonEmptyString,
+    pub invocation_id: NonEmptyString,
     pub credential_refs: Vec<ExternalAdapterCredentialReference>,
-    pub requested_at: String,
+    pub requested_at: IsoDateTime,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.external_adapter.invocation.v1")]
 pub struct ExternalAdapterInvocation {
-    pub schema: String,
-    pub protocol_version: String,
-    pub invocation_id: String,
-    pub adapter_id: String,
-    pub run_id: String,
-    pub step_id: String,
-    pub source_type: String,
-    pub skill_ref: String,
+    pub schema: ExternalAdapterInvocationSchema,
+    pub protocol_version: ExternalAdapterProtocolVersion,
+    pub invocation_id: NonEmptyString,
+    pub adapter_id: NonEmptyString,
+    pub run_id: NonEmptyString,
+    pub step_id: NonEmptyString,
+    pub source_type: NonEmptyString,
+    pub skill_ref: NonEmptyString,
     pub harness_ref: Reference,
     pub host_ref: Reference,
     pub inputs: JsonObject,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resolved_inputs: Option<JsonObject>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub cwd: Option<String>,
+    pub cwd: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub receipt_dir: Option<String>,
+    pub receipt_dir: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<JsonObject>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -201,28 +242,30 @@ pub struct ExternalAdapterResponse {
     pub observed_at: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.external_adapter.host_resolution.v1")]
 pub struct ExternalAdapterHostResolutionFrame {
-    pub schema: String,
-    pub protocol_version: String,
-    pub frame_id: String,
-    pub invocation_id: String,
-    pub adapter_id: String,
+    pub schema: ExternalAdapterHostResolutionSchema,
+    pub protocol_version: ExternalAdapterProtocolVersion,
+    pub frame_id: NonEmptyString,
+    pub invocation_id: NonEmptyString,
+    pub adapter_id: NonEmptyString,
     pub request: ResolutionRequest,
-    pub requested_at: String,
+    pub requested_at: IsoDateTime,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.external_adapter.cancellation.v1")]
 pub struct ExternalAdapterCancellationFrame {
-    pub schema: String,
-    pub protocol_version: String,
-    pub frame_id: String,
-    pub invocation_id: String,
-    pub adapter_id: String,
-    pub reason: String,
-    pub requested_at: String,
+    pub schema: ExternalAdapterCancellationSchema,
+    pub protocol_version: ExternalAdapterProtocolVersion,
+    pub frame_id: NonEmptyString,
+    pub invocation_id: NonEmptyString,
+    pub adapter_id: NonEmptyString,
+    pub reason: NonEmptyString,
+    pub requested_at: IsoDateTime,
 }
 
 fn deserialize_optional_nullable_i64<'de, D>(

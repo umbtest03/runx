@@ -312,10 +312,10 @@ fn contract_profile(
     env_var: &str,
 ) -> runx_contracts::CredentialDeliveryProfile {
     runx_contracts::CredentialDeliveryProfile {
-        schema: "runx.credential_delivery.profile.v1".to_owned(),
-        profile_id: "github-provider-api-env".to_owned(),
-        provider: "github".to_owned(),
-        auth_mode: "oauth_bearer".to_owned(),
+        schema: runx_contracts::CredentialDeliveryProfileSchema::V1,
+        profile_id: "github-provider-api-env".into(),
+        provider: "github".into(),
+        auth_mode: "oauth_bearer".into(),
         purpose: CredentialDeliveryPurpose::ProviderApi,
         delivery_mode: CredentialDeliveryMode::ProcessEnv,
         material_roles: roles.clone(),

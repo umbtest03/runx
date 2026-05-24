@@ -384,23 +384,23 @@ fn decisions(
     artifact_refs: &[Reference],
 ) -> Vec<Decision> {
     vec![Decision {
-        decision_id: format!("dec_{node_id}"),
+        decision_id: format!("dec_{node_id}").into(),
         choice: DecisionChoice::Open,
         inputs: DecisionInputs {
             signal_refs: signal_refs.to_vec(),
             ..DecisionInputs::default()
         },
         proposed_intent: Intent {
-            purpose: format!("Open runtime node {node_id}"),
-            legitimacy: "Local graph execution requested this node".to_owned(),
+            purpose: format!("Open runtime node {node_id}").into(),
+            legitimacy: "Local graph execution requested this node".into(),
             success_criteria: Vec::new(),
             constraints: Vec::new(),
             derived_from: Vec::new(),
         },
-        selected_act_id: Some(act.id.clone()),
+        selected_act_id: Some(act.id.clone().into()),
         selected_harness_ref: None,
         justification: DecisionJustification {
-            summary: "runtime graph planner selected this node".to_owned(),
+            summary: "runtime graph planner selected this node".into(),
             evidence_refs: signal_refs.to_vec(),
         },
         closure: None,
@@ -421,11 +421,11 @@ fn observation_act(
         id: format!("act_{step_id}"),
         form: ActForm::Observation,
         intent: Intent {
-            purpose: format!("Run graph step {step_id}"),
-            legitimacy: "Runtime graph execution was admitted by the local harness".to_owned(),
+            purpose: format!("Run graph step {step_id}").into(),
+            legitimacy: "Runtime graph execution was admitted by the local harness".into(),
             success_criteria: vec![SuccessCriterion {
-                criterion_id: "process_exit".to_owned(),
-                statement: "cli-tool exits successfully".to_owned(),
+                criterion_id: "process_exit".into(),
+                statement: "cli-tool exits successfully".into(),
                 required: true,
             }],
             constraints: Vec::new(),
@@ -450,9 +450,9 @@ fn observation_act(
         context_ref: None,
         closure: Closure {
             disposition,
-            reason_code: "process_exit".to_owned(),
-            summary: output_summary(output),
-            closed_at: performed_at.to_owned(),
+            reason_code: "process_exit".into(),
+            summary: output_summary(output).into(),
+            closed_at: performed_at.into(),
         },
         revision: None,
         verification: None,
