@@ -109,6 +109,87 @@ pub fn object_schema(
     Value::Object(schema)
 }
 
+/// Assemble an object schema, merging any `#[serde(flatten)]` fields. Each
+/// entry in `flattened` is the emitted object schema of a flattened field's
+/// type; its `properties` and `required` entries are lifted into the parent, as
+/// serde does on the wire. A flattened object's own `additionalProperties` and
+/// identity keys are dropped (only the parent's `deny_unknown` and `identity`
+/// apply). `flattened` entries that are not plain objects (e.g. a flattened
+/// map) relax the parent to accept additional properties, matching serde's
+/// open-ended flatten capture.
+pub fn object_schema_with_flatten(
+    properties: Vec<Property>,
+    flattened: Vec<Value>,
+    deny_unknown: bool,
+    identity: Option<Identity<'_>>,
+) -> Value {
+    let mut required: Vec<Value> = Vec::new();
+    let mut props = Map::new();
+    for property in properties {
+        if property.required {
+            required.push(Value::String(property.name.to_owned()));
+        }
+        props.insert(property.name.to_owned(), property.schema);
+    }
+
+    // A flattened map (or any non-object schema) captures arbitrary extra keys,
+    // so the parent can no longer be closed.
+    let mut deny_unknown = deny_unknown;
+    for flat in flattened {
+        let is_object = flat.get("type").and_then(Value::as_str) == Some("object");
+        match flat.get("properties").and_then(Value::as_object) {
+            Some(inner_props) if is_object => {
+                let inner_required: Vec<&str> = flat
+                    .get("required")
+                    .and_then(Value::as_array)
+                    .map(|items| items.iter().filter_map(Value::as_str).collect())
+                    .unwrap_or_default();
+                for (name, schema) in inner_props {
+                    if inner_required.contains(&name.as_str()) {
+                        required.push(Value::String(name.clone()));
+                    }
+                    props.insert(name.clone(), schema.clone());
+                }
+            }
+            _ => {
+                // Non-object flatten (e.g. a `BTreeMap` capture) opens the
+                // object to additional properties.
+                deny_unknown = false;
+            }
+        }
+    }
+
+    let mut schema = Map::new();
+    if let Some(identity) = identity {
+        schema.insert(
+            "$schema".to_owned(),
+            json!("https://json-schema.org/draft/2020-12/schema"),
+        );
+        match identity {
+            Identity::Runx { logical, url } => {
+                let id = url
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| schema_id_url(logical));
+                schema.insert("$id".to_owned(), json!(id));
+                schema.insert("x-runx-schema".to_owned(), json!(logical));
+                props
+                    .entry("schema".to_owned())
+                    .or_insert_with(|| const_string(logical));
+            }
+            Identity::BareId { url } => {
+                schema.insert("$id".to_owned(), json!(url));
+            }
+        }
+    }
+    schema.insert("additionalProperties".to_owned(), json!(!deny_unknown));
+    schema.insert("type".to_owned(), json!("object"));
+    if !required.is_empty() {
+        schema.insert("required".to_owned(), Value::Array(required));
+    }
+    schema.insert("properties".to_owned(), Value::Object(props));
+    Value::Object(schema)
+}
+
 /// A closed string enum rendered as `anyOf` of `const` leaves, the committed
 /// shape (the schemas never use JSON Schema `enum`).
 pub fn string_enum(variants: &[&str]) -> Value {
@@ -124,6 +205,37 @@ pub fn string_enum(variants: &[&str]) -> Value {
 /// representations all collapse to an `anyOf` of variant subschemas).
 pub fn any_of(variants: Vec<Value>) -> Value {
     json!({ "anyOf": variants })
+}
+
+/// An `anyOf` union of variant subschemas carrying a top-level identity
+/// envelope. Used by data-carrying enums that are themselves a contract
+/// document (e.g. the `runx.ai/spec` documents emitted as a bare-`$id`
+/// `anyOf`). The identity keys (`$schema`, `$id`, and for [`Identity::Runx`]
+/// also `x-runx-schema`) sit alongside the `anyOf`. Unlike [`object_schema`],
+/// no injected `schema` discriminant property is added: the union variants own
+/// their own shape.
+pub fn any_of_with_identity(variants: Vec<Value>, identity: Option<Identity<'_>>) -> Value {
+    let mut schema = Map::new();
+    if let Some(identity) = identity {
+        schema.insert(
+            "$schema".to_owned(),
+            json!("https://json-schema.org/draft/2020-12/schema"),
+        );
+        match identity {
+            Identity::Runx { logical, url } => {
+                let id = url
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| schema_id_url(logical));
+                schema.insert("$id".to_owned(), json!(id));
+                schema.insert("x-runx-schema".to_owned(), json!(logical));
+            }
+            Identity::BareId { url } => {
+                schema.insert("$id".to_owned(), json!(url));
+            }
+        }
+    }
+    schema.insert("anyOf".to_owned(), Value::Array(variants));
+    Value::Object(schema)
 }
 
 /// A required-but-nullable property schema: the inner type's schema unioned with

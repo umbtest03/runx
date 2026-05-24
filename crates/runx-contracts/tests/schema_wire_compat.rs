@@ -29,7 +29,9 @@ use runx_contracts::external_adapter::{
     ExternalAdapterHostResolutionFrame, ExternalAdapterInvocation, ExternalAdapterManifest,
     ExternalAdapterResponse,
 };
-use runx_contracts::host_protocol::{ApprovalGate, Question, ResolutionResponse};
+use runx_contracts::host_protocol::{
+    ApprovalGate, Question, ResolutionRequest, ResolutionResponse,
+};
 use runx_contracts::operational_policy::OperationalPolicy;
 use runx_contracts::receipt::Receipt;
 use runx_contracts::redaction::Redaction;
@@ -195,6 +197,11 @@ fn covered() -> Vec<Covered> {
             file_name: "resolution-response.schema.json",
             emitted: ResolutionResponse::json_schema(),
             corpus: resolution_response_corpus(),
+        },
+        Covered {
+            file_name: "resolution-request.schema.json",
+            emitted: ResolutionRequest::json_schema(),
+            corpus: resolution_request_corpus(),
         },
         Covered {
             file_name: "thread-outbox-provider-manifest.schema.json",
@@ -1831,6 +1838,85 @@ fn resolution_response_corpus() -> Vec<(&'static str, Value)> {
         (
             "additional property",
             set_field(valid.clone(), "bogus", json!(true)),
+        ),
+    ]
+}
+
+fn agent_context_envelope() -> Value {
+    // A fully-valid agent-context envelope: the committed schema models this
+    // strictly while the Rust `AgentActInvocation.envelope` is an opaque
+    // `JsonValue` (accepts anything). Keep agent_act corpus values to envelopes
+    // both validators accept, so the corpus stays outside that modeling gap.
+    json!({
+        "run_id": "run_1",
+        "skill": "demo",
+        "instructions": "do the thing",
+        "inputs": {},
+        "allowed_tools": ["fs.read"],
+        "current_context": [],
+        "historical_context": [],
+        "provenance": [],
+        "trust_boundary": "trusted",
+    })
+}
+
+fn resolution_request_corpus() -> Vec<(&'static str, Value)> {
+    let input = json!({
+        "kind": "input",
+        "id": "q_1",
+        "questions": [{ "id": "name", "prompt": "Name?", "required": true, "type": "string" }],
+    });
+    let approval = json!({
+        "kind": "approval",
+        "id": "ap_1",
+        "gate": { "id": "g1", "reason": "needs approval" },
+    });
+    let agent_act = json!({
+        "kind": "agent_act",
+        "id": "aa_1",
+        "invocation": {
+            "id": "inv_1",
+            "source_type": "agent",
+            "envelope": agent_context_envelope(),
+        },
+    });
+    vec![
+        ("valid input request", input.clone()),
+        ("valid approval request", approval.clone()),
+        ("valid agent_act request", agent_act.clone()),
+        ("input missing questions", drop_field(input.clone(), "questions")),
+        ("input empty id rejected", set_field(input.clone(), "id", json!(""))),
+        (
+            "unknown kind rejected",
+            set_field(input.clone(), "kind", json!("teleport")),
+        ),
+        (
+            "approval empty gate reason rejected",
+            set_field(
+                approval.clone(),
+                "gate",
+                json!({ "id": "g1", "reason": "" }),
+            ),
+        ),
+        (
+            "approval missing gate",
+            drop_field(approval.clone(), "gate"),
+        ),
+        (
+            "agent_act missing invocation",
+            drop_field(agent_act.clone(), "invocation"),
+        ),
+        (
+            "input additional property rejected",
+            set_field(input.clone(), "bogus", json!(true)),
+        ),
+        (
+            "question additional property rejected",
+            set_field(
+                input.clone(),
+                "questions",
+                json!([{ "id": "name", "prompt": "Name?", "required": true, "type": "string", "bogus": 1 }]),
+            ),
         ),
     ]
 }

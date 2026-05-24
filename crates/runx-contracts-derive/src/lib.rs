@@ -5,7 +5,9 @@
 //! Supported today: named-field structs (honoring `#[serde(rename)]`,
 //! `#[serde(rename_all)]`, `#[serde(skip)]`, `Option<T>` /
 //! `#[serde(skip_serializing_if)]` / `#[serde(default)]` optionality (an
-//! `Option<T>` without any omittability is required-but-nullable), and
+//! `Option<T>` without any omittability is required-but-nullable),
+//! `#[serde(flatten)]` (the flattened type's properties merge into the parent;
+//! a flattened map opens the parent to additional properties), and
 //! `#[serde(deny_unknown_fields)]`), unit-only enums (rendered
 //! as `anyOf` of `const`), and data-carrying enums under serde's default
 //! (externally-tagged), internally-tagged (`#[serde(tag = "...")]`), and
@@ -63,7 +65,7 @@ fn expand(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
                 ));
             }
         },
-        Data::Enum(data) => enum_body(input, data)?,
+        Data::Enum(data) => enum_body(input, data, &identity_expr)?,
         Data::Union(_) => {
             return Err(syn::Error::new_spanned(
                 ident,
@@ -92,33 +94,79 @@ fn struct_body(
     // field is optional regardless of its own attributes.
     let container_default = serde_default(&input.attrs);
 
-    let properties =
+    let (properties, flattened) =
         struct_field_properties(&data.fields, rename_all.as_deref(), container_default)?;
 
-    Ok(quote! {
-        ::runx_contracts::schema::object_schema(
-            ::std::vec![#(#properties),*],
-            #deny_unknown,
-            #identity_expr,
-        )
-    })
+    Ok(object_body(
+        &properties,
+        &flattened,
+        deny_unknown,
+        identity_expr,
+    ))
+}
+
+/// Build the object-schema constructor call for a set of normal properties and
+/// flattened sub-schemas. When there are no flattened fields the simpler
+/// [`object_schema`] form is emitted; otherwise the flatten-merging form is
+/// used.
+fn object_body(
+    properties: &[proc_macro2::TokenStream],
+    flattened: &[proc_macro2::TokenStream],
+    deny_unknown: bool,
+    identity_expr: &proc_macro2::TokenStream,
+) -> proc_macro2::TokenStream {
+    if flattened.is_empty() {
+        quote! {
+            ::runx_contracts::schema::object_schema(
+                ::std::vec![#(#properties),*],
+                #deny_unknown,
+                #identity_expr,
+            )
+        }
+    } else {
+        quote! {
+            ::runx_contracts::schema::object_schema_with_flatten(
+                ::std::vec![#(#properties),*],
+                ::std::vec![#(#flattened),*],
+                #deny_unknown,
+                #identity_expr,
+            )
+        }
+    }
 }
 
 /// Build the `Property` constructors for a set of named fields, honoring
 /// `rename`/`rename_all`, `skip`, and optionality. A field is NOT required when
 /// it is `Option<...>`, carries a field-level `#[serde(default)]`, or the
 /// container carries `#[serde(default)]`.
+///
+/// Returns `(properties, flattened)`: normal field `Property` constructors and,
+/// separately, the emitted schemas of any `#[serde(flatten)]` fields (whose
+/// inner properties merge into the parent at runtime).
 fn struct_field_properties(
     fields: &Fields,
     rename_all: Option<&str>,
     container_default: bool,
-) -> syn::Result<Vec<proc_macro2::TokenStream>> {
+) -> syn::Result<(
+    Vec<proc_macro2::TokenStream>,
+    Vec<proc_macro2::TokenStream>,
+)> {
     let mut properties = Vec::new();
+    let mut flattened = Vec::new();
     for field in fields {
         let Some(ident) = field.ident.as_ref() else {
             continue;
         };
         if serde_skip(&field.attrs) {
+            continue;
+        }
+        // A `#[serde(flatten)]` field merges its inner type's properties into
+        // the parent object rather than nesting under a key.
+        if serde_flag(&field.attrs, "flatten") {
+            let ty = &field.ty;
+            flattened.push(quote! {
+                <#ty as ::runx_contracts::schema::RunxSchema>::json_schema()
+            });
             continue;
         }
         let wire_name = match serde_rename(&field.attrs)? {
@@ -152,16 +200,24 @@ fn struct_field_properties(
             )
         });
     }
-    Ok(properties)
+    Ok((properties, flattened))
 }
 
-fn enum_body(input: &DeriveInput, data: &syn::DataEnum) -> syn::Result<proc_macro2::TokenStream> {
+fn enum_body(
+    input: &DeriveInput,
+    data: &syn::DataEnum,
+    identity_expr: &proc_macro2::TokenStream,
+) -> syn::Result<proc_macro2::TokenStream> {
     let rename_all = serde_rename_all(&input.attrs)?;
     let rename_all_fields = serde_rename_all_fields(&input.attrs)?;
     let untagged = serde_untagged(&input.attrs);
     let internal_tag = serde_tag(&input.attrs)?;
+    // A container-level `#[serde(deny_unknown_fields)]` closes every variant's
+    // object under internal tagging (serde rejects unknown fields per variant).
+    let container_deny = serde_deny_unknown_fields(&input.attrs);
 
-    // The simple, fast path: an all-unit enum is a closed string enum.
+    // The simple, fast path: an all-unit enum is a closed string enum. A
+    // top-level identity (when present) wraps the `anyOf` of consts.
     let all_unit = data
         .variants
         .iter()
@@ -176,7 +232,12 @@ fn enum_body(input: &DeriveInput, data: &syn::DataEnum) -> syn::Result<proc_macr
             names.push(wire_name);
         }
         return Ok(quote! {
-            ::runx_contracts::schema::string_enum(&[#(#names),*])
+            ::runx_contracts::schema::any_of_with_identity(
+                ::std::vec![
+                    #(::runx_contracts::schema::const_string(#names)),*
+                ],
+                #identity_expr,
+            )
         });
     }
 
@@ -196,6 +257,7 @@ fn enum_body(input: &DeriveInput, data: &syn::DataEnum) -> syn::Result<proc_macr
                 &wire_name,
                 tag,
                 rename_all_fields.as_deref(),
+                container_deny,
             )?
         } else {
             externally_tagged_variant_schema(variant, &wire_name, rename_all_fields.as_deref())?
@@ -204,7 +266,10 @@ fn enum_body(input: &DeriveInput, data: &syn::DataEnum) -> syn::Result<proc_macr
     }
 
     Ok(quote! {
-        ::runx_contracts::schema::any_of(::std::vec![#(#variant_schemas),*])
+        ::runx_contracts::schema::any_of_with_identity(
+            ::std::vec![#(#variant_schemas),*],
+            #identity_expr,
+        )
     })
 }
 
@@ -222,15 +287,11 @@ fn untagged_variant_schema(
         }
         Fields::Unnamed(fields) => newtype_inner_schema(variant, fields),
         Fields::Named(_) => {
-            let properties = struct_field_properties(&variant.fields, rename_all_fields, false)?;
+            let (properties, flattened) =
+                struct_field_properties(&variant.fields, rename_all_fields, false)?;
             let deny_unknown = serde_deny_unknown_fields(&variant.attrs);
-            Ok(quote! {
-                ::runx_contracts::schema::object_schema(
-                    ::std::vec![#(#properties),*],
-                    #deny_unknown,
-                    ::core::option::Option::None,
-                )
-            })
+            let none = quote! { ::core::option::Option::None };
+            Ok(object_body(&properties, &flattened, deny_unknown, &none))
         }
     }
 }
@@ -252,15 +313,11 @@ fn externally_tagged_variant_schema(
             })
         }
         Fields::Named(_) => {
-            let properties = struct_field_properties(&variant.fields, rename_all_fields, false)?;
+            let (properties, flattened) =
+                struct_field_properties(&variant.fields, rename_all_fields, false)?;
             let deny_unknown = serde_deny_unknown_fields(&variant.attrs);
-            let inner = quote! {
-                ::runx_contracts::schema::object_schema(
-                    ::std::vec![#(#properties),*],
-                    #deny_unknown,
-                    ::core::option::Option::None,
-                )
-            };
+            let none = quote! { ::core::option::Option::None };
+            let inner = object_body(&properties, &flattened, deny_unknown, &none);
             Ok(quote! {
                 ::runx_contracts::schema::externally_tagged_variant(#wire_name, #inner)
             })
@@ -276,8 +333,10 @@ fn internally_tagged_variant_schema(
     wire_name: &str,
     tag: &str,
     rename_all_fields: Option<&str>,
+    container_deny: bool,
 ) -> syn::Result<proc_macro2::TokenStream> {
     let mut properties = Vec::new();
+    let mut flattened: Vec<proc_macro2::TokenStream> = Vec::new();
     properties.push(quote! {
         ::runx_contracts::schema::Property::new(
             #tag,
@@ -288,8 +347,10 @@ fn internally_tagged_variant_schema(
     match &variant.fields {
         Fields::Unit => {}
         Fields::Named(_) => {
-            let field_props = struct_field_properties(&variant.fields, rename_all_fields, false)?;
+            let (field_props, field_flattened) =
+                struct_field_properties(&variant.fields, rename_all_fields, false)?;
             properties.extend(field_props);
+            flattened.extend(field_flattened);
         }
         Fields::Unnamed(_) => {
             return Err(syn::Error::new_spanned(
@@ -298,7 +359,11 @@ fn internally_tagged_variant_schema(
             ));
         }
     }
-    let deny_unknown = serde_deny_unknown_fields(&variant.attrs);
+    let deny_unknown = container_deny || serde_deny_unknown_fields(&variant.attrs);
+    if !flattened.is_empty() {
+        let none = quote! { ::core::option::Option::None };
+        return Ok(object_body(&properties, &flattened, deny_unknown, &none));
+    }
     Ok(quote! {
         ::runx_contracts::schema::object_schema(
             ::std::vec![#(#properties),*],

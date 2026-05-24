@@ -71,6 +71,7 @@ pub enum ExecutionEvent {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[runx_schema(spec_id = "https://runx.ai/spec/resolution-request.schema.json")]
 pub enum ResolutionRequest {
     Input {
         id: NonEmptyString,
