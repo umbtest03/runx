@@ -4,8 +4,25 @@ use std::fmt;
 
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::{Value, json};
+
+use crate::schema::RunxSchema;
 
 pub type JsonObject = BTreeMap<String, JsonValue>;
+
+impl RunxSchema for JsonValue {
+    fn json_schema() -> Value {
+        // An arbitrary JSON value: the committed schemas express this as an
+        // empty subschema (`{}`), which accepts anything.
+        json!({})
+    }
+}
+
+impl RunxSchema for JsonNumber {
+    fn json_schema() -> Value {
+        json!({ "type": "number" })
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]

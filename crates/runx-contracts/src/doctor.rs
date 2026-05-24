@@ -6,21 +6,22 @@ use serde::de::{self, Visitor};
 use serde::{Deserialize, Serialize};
 
 use crate::JsonObject;
+use crate::schema::RunxSchema;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 pub enum DoctorReportSchema {
     #[serde(rename = "runx.doctor.v1")]
     V1,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DoctorStatus {
     Success,
     Failure,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DoctorDiagnosticSeverity {
     Error,
@@ -28,7 +29,7 @@ pub enum DoctorDiagnosticSeverity {
     Info,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DoctorRepairKind {
     CreateFile,
@@ -40,7 +41,7 @@ pub enum DoctorRepairKind {
     Manual,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DoctorRepairConfidence {
     Low,
@@ -48,7 +49,7 @@ pub enum DoctorRepairConfidence {
     High,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DoctorRepairRisk {
     Low,
@@ -57,7 +58,7 @@ pub enum DoctorRepairRisk {
     Sensitive,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DoctorRepair {
     pub id: String,
@@ -97,7 +98,7 @@ pub struct DoctorRepair {
     pub requires_human_review: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DoctorLocation {
     pub path: String,
@@ -109,7 +110,7 @@ pub struct DoctorLocation {
     pub json_pointer: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DoctorDiagnostic {
     pub id: String,
@@ -128,7 +129,7 @@ pub struct DoctorDiagnostic {
     pub repairs: Vec<DoctorRepair>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DoctorSummary {
     pub errors: u64,
@@ -136,8 +137,9 @@ pub struct DoctorSummary {
     pub infos: u64,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.doctor.v1")]
 pub struct DoctorReport {
     pub schema: DoctorReportSchema,
     pub status: DoctorStatus,
