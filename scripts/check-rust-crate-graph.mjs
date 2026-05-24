@@ -305,8 +305,8 @@ function checkRuntimeAsyncHttpContract(crateName, manifest) {
   }
 
   const featuresBody = sectionBody(manifest, "features");
-  if (!/^async-http\s*=\s*\["dep:reqwest", "dep:tokio"\]\s*$/mu.test(featuresBody)) {
-    findings.push("runx-runtime async-http feature must be exactly [\"dep:reqwest\", \"dep:tokio\"]");
+  if (!/^async-http\s*=\s*\["dep:reqwest", "dep:tokio", "dep:rustls"\]\s*$/mu.test(featuresBody)) {
+    findings.push("runx-runtime async-http feature must be exactly [\"dep:reqwest\", \"dep:tokio\", \"dep:rustls\"]");
   }
   if (!/^cli-tool\s*=\s*\["async-http"\]\s*$/mu.test(featuresBody)) {
     findings.push("runx-runtime cli-tool feature must imply async-http so the cargo CLI exercises reviewed HTTP");
@@ -328,7 +328,10 @@ function checkRuntimeAsyncHttpContract(crateName, manifest) {
     if (!/optional\s*=\s*true/u.test(reqwest)) {
       findings.push("runx-runtime reqwest dependency must stay optional");
     }
-    for (const feature of ["rustls", "json"]) {
+    // reqwest drives rustls without bundling a crypto provider; the ring
+    // provider is supplied by the explicit `rustls` dependency and installed at
+    // client construction, avoiding the vendored aws-lc-sys C blob.
+    for (const feature of ["rustls-no-provider", "json"]) {
       if (!dependencyInlineFeatures(reqwest).includes(feature)) {
         findings.push(`runx-runtime reqwest dependency must enable the ${feature} feature`);
       }

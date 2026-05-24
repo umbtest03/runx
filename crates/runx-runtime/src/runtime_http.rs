@@ -116,6 +116,10 @@ impl ReqwestHttpTransport {
         request_timeout: Duration,
         connect_timeout: Duration,
     ) -> Result<Self, HostedHttpError> {
+        // reqwest is built with `rustls-no-provider`, so the process needs a
+        // default crypto provider before a TLS client can be constructed.
+        // Install ring once; an Err means another transport already set it.
+        let _ = rustls::crypto::ring::default_provider().install_default();
         let client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(request_timeout)
