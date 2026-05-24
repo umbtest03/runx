@@ -39,7 +39,9 @@ fn native_x402_mock_dogfood_fixtures_run_without_typescript()
     assert_eq!(denied["seal"]["reason_code"], "graph_blocked");
     assert_eq!(
         child_receipt_uris(&denied),
-        vec!["runx:receipt:sha256:52e7c50c456df404c8035bd61adbc9d8569c185ba021f92f78c17af8b25fac3c",]
+        vec![
+            "runx:receipt:sha256:52e7c50c456df404c8035bd61adbc9d8569c185ba021f92f78c17af8b25fac3c",
+        ]
     );
 
     Ok(())
@@ -238,7 +240,9 @@ fn native_x402_negative_fixtures_refuse_without_settlement()
     assert_eq!(malformed["seal"]["reason_code"], "graph_blocked");
     assert_eq!(
         child_receipt_uris(&malformed),
-        vec!["runx:receipt:sha256:0b169c32175d9878a5332a982b51d1f186e6f6383f61ba84c7492f90d5ec80d1",]
+        vec![
+            "runx:receipt:sha256:0b169c32175d9878a5332a982b51d1f186e6f6383f61ba84c7492f90d5ec80d1",
+        ]
     );
 
     let ambiguous = run_harness_fixture(
