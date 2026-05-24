@@ -109,17 +109,7 @@ pub(crate) fn step_receipt_with_disposition_and_policy(
         disposition.clone(),
         &output_refs,
     );
-    let seal_criterion = CriterionBinding {
-        criterion_id: "process_exit".to_owned(),
-        status: if output.succeeded() {
-            CriterionStatus::Verified
-        } else {
-            CriterionStatus::Failed
-        },
-        evidence_refs: output_refs.source_refs.clone(),
-        verification_refs: output_refs.verification_refs.clone(),
-        summary: Some(output_summary(output)),
-    };
+    let seal_criterion = process_exit_criterion(output, &output_refs);
     let seal = seal(
         disposition,
         reason_code,
@@ -148,6 +138,22 @@ pub(crate) fn step_receipt_with_disposition_and_policy(
     });
     seal_receipt(&mut receipt, signature_policy)?;
     Ok(receipt)
+}
+
+/// The single `process_exit` criterion binding a step receipt seals on, derived
+/// from the skill output and its reference set.
+fn process_exit_criterion(output: &SkillOutput, output_refs: &OutputRefs) -> CriterionBinding {
+    CriterionBinding {
+        criterion_id: "process_exit".to_owned(),
+        status: if output.succeeded() {
+            CriterionStatus::Verified
+        } else {
+            CriterionStatus::Failed
+        },
+        evidence_refs: output_refs.source_refs.clone(),
+        verification_refs: output_refs.verification_refs.clone(),
+        summary: Some(output_summary(output)),
+    }
 }
 
 pub fn graph_receipt(
