@@ -1,6 +1,8 @@
 [package]
 name = "runx-cli"
-version = "0.1.0"
+# Kept in lockstep with packages/cli/package.json (the npm distribution line).
+# The release workflow stamps this from the npm manifest before building.
+version = "0.5.22"
 edition.workspace = true
 rust-version.workspace = true
 description = "Cargo-installed launcher for the runx governed agent workflow CLI."
@@ -24,3 +26,13 @@ serde_json.workspace = true
 [[bin]]
 name = "runx"
 path = "src/main.rs"
+
+# Debian/Ubuntu packaging (cargo-deb). Built per-arch in CI with --target and
+# attached to the GitHub Release.
+[package.metadata.deb]
+maintainer = "runxhq <support@runx.ai>"
+copyright = "2026, runxhq"
+extended-description = "Native governed runtime for agent skills, tools, graphs, and packets."
+section = "utils"
+priority = "optional"
+assets = [["target/release/runx", "usr/bin/", "755"]]

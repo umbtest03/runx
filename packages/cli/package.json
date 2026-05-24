@@ -5,6 +5,9 @@
   "private": false,
   "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
   "homepage": "https://github.com/runxhq/runx",
   "bugs": {
     "url": "https://github.com/runxhq/runx/issues"
@@ -39,6 +42,9 @@
     "@runxhq/cli-linux-arm64": "0.5.22",
     "@runxhq/cli-linux-x64": "0.5.22",
     "@runxhq/cli-win32-x64": "0.5.22"
+  },
+  "dependencies": {
+    "yaml": "^2.8.3"
   },
   "files": [
     "LICENSE",

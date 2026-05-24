@@ -178,7 +178,11 @@ function inspectPackageDir(packageDir: string, output: Finding[]): void {
   const packedFiles = inspectPackList(packageDir, output);
 
   if (options.noJsDelegation) {
-    inspectTextFiles(packageDir, packedFiles, output);
+    // The native binary is the compiled program, not a JS launcher: its rodata
+    // legitimately contains source-path strings (e.g. diagnostic examples), so
+    // exclude it from the delegation-token text scan. Integrity is covered by
+    // the checksum and signature manifests instead.
+    inspectTextFiles(packageDir, packedFiles, output, stripDotSlash(bin));
   }
 }
 
@@ -235,7 +239,8 @@ function inspectSelectorPackage(
     output.push(finding("selector_pack_topology_missing", path.join(packageDir, "native", "supported-platforms.json"), "packed selector is missing native/supported-platforms.json"));
   }
   if (options.noJsDelegation) {
-    inspectTextFiles(packageDir, packedFiles, output);
+    // The selector's bin/runx is the JS launcher; scan it for delegation tokens.
+    inspectTextFiles(packageDir, packedFiles, output, null);
   }
 }
 
@@ -515,8 +520,11 @@ function inspectPackList(packageDir: string, output: Finding[]): readonly string
   }
 }
 
-function inspectTextFiles(packageDir: string, packedFiles: readonly string[], output: Finding[]): void {
+function inspectTextFiles(packageDir: string, packedFiles: readonly string[], output: Finding[], excludeRelative: string | null): void {
   for (const relative of packedFiles) {
+    if (relative === excludeRelative) {
+      continue;
+    }
     if (relative !== "bin/runx" && !/\.(?:json|md|txt|js|mjs|cjs|ts|tsx)$/u.test(relative)) {
       continue;
     }
