@@ -1413,9 +1413,19 @@ name = "runx-contracts"
 version = "0.0.2"
 dependencies = [
  "jsonschema",
+ "runx-contracts-derive",
  "serde",
  "serde_json",
  "sha2",
+]
+
+[[package]]
+name = "runx-contracts-derive"
+version = "0.0.1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

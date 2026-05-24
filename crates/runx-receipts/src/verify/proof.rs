@@ -156,9 +156,11 @@ pub fn compute_verification_summary(
             ReceiptFindingCode::SealCriterionActMissing | ReceiptFindingCode::SealCriterionUnbound
         )
     });
-    let redaction_valid = redaction_refs(receipt)
-        .iter()
-        .all(|reference| context.verified_redaction_refs.contains(&reference.uri));
+    let redaction_valid = redaction_refs(receipt).iter().all(|reference| {
+        context
+            .verified_redaction_refs
+            .contains(reference.uri.as_str())
+    });
     let hash_commitments_valid = hash_commitments(receipt).iter().all(|commitment| {
         context
             .verified_hash_commitments

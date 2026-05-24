@@ -1095,7 +1095,7 @@ mod tests {
     fn reference(reference_type: ReferenceType, uri: &str) -> Reference {
         Reference {
             reference_type,
-            uri: uri.to_owned(),
+            uri: uri.to_owned().into(),
             provider: None,
             locator: None,
             label: None,

@@ -1,0 +1,328 @@
+//! Type-driven JSON Schema for runx contracts (Phase 1 of
+//! `rust-contract-pipeline-inversion`).
+//!
+//! A contract type that derives [`RunxSchema`] emits its own wire-compatible
+//! JSON Schema document, so the Rust type is the single source of truth and the
+//! hand-mirrored TypeBox schemas can be deleted. The emitted document
+//! reproduces the committed shape: fully inlined, closed string enums as
+//! `anyOf` of `const`, `additionalProperties: false`, and the `$id` /
+//! `x-runx-schema` identity.
+
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value, json};
+
+pub use runx_contracts_derive::RunxSchema;
+
+/// A type that can emit its own JSON Schema document.
+pub trait RunxSchema {
+    /// The inlined JSON Schema for this type.
+    fn json_schema() -> Value;
+}
+
+/// One object property: its wire name, schema, and whether it is required.
+pub struct Property {
+    pub name: &'static str,
+    pub schema: Value,
+    pub required: bool,
+}
+
+impl Property {
+    pub fn new(name: &'static str, schema: Value, required: bool) -> Self {
+        Self {
+            name,
+            schema,
+            required,
+        }
+    }
+}
+
+/// Assemble an object schema in the committed shape. When `identity` is set the
+/// document carries the `$schema` / `$id` / `x-runx-schema` envelope of a
+/// top-level contract; nested objects pass `None`.
+pub fn object_schema(
+    properties: Vec<Property>,
+    deny_unknown: bool,
+    identity: Option<&str>,
+) -> Value {
+    let mut required: Vec<Value> = Vec::new();
+    let mut props = Map::new();
+    for property in properties {
+        if property.required {
+            required.push(Value::String(property.name.to_owned()));
+        }
+        props.insert(property.name.to_owned(), property.schema);
+    }
+
+    let mut schema = Map::new();
+    if let Some(logical) = identity {
+        schema.insert(
+            "$schema".to_owned(),
+            json!("https://json-schema.org/draft/2020-12/schema"),
+        );
+        schema.insert("$id".to_owned(), json!(schema_id_url(logical)));
+        schema.insert("x-runx-schema".to_owned(), json!(logical));
+        // Every top-level contract carries an optional `schema` discriminant
+        // whose const equals its logical name. Emit it from the identity so no
+        // type needs a redundant marker field.
+        props
+            .entry("schema".to_owned())
+            .or_insert_with(|| const_string(logical));
+    }
+    schema.insert("additionalProperties".to_owned(), json!(!deny_unknown));
+    schema.insert("type".to_owned(), json!("object"));
+    if !required.is_empty() {
+        schema.insert("required".to_owned(), Value::Array(required));
+    }
+    schema.insert("properties".to_owned(), Value::Object(props));
+    Value::Object(schema)
+}
+
+/// A closed string enum rendered as `anyOf` of `const` leaves, the committed
+/// shape (the schemas never use JSON Schema `enum`).
+pub fn string_enum(variants: &[&str]) -> Value {
+    let any_of: Vec<Value> = variants
+        .iter()
+        .map(|variant| const_string(variant))
+        .collect();
+    json!({ "anyOf": any_of })
+}
+
+/// A single string literal leaf: `{ "const": <s>, "type": "string" }`.
+pub fn const_string(value: &str) -> Value {
+    json!({ "const": value, "type": "string" })
+}
+
+/// Map a logical schema name (`runx.reference.v1`) to its canonical `$id` URL
+/// (`https://schemas.runx.dev/runx/reference/v1.json`).
+pub fn schema_id_url(logical: &str) -> String {
+    format!(
+        "https://schemas.runx.dev/{}.json",
+        logical.replace('.', "/")
+    )
+}
+
+impl RunxSchema for String {
+    fn json_schema() -> Value {
+        json!({ "type": "string" })
+    }
+}
+
+impl RunxSchema for bool {
+    fn json_schema() -> Value {
+        json!({ "type": "boolean" })
+    }
+}
+
+impl RunxSchema for f64 {
+    fn json_schema() -> Value {
+        json!({ "type": "number" })
+    }
+}
+
+macro_rules! integer_schema {
+    ($($ty:ty),+) => {
+        $(impl RunxSchema for $ty {
+            fn json_schema() -> Value {
+                json!({ "type": "integer" })
+            }
+        })+
+    };
+}
+integer_schema!(i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
+
+impl<T: RunxSchema> RunxSchema for Vec<T> {
+    fn json_schema() -> Value {
+        json!({ "type": "array", "items": T::json_schema() })
+    }
+}
+
+impl<T: RunxSchema> RunxSchema for Option<T> {
+    fn json_schema() -> Value {
+        T::json_schema()
+    }
+}
+
+impl<T: RunxSchema> RunxSchema for BTreeMap<String, T> {
+    fn json_schema() -> Value {
+        json!({ "type": "object", "additionalProperties": T::json_schema() })
+    }
+}
+
+/// A non-empty string (`minLength: 1`), the ubiquitous contract constraint. It
+/// validates on deserialization so an empty value cannot cross the wire
+/// boundary, and emits `{ minLength: 1, type: string }`.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[serde(transparent)]
+pub struct NonEmptyString(String);
+
+impl NonEmptyString {
+    /// Construct from any string-like, returning `None` for an empty value.
+    pub fn new(value: impl Into<String>) -> Option<Self> {
+        let value = value.into();
+        if value.is_empty() {
+            None
+        } else {
+            Some(Self(value))
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+// Infallible wraps for ergonomics: the wire-in guarantee (non-empty) is
+// enforced on deserialization, where untrusted input crosses the boundary.
+impl From<String> for NonEmptyString {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+impl From<&str> for NonEmptyString {
+    fn from(value: &str) -> Self {
+        Self(value.to_owned())
+    }
+}
+
+impl PartialEq<String> for NonEmptyString {
+    fn eq(&self, other: &String) -> bool {
+        &self.0 == other
+    }
+}
+
+impl PartialEq<&str> for NonEmptyString {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<NonEmptyString> for String {
+    fn eq(&self, other: &NonEmptyString) -> bool {
+        self == &other.0
+    }
+}
+
+impl PartialEq<NonEmptyString> for str {
+    fn eq(&self, other: &NonEmptyString) -> bool {
+        self == other.0.as_str()
+    }
+}
+
+impl std::ops::Deref for NonEmptyString {
+    type Target = str;
+    fn deref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl AsRef<str> for NonEmptyString {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for NonEmptyString {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl PartialEq<str> for NonEmptyString {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
+
+impl<'de> Deserialize<'de> for NonEmptyString {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::new(value).ok_or_else(|| serde::de::Error::custom("string must be non-empty"))
+    }
+}
+
+impl RunxSchema for NonEmptyString {
+    fn json_schema() -> Value {
+        json!({ "minLength": 1, "type": "string" })
+    }
+}
+
+/// The ISO-8601 datetime pattern the contracts commit to (`...Z`, optional
+/// fractional seconds).
+pub const ISO_DATETIME_PATTERN: &str = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$";
+
+/// A non-empty ISO-8601 datetime string. Emits `{ minLength: 1, pattern, type }`.
+/// Validation of the pattern itself stays at the schema layer (the wire
+/// contract); this newtype only guarantees non-emptiness in Rust.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[serde(transparent)]
+pub struct IsoDateTime(String);
+
+impl IsoDateTime {
+    pub fn new(value: impl Into<String>) -> Option<Self> {
+        let value = value.into();
+        if value.is_empty() {
+            None
+        } else {
+            Some(Self(value))
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl From<String> for IsoDateTime {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+impl From<&str> for IsoDateTime {
+    fn from(value: &str) -> Self {
+        Self(value.to_owned())
+    }
+}
+
+impl std::ops::Deref for IsoDateTime {
+    type Target = str;
+    fn deref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for IsoDateTime {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for IsoDateTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::new(value).ok_or_else(|| serde::de::Error::custom("datetime must be non-empty"))
+    }
+}
+
+impl RunxSchema for IsoDateTime {
+    fn json_schema() -> Value {
+        json!({ "minLength": 1, "pattern": ISO_DATETIME_PATTERN, "type": "string" })
+    }
+}

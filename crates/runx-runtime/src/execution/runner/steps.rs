@@ -215,7 +215,7 @@ where
         graph_dir,
         &PaymentStepStateInput {
             idempotency_key: payment.idempotency_key.clone(),
-            spend_capability_ref: payment.spend_capability_ref.uri.clone(),
+            spend_capability_ref: payment.spend_capability_ref.uri.clone().into_string(),
             rail: payment.rail.clone(),
             counterparty: payment.counterparty.clone(),
             amount_minor: payment.amount_minor,

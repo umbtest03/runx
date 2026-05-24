@@ -1,7 +1,9 @@
 //! Reference contracts: typed references to receipts, acts, and external surfaces.
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+use crate::schema::{IsoDateTime, NonEmptyString, RunxSchema};
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReferenceType {
     GithubIssue,
@@ -83,33 +85,34 @@ impl ReferenceType {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ProofKind {
     PaymentRail,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.reference.v1")]
 pub struct Reference {
     #[serde(rename = "type")]
     pub reference_type: ReferenceType,
-    pub uri: String,
+    pub uri: NonEmptyString,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub provider: Option<String>,
+    pub provider: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub locator: Option<String>,
+    pub locator: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub label: Option<String>,
+    pub label: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub observed_at: Option<String>,
+    pub observed_at: Option<IsoDateTime>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_kind: Option<ProofKind>,
 }
 
 impl Reference {
     /// A reference to an explicit URI, with no provider/locator/label/proof.
-    pub fn with_uri(reference_type: ReferenceType, uri: impl Into<String>) -> Self {
+    pub fn with_uri(reference_type: ReferenceType, uri: impl Into<NonEmptyString>) -> Self {
         Self {
             reference_type,
             uri: uri.into(),

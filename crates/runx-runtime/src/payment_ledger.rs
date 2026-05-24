@@ -643,7 +643,10 @@ fn evidence_refs(evidence: &[PaymentLedgerEvidence<'_>]) -> Vec<String> {
             PaymentLedgerEvidencePacket::RailSettlement(_)
                 | PaymentLedgerEvidencePacket::Refusal(_)
         ) {
-            push_unique(&mut refs, evidence.receipt.subject.reference.uri.clone());
+            push_unique(
+                &mut refs,
+                evidence.receipt.subject.reference.uri.clone().into_string(),
+            );
             push_unique(&mut refs, receipt_ref(evidence.receipt));
         }
     }

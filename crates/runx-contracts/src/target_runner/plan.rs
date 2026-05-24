@@ -166,19 +166,19 @@ pub fn plan_target_repo_runner_dedupe_lookup(
 ) -> TargetRepoRunnerDedupeLookupPlan {
     let source_issue_ref = plan.source.issue_url.as_ref().map(|issue_url| Reference {
         reference_type: ReferenceType::GithubIssue,
-        uri: issue_url.clone(),
-        provider: Some(plan.source.provider.to_string()),
-        locator: Some(plan.source.locator.clone()),
-        label: Some("source issue".to_owned()),
+        uri: issue_url.clone().into(),
+        provider: Some(plan.source.provider.to_string().into()),
+        locator: Some(plan.source.locator.clone().into()),
+        label: Some("source issue".to_owned().into()),
         observed_at: None,
         proof_kind: None,
     });
     let source_thread_ref = Reference {
         reference_type: source_thread_reference_type(plan.source.provider),
-        uri: plan.source_thread.locator.clone(),
-        provider: Some(plan.source.provider.to_string()),
-        locator: Some(plan.source_thread.locator.clone()),
-        label: Some("source thread".to_owned()),
+        uri: plan.source_thread.locator.clone().into(),
+        provider: Some(plan.source.provider.to_string().into()),
+        locator: Some(plan.source_thread.locator.clone().into()),
+        label: Some("source thread".to_owned().into()),
         observed_at: None,
         proof_kind: None,
     };
@@ -432,10 +432,10 @@ fn source_thread_reference_type(provider: OperationalPolicySourceProvider) -> Re
 fn source_issue_ref(plan: &TargetRepoRunnerPlan) -> Option<Reference> {
     plan.source.issue_url.as_ref().map(|issue_url| Reference {
         reference_type: ReferenceType::GithubIssue,
-        uri: issue_url.clone(),
-        provider: Some("github".to_owned()),
-        locator: Some(github_issue_locator(issue_url)),
-        label: Some("source issue".to_owned()),
+        uri: issue_url.clone().into(),
+        provider: Some("github".to_owned().into()),
+        locator: Some(github_issue_locator(issue_url).into()),
+        label: Some("source issue".to_owned().into()),
         observed_at: None,
         proof_kind: None,
     })
@@ -458,10 +458,10 @@ fn github_issue_locator(issue_url: &str) -> String {
 fn source_thread_ref(plan: &TargetRepoRunnerPlan) -> Reference {
     Reference {
         reference_type: source_thread_reference_type(plan.source.provider),
-        uri: plan.source_thread.locator.clone(),
-        provider: Some(plan.source.provider.to_string()),
-        locator: Some(plan.source_thread.locator.clone()),
-        label: Some("source thread".to_owned()),
+        uri: plan.source_thread.locator.clone().into(),
+        provider: Some(plan.source.provider.to_string().into()),
+        locator: Some(plan.source_thread.locator.clone().into()),
+        label: Some("source thread".to_owned().into()),
         observed_at: None,
         proof_kind: None,
     }
@@ -470,10 +470,10 @@ fn source_thread_ref(plan: &TargetRepoRunnerPlan) -> Reference {
 fn target_repo_ref(repo: &str) -> Reference {
     Reference {
         reference_type: ReferenceType::GithubRepo,
-        uri: format!("https://github.com/{repo}"),
-        provider: Some("github".to_owned()),
-        locator: Some(repo.to_owned()),
-        label: Some("target repo".to_owned()),
+        uri: format!("https://github.com/{repo}").into(),
+        provider: Some("github".to_owned().into()),
+        locator: Some(repo.to_owned().into()),
+        label: Some("target repo".to_owned().into()),
         observed_at: None,
         proof_kind: None,
     }
@@ -482,10 +482,12 @@ fn target_repo_ref(repo: &str) -> Reference {
 fn pull_request_ref(repo: &str, pull_request: &TargetRepoRunnerExistingPullRequest) -> Reference {
     Reference {
         reference_type: ReferenceType::GithubPullRequest,
-        uri: pull_request.url.clone(),
-        provider: Some("github".to_owned()),
-        locator: pull_request.number.map(|number| format!("{repo}#{number}")),
-        label: Some("target pull request".to_owned()),
+        uri: pull_request.url.clone().into(),
+        provider: Some("github".to_owned().into()),
+        locator: pull_request
+            .number
+            .map(|number| format!("{repo}#{number}").into()),
+        label: Some("target pull request".to_owned().into()),
         observed_at: None,
         proof_kind: None,
     }
@@ -541,7 +543,7 @@ fn source_publication_receipt_metadata(
     metadata.insert("target_repo".to_owned(), string(plan.target.repo.clone()));
     metadata.insert(
         "target_pull_request_url".to_owned(),
-        string(pull_request_ref.uri.clone()),
+        string(pull_request_ref.uri.clone().into_string()),
     );
     metadata.insert(
         "dedupe".to_owned(),
@@ -605,11 +607,14 @@ fn source_metadata(
 ) -> JsonObject {
     let mut metadata = JsonObject::new();
     if let Some(source_issue_ref) = source_issue_ref {
-        metadata.insert("issue_url".to_owned(), string(source_issue_ref.uri.clone()));
+        metadata.insert(
+            "issue_url".to_owned(),
+            string(source_issue_ref.uri.clone().into_string()),
+        );
     }
     metadata.insert(
         "thread_uri".to_owned(),
-        string(source_thread_ref.uri.clone()),
+        string(source_thread_ref.uri.clone().into_string()),
     );
     metadata
 }

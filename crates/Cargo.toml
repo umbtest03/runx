@@ -4,6 +4,7 @@ members = [
     "runx-contracts",
     "runx-core",
     "runx-parser",
+    "runx-contracts-derive",
     "runx-receipts",
     "runx-runtime",
     "runx-sdk",
@@ -12,6 +13,7 @@ resolver = "3"
 
 [workspace.dependencies]
 runx-contracts = { path = "runx-contracts", version = "0.0.2" }
+runx-contracts-derive = { path = "runx-contracts-derive", version = "0.0.1" }
 runx-core = { path = "runx-core", version = "0.0.2" }
 runx-parser = { path = "runx-parser", version = "0.0.2" }
 runx-receipts = { path = "runx-receipts", version = "0.0.1" }

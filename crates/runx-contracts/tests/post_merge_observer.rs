@@ -450,7 +450,7 @@ fn webhook_command_rejects_non_github_delivery_provider_before_provider_readback
 -> Result<(), Box<dyn std::error::Error>> {
     let policy = nitrosend_policy()?;
     let mut signal_ref = webhook_delivery_ref();
-    signal_ref.provider = Some("slack".to_owned());
+    signal_ref.provider = Some("slack".to_owned().into());
     let request = observer_command_request(
         PostMergeObserverSignalSource::Webhook,
         Some(signal_ref),
@@ -748,10 +748,10 @@ fn observer_command_request(
 fn source_issue_ref() -> Reference {
     Reference {
         reference_type: ReferenceType::GithubIssue,
-        uri: "github://nitrosend/nitrosend/issues/482".to_owned(),
-        provider: Some("github".to_owned()),
-        locator: Some("nitrosend/nitrosend#482".to_owned()),
-        label: Some("Nitrosend source issue".to_owned()),
+        uri: "github://nitrosend/nitrosend/issues/482".to_owned().into(),
+        provider: Some("github".to_owned().into()),
+        locator: Some("nitrosend/nitrosend#482".to_owned().into()),
+        label: Some("Nitrosend source issue".to_owned().into()),
         observed_at: None,
         proof_kind: None,
     }
@@ -760,10 +760,10 @@ fn source_issue_ref() -> Reference {
 fn pull_request_ref() -> Reference {
     Reference {
         reference_type: ReferenceType::GithubPullRequest,
-        uri: "github://nitrosend/api/pulls/144".to_owned(),
-        provider: Some("github".to_owned()),
-        locator: Some("nitrosend/api#144".to_owned()),
-        label: Some("Nitrosend target PR".to_owned()),
+        uri: "github://nitrosend/api/pulls/144".to_owned().into(),
+        provider: Some("github".to_owned().into()),
+        locator: Some("nitrosend/api#144".to_owned().into()),
+        label: Some("Nitrosend target PR".to_owned().into()),
         observed_at: None,
         proof_kind: None,
     }
@@ -772,10 +772,12 @@ fn pull_request_ref() -> Reference {
 fn source_thread_ref() -> Reference {
     Reference {
         reference_type: ReferenceType::SlackThread,
-        uri: "slack://nitrosend/C0APFMY0V8Q/p1778834840.485629".to_owned(),
-        provider: Some("slack".to_owned()),
-        locator: Some("nitrosend/C0APFMY0V8Q/1778834840.485629".to_owned()),
-        label: Some("Nitrosend source thread".to_owned()),
+        uri: "slack://nitrosend/C0APFMY0V8Q/p1778834840.485629"
+            .to_owned()
+            .into(),
+        provider: Some("slack".to_owned().into()),
+        locator: Some("nitrosend/C0APFMY0V8Q/1778834840.485629".to_owned().into()),
+        label: Some("Nitrosend source thread".to_owned().into()),
         observed_at: None,
         proof_kind: None,
     }
@@ -784,11 +786,11 @@ fn source_thread_ref() -> Reference {
 fn webhook_delivery_ref() -> Reference {
     Reference {
         reference_type: ReferenceType::WebhookDelivery,
-        uri: "github://webhook-deliveries/evt_01HX".to_owned(),
-        provider: Some("github".to_owned()),
-        locator: Some("nitrosend/api/delivery/evt_01HX".to_owned()),
-        label: Some("GitHub pull_request webhook delivery".to_owned()),
-        observed_at: Some("2026-05-20T05:20:00Z".to_owned()),
+        uri: "github://webhook-deliveries/evt_01HX".to_owned().into(),
+        provider: Some("github".to_owned().into()),
+        locator: Some("nitrosend/api/delivery/evt_01HX".to_owned().into()),
+        label: Some("GitHub pull_request webhook delivery".to_owned().into()),
+        observed_at: Some("2026-05-20T05:20:00Z".to_owned().into()),
         proof_kind: None,
     }
 }
@@ -796,10 +798,10 @@ fn webhook_delivery_ref() -> Reference {
 fn reference(reference_type: ReferenceType, uri: &str, label: &str) -> Reference {
     Reference {
         reference_type,
-        uri: uri.to_owned(),
+        uri: uri.to_owned().into(),
         provider: None,
         locator: None,
-        label: Some(label.to_owned()),
+        label: Some(label.to_owned().into()),
         observed_at: None,
         proof_kind: None,
     }

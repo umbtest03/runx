@@ -329,7 +329,7 @@ fn contract_profile(
             .collect(),
         redaction_policy_ref: runx_contracts::Reference {
             reference_type: runx_contracts::ReferenceType::RedactionPolicy,
-            uri: "runx:redaction-policy:credentials-v1".to_owned(),
+            uri: "runx:redaction-policy:credentials-v1".to_owned().into(),
             provider: None,
             locator: None,
             label: None,

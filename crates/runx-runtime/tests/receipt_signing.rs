@@ -75,7 +75,7 @@ fn production_graph_receipt_resigns_children_and_verifies_tree() -> Result<(), B
             .as_ref()
             .and_then(|l| l.parent.as_ref())
             .map(|r| r.uri.clone()),
-        Some(format!("runx:receipt:{}", graph.id))
+        Some(format!("runx:receipt:{}", graph.id).into())
     );
     assert!(
         runx_runtime::receipt_tree::validate_runtime_receipt_tree_with_policy(

@@ -52,7 +52,7 @@ fn runtime_resolver_verifies_graph_receipt_with_children() -> Result<(), Box<dyn
 #[test]
 fn runtime_tree_rejects_legacy_exact_id_child_ref() -> Result<(), Box<dyn std::error::Error>> {
     let (mut root, children) = graph_with_steps("tree_runtime_exact", &["child"])?;
-    root.lineage.as_mut().unwrap().children[0].uri = children[0].id.clone();
+    root.lineage.as_mut().unwrap().children[0].uri = children[0].id.clone().into();
     refresh_local_digest_and_signature(&mut root)?;
 
     let verification = verify_runtime_receipt_tree(&root, children, ReceiptTreeConfig::default());

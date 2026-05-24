@@ -233,7 +233,7 @@ fn child_receipt_refs(receipt: &Receipt) -> Vec<String> {
             lineage
                 .children
                 .iter()
-                .map(|reference| reference.uri.clone())
+                .map(|reference| reference.uri.clone().into_string())
                 .collect()
         })
         .unwrap_or_default()

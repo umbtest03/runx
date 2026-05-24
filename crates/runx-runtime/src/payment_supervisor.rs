@@ -547,19 +547,19 @@ mod tests {
     fn payment_rail_proof_matching_uses_typed_kind_not_label() {
         let typed_ref = Reference {
             reference_type: ReferenceType::Verification,
-            uri: "receipt-proof:mock:typed".to_owned(),
+            uri: "receipt-proof:mock:typed".to_owned().into(),
             provider: None,
             locator: None,
-            label: Some("human display text".to_owned()),
+            label: Some("human display text".to_owned().into()),
             observed_at: None,
             proof_kind: Some(ProofKind::PaymentRail),
         };
         let label_only_ref = Reference {
             reference_type: ReferenceType::Verification,
-            uri: "receipt-proof:mock:label-only".to_owned(),
+            uri: "receipt-proof:mock:label-only".to_owned().into(),
             provider: None,
             locator: None,
-            label: Some("payment rail proof".to_owned()),
+            label: Some("payment rail proof".to_owned().into()),
             observed_at: None,
             proof_kind: None,
         };

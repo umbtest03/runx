@@ -532,11 +532,11 @@ fn output_refs(output: &SkillOutput) -> OutputRefs {
     let mut refs = OutputRefs::default();
     if let Some(request_id) = string_field(&output.metadata, "agent_request_id") {
         refs.source_refs.push(Reference {
-            uri: format!("runx:agent_act:{request_id}"),
+            uri: format!("runx:agent_act:{request_id}").into(),
             reference_type: ReferenceType::Act,
             provider: None,
-            locator: Some(request_id.to_owned()),
-            label: Some("agent act request".to_owned()),
+            locator: Some(request_id.to_owned().into()),
+            label: Some("agent act request".to_owned().into()),
             observed_at: None,
             proof_kind: None,
         });
@@ -627,11 +627,11 @@ fn collect_verification_ref(verification: &JsonObject, refs: &mut OutputRefs) {
 fn collect_rail_proof_ref(rail_proof: &JsonObject, refs: &mut OutputRefs) {
     if let Some(proof_ref) = string_field(rail_proof, "proof_ref") {
         refs.verification_refs.push(Reference {
-            uri: proof_ref.to_owned(),
+            uri: proof_ref.to_owned().into(),
             reference_type: ReferenceType::Verification,
             provider: None,
-            locator: string_field(rail_proof, "idempotency_key").map(str::to_owned),
-            label: Some("payment rail proof".to_owned()),
+            locator: string_field(rail_proof, "idempotency_key").map(|s| s.to_owned().into()),
+            label: Some("payment rail proof".to_owned().into()),
             observed_at: None,
             proof_kind: Some(ProofKind::PaymentRail),
         });
@@ -641,11 +641,11 @@ fn collect_rail_proof_ref(rail_proof: &JsonObject, refs: &mut OutputRefs) {
 fn collect_credential_ref(credential_envelope: &JsonObject, refs: &mut OutputRefs) {
     if let Some(credential_ref) = string_field(credential_envelope, "credential_ref") {
         refs.source_refs.push(Reference {
-            uri: credential_ref.to_owned(),
+            uri: credential_ref.to_owned().into(),
             reference_type: ReferenceType::Credential,
             provider: None,
             locator: None,
-            label: Some("scoped payment credential".to_owned()),
+            label: Some("scoped payment credential".to_owned().into()),
             observed_at: None,
             proof_kind: None,
         });
@@ -660,11 +660,11 @@ fn source_event_ref(value: &JsonValue) -> Option<Reference> {
         string_field(event, "source_locator").or_else(|| string_field(event, "thread_locator"))?;
     let provider = string_field(event, "provider");
     Some(Reference {
-        uri: locator.to_owned(),
+        uri: locator.to_owned().into(),
         reference_type: source_reference_type(provider),
-        provider: provider.map(str::to_owned),
-        locator: Some(locator.to_owned()),
-        label: string_field(event, "title").map(str::to_owned),
+        provider: provider.map(|s| s.to_owned().into()),
+        locator: Some(locator.to_owned().into()),
+        label: string_field(event, "title").map(|s| s.to_owned().into()),
         observed_at: None,
         proof_kind: None,
     })
@@ -727,7 +727,7 @@ fn output_summary(output: &SkillOutput) -> String {
 
 fn child_receipt_reference(receipt: &Receipt) -> Reference {
     Reference {
-        locator: Some(receipt.digest.clone()),
+        locator: Some(receipt.digest.clone().into()),
         ..Reference::runx(ReferenceType::Receipt, &receipt.id)
     }
 }

@@ -677,7 +677,7 @@ fn set_artifact_label(
         .flat_map(|act| act.artifact_refs.iter_mut())
     {
         if reference.reference_type == ReferenceType::Artifact {
-            reference.label = Some(label.to_owned());
+            reference.label = Some(label.to_owned().into());
         }
     }
     reseal_receipt(receipt)?;

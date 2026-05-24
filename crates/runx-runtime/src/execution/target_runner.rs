@@ -482,10 +482,10 @@ pub fn target_repo_runner_checkout_command(
         target_repo: plan.target.repo.clone(),
         public_repo_ref: Reference {
             reference_type: ReferenceType::GithubRepo,
-            uri: format!("https://github.com/{}", plan.target.repo),
-            provider: Some("github".to_owned()),
-            locator: Some(plan.target.repo.clone()),
-            label: Some("target repo".to_owned()),
+            uri: format!("https://github.com/{}", plan.target.repo).into(),
+            provider: Some("github".to_owned().into()),
+            locator: Some(plan.target.repo.clone().into()),
+            label: Some("target repo".to_owned().into()),
             observed_at: None,
             proof_kind: None,
         },
@@ -2048,7 +2048,7 @@ fn source_publication_receipt_metadata(
     );
     target_runner.insert(
         "revision_receipt".to_owned(),
-        JsonValue::String(request.revision_receipt_ref.uri.clone()),
+        JsonValue::String(request.revision_receipt_ref.uri.clone().into_string()),
     );
     target_runner.insert(
         "command_count".to_owned(),
@@ -2061,7 +2061,7 @@ fn source_publication_receipt_metadata(
             observation
                 .published_refs
                 .iter()
-                .map(|reference| JsonValue::String(reference.uri.clone()))
+                .map(|reference| JsonValue::String(reference.uri.clone().into_string()))
                 .collect(),
         ),
     );

@@ -118,10 +118,10 @@ pub fn plan_post_merge_observer_runtime_dedupe(
         .is_some_and(|reference| reference.uri == format!("runx:receipt:{receipt_id}"));
     let receipt_ref = existing_receipt_ref.unwrap_or_else(|| Reference {
         reference_type: ReferenceType::Receipt,
-        uri: format!("runx:receipt:{receipt_id}"),
+        uri: format!("runx:receipt:{receipt_id}").into(),
         provider: None,
-        locator: Some(plan.idempotency.content_hash.clone()),
-        label: Some("post-merge observer harness receipt".to_owned()),
+        locator: Some(plan.idempotency.content_hash.clone().into()),
+        label: Some("post-merge observer harness receipt".into()),
         observed_at: None,
         proof_kind: None,
     });
@@ -287,11 +287,11 @@ fn receipt_metadata_string<'a>(receipt: &'a Receipt, path: &[&str]) -> Option<&'
 fn receipt_ref(receipt: &Receipt) -> Reference {
     Reference {
         reference_type: ReferenceType::Receipt,
-        uri: format!("runx:receipt:{}", receipt.id),
+        uri: format!("runx:receipt:{}", receipt.id).into(),
         provider: None,
-        locator: Some(receipt.digest.clone()),
-        label: Some("sealed post-merge observer receipt".to_owned()),
-        observed_at: Some(receipt.seal.closed_at.clone()),
+        locator: Some(receipt.digest.clone().into()),
+        label: Some("sealed post-merge observer receipt".to_owned().into()),
+        observed_at: Some(receipt.seal.closed_at.clone().into()),
         proof_kind: None,
     }
 }
@@ -828,11 +828,11 @@ fn content_hash_material(
 fn pull_request_ref(observation: &PostMergePullRequestObservation) -> Reference {
     Reference {
         reference_type: ReferenceType::GithubPullRequest,
-        uri: observation.uri.clone(),
-        provider: Some(provider_name(observation.provider).to_owned()),
-        locator: Some(format!("{}#{}", observation.repo, observation.number)),
-        label: Some("observed pull request".to_owned()),
-        observed_at: Some(observation.observed_at.clone()),
+        uri: observation.uri.clone().into(),
+        provider: Some(provider_name(observation.provider).to_owned().into()),
+        locator: Some(format!("{}#{}", observation.repo, observation.number).into()),
+        label: Some("observed pull request".to_owned().into()),
+        observed_at: Some(observation.observed_at.clone().into()),
         proof_kind: None,
     }
 }

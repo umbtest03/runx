@@ -329,24 +329,24 @@ fn post_merge_receipt() -> Receipt {
         "post-merge:github://runxhq/nitrosend/issues/77:github://runxhq/nitrosend/pulls/188"
             .to_owned();
     let issue_ref = Reference {
-        provider: Some("github".to_owned()),
-        locator: Some("runxhq/nitrosend#77".to_owned()),
+        provider: Some("github".to_owned().into()),
+        locator: Some("runxhq/nitrosend#77".to_owned().into()),
         ..Reference::with_uri(
             ReferenceType::GithubIssue,
             "github://runxhq/nitrosend/issues/77",
         )
     };
     let pr_ref = Reference {
-        provider: Some("github".to_owned()),
-        locator: Some("runxhq/nitrosend!188".to_owned()),
+        provider: Some("github".to_owned().into()),
+        locator: Some("runxhq/nitrosend!188".to_owned().into()),
         ..Reference::with_uri(
             ReferenceType::GithubPullRequest,
             "github://runxhq/nitrosend/pulls/188",
         )
     };
     let slack_ref = Reference {
-        provider: Some("slack".to_owned()),
-        locator: Some("team/channel/1700000000.0001".to_owned()),
+        provider: Some("slack".to_owned().into()),
+        locator: Some("team/channel/1700000000.0001".to_owned().into()),
         ..Reference::with_uri(
             ReferenceType::SlackThread,
             "slack://team/channel/1700000000.0001",

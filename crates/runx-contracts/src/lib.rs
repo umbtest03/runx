@@ -1,5 +1,9 @@
 //! Shared Rust contract types for runx JSON and protocol boundaries.
 
+// Lets the `#[derive(RunxSchema)]` output reference `::runx_contracts::schema`
+// from inside this crate, the same way serde_derive references `::serde`.
+extern crate self as runx_contracts;
+
 pub mod act;
 pub mod act_assignment;
 pub mod artifact;
@@ -23,6 +27,7 @@ pub mod receipts;
 pub mod redaction;
 pub mod reference;
 pub mod registry;
+pub mod schema;
 pub mod signal;
 pub mod target_runner;
 pub mod thread_outbox_provider;

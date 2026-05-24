@@ -607,7 +607,7 @@ mod tests {
         let mut root = fixture(SUCCESS_RECEIPT)?;
         let child = child("hrn_rcpt_child_1")?;
 
-        child_refs_mut(&mut root)[0].uri = "hrn_rcpt_child_1".to_owned();
+        child_refs_mut(&mut root)[0].uri = "hrn_rcpt_child_1".to_owned().into();
         let verification = verify_receipt_tree(&root, std::slice::from_ref(&child));
         assert_finding(
             &verification,
@@ -615,7 +615,7 @@ mod tests {
             "lineage.children[0]",
         );
 
-        child_refs_mut(&mut root)[0].uri = "runx:receipt:hrn_rcpt_child_1".to_owned();
+        child_refs_mut(&mut root)[0].uri = "runx:receipt:hrn_rcpt_child_1".to_owned().into();
         assert!(verify_receipt_tree(&root, &[child]).valid);
         Ok(())
     }
@@ -625,7 +625,7 @@ mod tests {
         let mut root = fixture(SUCCESS_RECEIPT)?;
         let child = child("hrn_rcpt_child_1")?;
 
-        child_refs_mut(&mut root)[0].uri = "runx:graph_receipt:hrn_rcpt_child_1".to_owned();
+        child_refs_mut(&mut root)[0].uri = "runx:graph_receipt:hrn_rcpt_child_1".to_owned().into();
         let verification = verify_receipt_tree(&root, std::slice::from_ref(&child));
         assert_finding(
             &verification,
@@ -633,7 +633,7 @@ mod tests {
             "lineage.children[0]",
         );
 
-        child_refs_mut(&mut root)[0].uri = ":hrn_rcpt_child_1".to_owned();
+        child_refs_mut(&mut root)[0].uri = ":hrn_rcpt_child_1".to_owned().into();
         let verification = verify_receipt_tree(&root, &[child]);
         assert_finding(
             &verification,
@@ -646,7 +646,7 @@ mod tests {
     #[test]
     fn suffix_only_refs_are_malformed_not_aliases() -> Result<(), serde_json::Error> {
         let mut root = fixture(SUCCESS_RECEIPT)?;
-        child_refs_mut(&mut root)[0].uri = "child_1".to_owned();
+        child_refs_mut(&mut root)[0].uri = "child_1".to_owned().into();
         let child = child("hrn_rcpt_child_1")?;
 
         let verification = verify_receipt_tree(&root, &[child]);
@@ -914,7 +914,7 @@ mod tests {
         let mut root = proof_root()?;
         let child = proof_child("hrn_rcpt_child_1")?;
         link_child_digest(&mut root, 0, &child)?;
-        child_refs_mut(&mut root)[0].uri = child.id.clone();
+        child_refs_mut(&mut root)[0].uri = child.id.clone().into();
         refresh_proof_digest_and_signature(&mut root)?;
         let proof_contexts = FixtureProofContexts::default();
 
@@ -1037,8 +1037,8 @@ mod tests {
             reference(ReferenceType::Receipt, "first"),
             reference(ReferenceType::Receipt, "second"),
         ];
-        child_refs_mut(&mut root)[0].locator = Some(first.digest.clone());
-        child_refs_mut(&mut root)[1].locator = Some(second.digest.clone());
+        child_refs_mut(&mut root)[0].locator = Some(first.digest.clone().into());
+        child_refs_mut(&mut root)[1].locator = Some(second.digest.clone().into());
         refresh_proof_digest_and_signature(&mut root)?;
         second.acts[0].summary = "hidden duplicate-id tamper".to_owned();
         let resolver = DuplicateIdResolver {
@@ -1108,7 +1108,7 @@ mod tests {
         index: usize,
         child: &Receipt,
     ) -> Result<(), serde_json::Error> {
-        child_refs_mut(root)[index].locator = Some(child.digest.clone());
+        child_refs_mut(root)[index].locator = Some(child.digest.clone().into());
         refresh_proof_digest_and_signature(root)
     }
 

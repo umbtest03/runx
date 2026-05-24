@@ -1133,32 +1133,32 @@ impl TargetRepoRunnerAdapter for FakeTargetRepoRunnerAdapter {
             summary: "Fake governed target runner prepared a branch for review.".to_owned(),
             revision_refs: vec![Reference {
                 reference_type: ReferenceType::GithubPullRequest,
-                uri: self.created_pull_request.url.clone(),
-                provider: Some("github".to_owned()),
+                uri: self.created_pull_request.url.clone().into(),
+                provider: Some("github".to_owned().into()),
                 locator: self
                     .created_pull_request
                     .number
-                    .map(|number| format!("nitrosend/api#{number}")),
-                label: Some("Nitrosend API target PR".to_owned()),
-                observed_at: Some(CREATED_AT.to_owned()),
+                    .map(|number| format!("nitrosend/api#{number}").into()),
+                label: Some("Nitrosend API target PR".to_owned().into()),
+                observed_at: Some(CREATED_AT.to_owned().into()),
                 proof_kind: None,
             }],
             artifact_refs: vec![Reference {
                 reference_type: ReferenceType::Artifact,
-                uri: "runx:artifact:target-runner-fake-diff".to_owned(),
+                uri: "runx:artifact:target-runner-fake-diff".to_owned().into(),
                 provider: None,
                 locator: None,
-                label: Some("fake sanitized diff".to_owned()),
-                observed_at: Some(CREATED_AT.to_owned()),
+                label: Some("fake sanitized diff".to_owned().into()),
+                observed_at: Some(CREATED_AT.to_owned().into()),
                 proof_kind: None,
             }],
             verification_refs: vec![Reference {
                 reference_type: ReferenceType::Verification,
-                uri: "runx:verification:target-runner-fake".to_owned(),
+                uri: "runx:verification:target-runner-fake".to_owned().into(),
                 provider: None,
                 locator: None,
-                label: Some("fake no-network verification".to_owned()),
-                observed_at: Some(CREATED_AT.to_owned()),
+                label: Some("fake no-network verification".to_owned().into()),
+                observed_at: Some(CREATED_AT.to_owned().into()),
                 proof_kind: None,
             }],
         })
@@ -1261,21 +1261,23 @@ impl TargetRepoRunnerAdapter for FakeTargetRepoRunnerAdapter {
                 Reference {
                     reference_type: ReferenceType::ExternalUrl,
                     uri: "https://github.com/nitrosend/nitrosend/issues/482#issuecomment-9001"
-                        .to_owned(),
-                    provider: Some("github".to_owned()),
-                    locator: Some("nitrosend/nitrosend#482-comment-9001".to_owned()),
-                    label: Some("source issue target PR comment".to_owned()),
-                    observed_at: Some(CREATED_AT.to_owned()),
+                        .to_owned()
+                        .into(),
+                    provider: Some("github".to_owned().into()),
+                    locator: Some("nitrosend/nitrosend#482-comment-9001".to_owned().into()),
+                    label: Some("source issue target PR comment".to_owned().into()),
+                    observed_at: Some(CREATED_AT.to_owned().into()),
                     proof_kind: None,
                 },
                 Reference {
                     reference_type: ReferenceType::SlackThread,
                     uri: "slack://nitrosend/C0APFMY0V8Q/1778834840.485629/reply/1778835000.000100"
-                        .to_owned(),
-                    provider: Some("slack".to_owned()),
-                    locator: Some("C0APFMY0V8Q/1778835000.000100".to_owned()),
-                    label: Some("source thread target PR reply".to_owned()),
-                    observed_at: Some(CREATED_AT.to_owned()),
+                        .to_owned()
+                        .into(),
+                    provider: Some("slack".to_owned().into()),
+                    locator: Some("C0APFMY0V8Q/1778835000.000100".to_owned().into()),
+                    label: Some("source thread target PR reply".to_owned().into()),
+                    observed_at: Some(CREATED_AT.to_owned().into()),
                     proof_kind: None,
                 },
             ],
@@ -1331,8 +1333,8 @@ fn assert_source_publication_commands(request: &TargetRepoRunnerSourcePublicatio
                     target.uri,
                     "https://github.com/nitrosend/nitrosend/issues/482"
                 );
-                assert!(body.contains(&request.publication.pull_request_ref.uri));
-                assert!(body.contains(&request.revision_receipt_ref.uri));
+                assert!(body.contains(request.publication.pull_request_ref.uri.as_str()));
+                assert!(body.contains(request.revision_receipt_ref.uri.as_str()));
                 assert!(body.contains("Human review remains the merge gate."));
             }
             TargetRepoRunnerSourcePublicationCommand::SourceThreadReply { target, body } => {
@@ -1341,7 +1343,7 @@ fn assert_source_publication_commands(request: &TargetRepoRunnerSourcePublicatio
                     target.uri,
                     "slack://nitrosend/C0APFMY0V8Q/1778834840.485629"
                 );
-                assert!(body.contains(&request.publication.pull_request_ref.uri));
+                assert!(body.contains(request.publication.pull_request_ref.uri.as_str()));
                 assert!(body.contains("Target repo: nitrosend/api"));
             }
         }

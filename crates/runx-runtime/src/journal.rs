@@ -298,7 +298,7 @@ pub fn project_receipt_journal_with_policy(
         event_kind: "receipt_sealed".to_owned(),
         summary: receipt.seal.summary.clone(),
         receipt_ref: Some(receipt_ref.clone()),
-        harness_ref: Some(subject_uri.clone()),
+        harness_ref: Some(subject_uri.clone().into_string()),
         act_ref: None,
         decision_ref: receipt
             .decisions
@@ -320,7 +320,7 @@ pub fn project_receipt_journal_with_policy(
             event_kind: "act_closed".to_owned(),
             summary: act.summary.clone(),
             receipt_ref: Some(receipt_ref.clone()),
-            harness_ref: Some(subject_uri.clone()),
+            harness_ref: Some(subject_uri.clone().into_string()),
             act_ref: Some(format!("runx:act:{}", act.id)),
             decision_ref: None,
             artifact_refs: reference_uris(&act.artifact_refs),
@@ -364,10 +364,10 @@ fn history_row_with_policy(
         id: receipt.id.clone(),
         receipt_ref: receipt_uri(&receipt.id),
         name: metadata_string(receipt.metadata.as_ref(), &["skill_name", "name"])
-            .unwrap_or_else(|| receipt.subject.reference.uri.clone()),
+            .unwrap_or_else(|| receipt.subject.reference.uri.clone().into_string()),
         status: disposition_status(&receipt.seal.disposition),
         created_at: receipt.created_at.clone(),
-        harness_id: receipt.subject.reference.uri.clone(),
+        harness_id: receipt.subject.reference.uri.clone().into_string(),
         harness_state: subject_state(&receipt.subject.kind, &receipt.seal.disposition),
         summary: receipt.seal.summary.clone(),
         source_type: metadata_string(receipt.metadata.as_ref(), &["source_type", "source"]),
@@ -492,7 +492,9 @@ fn receipt_watermark(receipt: &Receipt) -> String {
 }
 
 fn reference_uris(refs: &[Reference]) -> Vec<String> {
-    refs.iter().map(|reference| reference.uri.clone()).collect()
+    refs.iter()
+        .map(|reference| reference.uri.clone().into_string())
+        .collect()
 }
 
 fn artifact_types(receipt: &Receipt) -> Vec<String> {
@@ -502,11 +504,11 @@ fn artifact_types(receipt: &Receipt) -> Vec<String> {
             if let Some(label) = reference.label.as_ref().filter(|label| !label.is_empty()) {
                 types.insert(label.clone());
             } else {
-                types.insert("artifact".to_owned());
+                types.insert("artifact".to_owned().into());
             }
         }
     }
-    types.into_iter().collect()
+    types.into_iter().map(|label| label.into_string()).collect()
 }
 
 fn metadata_string(metadata: Option<&JsonObject>, keys: &[&str]) -> Option<String> {

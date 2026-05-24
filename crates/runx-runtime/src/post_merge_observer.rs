@@ -531,7 +531,7 @@ fn github_pull_request_observation_from_response(
         provider: PostMergeProvider::Github,
         repo: identity.repo.clone(),
         number: identity.number,
-        uri: request.pull_request_ref.uri.clone(),
+        uri: request.pull_request_ref.uri.clone().into_string(),
         state,
         merged: payload.merged,
         merge_sha,
@@ -879,8 +879,8 @@ fn plan_post_merge_observer_publication_commands(
     let projection = project_post_merge_observer_publication_from_receipt(sealed_receipt)?;
     if dedupe.receipt_ref.uri != projection.receipt_ref.uri {
         return Err(PostMergeObserverRuntimeError::ReceiptRefMismatch {
-            dedupe_receipt_ref: dedupe.receipt_ref.uri.clone(),
-            receipt_ref: projection.receipt_ref.uri.clone(),
+            dedupe_receipt_ref: dedupe.receipt_ref.uri.clone().into_string(),
+            receipt_ref: projection.receipt_ref.uri.clone().into_string(),
         });
     }
 
@@ -925,11 +925,11 @@ fn sealed_receipt_dedupe_plan(
         receipt_id: sealed_receipt.id.clone(),
         receipt_ref: Reference {
             reference_type: ReferenceType::Receipt,
-            uri: format!("runx:receipt:{}", sealed_receipt.id),
+            uri: format!("runx:receipt:{}", sealed_receipt.id).into(),
             provider: None,
-            locator: Some(sealed_receipt.digest.clone()),
-            label: Some("post-merge observer harness receipt".to_owned()),
-            observed_at: Some(sealed_receipt.seal.closed_at.clone()),
+            locator: Some(sealed_receipt.digest.clone().into()),
+            label: Some("post-merge observer harness receipt".to_owned().into()),
+            observed_at: Some(sealed_receipt.seal.closed_at.clone().into()),
             proof_kind: None,
         },
         publication_key: format!(

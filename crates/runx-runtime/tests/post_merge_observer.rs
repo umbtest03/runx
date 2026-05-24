@@ -644,7 +644,7 @@ fn fixture_backed_github_pr_adapter_rejects_mismatched_pull_request_readback()
         FixtureBackedGitHubPostMergeObserverAdapter::from_json_str(GITHUB_PR_OBSERVATION_FIXTURE)?;
     let mut ledger = PostMergeObserverPublicationLedger::new();
     let mut request = live_publication_request();
-    request.pull_request_ref.locator = Some("runxhq/nitrosend#189".to_owned());
+    request.pull_request_ref.locator = Some("runxhq/nitrosend#189".to_owned().into());
 
     let error = execute_post_merge_observer_with_adapter(
         &policy,
@@ -747,10 +747,10 @@ fn dedupe_plan(
         receipt_id: receipt.id.clone(),
         receipt_ref: Reference {
             reference_type: ReferenceType::Receipt,
-            uri: format!("runx:receipt:{}", receipt.id),
+            uri: format!("runx:receipt:{}", receipt.id).into(),
             provider: None,
-            locator: Some(receipt.digest.clone()),
-            label: Some("post-merge observer harness receipt".to_owned()),
+            locator: Some(receipt.digest.clone().into()),
+            label: Some("post-merge observer harness receipt".to_owned().into()),
             observed_at: None,
             proof_kind: None,
         },
@@ -830,7 +830,7 @@ impl PostMergeObserverAdapter for FakePostMergeObserverAdapter {
             provider: PostMergeProvider::Github,
             repo: "runxhq/nitrosend".to_owned(),
             number: 188,
-            uri: request.pull_request_ref.uri.clone(),
+            uri: request.pull_request_ref.uri.clone().into_string(),
             state: PostMergePullRequestState::Closed,
             merged: true,
             merge_sha: Some("9f14c0ffee1234567890abcdef1234567890abcd".to_owned()),
@@ -865,20 +865,24 @@ impl PostMergeObserverAdapter for FakePostMergeObserverAdapter {
             summary: Some("Dogfood smoke check passed from sanitized metadata.".to_owned()),
             verification_ref: Some(Reference {
                 reference_type: ReferenceType::Verification,
-                uri: "runx:verification:nitrosend-dogfood-smoke".to_owned(),
+                uri: "runx:verification:nitrosend-dogfood-smoke"
+                    .to_owned()
+                    .into(),
                 provider: None,
                 locator: None,
-                label: Some("Nitrosend dogfood smoke".to_owned()),
-                observed_at: Some(VERIFIED_AT.to_owned()),
+                label: Some("Nitrosend dogfood smoke".to_owned().into()),
+                observed_at: Some(VERIFIED_AT.to_owned().into()),
                 proof_kind: None,
             }),
             evidence_refs: vec![Reference {
                 reference_type: ReferenceType::Deployment,
-                uri: "deploy://nitrosend/dogfood/2026-05-20T04-52Z".to_owned(),
-                provider: Some("nitrosend".to_owned()),
+                uri: "deploy://nitrosend/dogfood/2026-05-20T04-52Z"
+                    .to_owned()
+                    .into(),
+                provider: Some("nitrosend".to_owned().into()),
                 locator: None,
-                label: Some("Nitrosend dogfood deploy".to_owned()),
-                observed_at: Some(VERIFIED_AT.to_owned()),
+                label: Some("Nitrosend dogfood deploy".to_owned().into()),
+                observed_at: Some(VERIFIED_AT.to_owned().into()),
                 proof_kind: None,
             }],
             verified_at: Some(VERIFIED_AT.to_owned()),
@@ -905,11 +909,13 @@ impl PostMergeObserverPublicationAdapter for FakePostMergeObserverPublisher {
         if !self.omit_issue_comment_readback {
             published_refs.push(Reference {
                 reference_type: ReferenceType::ExternalUrl,
-                uri: "https://github.com/runxhq/nitrosend/issues/77#issuecomment-9001".to_owned(),
-                provider: Some("github".to_owned()),
-                locator: Some("runxhq/nitrosend#77-comment-9001".to_owned()),
-                label: Some("post-merge source issue final comment".to_owned()),
-                observed_at: Some(VERIFIED_AT.to_owned()),
+                uri: "https://github.com/runxhq/nitrosend/issues/77#issuecomment-9001"
+                    .to_owned()
+                    .into(),
+                provider: Some("github".to_owned().into()),
+                locator: Some("runxhq/nitrosend#77-comment-9001".to_owned().into()),
+                label: Some("post-merge source issue final comment".to_owned().into()),
+                observed_at: Some(VERIFIED_AT.to_owned().into()),
                 proof_kind: None,
             });
         }
@@ -917,11 +923,12 @@ impl PostMergeObserverPublicationAdapter for FakePostMergeObserverPublisher {
             published_refs.push(Reference {
                 reference_type: ReferenceType::SlackThread,
                 uri: "slack://T01NITRO/C02DOGFOOD/p1716180900.000100/reply/1716180950.000200"
-                    .to_owned(),
-                provider: Some("slack".to_owned()),
-                locator: Some("T01NITRO/C02DOGFOOD/1716180950.000200".to_owned()),
-                label: Some("post-merge source thread final reply".to_owned()),
-                observed_at: Some(VERIFIED_AT.to_owned()),
+                    .to_owned()
+                    .into(),
+                provider: Some("slack".to_owned().into()),
+                locator: Some("T01NITRO/C02DOGFOOD/1716180950.000200".to_owned().into()),
+                label: Some("post-merge source thread final reply".to_owned().into()),
+                observed_at: Some(VERIFIED_AT.to_owned().into()),
                 proof_kind: None,
             });
         }
@@ -960,15 +967,15 @@ fn assert_post_merge_source_publication_request(
         &request.commands[0],
         PostMergeObserverPublicationCommand::SourceIssueComment { target, body, .. }
             if target.uri == request.source_issue_ref.uri
-                && body.contains(&request.pull_request_ref.uri)
-                && body.contains(&request.receipt_ref.uri)
+                && body.contains(request.pull_request_ref.uri.as_str())
+                && body.contains(request.receipt_ref.uri.as_str())
     ));
     assert!(matches!(
         &request.commands[1],
         PostMergeObserverPublicationCommand::SourceThreadReply { target, body, .. }
             if target.uri == request.source_thread_ref.uri
-                && body.contains(&request.pull_request_ref.uri)
-                && body.contains(&request.receipt_ref.uri)
+                && body.contains(request.pull_request_ref.uri.as_str())
+                && body.contains(request.receipt_ref.uri.as_str())
     ));
     assert!(matches!(
         &request.commands[2],
@@ -983,10 +990,10 @@ fn assert_post_merge_source_publication_request(
 fn fixture_source_issue_ref() -> Reference {
     Reference {
         reference_type: ReferenceType::GithubIssue,
-        uri: "github://runxhq/nitrosend/issues/77".to_owned(),
-        provider: Some("github".to_owned()),
-        locator: Some("runxhq/nitrosend#77".to_owned()),
-        label: Some("Nitrosend dogfood issue".to_owned()),
+        uri: "github://runxhq/nitrosend/issues/77".to_owned().into(),
+        provider: Some("github".to_owned().into()),
+        locator: Some("runxhq/nitrosend#77".to_owned().into()),
+        label: Some("Nitrosend dogfood issue".to_owned().into()),
         observed_at: None,
         proof_kind: None,
     }
@@ -995,10 +1002,12 @@ fn fixture_source_issue_ref() -> Reference {
 fn fixture_source_thread_ref() -> Reference {
     Reference {
         reference_type: ReferenceType::SlackThread,
-        uri: "slack://T01NITRO/C02DOGFOOD/p1716180900.000100".to_owned(),
-        provider: Some("slack".to_owned()),
-        locator: Some("T01NITRO/C02DOGFOOD/1716180900.000100".to_owned()),
-        label: Some("Nitrosend source thread".to_owned()),
+        uri: "slack://T01NITRO/C02DOGFOOD/p1716180900.000100"
+            .to_owned()
+            .into(),
+        provider: Some("slack".to_owned().into()),
+        locator: Some("T01NITRO/C02DOGFOOD/1716180900.000100".to_owned().into()),
+        label: Some("Nitrosend source thread".to_owned().into()),
         observed_at: None,
         proof_kind: None,
     }
@@ -1007,11 +1016,11 @@ fn fixture_source_thread_ref() -> Reference {
 fn fixture_pull_request_ref() -> Reference {
     Reference {
         reference_type: ReferenceType::GithubPullRequest,
-        uri: "github://runxhq/nitrosend/pulls/188".to_owned(),
-        provider: Some("github".to_owned()),
-        locator: Some("runxhq/nitrosend#188".to_owned()),
-        label: Some("human-merged PR".to_owned()),
-        observed_at: Some(OBSERVED_AT.to_owned()),
+        uri: "github://runxhq/nitrosend/pulls/188".to_owned().into(),
+        provider: Some("github".to_owned().into()),
+        locator: Some("runxhq/nitrosend#188".to_owned().into()),
+        label: Some("human-merged PR".to_owned().into()),
+        observed_at: Some(OBSERVED_AT.to_owned().into()),
         proof_kind: None,
     }
 }
@@ -1019,11 +1028,11 @@ fn fixture_pull_request_ref() -> Reference {
 fn webhook_delivery_ref() -> Reference {
     Reference {
         reference_type: ReferenceType::WebhookDelivery,
-        uri: "github://webhook-deliveries/evt_01HX".to_owned(),
-        provider: Some("github".to_owned()),
-        locator: Some("runxhq/nitrosend/delivery/evt_01HX".to_owned()),
-        label: Some("GitHub pull_request webhook delivery".to_owned()),
-        observed_at: Some(OBSERVED_AT.to_owned()),
+        uri: "github://webhook-deliveries/evt_01HX".to_owned().into(),
+        provider: Some("github".to_owned().into()),
+        locator: Some("runxhq/nitrosend/delivery/evt_01HX".to_owned().into()),
+        label: Some("GitHub pull_request webhook delivery".to_owned().into()),
+        observed_at: Some(OBSERVED_AT.to_owned().into()),
         proof_kind: None,
     }
 }

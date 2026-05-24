@@ -477,7 +477,7 @@ fn payment_authority_term() -> impl Strategy<Value = AuthorityTerm> {
 }
 
 fn with_resource_label(mut term: AuthorityTerm, label: &str) -> AuthorityTerm {
-    term.resource_ref.label = Some(label.to_owned());
+    term.resource_ref.label = Some(label.to_owned().into());
     term
 }
 

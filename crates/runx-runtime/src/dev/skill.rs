@@ -220,7 +220,7 @@ fn dev_output_from_harness(output: &HarnessReplayOutput) -> JsonValue {
     );
     object.insert(
         "harness_id".to_owned(),
-        JsonValue::String(output.receipt.subject.reference.uri.clone()),
+        JsonValue::String(output.receipt.subject.reference.uri.clone().into_string()),
     );
     object.insert(
         "status".to_owned(),

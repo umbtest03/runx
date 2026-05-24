@@ -209,7 +209,7 @@ fn summarize_receipt(receipt: &Receipt) -> HarnessReplayReceipt {
     };
     HarnessReplayReceipt {
         receipt_id: receipt.id.clone(),
-        harness_id: receipt.subject.reference.uri.clone(),
+        harness_id: receipt.subject.reference.uri.clone().into_string(),
         state,
         disposition: receipt.seal.disposition.clone(),
         reason_code: receipt.seal.reason_code.clone(),
@@ -226,7 +226,7 @@ fn summarize_receipt(receipt: &Receipt) -> HarnessReplayReceipt {
                 lineage
                     .children
                     .iter()
-                    .map(|reference| reference.uri.clone())
+                    .map(|reference| reference.uri.clone().into_string())
                     .collect()
             })
             .unwrap_or_default(),
@@ -235,14 +235,14 @@ fn summarize_receipt(receipt: &Receipt) -> HarnessReplayReceipt {
             .iter()
             .flat_map(|act| act.criterion_bindings.iter())
             .flat_map(|binding| binding.verification_refs.iter())
-            .map(|reference| reference.uri.clone())
+            .map(|reference| reference.uri.clone().into_string())
             .collect(),
     }
 }
 
 fn receipt_step_name(receipt: &Receipt) -> String {
     receipt.acts.first().map_or_else(
-        || receipt.subject.reference.uri.clone(),
+        || receipt.subject.reference.uri.clone().into_string(),
         |act| act.id.trim_start_matches("act_").to_owned(),
     )
 }

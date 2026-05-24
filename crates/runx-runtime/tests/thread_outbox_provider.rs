@@ -227,7 +227,7 @@ fn credential_delivery() -> Result<CredentialDelivery, Box<dyn std::error::Error
         status: CredentialDeliveryObservationStatus::Delivered,
         harness_ref: Reference {
             reference_type: ReferenceType::Harness,
-            uri: "runx:harness:hrn_123".to_owned(),
+            uri: "runx:harness:hrn_123".to_owned().into(),
             provider: None,
             locator: None,
             label: None,
@@ -236,7 +236,7 @@ fn credential_delivery() -> Result<CredentialDelivery, Box<dyn std::error::Error
         },
         host_ref: Some(Reference {
             reference_type: ReferenceType::Host,
-            uri: "runx:host:local-cli".to_owned(),
+            uri: "runx:host:local-cli".to_owned().into(),
             provider: None,
             locator: None,
             label: None,
@@ -249,8 +249,8 @@ fn credential_delivery() -> Result<CredentialDelivery, Box<dyn std::error::Error
         delivery_mode: Some(CredentialDeliveryMode::ProcessEnv),
         credential_refs: vec![Reference {
             reference_type: ReferenceType::Credential,
-            uri: "runx:credential:github-installation:123".to_owned(),
-            provider: Some("github".to_owned()),
+            uri: "runx:credential:github-installation:123".to_owned().into(),
+            provider: Some("github".to_owned().into()),
             locator: None,
             label: None,
             observed_at: None,
@@ -260,7 +260,7 @@ fn credential_delivery() -> Result<CredentialDelivery, Box<dyn std::error::Error
         delivered_roles: vec![CredentialMaterialRole::AccessToken],
         redaction_refs: Some(vec![Reference {
             reference_type: ReferenceType::RedactionPolicy,
-            uri: "runx:redaction_policy:provider-output".to_owned(),
+            uri: "runx:redaction_policy:provider-output".to_owned().into(),
             provider: None,
             locator: None,
             label: None,
