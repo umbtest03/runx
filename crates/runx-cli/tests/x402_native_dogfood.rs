@@ -21,8 +21,8 @@ fn native_x402_mock_dogfood_fixtures_run_without_typescript()
     assert_eq!(
         child_receipt_uris(&approved),
         vec![
-            "runx:receipt:hrn_rcpt_x402-pay-approval_approve-spend",
-            "runx:receipt:hrn_rcpt_x402-pay-approval_fulfill",
+            "runx:receipt:sha256:52e7c50c456df404c8035bd61adbc9d8569c185ba021f92f78c17af8b25fac3c",
+            "runx:receipt:sha256:2c62cf2ece1da3e9e893575013af294c67e40bd2aca96122448c3eba6551a578",
         ]
     );
 
@@ -39,7 +39,7 @@ fn native_x402_mock_dogfood_fixtures_run_without_typescript()
     assert_eq!(denied["seal"]["reason_code"], "graph_blocked");
     assert_eq!(
         child_receipt_uris(&denied),
-        vec!["runx:receipt:hrn_rcpt_x402-pay-approval_approve-spend",]
+        vec!["runx:receipt:sha256:52e7c50c456df404c8035bd61adbc9d8569c185ba021f92f78c17af8b25fac3c",]
     );
 
     Ok(())
@@ -62,11 +62,11 @@ fn native_x402_paid_echo_fixture_passes_only_refs_downstream()
     assert_eq!(
         child_receipt_uris(&receipt),
         vec![
-            "runx:receipt:hrn_rcpt_x402-pay-paid-echo_quote",
-            "runx:receipt:hrn_rcpt_x402-pay-paid-echo_reserve",
-            "runx:receipt:hrn_rcpt_x402-pay-paid-echo_approve-spend",
-            "runx:receipt:hrn_rcpt_x402-pay-paid-echo_fulfill",
-            "runx:receipt:hrn_rcpt_x402-pay-paid-echo_echo",
+            "runx:receipt:sha256:1c7d8bbb7cd158c66bc1caa5892d59098f4a95e5b7b9905cf9579d6145827c67",
+            "runx:receipt:sha256:d2e2d46f918f65f7f83aed7e1a81a03d3546ee926aae6ff19351df6214d8f7ac",
+            "runx:receipt:sha256:9fc76aef8bf0c9e612f41328eb3b7bbacc742d48b45d0c535f63a7f13584aa2d",
+            "runx:receipt:sha256:86dcc83774dec6dc8e55ea4e2b23201a9802a32148728c7d6128da46871a106a",
+            "runx:receipt:sha256:119e9b8572fd756a383aa203b2a3bfcbc5e40361bcee312d5885baa4ef61898b",
         ]
     );
 
@@ -216,10 +216,10 @@ fn native_x402_stripe_spt_happy_path_runs_without_typescript()
     assert_eq!(
         child_receipt_uris(&receipt),
         vec![
-            "runx:receipt:hrn_rcpt_stripe-spt-payment_quote",
-            "runx:receipt:hrn_rcpt_stripe-spt-payment_reserve",
-            "runx:receipt:hrn_rcpt_stripe-spt-payment_approve-spend",
-            "runx:receipt:hrn_rcpt_stripe-spt-payment_fulfill",
+            "runx:receipt:sha256:00e05c36bd2952f2b828468478e91e4928fd3af9a494608bbb0a3da381c2fd5f",
+            "runx:receipt:sha256:a21ef882927def2220bf5853780f41b3e2acf7accca1efd1804a7fb4a3e92647",
+            "runx:receipt:sha256:1d6c11c695647c10198eb0990f0f3afc2eaaf37ae091e21262a35142f7c2afd8",
+            "runx:receipt:sha256:89b169d3ac1c366a19413c8bc735e1450f8426b59aa6dec7de75dfd36a29656c",
         ]
     );
 
@@ -238,7 +238,7 @@ fn native_x402_negative_fixtures_refuse_without_settlement()
     assert_eq!(malformed["seal"]["reason_code"], "graph_blocked");
     assert_eq!(
         child_receipt_uris(&malformed),
-        vec!["runx:receipt:hrn_rcpt_x402-pay-negative-malformed-challenge_quote",]
+        vec!["runx:receipt:sha256:0b169c32175d9878a5332a982b51d1f186e6f6383f61ba84c7492f90d5ec80d1",]
     );
 
     let ambiguous = run_harness_fixture(
@@ -254,8 +254,8 @@ fn native_x402_negative_fixtures_refuse_without_settlement()
     assert_eq!(
         child_receipt_uris(&ambiguous),
         vec![
-            "runx:receipt:hrn_rcpt_x402-pay-negative-ambiguous-bounds_quote",
-            "runx:receipt:hrn_rcpt_x402-pay-negative-ambiguous-bounds_reserve",
+            "runx:receipt:sha256:796d310f6fb0417a238eba93f26d5b63dc582c2610fdc2016fdbb81ed9a23e0a",
+            "runx:receipt:sha256:bd01860a2bd9554fdb5438760059f67df56141a2e5b42cc2a166ce90a6059d97",
         ]
     );
 
