@@ -16,9 +16,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AuthorityAttenuation, AuthorityTerm, ClosureDisposition, Closure, CriterionBinding,
-    Decision, HashAlgorithm, Intent, JsonObject, Reference, RevisionDetails,
-    VerificationDetails, ActForm,
+    ActForm, AuthorityAttenuation, AuthorityTerm, Closure, ClosureDisposition, CriterionBinding,
+    Decision, HashAlgorithm, Intent, JsonObject, Reference, RevisionDetails, VerificationDetails,
 };
 
 /// Logical schema name for the governance receipt.

@@ -140,9 +140,7 @@ impl LocalReceiptStore {
         Ok(receipts)
     }
 
-    pub(crate) fn list_without_proof_for_history(
-        &self,
-    ) -> Result<Vec<Receipt>, ReceiptStoreError> {
+    pub(crate) fn list_without_proof_for_history(&self) -> Result<Vec<Receipt>, ReceiptStoreError> {
         self.ensure_store_dir()?;
         let mut receipts = Vec::new();
         for entry in

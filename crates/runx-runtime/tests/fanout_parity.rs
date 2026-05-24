@@ -148,7 +148,10 @@ fn fanout_threshold_pause_blocks_followup() -> Result<(), Box<dyn std::error::Er
         .map(|step| step.receipt.id.clone())
         .collect::<Vec<_>>();
     // Branch receipt ids are content-addressed; assert count + content address.
-    assert_eq!(checkpoint_ids.len(), expected.sync_point.branch_receipts.len());
+    assert_eq!(
+        checkpoint_ids.len(),
+        expected.sync_point.branch_receipts.len()
+    );
     assert!(checkpoint_ids.iter().all(|id| id.starts_with("sha256:")));
     Ok(())
 }
@@ -317,7 +320,10 @@ fn assert_sync_points(run: &runx_runtime::GraphRun, expected: &[FanoutReceiptSyn
     // compare the structural sync points ignoring them, then assert the actual
     // branch receipts are content-addressed and the expected count.
     let strip = |points: &[FanoutReceiptSyncPoint]| {
-        points.iter().map(expected_without_receipts).collect::<Vec<_>>()
+        points
+            .iter()
+            .map(expected_without_receipts)
+            .collect::<Vec<_>>()
     };
     assert_eq!(strip(&run.sync_points), strip(expected));
     let lineage_sync = run
@@ -328,7 +334,10 @@ fn assert_sync_points(run: &runx_runtime::GraphRun, expected: &[FanoutReceiptSyn
         .unwrap_or_default();
     assert_eq!(strip(&lineage_sync), strip(expected));
     for (actual, expected_point) in run.sync_points.iter().zip(expected.iter()) {
-        assert_eq!(actual.branch_receipts.len(), expected_point.branch_receipts.len());
+        assert_eq!(
+            actual.branch_receipts.len(),
+            expected_point.branch_receipts.len()
+        );
         assert!(
             actual
                 .branch_receipts

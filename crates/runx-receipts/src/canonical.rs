@@ -199,11 +199,10 @@ mod tests {
 
     #[test]
     fn receipt_oracle_matches_rust_canonical_json() -> Result<(), ReceiptError> {
-        let oracle: ReceiptOracleFixture = serde_json::from_str(RECEIPT_ORACLE).map_err(
-            |source| ReceiptError::Serialization {
+        let oracle: ReceiptOracleFixture =
+            serde_json::from_str(RECEIPT_ORACLE).map_err(|source| ReceiptError::Serialization {
                 message: source.to_string(),
-            },
-        )?;
+            })?;
         assert_eq!(oracle.canonicalization, "runx.receipt.c14n.v1");
 
         for case in oracle.cases {

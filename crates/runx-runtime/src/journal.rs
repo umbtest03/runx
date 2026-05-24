@@ -10,9 +10,7 @@ use runx_contracts::{
     ClosureDisposition, ExecutionEvent, JsonObject, JsonValue, Receipt, ReceiptSubjectKind,
     Reference, ReferenceType,
 };
-use runx_receipts::{
-    ReceiptFindingCode, ReceiptProofContextProvider, verify_receipt_proof,
-};
+use runx_receipts::{ReceiptFindingCode, ReceiptProofContextProvider, verify_receipt_proof};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -490,11 +488,7 @@ fn verification_status(
 }
 
 fn receipt_watermark(receipt: &Receipt) -> String {
-    format!(
-        "{}@{}",
-        receipt_uri(&receipt.id),
-        receipt.created_at
-    )
+    format!("{}@{}", receipt_uri(&receipt.id), receipt.created_at)
 }
 
 fn reference_uris(refs: &[Reference]) -> Vec<String> {
@@ -503,11 +497,7 @@ fn reference_uris(refs: &[Reference]) -> Vec<String> {
 
 fn artifact_types(receipt: &Receipt) -> Vec<String> {
     let mut types = BTreeSet::new();
-    for reference in receipt
-        .acts
-        .iter()
-        .flat_map(|act| act.artifact_refs.iter())
-    {
+    for reference in receipt.acts.iter().flat_map(|act| act.artifact_refs.iter()) {
         if reference.reference_type == ReferenceType::Artifact {
             if let Some(label) = reference.label.as_ref().filter(|label| !label.is_empty()) {
                 types.insert(label.clone());

@@ -1,8 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use runx_contracts::{
-    ClosureDisposition, ReceiptSchema, JsonObject, JsonValue,
-};
+use runx_contracts::{ClosureDisposition, JsonObject, JsonValue, ReceiptSchema};
 use runx_receipts::canonical_receipt_json;
 use runx_runtime::{
     HarnessExpectedStatus, HarnessFixtureError, HarnessFixtureKind, InvocationStatus,

@@ -265,7 +265,10 @@ fn strict_proof_reports_unsupported_issuer() -> Result<(), serde_json::Error> {
 
     let verification = verify_receipt_proof(&receipt, &context);
 
-    assert_finding(&verification, ReceiptFindingCode::SignatureUnsupportedIssuer);
+    assert_finding(
+        &verification,
+        ReceiptFindingCode::SignatureUnsupportedIssuer,
+    );
     Ok(())
 }
 
@@ -278,7 +281,10 @@ fn inline_decision_integrity_catches_tampered_selected_act_id() -> Result<(), se
     receipt.decisions[0].selected_act_id = Some("missing_act".to_owned());
 
     let verification = verify_receipt(&receipt);
-    assert_finding(&verification, ReceiptFindingCode::DecisionSelectedActMissing);
+    assert_finding(
+        &verification,
+        ReceiptFindingCode::DecisionSelectedActMissing,
+    );
     Ok(())
 }
 
@@ -286,7 +292,10 @@ fn inline_decision_integrity_catches_tampered_selected_act_id() -> Result<(), se
 fn inline_decision_integrity_accepts_real_selected_act_id() -> Result<(), serde_json::Error> {
     let receipt = fixture(SUCCESS_RECEIPT)?;
     let act_id = receipt.acts[0].id.clone();
-    assert_eq!(receipt.decisions[0].selected_act_id.as_deref(), Some(act_id.as_str()));
+    assert_eq!(
+        receipt.decisions[0].selected_act_id.as_deref(),
+        Some(act_id.as_str())
+    );
 
     assert!(validate_receipt(&receipt).is_ok());
     Ok(())

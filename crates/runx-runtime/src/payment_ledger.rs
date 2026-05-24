@@ -6,7 +6,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use runx_contracts::{ClosureDisposition, Receipt, JsonValue, Reference, sha256_prefixed};
+use runx_contracts::{ClosureDisposition, JsonValue, Receipt, Reference, sha256_prefixed};
 use serde::{Deserialize, Serialize};
 use serde_json::{self, Value as JsonWireValue, json};
 use thiserror::Error;
@@ -671,9 +671,9 @@ fn source_receipt_file_stem(source_receipt_id: &str) -> Result<&str, PaymentLedg
     // Content-addressed ids are `sha256:<hex>`, so the `:` separator is allowed
     // alongside the legacy `_`/`-` identifier characters; path separators are not.
     if receipt_id.is_empty()
-        || !receipt_id
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | ':'))
+        || !receipt_id.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | ':')
+        })
     {
         return Err(PaymentLedgerProjectionError::InvalidSourceReceiptId {
             source_receipt_id: source_receipt_id.to_owned(),

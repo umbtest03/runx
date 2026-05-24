@@ -7,10 +7,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use runx_contracts::{Receipt, ReceiptIssuerType, ReferenceType};
 use runx_runtime::journal::{
-    RECEIPT_REF_PREFIX, HISTORY_PROJECTOR_ID, HistoryFilter, JOURNAL_PROJECTOR_ID,
-    JournalProjectionError, PausedRunCheckpoint, exact_receipt_id, receipt_uri,
-    list_local_history, list_local_history_with_checkpoints, list_local_history_with_policy,
+    HISTORY_PROJECTOR_ID, HistoryFilter, JOURNAL_PROJECTOR_ID, JournalProjectionError,
+    PausedRunCheckpoint, RECEIPT_REF_PREFIX, exact_receipt_id, list_local_history,
+    list_local_history_with_checkpoints, list_local_history_with_policy,
     project_journal_for_receipt, project_receipt_journal, project_receipt_journal_with_policy,
+    receipt_uri,
 };
 use runx_runtime::receipts::{
     Ed25519ReceiptSigner, Ed25519ReceiptVerifier, RuntimeReceiptSignaturePolicy,
@@ -561,10 +562,7 @@ fn journal_lookup_does_not_use_suffix_matching() -> Result<(), Box<dyn std::erro
         exact_receipt_id("runx:receipt:hrn_rcpt_123"),
         "hrn_rcpt_123"
     );
-    assert_eq!(
-        receipt_uri("hrn_rcpt_123"),
-        "runx:receipt:hrn_rcpt_123"
-    );
+    assert_eq!(receipt_uri("hrn_rcpt_123"), "runx:receipt:hrn_rcpt_123");
     Ok(())
 }
 
@@ -702,10 +700,7 @@ fn json_object(value: serde_json::Value) -> Result<runx_contracts::JsonObject, i
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error.to_string()))
 }
 
-fn write_receipt_json(
-    dir: &Path,
-    receipt: &Receipt,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn write_receipt_json(dir: &Path, receipt: &Receipt) -> Result<(), Box<dyn std::error::Error>> {
     fs::create_dir_all(dir)?;
     fs::write(
         dir.join(format!("{}.json", receipt.id)),

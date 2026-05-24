@@ -566,12 +566,18 @@ fn live_adapter_composes_observations_into_revision_receipt_without_network()
         Some(git_mutation.branch.as_str())
     );
 
-    assert_eq!(live.revision_receipt.seal.disposition, ClosureDisposition::Closed);
+    assert_eq!(
+        live.revision_receipt.seal.disposition,
+        ClosureDisposition::Closed
+    );
     assert_eq!(live.revision_receipt.acts.len(), 1);
     let act = &live.revision_receipt.acts[0];
     assert_eq!(act.form, ActForm::Revision);
     assert!(act.context_ref.is_some());
-    assert_eq!(live.revision_receipt.seal.reason_code, "target_runner_pr_created");
+    assert_eq!(
+        live.revision_receipt.seal.reason_code,
+        "target_runner_pr_created"
+    );
     assert_eq!(
         live.revision_projection.pull_request_ref.uri,
         "https://github.com/nitrosend/api/pull/145"
@@ -597,10 +603,7 @@ fn live_adapter_composes_observations_into_revision_receipt_without_network()
         ClosureDisposition::Closed
     );
     assert_eq!(live.source_publication_receipt.acts.len(), 1);
-    assert_eq!(
-        live.source_publication_receipt.acts[0].form,
-        ActForm::Reply
-    );
+    assert_eq!(live.source_publication_receipt.acts[0].form, ActForm::Reply);
     assert_eq!(
         live.source_publication_receipt.seal.reason_code,
         "target_runner_source_published"

@@ -159,9 +159,11 @@ pub fn compute_verification_summary(
     let redaction_valid = redaction_refs(receipt)
         .iter()
         .all(|reference| context.verified_redaction_refs.contains(&reference.uri));
-    let hash_commitments_valid = hash_commitments(receipt)
-        .iter()
-        .all(|commitment| context.verified_hash_commitments.contains(&commitment.value));
+    let hash_commitments_valid = hash_commitments(receipt).iter().all(|commitment| {
+        context
+            .verified_hash_commitments
+            .contains(&commitment.value)
+    });
     ReceiptVerificationSummary {
         signature_valid,
         content_address_valid: receipt_id_is_content_addressed(receipt),

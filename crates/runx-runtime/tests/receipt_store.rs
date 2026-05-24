@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use runx_contracts::{Receipt, JsonObject};
+use runx_contracts::{JsonObject, Receipt};
 use runx_runtime::receipts::{RuntimeReceiptSignaturePolicy, step_receipt};
 use runx_runtime::{InvocationStatus, LocalReceiptStore, ReceiptStoreError, SkillOutput};
 use serde_json::json;
@@ -85,11 +85,7 @@ fn wrong_receipt_schema_is_typed_error() -> Result<(), Box<dyn std::error::Error
 #[test]
 fn receipt_id_must_match_file_name() -> Result<(), Box<dyn std::error::Error>> {
     let temp = TestDir::new()?;
-    write_json(
-        temp.path(),
-        "hrn_rcpt_other.json",
-        &success_receipt()?,
-    )?;
+    write_json(temp.path(), "hrn_rcpt_other.json", &success_receipt()?)?;
     let store = LocalReceiptStore::new(temp.path());
 
     let result = store.read_exact("hrn_rcpt_other");

@@ -23,7 +23,7 @@ pub use runner::{
 };
 pub use skill::{
     CatalogAudience, CatalogKind, CatalogMetadata, CatalogVisibility, HarnessCallerFixture,
-    HarnessExpectation, ReceiptExpectation, InputMode, RawSkillIr, RunnerHarnessCase,
+    HarnessExpectation, InputMode, RawSkillIr, ReceiptExpectation, RunnerHarnessCase,
     RunnerHarnessManifest, SkillArtifactContract, SkillIdempotencyPolicy, SkillInput,
     SkillMcpServer, SkillQualityProfile, SkillRetryPolicy, SkillRunnerDefinition, SkillSandbox,
     SkillSource, SourceKind, ValidateSkillMode, ValidateSkillOptions, ValidatedSkill,

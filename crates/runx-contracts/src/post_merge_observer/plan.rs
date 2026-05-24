@@ -2,8 +2,8 @@
 // projection, and idempotency helpers share one fixture-driven oracle.
 use crate::operational_policy::OperationalPolicySourceRule;
 use crate::{
-    ActForm, ClosureDisposition, CriterionStatus, JsonValue, Receipt,
-    OperationalPolicy, OperationalPolicyOutcomeCloseMode, OperationalPolicyPublishMode, Reference,
+    ActForm, ClosureDisposition, CriterionStatus, JsonValue, OperationalPolicy,
+    OperationalPolicyOutcomeCloseMode, OperationalPolicyPublishMode, Receipt, Reference,
     ReferenceType, validate_operational_policy_semantics,
 };
 
@@ -1019,12 +1019,7 @@ fn receipt_reference(receipt: &Receipt, reference_type: ReferenceType) -> Option
         .criteria
         .iter()
         .flat_map(|criterion| criterion.evidence_refs.iter())
-        .chain(
-            receipt
-                .acts
-                .iter()
-                .flat_map(|act| act.artifact_refs.iter()),
-        )
+        .chain(receipt.acts.iter().flat_map(|act| act.artifact_refs.iter()))
         .find(|reference| reference.reference_type == reference_type)
         .cloned()
 }

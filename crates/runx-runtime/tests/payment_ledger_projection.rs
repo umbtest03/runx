@@ -1,4 +1,4 @@
-use runx_contracts::{ClosureDisposition, Receipt, JsonObject};
+use runx_contracts::{ClosureDisposition, JsonObject, Receipt};
 use runx_core::state_machine::StepAdmissionWitness;
 use runx_runtime::payment_ledger::{
     PaidToolEvidence, PaymentLedgerEvidence, PaymentLedgerEvidencePacket,
@@ -327,10 +327,7 @@ fn paid_echo_reservation(
     }
 }
 
-fn graph(
-    graph_name: &str,
-    steps: &[StepRun],
-) -> Result<Receipt, Box<dyn std::error::Error>> {
+fn graph(graph_name: &str, steps: &[StepRun]) -> Result<Receipt, Box<dyn std::error::Error>> {
     let mut steps = steps.to_vec();
     Ok(graph_receipt(
         graph_name,

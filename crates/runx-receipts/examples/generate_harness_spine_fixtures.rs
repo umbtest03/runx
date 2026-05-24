@@ -9,11 +9,11 @@ use runx_contracts::{
     ActForm, AuthorityAttenuation, ChangePlan, ChangeRequest, Closure, ClosureDisposition,
     CriterionBinding, CriterionStatus, Decision, DecisionChoice, DecisionInputs,
     DecisionJustification, HashAlgorithm, Intent, Lineage, RECEIPT_CANONICALIZATION, Receipt,
-    ReceiptAct, ReceiptAuthority, ReceiptCommitment, ReceiptCommitmentScope,
-    ReceiptEnforcement, ReceiptIdempotency, ReceiptInputContext, ReceiptIssuer, ReceiptIssuerType,
-    ReceiptSchema, ReceiptSignature, ReceiptSubjectKind, Reference, ReferenceType,
-    RevisionDetails, Seal, SignatureAlgorithm, Subject, SuccessCriterion,
-    Verification, VerificationCheck, VerificationDetails, VerificationStatus,
+    ReceiptAct, ReceiptAuthority, ReceiptCommitment, ReceiptCommitmentScope, ReceiptEnforcement,
+    ReceiptIdempotency, ReceiptInputContext, ReceiptIssuer, ReceiptIssuerType, ReceiptSchema,
+    ReceiptSignature, ReceiptSubjectKind, Reference, ReferenceType, RevisionDetails, Seal,
+    SignatureAlgorithm, Subject, SuccessCriterion, Verification, VerificationCheck,
+    VerificationDetails, VerificationStatus,
 };
 use runx_receipts::{
     canonical_receipt_body_digest, canonical_receipt_digest, canonical_receipt_json,
@@ -223,7 +223,10 @@ fn observation_act(
         source_refs: Vec::new(),
         target_refs: Vec::new(),
         artifact_refs: Vec::new(),
-        context_ref: Some(Reference::runx(ReferenceType::Act, &format!("{id}_context"))),
+        context_ref: Some(Reference::runx(
+            ReferenceType::Act,
+            &format!("{id}_context"),
+        )),
         closure: Closure {
             disposition,
             reason_code: "process_exit".to_owned(),
@@ -259,7 +262,11 @@ fn open_decision(act_id: &str) -> Decision {
 }
 
 fn success_receipt() -> Receipt {
-    let mut receipt = base("hrn_rcpt_echo_success", ReceiptSubjectKind::Skill, "echo_success");
+    let mut receipt = base(
+        "hrn_rcpt_echo_success",
+        ReceiptSubjectKind::Skill,
+        "echo_success",
+    );
     receipt.acts = vec![observation_act(
         "act_echo",
         "Executed graph step echo",
@@ -281,7 +288,11 @@ fn success_receipt() -> Receipt {
 }
 
 fn abnormal_receipt() -> Receipt {
-    let mut receipt = base("hrn_rcpt_echo_abnormal", ReceiptSubjectKind::Skill, "echo_abnormal");
+    let mut receipt = base(
+        "hrn_rcpt_echo_abnormal",
+        ReceiptSubjectKind::Skill,
+        "echo_abnormal",
+    );
     receipt.acts = vec![observation_act(
         "act_echo",
         "Executed graph step echo",
@@ -315,7 +326,10 @@ fn post_merge_receipt() -> Receipt {
     let issue_ref = Reference {
         provider: Some("github".to_owned()),
         locator: Some("runxhq/nitrosend#77".to_owned()),
-        ..Reference::with_uri(ReferenceType::GithubIssue, "github://runxhq/nitrosend/issues/77")
+        ..Reference::with_uri(
+            ReferenceType::GithubIssue,
+            "github://runxhq/nitrosend/issues/77",
+        )
     };
     let pr_ref = Reference {
         provider: Some("github".to_owned()),
@@ -425,7 +439,10 @@ fn post_merge_receipt() -> Receipt {
         source_refs: vec![slack_ref.clone(), issue_ref.clone()],
         target_refs: vec![pr_ref.clone()],
         artifact_refs: act_artifacts.clone(),
-        context_ref: Some(Reference::runx(ReferenceType::Act, &format!("{id}_context"))),
+        context_ref: Some(Reference::runx(
+            ReferenceType::Act,
+            &format!("{id}_context"),
+        )),
         closure: Closure {
             disposition: ClosureDisposition::Closed,
             reason_code: "merged_verified".to_owned(),

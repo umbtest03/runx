@@ -1,11 +1,11 @@
 use std::cell::RefCell;
 
 use runx_contracts::{
-    ActForm, ClosureDisposition, CriterionStatus, Receipt, PostMergeObserverPlanError,
+    ActForm, ClosureDisposition, CriterionStatus, PostMergeObserverPlanError,
     PostMergeObserverRuntimeDecision, PostMergeObserverRuntimeDedupePlan,
     PostMergeObserverSignalSource, PostMergeProvider, PostMergePullRequestObservation,
     PostMergePullRequestState, PostMergeVerificationObservation, PostMergeVerificationStatus,
-    Reference, ReferenceType,
+    Receipt, Reference, ReferenceType,
 };
 use runx_runtime::post_merge_observer::{
     FixtureBackedGitHubPostMergeObserverAdapter, GithubPostMergePullRequestObserverAdapter,
@@ -730,9 +730,7 @@ fn failed_verification_receipt() -> Result<Receipt, serde_json::Error> {
             criterion.summary = Some("Nitrosend dogfood verification failed.".to_owned());
         }
     }
-    receipt
-        .acts
-        .retain(|act| act.form != ActForm::Revision);
+    receipt.acts.retain(|act| act.form != ActForm::Revision);
     receipt.idempotency.content_hash =
         "sha256:post-merge-closure-failed-verification-nitrosend".to_owned();
     Ok(receipt)
@@ -745,10 +743,7 @@ fn dedupe_plan(
     PostMergeObserverRuntimeDedupePlan {
         decision: PostMergeObserverRuntimeDecision::SealAndPublish,
         signal_source,
-        lock_key: format!(
-            "post-merge-observer:{}",
-            receipt.idempotency.content_hash
-        ),
+        lock_key: format!("post-merge-observer:{}", receipt.idempotency.content_hash),
         receipt_id: receipt.id.clone(),
         receipt_ref: Reference {
             reference_type: ReferenceType::Receipt,
@@ -957,10 +952,7 @@ fn assert_post_merge_source_publication_request(
         request.pull_request_ref.reference_type,
         ReferenceType::GithubPullRequest
     );
-    assert_eq!(
-        request.receipt_ref.reference_type,
-        ReferenceType::Receipt
-    );
+    assert_eq!(request.receipt_ref.reference_type, ReferenceType::Receipt);
     assert_eq!(request.reason_code, "merged_verified");
     assert!(request.close_source_issue);
     assert_eq!(request.commands.len(), 3);

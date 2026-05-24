@@ -82,13 +82,6 @@ pub use external_adapter::{
     ExternalAdapterTransport, ExternalAdapterTransportKind,
 };
 pub use fingerprint::{Fingerprint, FingerprintAlgorithm, hex_lower, sha256_hex, sha256_prefixed};
-pub use receipt::{
-    FanoutReceiptDecision, FanoutReceiptStrategy, FanoutReceiptSyncPoint, Lineage,
-    RECEIPT_CANONICALIZATION, RECEIPT_SCHEMA, Receipt, ReceiptAct, ReceiptAuthority,
-    ReceiptCommitment, ReceiptCommitmentScope, ReceiptEnforcement,
-    ReceiptIdempotency, ReceiptInputContext, ReceiptIssuer, ReceiptIssuerType, ReceiptSchema,
-    ReceiptSignature, ReceiptSubjectKind, RunnerProvenance, Seal, SignatureAlgorithm, Subject,
-};
 pub use host_protocol::{
     AgentActInvocation, AgentActSourceType, ApprovalDecision, ApprovalGate, ExecutionEvent,
     HostNeedsAgentState, HostRunApproval, HostRunApprovalDecision, HostRunKind, HostRunLineage,
@@ -125,6 +118,13 @@ pub use post_merge_observer::{
     PostMergePullRequestState, PostMergeSourceIssueDisposition, PostMergeVerificationObservation,
     PostMergeVerificationStatus, plan_post_merge_observer_closure,
     plan_post_merge_observer_runtime_dedupe, project_post_merge_observer_publication_from_receipt,
+};
+pub use receipt::{
+    FanoutReceiptDecision, FanoutReceiptStrategy, FanoutReceiptSyncPoint, Lineage,
+    RECEIPT_CANONICALIZATION, RECEIPT_SCHEMA, Receipt, ReceiptAct, ReceiptAuthority,
+    ReceiptCommitment, ReceiptCommitmentScope, ReceiptEnforcement, ReceiptIdempotency,
+    ReceiptInputContext, ReceiptIssuer, ReceiptIssuerType, ReceiptSchema, ReceiptSignature,
+    ReceiptSubjectKind, RunnerProvenance, Seal, SignatureAlgorithm, Subject,
 };
 pub use redaction::{HashAlgorithm, HashCommitment, REDACTION_SCHEMA, Redaction, RedactionSchema};
 pub use reference::{ActRef, ProofKind, Reference, ReferenceType};
