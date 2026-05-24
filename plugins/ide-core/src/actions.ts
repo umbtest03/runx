@@ -54,17 +54,6 @@ export interface HarnessReceiptLike {
     readonly reason_code?: string;
     readonly [key: string]: unknown;
   };
-  readonly harness?: {
-    readonly harness_id?: string;
-    readonly state?: string;
-    readonly acts?: readonly HarnessActLike[];
-    readonly [key: string]: unknown;
-  };
-  readonly [key: string]: unknown;
-}
-
-export interface HarnessActLike {
-  readonly act_id?: string;
   readonly [key: string]: unknown;
 }
 

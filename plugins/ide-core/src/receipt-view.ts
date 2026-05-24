@@ -1,7 +1,7 @@
 export interface ReceiptViewNode {
   readonly id: string;
   readonly label: string;
-  readonly kind: "receipt" | "step" | "sync" | "approval" | "retry" | "harness-ref";
+  readonly kind: "receipt" | "act" | "decision" | "sync" | "child-ref";
   readonly status?: string;
   readonly detail?: Readonly<Record<string, unknown>>;
 }
@@ -18,60 +18,81 @@ export interface ReceiptViewModel {
   readonly edges: readonly ReceiptViewEdge[];
 }
 
+/**
+ * Build a tree view of a flat `runx.receipt.v1`: the seal at the root, then the
+ * acts that ran, the governance decisions behind them, fan-out sync points, and
+ * child-receipt lineage.
+ */
 export function buildReceiptViewModel(receipt: unknown): ReceiptViewModel {
   if (!isRecord(receipt)) {
     return { title: "Invalid receipt", nodes: [], edges: [] };
   }
 
   const id = stringValue(receipt.id) ?? "receipt";
-  const kind = stringValue(receipt.kind) ?? "receipt";
-  const status = stringValue(receipt.status);
+  const schema = stringValue(receipt.schema) ?? "receipt";
+  const seal = recordValue(receipt.seal);
   const nodes: ReceiptViewNode[] = [
     {
       id,
-      label: `${kind} ${id}`,
+      label: `${schema} ${id}`,
       kind: "receipt",
-      status,
-      detail: hashOnlyDetail(receipt),
+      status: stringValue(seal?.disposition),
+      detail: sealDetail(receipt, seal),
     },
   ];
   const edges: ReceiptViewEdge[] = [];
 
-  for (const step of arrayValue(receipt.steps)) {
-    if (!isRecord(step)) {
+  for (const act of arrayValue(receipt.acts)) {
+    if (!isRecord(act)) {
       continue;
     }
-    const stepId = stringValue(step.step_id) ?? `step-${nodes.length}`;
-    const nodeId = `${id}:${stepId}`;
+    const actId = stringValue(act.id) ?? `act-${nodes.length}`;
+    const nodeId = `${id}:act:${actId}`;
+    const closure = recordValue(act.closure);
+    const provenance = recordValue(act.by);
     nodes.push({
       id: nodeId,
-      label: stepId,
-      kind: "step",
-      status: stringValue(step.status),
+      label: `${stringValue(act.form) ?? "act"} ${actId}`,
+      kind: "act",
+      status: stringValue(closure?.disposition),
       detail: {
-        skill: step.skill,
-        runner: step.runner,
-        fanout_group: step.fanout_group,
-        receipt_id: step.receipt_id,
-        rule_fired: isRecord(step.retry) ? step.retry.rule_fired : undefined,
-        scope_admission: isRecord(step.governance) ? step.governance.scope_admission : undefined,
+        form: act.form,
+        summary: act.summary,
+        purpose: isRecord(act.intent) ? act.intent.purpose : undefined,
+        reason_code: closure?.reason_code,
+        criteria: criterionStatuses(act.criterion_bindings),
+        provider: provenance?.provider,
+        model: provenance?.model,
+        context_ref: referenceValue(act.context_ref)?.uri,
       },
     });
-    edges.push({ from: id, to: nodeId, label: stringValue(step.fanout_group) ?? "step" });
-
-    if (isRecord(step.retry)) {
-      const retryId = `${nodeId}:retry`;
-      nodes.push({
-        id: retryId,
-        label: `retry ${String(step.retry.attempt ?? "")}/${String(step.retry.max_attempts ?? "")}`,
-        kind: "retry",
-        detail: { rule_fired: step.retry.rule_fired, idempotency_key_hash: step.retry.idempotency_key_hash },
-      });
-      edges.push({ from: nodeId, to: retryId, label: "retry" });
-    }
+    edges.push({ from: id, to: nodeId, label: stringValue(act.form) ?? "act" });
   }
 
-  for (const syncPoint of arrayValue(receipt.sync_points)) {
+  for (const decision of arrayValue(receipt.decisions)) {
+    if (!isRecord(decision)) {
+      continue;
+    }
+    const decisionId = stringValue(decision.decision_id) ?? `decision-${nodes.length}`;
+    const nodeId = `${id}:decision:${decisionId}`;
+    const closure = recordValue(decision.closure);
+    nodes.push({
+      id: nodeId,
+      label: `decision ${stringValue(decision.choice) ?? ""}`.trim(),
+      kind: "decision",
+      status: stringValue(decision.choice),
+      detail: {
+        choice: decision.choice,
+        selected_act_id: decision.selected_act_id,
+        reason_code: closure?.reason_code,
+        summary: closure?.summary,
+      },
+    });
+    edges.push({ from: id, to: nodeId, label: "decision" });
+  }
+
+  const lineage = recordValue(receipt.lineage);
+  for (const syncPoint of arrayValue(lineage?.sync)) {
     if (!isRecord(syncPoint)) {
       continue;
     }
@@ -93,8 +114,7 @@ export function buildReceiptViewModel(receipt: unknown): ReceiptViewModel {
     edges.push({ from: id, to: syncId, label: "sync" });
   }
 
-  const harness = recordValue(receipt.harness);
-  for (const [index, childRef] of arrayValue(harness?.child_harness_receipt_refs).entries()) {
+  for (const [index, childRef] of arrayValue(lineage?.children).entries()) {
     const ref = referenceValue(childRef);
     if (!ref) {
       continue;
@@ -103,7 +123,7 @@ export function buildReceiptViewModel(receipt: unknown): ReceiptViewModel {
     nodes.push({
       id: refId,
       label: `child ${ref.uri}`,
-      kind: "harness-ref",
+      kind: "child-ref",
       detail: ref,
     });
     edges.push({ from: id, to: refId, label: "child" });
@@ -116,13 +136,41 @@ export function buildReceiptViewModel(receipt: unknown): ReceiptViewModel {
   };
 }
 
-function hashOnlyDetail(receipt: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
-  return {
-    input_hash: receipt.input_hash,
-    output_hash: receipt.output_hash,
-    error_hash: receipt.error_hash,
-    stderr_hash: receipt.stderr_hash,
+function sealDetail(
+  receipt: Readonly<Record<string, unknown>>,
+  seal: Readonly<Record<string, unknown>> | undefined,
+): Readonly<Record<string, unknown>> {
+  const detail: Record<string, unknown> = {
+    digest: receipt.digest,
+    reason_code: seal?.reason_code,
+    summary: seal?.summary,
   };
+  const subject = recordValue(receipt.subject);
+  for (const commitment of arrayValue(subject?.commitments)) {
+    if (!isRecord(commitment)) {
+      continue;
+    }
+    const scope = stringValue(commitment.scope);
+    if (scope) {
+      detail[`${scope}_hash`] = commitment.value;
+    }
+  }
+  return detail;
+}
+
+function criterionStatuses(value: unknown): readonly string[] {
+  const statuses: string[] = [];
+  for (const binding of arrayValue(value)) {
+    if (!isRecord(binding)) {
+      continue;
+    }
+    const id = stringValue(binding.criterion_id);
+    const status = stringValue(binding.status);
+    if (id && status) {
+      statuses.push(`${id}:${status}`);
+    }
+  }
+  return statuses;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -157,9 +205,9 @@ function referenceValue(value: unknown): Readonly<{ type?: string; uri: string; 
 }
 
 function receiptTitle(receipt: Readonly<Record<string, unknown>>, fallback: string): string {
-  const harness = recordValue(receipt.harness);
-  const harnessRef = recordValue(harness?.harness_ref);
-  return stringValue(harnessRef?.label)
-    ?? stringValue(harness?.harness_id)
+  const subject = recordValue(receipt.subject);
+  const subjectRef = recordValue(subject?.ref);
+  return stringValue(subjectRef?.label)
+    ?? stringValue(subjectRef?.uri)
     ?? fallback;
 }
