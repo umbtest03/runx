@@ -5,10 +5,9 @@ use runx_contracts::{
     ActForm, AuthorityAttenuation, AuthoritySubsetResult, Closure, ClosureDisposition,
     CriterionBinding, CriterionStatus, Decision, DecisionChoice, DecisionInputs,
     DecisionJustification, FanoutReceiptSyncPoint, Intent, JsonObject, JsonValue, Lineage,
-    ProofKind, RECEIPT_CANONICALIZATION, Receipt, ReceiptAct, ReceiptAuthority,
-    ReceiptEnforcement, ReceiptIdempotency, ReceiptIssuer, ReceiptIssuerType, ReceiptSchema,
-    ReceiptSubjectKind, Reference, ReferenceType, Seal, SignatureAlgorithm, Subject,
-    SuccessCriterion,
+    ProofKind, RECEIPT_CANONICALIZATION, Receipt, ReceiptAct, ReceiptAuthority, ReceiptEnforcement,
+    ReceiptIdempotency, ReceiptIssuer, ReceiptIssuerType, ReceiptSchema, ReceiptSubjectKind,
+    Reference, ReferenceType, Seal, SignatureAlgorithm, Subject, SuccessCriterion,
 };
 use runx_receipts::{
     ReceiptProofContext, ReceiptProofContextProvider, ReceiptSignature, ReceiptTreeConfig,
@@ -103,7 +102,13 @@ pub(crate) fn step_receipt_with_disposition_and_policy(
         summary,
     } = params;
     let output_refs = output_refs(output);
-    let act = observation_act(step_id, output, created_at, disposition.clone(), &output_refs);
+    let act = observation_act(
+        step_id,
+        output,
+        created_at,
+        disposition.clone(),
+        &output_refs,
+    );
     let seal_criterion = CriterionBinding {
         criterion_id: "process_exit".to_owned(),
         status: if output.succeeded() {
@@ -115,8 +120,19 @@ pub(crate) fn step_receipt_with_disposition_and_policy(
         verification_refs: output_refs.verification_refs.clone(),
         summary: Some(output_summary(output)),
     };
-    let seal = seal(disposition, reason_code, summary, created_at, vec![seal_criterion]);
-    let decisions = decisions(step_id, &act, &output_refs.signal_refs, &output_refs.artifact_refs);
+    let seal = seal(
+        disposition,
+        reason_code,
+        summary,
+        created_at,
+        vec![seal_criterion],
+    );
+    let decisions = decisions(
+        step_id,
+        &act,
+        &output_refs.signal_refs,
+        &output_refs.artifact_refs,
+    );
     let mut receipt = build_receipt(BuildReceipt {
         id: step_receipt_id(graph_name, step_id, attempt),
         graph_name,
@@ -890,11 +906,7 @@ impl<'a> RuntimeReceiptSignaturePolicy<'a> {
         Ok(())
     }
 
-    fn sign_receipt(
-        self,
-        receipt: &mut Receipt,
-        body_digest: &str,
-    ) -> Result<(), RuntimeError> {
+    fn sign_receipt(self, receipt: &mut Receipt, body_digest: &str) -> Result<(), RuntimeError> {
         if self.allows_local_pseudo_signatures() {
             receipt.signature.value = format!("sig:{body_digest}");
             return Ok(());

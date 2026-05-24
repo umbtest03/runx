@@ -34,7 +34,13 @@ fn issue_to_pr_generated_fixtures_replay_to_needs_agent_receipts()
         // reasoning lives on the per-step child receipts.
         assert_eq!(output.receipt.decisions.len(), 0);
         assert!(
-            !output.receipt.lineage.as_ref().map(|l| l.children.as_slice()).unwrap_or_default().is_empty(),
+            !output
+                .receipt
+                .lineage
+                .as_ref()
+                .map(|l| l.children.as_slice())
+                .unwrap_or_default()
+                .is_empty(),
             "{case_name}: graph receipt should cite child harness receipts"
         );
     }

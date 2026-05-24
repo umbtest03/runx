@@ -213,8 +213,7 @@ fn mcp_server_skill_tool_execution_returns_completed_runx_structured_content()
 
 #[test]
 #[cfg(feature = "mcp")]
-fn mcp_server_single_skill_call_writes_sealed_receipt()
--> Result<(), Box<dyn std::error::Error>> {
+fn mcp_server_single_skill_call_writes_sealed_receipt() -> Result<(), Box<dyn std::error::Error>> {
     let receipt_root = tempfile::tempdir()?;
     let responses = run_server_with_options(
         vec![request(

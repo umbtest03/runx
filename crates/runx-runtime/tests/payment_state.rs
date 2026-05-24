@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use runx_contracts::{Receipt, JsonObject, JsonValue};
+use runx_contracts::{JsonObject, JsonValue, Receipt};
 use runx_runtime::RUNX_RECEIPT_DIR_ENV;
 use runx_runtime::payment_state::{
     FileBackedPaymentStateStore, PaymentIdempotencyEntry, PaymentIdempotencyKey,

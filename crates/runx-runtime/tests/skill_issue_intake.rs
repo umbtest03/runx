@@ -9,8 +9,7 @@ use runx_runtime::{
 };
 
 #[test]
-fn issue_intake_generated_fixtures_replay_to_receipts()
--> Result<(), Box<dyn std::error::Error>> {
+fn issue_intake_generated_fixtures_replay_to_receipts() -> Result<(), Box<dyn std::error::Error>> {
     for case_name in [
         "bounded-docs-fix",
         "feature-needs-decomposition",
@@ -35,11 +34,7 @@ fn issue_intake_generated_fixtures_replay_to_receipts()
             !output.receipt.signals.is_empty(),
             "{case_name}: receipt should bind the emitted signal"
         );
-        let act = output
-            .receipt
-            .acts
-            .first()
-            .ok_or("missing contained act")?;
+        let act = output.receipt.acts.first().ok_or("missing contained act")?;
         assert!(
             !act.source_refs.is_empty(),
             "{case_name}: act should bind source event refs"

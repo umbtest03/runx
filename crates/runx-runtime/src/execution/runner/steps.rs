@@ -374,10 +374,7 @@ fn replay_stdout_payload(outputs: &JsonObject) -> JsonObject {
     payload
 }
 
-fn receipt_has_payment_rail_proof(
-    receipt: &runx_contracts::Receipt,
-    rail_proof_ref: &str,
-) -> bool {
+fn receipt_has_payment_rail_proof(receipt: &runx_contracts::Receipt, rail_proof_ref: &str) -> bool {
     receipt.acts.iter().any(|act| {
         act.criterion_bindings
             .iter()

@@ -1,6 +1,6 @@
 use runx_contracts::{
-    FanoutReceiptDecision, FanoutReceiptStrategy, FanoutReceiptSyncPoint, Receipt,
-    JsonObject, ReceiptIssuer, ReceiptSignature,
+    FanoutReceiptDecision, FanoutReceiptStrategy, FanoutReceiptSyncPoint, JsonObject, Receipt,
+    ReceiptIssuer, ReceiptSignature,
 };
 use runx_core::state_machine::StepAdmissionWitness;
 use runx_receipts::{
@@ -26,7 +26,11 @@ fn runtime_resolver_verifies_graph_receipt_with_children() -> Result<(), Box<dyn
 
     assert_eq!(resolver.receipts().len(), 2);
     assert!(children.iter().all(|child| {
-        child.lineage.as_ref().and_then(|l| l.parent.as_ref()).map(|r| r.uri.as_str())
+        child
+            .lineage
+            .as_ref()
+            .and_then(|l| l.parent.as_ref())
+            .map(|r| r.uri.as_str())
             == Some(format!("runx:receipt:{}", root.id).as_str())
     }));
     assert!(
@@ -361,9 +365,7 @@ fn fanout_sync_point(steps: &[StepRun]) -> FanoutReceiptSyncPoint {
     }
 }
 
-fn resign_for_test_verifier(
-    receipt: &mut Receipt,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn resign_for_test_verifier(receipt: &mut Receipt) -> Result<(), Box<dyn std::error::Error>> {
     let digest = canonical_receipt_body_digest(receipt)?;
     receipt.signature.value = format!("ed25519-test:{digest}");
     Ok(())

@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use runx_contracts::{
-    ClosureDisposition, ExecutionEvent, FanoutReceiptSyncPoint, Receipt, JsonObject,
+    ClosureDisposition, ExecutionEvent, FanoutReceiptSyncPoint, JsonObject, Receipt,
 };
 use runx_core::state_machine::{SequentialGraphState, StepAdmissionWitness};
 use runx_parser::ExecutionGraph;

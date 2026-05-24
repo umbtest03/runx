@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use runx_contracts::{ClosureDisposition, Receipt, JsonValue};
+use runx_contracts::{ClosureDisposition, JsonValue, Receipt};
 use thiserror::Error;
 
 use super::harness::{HarnessReplayError, HarnessReplayOutput};
@@ -258,4 +258,3 @@ fn object_array<'a>(value: &'a JsonValue, key: &str) -> Option<&'a Vec<JsonValue
     };
     Some(value)
 }
-

@@ -10,12 +10,12 @@ use runx_contracts::post_merge_observer::{
     normalize_post_merge_observer_command,
 };
 use runx_contracts::{
-    Receipt, OperationalPolicy, PostMergeObserverPlan, PostMergeObserverPlanError,
+    OperationalPolicy, PostMergeObserverPlan, PostMergeObserverPlanError,
     PostMergeObserverPlanRequest, PostMergeObserverPublicationProjection,
     PostMergeObserverRuntimeDecision, PostMergeObserverRuntimeDedupePlan,
     PostMergeObserverSignalSource, PostMergeProvider, PostMergePullRequestObservation,
     PostMergePullRequestState, PostMergeSourceIssueDisposition, PostMergeVerificationObservation,
-    Reference, ReferenceType, plan_post_merge_observer_closure,
+    Receipt, Reference, ReferenceType, plan_post_merge_observer_closure,
     project_post_merge_observer_publication_from_receipt,
 };
 use serde::{Deserialize, Serialize};
@@ -934,8 +934,7 @@ fn sealed_receipt_dedupe_plan(
         },
         publication_key: format!(
             "post-merge-publication:{}:{}",
-            sealed_receipt.idempotency.intent_key,
-            sealed_receipt.idempotency.content_hash
+            sealed_receipt.idempotency.intent_key, sealed_receipt.idempotency.content_hash
         ),
         content_hash: sealed_receipt.idempotency.content_hash.clone(),
     }

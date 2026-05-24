@@ -5,8 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use runx_contracts::{Receipt, Reference, ReferenceType};
 
 use crate::{
-    ReceiptFinding, ReceiptFindingCode, ReceiptProofContext, ReceiptVerification,
-    validate_receipt, verify_receipt, verify_receipt_proof,
+    ReceiptFinding, ReceiptFindingCode, ReceiptProofContext, ReceiptVerification, validate_receipt,
+    verify_receipt, verify_receipt_proof,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -59,10 +59,7 @@ pub fn validate_receipt_tree(
 }
 
 #[must_use]
-pub fn verify_receipt_tree(
-    root: &Receipt,
-    children: &[Receipt],
-) -> ReceiptVerification {
+pub fn verify_receipt_tree(root: &Receipt, children: &[Receipt]) -> ReceiptVerification {
     let resolver = SliceReceiptResolver { children };
     verify_receipt_tree_with_resolver(root, &resolver, ReceiptTreeConfig::default())
 }
@@ -541,7 +538,9 @@ fn child_digest_link_findings(
     vec![ReceiptFinding {
         code: ReceiptFindingCode::ChildReceiptDigestMismatch,
         path: format!("{path}.locator"),
-        message: "strict tree proof requires child receipt refs to carry the exact child receipt digest".to_owned(),
+        message:
+            "strict tree proof requires child receipt refs to carry the exact child receipt digest"
+                .to_owned(),
     }]
 }
 
@@ -597,7 +596,10 @@ mod tests {
     }
 
     fn child_refs_mut(receipt: &mut Receipt) -> &mut Vec<Reference> {
-        &mut receipt.lineage.get_or_insert_with(Default::default).children
+        &mut receipt
+            .lineage
+            .get_or_insert_with(Default::default)
+            .children
     }
 
     #[test]
@@ -613,8 +615,7 @@ mod tests {
             "lineage.children[0]",
         );
 
-        child_refs_mut(&mut root)[0].uri =
-            "runx:receipt:hrn_rcpt_child_1".to_owned();
+        child_refs_mut(&mut root)[0].uri = "runx:receipt:hrn_rcpt_child_1".to_owned();
         assert!(verify_receipt_tree(&root, &[child]).valid);
         Ok(())
     }
@@ -769,8 +770,7 @@ mod tests {
     fn depth_limit_blocks_hostile_nested_tree() -> Result<(), serde_json::Error> {
         let root = fixture(SUCCESS_RECEIPT)?;
         let mut child_receipt = child("hrn_rcpt_child_1")?;
-        child_refs_mut(&mut child_receipt)
-            .push(reference(ReferenceType::Receipt, "grandchild"));
+        child_refs_mut(&mut child_receipt).push(reference(ReferenceType::Receipt, "grandchild"));
         let grandchild = child("grandchild")?;
 
         let verification = verify_receipt_tree_with_resolver(
@@ -795,8 +795,7 @@ mod tests {
     #[test]
     fn breadth_limit_blocks_hostile_fanout() -> Result<(), serde_json::Error> {
         let mut root = fixture(SUCCESS_RECEIPT)?;
-        child_refs_mut(&mut root)
-            .push(reference(ReferenceType::Receipt, "second"));
+        child_refs_mut(&mut root).push(reference(ReferenceType::Receipt, "second"));
         let first = child("hrn_rcpt_child_1")?;
         let second = child("second")?;
 
@@ -823,8 +822,7 @@ mod tests {
     fn positive_nested_tree_verifies() -> Result<(), serde_json::Error> {
         let root = fixture(SUCCESS_RECEIPT)?;
         let mut child_receipt = child("hrn_rcpt_child_1")?;
-        child_refs_mut(&mut child_receipt)
-            .push(reference(ReferenceType::Receipt, "grandchild"));
+        child_refs_mut(&mut child_receipt).push(reference(ReferenceType::Receipt, "grandchild"));
         let grandchild = child("grandchild")?;
 
         assert!(verify_receipt_tree(&root, &[child_receipt, grandchild]).valid);
@@ -834,8 +832,7 @@ mod tests {
     #[test]
     fn positive_fanout_tree_verifies() -> Result<(), serde_json::Error> {
         let mut root = fixture(SUCCESS_RECEIPT)?;
-        child_refs_mut(&mut root)
-            .push(reference(ReferenceType::Receipt, "second"));
+        child_refs_mut(&mut root).push(reference(ReferenceType::Receipt, "second"));
         let first = child("hrn_rcpt_child_1")?;
         let second = child("second")?;
 
@@ -1115,9 +1112,7 @@ mod tests {
         refresh_proof_digest_and_signature(root)
     }
 
-    fn refresh_proof_digest_and_signature(
-        receipt: &mut Receipt,
-    ) -> Result<(), serde_json::Error> {
+    fn refresh_proof_digest_and_signature(receipt: &mut Receipt) -> Result<(), serde_json::Error> {
         let digest = canonical_receipt_body_digest(receipt)
             .map_err(|error| serde_json::Error::io(std::io::Error::other(error.to_string())))?;
         receipt.digest = digest.clone();

@@ -1,8 +1,7 @@
 use std::error::Error;
 
 use runx_contracts::{
-    Receipt, JsonObject, ReceiptIssuer, ReceiptIssuerType, ReceiptSignature,
-    SignatureAlgorithm,
+    JsonObject, Receipt, ReceiptIssuer, ReceiptIssuerType, ReceiptSignature, SignatureAlgorithm,
 };
 use runx_core::state_machine::StepAdmissionWitness;
 use runx_receipts::{
@@ -175,8 +174,7 @@ fn production_verifier_reports_tamper_findings() -> Result<(), Box<dyn Error>> {
 
     let mut malformed_signature = receipt.clone();
     malformed_signature.signature.value = "base64:!".to_owned();
-    let verification =
-        verify_receipt_proof(&malformed_signature, &proof_context(&verifier));
+    let verification = verify_receipt_proof(&malformed_signature, &proof_context(&verifier));
     assert_finding(&verification, ReceiptFindingCode::SignatureMalformed);
 
     let mut missing_key = receipt.clone();
@@ -191,8 +189,7 @@ fn production_verifier_reports_tamper_findings() -> Result<(), Box<dyn Error>> {
 
     let mut missing_verifier = receipt;
     refresh_digest_and_signature(&mut missing_verifier, &signer)?;
-    let verification =
-        verify_receipt_proof(&missing_verifier, &ReceiptProofContext::default());
+    let verification = verify_receipt_proof(&missing_verifier, &ReceiptProofContext::default());
     assert_finding(&verification, ReceiptFindingCode::SignatureVerifierMissing);
     Ok(())
 }

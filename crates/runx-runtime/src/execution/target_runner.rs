@@ -14,21 +14,23 @@ use runx_contracts::{
     ActForm, AuthorityAttenuation, AuthoritySubsetProof, AuthoritySubsetResult, ChangePlan,
     ChangeRequest, Closure, ClosureDisposition, CriterionBinding, CriterionStatus, Intent,
     JsonNumber, JsonObject, JsonValue, Lineage, RECEIPT_CANONICALIZATION, Receipt, ReceiptAct,
-    ReceiptAuthority, ReceiptEnforcement, ReceiptIdempotency, ReceiptIssuer,
-    ReceiptIssuerType, ReceiptSchema, ReceiptSubjectKind, Reference, ReferenceType, RevisionDetails,
-    Seal, SignatureAlgorithm, Subject, SuccessCriterion, TargetSurface,
-    TargetRepoRunnerDedupeLookupExecution,
+    ReceiptAuthority, ReceiptEnforcement, ReceiptIdempotency, ReceiptIssuer, ReceiptIssuerType,
+    ReceiptSchema, ReceiptSubjectKind, Reference, ReferenceType, RevisionDetails, Seal,
+    SignatureAlgorithm, Subject, SuccessCriterion, TargetRepoRunnerDedupeLookupExecution,
     TargetRepoRunnerDedupeLookupObservation, TargetRepoRunnerDedupeLookupPlan,
     TargetRepoRunnerDedupeResult, TargetRepoRunnerExecutionPlan,
     TargetRepoRunnerExistingPullRequest, TargetRepoRunnerPlan, TargetRepoRunnerPlanError,
     TargetRepoRunnerProvider, TargetRepoRunnerProviderPullRequest,
     TargetRepoRunnerPullRequestDisposition, TargetRepoRunnerPullRequestReceiptPlan,
     TargetRepoRunnerReadinessObservation, TargetRepoRunnerSourcePublicationReceiptPlan,
-    apply_target_repo_runner_dedupe_lookup_execution, execute_target_repo_runner_dedupe_lookup,
-    plan_target_repo_runner_execution, plan_target_repo_runner_pull_request_receipt,
+    TargetSurface, apply_target_repo_runner_dedupe_lookup_execution,
+    execute_target_repo_runner_dedupe_lookup, plan_target_repo_runner_execution,
+    plan_target_repo_runner_pull_request_receipt,
     plan_target_repo_runner_source_publication_receipt,
 };
-use runx_receipts::{canonical_receipt_body_digest, content_addressed_receipt_id, validate_receipt};
+use runx_receipts::{
+    canonical_receipt_body_digest, content_addressed_receipt_id, validate_receipt,
+};
 
 pub use crate::runtime_http::{
     HostedHttpError as TargetRepoRunnerHttpError, HostedHttpHeader as TargetRepoRunnerHttpHeader,
@@ -1838,7 +1840,8 @@ fn revision_act(input: RevisionActInput<'_>) -> ReceiptAct {
         statement: "Target pull request is ready for human review".to_owned(),
         required: true,
     }];
-    let revision = revision_change_set(act_id, summary, &pull_request_ref, success_criteria.clone());
+    let revision =
+        revision_change_set(act_id, summary, &pull_request_ref, success_criteria.clone());
     ReceiptAct {
         id: act_id.to_owned(),
         form: ActForm::Revision,
@@ -1958,9 +1961,7 @@ fn source_publication_authority(
         },
         mandate_ref: None,
         enforcement: ReceiptEnforcement {
-            profile_hash: stable_hash(&format!(
-                "target-runner-source-publication:{target_repo}"
-            )),
+            profile_hash: stable_hash(&format!("target-runner-source-publication:{target_repo}")),
             redaction_refs: Vec::new(),
             setup_refs: Vec::new(),
             teardown_refs: Vec::new(),

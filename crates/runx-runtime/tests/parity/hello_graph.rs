@@ -47,9 +47,15 @@ fn hello_graph_matches_post_cutover_fixture() -> Result<(), Box<dyn std::error::
         eprintln!(
             "REGEN-HELLO graph_seal_digest={} child_seal_digests={:?} graph_receipt_id={} child_receipt_ids={:?}",
             run.receipt.digest,
-            run.steps.iter().map(|s| s.receipt.digest.clone()).collect::<Vec<_>>(),
+            run.steps
+                .iter()
+                .map(|s| s.receipt.digest.clone())
+                .collect::<Vec<_>>(),
             run.receipt.id,
-            run.steps.iter().map(|s| s.receipt.id.clone()).collect::<Vec<_>>(),
+            run.steps
+                .iter()
+                .map(|s| s.receipt.id.clone())
+                .collect::<Vec<_>>(),
         );
         return Ok(());
     }

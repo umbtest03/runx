@@ -35,50 +35,147 @@ fn main() {
     });
 
     let cases = json!([
-        case("positive-nested", "root_to_a", &["child_a_to_b", "child_b"], &[], cfg(64, 1024, false), true, &[]),
-        case("positive-fanout", "root_to_a_b", &["child_a", "child_b"], &[], cfg(64, 1024, false), true, &[]),
-        case("duplicate-id", "root_empty", &["child_a", "child_a_duplicate"], &[], cfg(64, 1024, false), false, &[
-            ("DuplicateChildReceipt", "children[1].id"),
-            ("OrphanChildReceipt", "children[0].id"),
-            ("OrphanChildReceipt", "children[1].id"),
-        ]),
-        case("missing-child", "root_to_a", &[], &[], cfg(64, 1024, false), false, &[
-            ("ChildReceiptMissing", "lineage.children[0]"),
-        ]),
-        case("resolver-error", "root_to_a", &[], &["hrn_rcpt_child_a"], cfg(64, 1024, false), false, &[
-            ("ChildReceiptResolverError", "lineage.children[0]"),
-        ]),
-        case("malformed-uri", "root_malformed_uri", &["child_a"], &[], cfg(64, 1024, false), false, &[
-            ("ChildReceiptRefMalformed", "lineage.children[0]"),
-            ("OrphanChildReceipt", "children[0].id"),
-        ]),
-        case("wrong-namespace", "root_wrong_namespace", &["child_a"], &[], cfg(64, 1024, false), false, &[
-            ("ChildReceiptRefMalformed", "lineage.children[0]"),
-            ("OrphanChildReceipt", "children[0].id"),
-        ]),
-        case("ambiguous-id", "root_to_a", &["child_a", "child_a_duplicate"], &[], cfg(64, 1024, false), false, &[
-            ("DuplicateChildReceipt", "children[1].id"),
-            ("ChildReceiptAmbiguous", "lineage.children[0]"),
-            ("OrphanChildReceipt", "children[0].id"),
-            ("OrphanChildReceipt", "children[1].id"),
-        ]),
-        case("cycle", "root_to_a", &["child_a_self_cycle"], &[], cfg(64, 1024, false), false, &[
-            ("ChildReceiptCycle", "children[0].lineage.children[0]"),
-        ]),
-        case("orphan", "root_empty", &["child_a"], &[], cfg(64, 1024, false), false, &[
-            ("OrphanChildReceipt", "children[0].id"),
-        ]),
-        case("wrong-parent", "root_to_a", &["child_a_wrong_parent"], &[], cfg(64, 1024, true), false, &[
-            ("ChildReceiptParentMismatch", "lineage.children[0].lineage.parent"),
-        ]),
-        case("depth-limit", "root_to_a", &["child_a_to_b", "child_b"], &[], cfg(1, 1024, false), false, &[
-            ("ChildReceiptDepthLimit", "children[0].lineage.children[0]"),
-            ("OrphanChildReceipt", "children[1].id"),
-        ]),
-        case("breadth-limit", "root_to_a_b", &["child_a", "child_b"], &[], cfg(64, 1, false), false, &[
-            ("ChildReceiptBreadthLimit", "lineage.children"),
-            ("OrphanChildReceipt", "children[1].id"),
-        ]),
+        case(
+            "positive-nested",
+            "root_to_a",
+            &["child_a_to_b", "child_b"],
+            &[],
+            cfg(64, 1024, false),
+            true,
+            &[]
+        ),
+        case(
+            "positive-fanout",
+            "root_to_a_b",
+            &["child_a", "child_b"],
+            &[],
+            cfg(64, 1024, false),
+            true,
+            &[]
+        ),
+        case(
+            "duplicate-id",
+            "root_empty",
+            &["child_a", "child_a_duplicate"],
+            &[],
+            cfg(64, 1024, false),
+            false,
+            &[
+                ("DuplicateChildReceipt", "children[1].id"),
+                ("OrphanChildReceipt", "children[0].id"),
+                ("OrphanChildReceipt", "children[1].id"),
+            ]
+        ),
+        case(
+            "missing-child",
+            "root_to_a",
+            &[],
+            &[],
+            cfg(64, 1024, false),
+            false,
+            &[("ChildReceiptMissing", "lineage.children[0]"),]
+        ),
+        case(
+            "resolver-error",
+            "root_to_a",
+            &[],
+            &["hrn_rcpt_child_a"],
+            cfg(64, 1024, false),
+            false,
+            &[("ChildReceiptResolverError", "lineage.children[0]"),]
+        ),
+        case(
+            "malformed-uri",
+            "root_malformed_uri",
+            &["child_a"],
+            &[],
+            cfg(64, 1024, false),
+            false,
+            &[
+                ("ChildReceiptRefMalformed", "lineage.children[0]"),
+                ("OrphanChildReceipt", "children[0].id"),
+            ]
+        ),
+        case(
+            "wrong-namespace",
+            "root_wrong_namespace",
+            &["child_a"],
+            &[],
+            cfg(64, 1024, false),
+            false,
+            &[
+                ("ChildReceiptRefMalformed", "lineage.children[0]"),
+                ("OrphanChildReceipt", "children[0].id"),
+            ]
+        ),
+        case(
+            "ambiguous-id",
+            "root_to_a",
+            &["child_a", "child_a_duplicate"],
+            &[],
+            cfg(64, 1024, false),
+            false,
+            &[
+                ("DuplicateChildReceipt", "children[1].id"),
+                ("ChildReceiptAmbiguous", "lineage.children[0]"),
+                ("OrphanChildReceipt", "children[0].id"),
+                ("OrphanChildReceipt", "children[1].id"),
+            ]
+        ),
+        case(
+            "cycle",
+            "root_to_a",
+            &["child_a_self_cycle"],
+            &[],
+            cfg(64, 1024, false),
+            false,
+            &[("ChildReceiptCycle", "children[0].lineage.children[0]"),]
+        ),
+        case(
+            "orphan",
+            "root_empty",
+            &["child_a"],
+            &[],
+            cfg(64, 1024, false),
+            false,
+            &[("OrphanChildReceipt", "children[0].id"),]
+        ),
+        case(
+            "wrong-parent",
+            "root_to_a",
+            &["child_a_wrong_parent"],
+            &[],
+            cfg(64, 1024, true),
+            false,
+            &[(
+                "ChildReceiptParentMismatch",
+                "lineage.children[0].lineage.parent"
+            ),]
+        ),
+        case(
+            "depth-limit",
+            "root_to_a",
+            &["child_a_to_b", "child_b"],
+            &[],
+            cfg(1, 1024, false),
+            false,
+            &[
+                ("ChildReceiptDepthLimit", "children[0].lineage.children[0]"),
+                ("OrphanChildReceipt", "children[1].id"),
+            ]
+        ),
+        case(
+            "breadth-limit",
+            "root_to_a_b",
+            &["child_a", "child_b"],
+            &[],
+            cfg(64, 1, false),
+            false,
+            &[
+                ("ChildReceiptBreadthLimit", "lineage.children"),
+                ("OrphanChildReceipt", "children[1].id"),
+            ]
+        ),
     ]);
 
     let oracle = json!({
@@ -143,7 +240,10 @@ fn rec(id: &str, child_ids: &[&str], parent_uri: Option<&str>) -> Value {
 
 fn rec_raw_child(id: &str, child_id: &str) -> Value {
     let mut receipt = base(id);
-    receipt.lineage.get_or_insert_with(Default::default).children = vec![Reference {
+    receipt
+        .lineage
+        .get_or_insert_with(Default::default)
+        .children = vec![Reference {
         // Suffix-only uri: typed receipt ref but not the canonical runx:receipt: scheme.
         ..Reference::with_uri(ReferenceType::Receipt, child_id)
     }];
@@ -152,11 +252,13 @@ fn rec_raw_child(id: &str, child_id: &str) -> Value {
 
 fn rec_wrong_ns_child(id: &str, child_id: &str) -> Value {
     let mut receipt = base(id);
-    receipt.lineage.get_or_insert_with(Default::default).children =
-        vec![Reference::with_uri(
-            ReferenceType::Receipt,
-            format!("runx:graph_receipt:{child_id}"),
-        )];
+    receipt
+        .lineage
+        .get_or_insert_with(Default::default)
+        .children = vec![Reference::with_uri(
+        ReferenceType::Receipt,
+        format!("runx:graph_receipt:{child_id}"),
+    )];
     serde_json::to_value(receipt).unwrap()
 }
 

@@ -51,7 +51,10 @@ impl Verifier {
         self.check_non_empty("created_at", &receipt.created_at);
         self.check_non_empty("canonicalization", &receipt.canonicalization);
         self.check_non_empty("issuer.kid", &receipt.issuer.kid);
-        self.check_sha256_prefix("issuer.public_key_sha256", &receipt.issuer.public_key_sha256);
+        self.check_sha256_prefix(
+            "issuer.public_key_sha256",
+            &receipt.issuer.public_key_sha256,
+        );
         self.check_non_empty("signature.value", &receipt.signature.value);
     }
 
@@ -98,7 +101,10 @@ impl Verifier {
             "idempotency.trigger_fingerprint",
             &receipt.idempotency.trigger_fingerprint,
         );
-        self.check_sha256_prefix("idempotency.content_hash", &receipt.idempotency.content_hash);
+        self.check_sha256_prefix(
+            "idempotency.content_hash",
+            &receipt.idempotency.content_hash,
+        );
         self.check_sha256_prefix("digest", &receipt.digest);
         for (index, commitment) in receipt.subject.commitments.iter().enumerate() {
             self.check_commitment(&format!("subject.commitments[{index}]"), commitment);
