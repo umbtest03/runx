@@ -8,8 +8,8 @@ expect:
   status: sealed
   receipt:
     schema: runx.receipt.v1
-    body_digest: sha256:a4ebf371d78cee46150f162b0fe8a7c862f152624f6060264a0ca35c0d828b95
-    receipt_digest: sha256:05c46639745359fe479ade3ad58d82f72b7e52b00de17c288ad18f60fceaac2a
+    body_digest: sha256:7a1d84738ea438dc9b8f38e171e779d2cae26c011981fbe765123e63b0b73187
+    receipt_digest: sha256:d9d133bb448af855086ed77ff4cdecd78184bcec574bca6d78867d3886205fd8
     harness_id: hrn_x402-pay-approval_graph
     state: sealed
     disposition: closed

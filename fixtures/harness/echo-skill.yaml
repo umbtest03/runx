@@ -7,8 +7,8 @@ expect:
   status: sealed
   receipt:
     schema: runx.receipt.v1
-    body_digest: sha256:bc8430f4927fb5b79378fb557f92dfd8865fcc9af08f68636dbb02686036e1af
-    receipt_digest: sha256:da1b00192154241ea2824826fe05040ac3425cd65ee2bf436ec5926cd3cbe5da
+    body_digest: sha256:f6e6b7294893234ce134df72199c80173deca6f47c0dbd97d949034b3704cdb9
+    receipt_digest: sha256:5d803880a98b8e86b75bc8a7fd91260193fdd5fbdc37a3e6910cde1db0ef0748
     harness_id: hrn_echo-skill_echo
     state: sealed
     disposition: closed
