@@ -368,7 +368,7 @@ impl<R: ReceiptResolver, P: ChildProofPolicy> TreeTraversal<'_, R, P> {
             return vec![ReceiptFinding {
                 code: ReceiptFindingCode::ChildReceiptCycle,
                 path: join(path, "id"),
-                message: "child harness receipt refs must not form cycles".to_owned(),
+                message: "child receipt refs must not form cycles".to_owned(),
             }];
         }
 
@@ -419,7 +419,7 @@ impl<R: ReceiptResolver, P: ChildProofPolicy> TreeTraversal<'_, R, P> {
             return vec![ReceiptFinding {
                 code: ReceiptFindingCode::ChildReceiptDepthLimit,
                 path: path.to_owned(),
-                message: "child harness receipt refs exceed configured depth limit".to_owned(),
+                message: "child receipt refs exceed configured depth limit".to_owned(),
             }];
         };
         let resolved = match self.resolver.resolve_child(reference) {
@@ -434,7 +434,7 @@ impl<R: ReceiptResolver, P: ChildProofPolicy> TreeTraversal<'_, R, P> {
             return vec![ReceiptFinding {
                 code: ReceiptFindingCode::ChildReceiptCycle,
                 path: path.to_owned(),
-                message: "child harness receipt refs must not point to an ancestor".to_owned(),
+                message: "child receipt refs must not point to an ancestor".to_owned(),
             }];
         }
         let child_path = resolved.path.clone();
@@ -472,7 +472,7 @@ fn missing_child(path: &str) -> ReceiptFinding {
     ReceiptFinding {
         code: ReceiptFindingCode::ChildReceiptMissing,
         path: path.to_owned(),
-        message: "child harness receipt ref must resolve to a supplied child receipt".to_owned(),
+        message: "child receipt ref must resolve to a supplied child receipt".to_owned(),
     }
 }
 
@@ -480,7 +480,7 @@ fn malformed_child_ref(path: &str) -> ReceiptFinding {
     ReceiptFinding {
         code: ReceiptFindingCode::ChildReceiptRefMalformed,
         path: path.to_owned(),
-        message: "child harness receipt ref must be a typed runx harness receipt URI".to_owned(),
+        message: "child receipt ref must be a typed runx receipt URI".to_owned(),
     }
 }
 
@@ -488,7 +488,7 @@ fn ambiguous_child(path: &str) -> ReceiptFinding {
     ReceiptFinding {
         code: ReceiptFindingCode::ChildReceiptAmbiguous,
         path: path.to_owned(),
-        message: "child harness receipt ref resolved to multiple supplied receipts".to_owned(),
+        message: "child receipt ref resolved to multiple supplied receipts".to_owned(),
     }
 }
 
@@ -496,7 +496,7 @@ fn resolver_error(path: &str) -> ReceiptFinding {
     ReceiptFinding {
         code: ReceiptFindingCode::ChildReceiptResolverError,
         path: path.to_owned(),
-        message: "child harness receipt ref resolver failed before proof verification".to_owned(),
+        message: "child receipt ref resolver failed before proof verification".to_owned(),
     }
 }
 

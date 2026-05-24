@@ -80,7 +80,7 @@ pub enum RuntimeError {
     SkillFileMissing { path: PathBuf },
     #[error("skill '{skill_name}' failed: {message}")]
     SkillFailed { skill_name: String, message: String },
-    #[error("harness receipt validation failed: {message}")]
+    #[error("receipt validation failed: {message}")]
     ReceiptInvalid { message: String },
 }
 

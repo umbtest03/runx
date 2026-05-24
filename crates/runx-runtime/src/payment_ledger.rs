@@ -178,9 +178,7 @@ pub enum PaymentLedgerProjectionError {
     },
     #[error("settlement evidence does not match reservation evidence")]
     SettlementReservationMismatch,
-    #[error(
-        "payment ledger projection source receipt id {source_receipt_id} is not a harness receipt ref"
-    )]
+    #[error("payment ledger projection source receipt id {source_receipt_id} is not a receipt ref")]
     InvalidSourceReceiptId { source_receipt_id: String },
     #[error("payment ledger projection artifact already exists with different contents at {path}")]
     ArtifactConflict { path: PathBuf },
