@@ -424,7 +424,7 @@ function buildAsterControlFixtures(): readonly ContractFixture[] {
   const selectionCycleRef = reference("selection_cycle", "runx:selection_cycle:cycle_1");
   const selectionRef = reference("selection", "runx:selection:sel_1");
   const decisionRef = reference("decision", "runx:decision:dec_1");
-  const harnessReceiptRef = reference("harness_receipt", "runx:harness_receipt:hrn_1");
+  const receiptRef = reference("receipt", "runx:receipt:hrn_1");
   const verificationRef = reference("verification", "runx:verification:ver_1");
   const evidenceRef = reference("artifact", "runx:artifact:evidence_1");
   const redactionPolicyRef = reference("redaction_policy", "runx:redaction_policy:public");
@@ -437,7 +437,7 @@ function buildAsterControlFixtures(): readonly ContractFixture[] {
   };
   const actRef = {
     act_id: "act_publish_feed",
-    harness_receipt_ref: harnessReceiptRef,
+    receipt_ref: receiptRef,
   };
 
   return [{
@@ -452,7 +452,7 @@ function buildAsterControlFixtures(): readonly ContractFixture[] {
         decision_refs: [decisionRef],
         evidence_refs: [evidenceRef],
         feed_entry_id: "feed_1",
-        harness_receipt_refs: [harnessReceiptRef],
+        receipt_refs: [receiptRef],
         opportunity_ref: opportunityRef,
         public_at: "2026-05-18T00:07:00Z",
         redaction_policy_ref: redactionPolicyRef,
@@ -483,7 +483,7 @@ function buildAsterControlFixtures(): readonly ContractFixture[] {
         decision_ref: decisionRef,
         evidence_refs: [evidenceRef],
         follow_up_refs: [],
-        harness_receipt_refs: [harnessReceiptRef],
+        receipt_refs: [receiptRef],
         lessons: ["Keep feed projections tied to sealed harness receipts."],
         opportunity_ref: opportunityRef,
         recorded_at: "2026-05-18T00:06:00Z",
@@ -514,7 +514,7 @@ function buildAsterControlFixtures(): readonly ContractFixture[] {
         cycle_id: "cycle_1",
         decision_ref: decisionRef,
         fingerprint,
-        harness_receipt_ref: harnessReceiptRef,
+        receipt_ref: receiptRef,
         input_refs: [sourceRef],
         no_action_closure: null,
         opportunity_refs: [opportunityRef],
@@ -556,7 +556,7 @@ function buildAsterControlFixtures(): readonly ContractFixture[] {
         decision_ref: decisionRef,
         entry_id: "tte_1",
         from_state: "eligible",
-        harness_receipt_ref: harnessReceiptRef,
+        receipt_ref: receiptRef,
         reason_code: "selected",
         recorded_at: "2026-05-18T00:03:30Z",
         schema: "runx.target_transition_entry.v1",
