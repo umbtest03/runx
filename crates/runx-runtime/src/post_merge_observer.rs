@@ -835,7 +835,7 @@ fn observe_post_merge_closure<A: PostMergeObserverAdapter>(
     if closure_plan.reason_code != sealed_receipt.seal.reason_code {
         return Err(PostMergeObserverRuntimeError::ObservedClosureMismatch {
             observed_reason_code: closure_plan.reason_code,
-            receipt_reason_code: sealed_receipt.seal.reason_code.clone(),
+            receipt_reason_code: sealed_receipt.seal.reason_code.to_string(),
         });
     }
     Ok(ObservedPostMergeClosure {
@@ -872,7 +872,7 @@ fn plan_post_merge_observer_publication_commands(
     if dedupe.receipt_id != sealed_receipt.id {
         return Err(PostMergeObserverRuntimeError::ReceiptMismatch {
             dedupe_receipt_id: dedupe.receipt_id.clone(),
-            receipt_id: sealed_receipt.id.clone(),
+            receipt_id: sealed_receipt.id.to_string(),
         });
     }
 
@@ -922,7 +922,7 @@ fn sealed_receipt_dedupe_plan(
             "post-merge-observer:{}",
             sealed_receipt.idempotency.content_hash
         ),
-        receipt_id: sealed_receipt.id.clone(),
+        receipt_id: sealed_receipt.id.to_string(),
         receipt_ref: Reference {
             reference_type: ReferenceType::Receipt,
             uri: format!("runx:receipt:{}", sealed_receipt.id).into(),
@@ -936,7 +936,7 @@ fn sealed_receipt_dedupe_plan(
             "post-merge-publication:{}:{}",
             sealed_receipt.idempotency.intent_key, sealed_receipt.idempotency.content_hash
         ),
-        content_hash: sealed_receipt.idempotency.content_hash.clone(),
+        content_hash: sealed_receipt.idempotency.content_hash.to_string(),
     }
 }
 

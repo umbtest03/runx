@@ -189,7 +189,7 @@ fn assert_receipt_proof(receipt: &Receipt) -> Result<(), HarnessReplayError> {
         Ok(())
     } else {
         Err(HarnessReplayError::ReceiptProofInvalid {
-            receipt_id: receipt.id.clone(),
+            receipt_id: receipt.id.to_string(),
             findings: format!("{:?}", verification.findings),
         })
     }
@@ -208,12 +208,12 @@ fn summarize_receipt(receipt: &Receipt) -> HarnessReplayReceipt {
         "sealed".to_owned()
     };
     HarnessReplayReceipt {
-        receipt_id: receipt.id.clone(),
+        receipt_id: receipt.id.to_string(),
         harness_id: receipt.subject.reference.uri.clone().into_string(),
         state,
         disposition: receipt.seal.disposition.clone(),
-        reason_code: receipt.seal.reason_code.clone(),
-        act_ids: receipt.acts.iter().map(|act| act.id.clone()).collect(),
+        reason_code: receipt.seal.reason_code.to_string(),
+        act_ids: receipt.acts.iter().map(|act| act.id.to_string()).collect(),
         decision_ids: receipt
             .decisions
             .iter()

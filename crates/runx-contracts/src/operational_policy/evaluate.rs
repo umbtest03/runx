@@ -61,12 +61,12 @@ pub fn admit_operational_policy_request(
     Ok(OperationalPolicyAdmission {
         status: admission_status(&findings),
         findings,
-        policy_id: policy.policy_id.clone(),
-        source_id: source.map(|source| source.source_id.clone()),
+        policy_id: policy.policy_id.to_string(),
+        source_id: source.map(|source| source.source_id.to_string()),
         target_repo: target.map(|target| target.repo.clone()),
-        runner_id: runner.map(|runner| runner.runner_id.clone()),
-        owner_route_id: owner_route.map(|route| route.route_id.clone()),
-        owners: owner_route.map(|route| route.owners.clone()),
+        runner_id: runner.map(|runner| runner.runner_id.to_string()),
+        owner_route_id: owner_route.map(|route| route.route_id.to_string()),
+        owners: owner_route.map(|route| route.owners.iter().map(ToString::to_string).collect()),
         dedupe_strategy: policy.dedupe.strategy,
         outcome_close_mode: policy.outcomes.close_source_issue,
         source_thread_required: source.is_some_and(|source| source.source_thread.required),
@@ -182,7 +182,7 @@ pub fn project_operational_policy_readback(
 ) -> Result<OperationalPolicyReadback, OperationalPolicyError> {
     let findings = lint_operational_policy_contract(policy)?;
     Ok(OperationalPolicyReadback {
-        policy_id: policy.policy_id.clone(),
+        policy_id: policy.policy_id.to_string(),
         schema_version: policy.schema_version,
         valid: findings.is_empty(),
         findings,
@@ -317,7 +317,7 @@ fn select_request_runner<'a>(
 
 fn source_readback(source: &OperationalPolicySourceRule) -> OperationalPolicySourceReadback {
     OperationalPolicySourceReadback {
-        source_id: source.source_id.clone(),
+        source_id: source.source_id.to_string(),
         provider: source.provider,
         locator_count: source.allowed_locators.len(),
         allowed_actions: source.allowed_actions.clone(),
@@ -328,7 +328,7 @@ fn source_readback(source: &OperationalPolicySourceRule) -> OperationalPolicySou
 
 fn runner_readback(runner: &OperationalPolicyRunnerRule) -> OperationalPolicyRunnerReadback {
     OperationalPolicyRunnerReadback {
-        runner_id: runner.runner_id.clone(),
+        runner_id: runner.runner_id.to_string(),
         kind: runner.kind,
         state: runner.state,
         target_repos: runner.target_repos.clone(),
@@ -360,8 +360,8 @@ fn target_readback(
 
     OperationalPolicyTargetReadback {
         repo: target.repo.clone(),
-        runner_ids: target.runner_ids.clone(),
-        default_owner_route: target.default_owner_route.clone(),
+        runner_ids: target.runner_ids.iter().map(ToString::to_string).collect(),
+        default_owner_route: target.default_owner_route.to_string(),
         owner_count,
         allowed_actions: target.allowed_actions.clone(),
         scafld_required: target.scafld_required,
@@ -841,20 +841,20 @@ fn require_repo_slug(value: &str, path: &str) -> Result<(), OperationalPolicyVal
     ))
 }
 
-fn require_repo_items(
-    values: &[String],
+fn require_repo_items<T: AsRef<str>>(
+    values: &[T],
     path: &str,
     field: &str,
 ) -> Result<(), OperationalPolicyValidationFinding> {
     require_non_empty(values, path, field)?;
     for (index, value) in values.iter().enumerate() {
-        require_repo_slug(value, &format!("{path}/{index}"))?;
+        require_repo_slug(value.as_ref(), &format!("{path}/{index}"))?;
     }
     Ok(())
 }
 
-fn require_string_items(
-    values: &[String],
+fn require_string_items<T: AsRef<str>>(
+    values: &[T],
     path: &str,
     field: &str,
 ) -> Result<(), OperationalPolicyValidationFinding> {
@@ -862,12 +862,12 @@ fn require_string_items(
     require_string_items_if_present(values, path)
 }
 
-fn require_string_items_if_present(
-    values: &[String],
+fn require_string_items_if_present<T: AsRef<str>>(
+    values: &[T],
     path: &str,
 ) -> Result<(), OperationalPolicyValidationFinding> {
     for (index, value) in values.iter().enumerate() {
-        if value.is_empty() {
+        if value.as_ref().is_empty() {
             return Err(finding(
                 "empty_string",
                 &format!("{path}/{index}"),
@@ -878,21 +878,24 @@ fn require_string_items_if_present(
     Ok(())
 }
 
-fn require_optional_string(
-    value: &Option<String>,
+fn require_optional_string<T: AsRef<str>>(
+    value: &Option<T>,
     path: &str,
 ) -> Result<(), OperationalPolicyValidationFinding> {
-    if value.as_ref().is_some_and(String::is_empty) {
+    if value
+        .as_ref()
+        .is_some_and(|value| value.as_ref().is_empty())
+    {
         return Err(finding("empty_string", path, "value must not be empty."));
     }
     Ok(())
 }
 
-fn require_optional_date_time(
-    value: &Option<String>,
+fn require_optional_date_time<T: AsRef<str>>(
+    value: &Option<T>,
     path: &str,
 ) -> Result<(), OperationalPolicyValidationFinding> {
-    match value.as_deref() {
+    match value.as_ref().map(AsRef::as_ref) {
         Some(value) if !matches_ts_date_time_pattern(value) => Err(finding(
             "date_time",
             path,

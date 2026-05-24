@@ -127,15 +127,15 @@ fn production_sealing_rejects_missing_issuer_metadata() -> Result<(), Box<dyn Er
     let missing_kid = FixedSigner {
         issuer: ReceiptIssuer {
             issuer_type: ReceiptIssuerType::Local,
-            kid: String::new(),
-            public_key_sha256: signer.production_key().public_key_sha256(),
+            kid: String::new().into(),
+            public_key_sha256: signer.production_key().public_key_sha256().into(),
         },
     };
     let missing_hash = FixedSigner {
         issuer: ReceiptIssuer {
             issuer_type: ReceiptIssuerType::Local,
-            kid: FIXTURE_KID.to_owned(),
-            public_key_sha256: String::new(),
+            kid: FIXTURE_KID.into(),
+            public_key_sha256: String::new().into(),
         },
     };
 
@@ -162,28 +162,28 @@ fn production_verifier_reports_tamper_findings() -> Result<(), Box<dyn Error>> {
     let receipt = production_step_receipt(&signer, &verifier)?;
 
     let mut tampered_body = receipt.clone();
-    tampered_body.acts[0].summary = "tampered body".to_owned();
+    tampered_body.acts[0].summary = "tampered body".into();
     let verification = verify_receipt_proof(&tampered_body, &proof_context(&verifier));
     assert_finding(&verification, ReceiptFindingCode::SealDigestMismatch);
     assert_finding(&verification, ReceiptFindingCode::SignatureInvalid);
 
     let mut tampered_seal = receipt.clone();
-    tampered_seal.digest = format!("sha256:{}", "0".repeat(64));
+    tampered_seal.digest = format!("sha256:{}", "0".repeat(64)).into();
     let verification = verify_receipt_proof(&tampered_seal, &proof_context(&verifier));
     assert_finding(&verification, ReceiptFindingCode::SealDigestMismatch);
 
     let mut malformed_signature = receipt.clone();
-    malformed_signature.signature.value = "base64:!".to_owned();
+    malformed_signature.signature.value = "base64:!".into();
     let verification = verify_receipt_proof(&malformed_signature, &proof_context(&verifier));
     assert_finding(&verification, ReceiptFindingCode::SignatureMalformed);
 
     let mut missing_key = receipt.clone();
-    missing_key.issuer.kid = "missing-key".to_owned();
+    missing_key.issuer.kid = "missing-key".into();
     let verification = verify_receipt_proof(&missing_key, &proof_context(&verifier));
     assert_finding(&verification, ReceiptFindingCode::SignatureKeyMissing);
 
     let mut hash_mismatch = receipt.clone();
-    hash_mismatch.issuer.public_key_sha256 = format!("sha256:{}", "1".repeat(64));
+    hash_mismatch.issuer.public_key_sha256 = format!("sha256:{}", "1".repeat(64)).into();
     let verification = verify_receipt_proof(&hash_mismatch, &proof_context(&verifier));
     assert_finding(&verification, ReceiptFindingCode::SignatureKeyHashMismatch);
 
@@ -201,7 +201,7 @@ fn production_verifier_rejects_pseudo_and_malformed_public_key() -> Result<(), B
     let mut receipt = production_step_receipt(&signer, &verifier)?;
 
     let digest = canonical_receipt_body_digest(&receipt)?;
-    receipt.signature.value = format!("sig:{digest}");
+    receipt.signature.value = format!("sig:{digest}").into();
     let verification = verify_receipt_proof(&receipt, &proof_context(&verifier));
     assert_finding(&verification, ReceiptFindingCode::SignatureMalformed);
 
@@ -292,7 +292,7 @@ fn refresh_digest_and_signature(
     signer: &Ed25519ReceiptSigner,
 ) -> Result<(), Box<dyn Error>> {
     let digest = canonical_receipt_body_digest(receipt)?;
-    receipt.digest = digest.clone();
+    receipt.digest = digest.clone().into();
     receipt.signature = signer.sign_receipt_body(&digest)?;
     Ok(())
 }
@@ -326,7 +326,7 @@ impl RuntimeReceiptSigner for FixedSigner {
     ) -> Result<ReceiptSignature, RuntimeReceiptSigningError> {
         Ok(ReceiptSignature {
             alg: SignatureAlgorithm::Ed25519,
-            value: "base64:fixed-signature".to_owned(),
+            value: "base64:fixed-signature".into(),
         })
     }
 }

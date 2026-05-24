@@ -168,8 +168,8 @@ pub fn admit_step_authority(
 
     Ok(StepAuthorityAdmissionDecision {
         verb: None,
-        parent_term_id: &input.parent_authority.term_id,
-        child_term_id: &input.child_authority.term_id,
+        parent_term_id: input.parent_authority.term_id.as_str(),
+        child_term_id: input.child_authority.term_id.as_str(),
         idempotency_key: input.idempotency_key,
         spend_capability_ref: input.spend_capability_ref,
     })
@@ -240,8 +240,8 @@ fn admit_payment_rail(
     }
 
     Ok(PaymentRailAdmissionDecision {
-        parent_term_id: &input.parent_authority.term_id,
-        child_term_id: &input.child_authority.term_id,
+        parent_term_id: input.parent_authority.term_id.as_str(),
+        child_term_id: input.child_authority.term_id.as_str(),
         idempotency_key: input.idempotency_key,
         spend_capability_ref: input.spend_capability_ref,
     })
@@ -992,7 +992,7 @@ mod tests {
     fn child_wildcard_counterparty_term() -> AuthorityTerm {
         let mut term = child_spend_term();
         if let Some(payment) = term.bounds.payment.as_mut() {
-            payment.counterparty = Some("*".to_owned());
+            payment.counterparty = Some("*".into());
         }
         term
     }
@@ -1017,22 +1017,22 @@ mod tests {
         shape: PaymentShape,
     ) -> AuthorityTerm {
         AuthorityTerm {
-            term_id: term_id.to_owned(),
+            term_id: term_id.into(),
             principal_ref: reference(ReferenceType::Principal, "runx:principal:merchant-agent"),
             resource_ref: reference(ReferenceType::Grant, "runx:payment-grant:checkout"),
             resource_family: AuthorityResourceFamily::Payment,
             verbs,
             bounds: AuthorityBounds {
                 payment: Some(PaymentAuthorityBounds {
-                    currency: "USD".to_owned(),
+                    currency: "USD".into(),
                     max_per_call_minor: Some(shape.max_per_call_minor),
                     max_per_run_minor: Some(25_000),
                     max_per_period_minor: None,
                     period: None,
-                    rails: shape.rails,
+                    rails: shape.rails.into_iter().map(Into::into).collect(),
                     realm: None,
-                    counterparty: Some(COUNTERPARTY.to_owned()),
-                    operation: Some("checkout".to_owned()),
+                    counterparty: Some(COUNTERPARTY.into()),
+                    operation: Some("checkout".into()),
                     quote_ttl_ms: Some(120_000),
                     approval_threshold_minor: Some(7_500),
                     credential_form: Some(PaymentCredentialForm::SingleUseSpendCapability),
@@ -1048,7 +1048,7 @@ mod tests {
             conditions: Vec::new(),
             approvals: Vec::new(),
             capabilities: vec![AuthorityCapability::PaymentSingleUseSpend],
-            expires_at: Some("2026-05-21T00:00:00Z".to_owned()),
+            expires_at: Some("2026-05-21T00:00:00Z".into()),
             issued_by_ref: reference(ReferenceType::Grant, "runx:grant:issuer"),
             credential_ref: Some(reference(
                 ReferenceType::Credential,
@@ -1106,7 +1106,7 @@ mod tests {
 
     fn payment_condition() -> AuthorityCondition {
         AuthorityCondition {
-            condition_id: "condition_payment_receipt".to_owned(),
+            condition_id: "condition_payment_receipt".into(),
             predicate: AuthorityConditionPredicate::PaymentReceiptPresent,
             refs: Vec::new(),
             parameters: None,
@@ -1120,8 +1120,8 @@ mod tests {
                 ReferenceType::Principal,
                 "runx:principal:operator",
             )),
-            approved_at: Some("2026-05-20T00:00:00Z".to_owned()),
-            criterion_ids: vec!["payment_receipt".to_owned()],
+            approved_at: Some("2026-05-20T00:00:00Z".into()),
+            criterion_ids: vec!["payment_receipt".into()],
         }
     }
 }

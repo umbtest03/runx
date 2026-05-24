@@ -657,9 +657,9 @@ fn post_merge_observer_receipt() -> Result<Receipt, serde_json::Error> {
 
 fn closed_unmerged_receipt() -> Result<Receipt, serde_json::Error> {
     let mut receipt = post_merge_observer_receipt()?;
-    receipt.seal.reason_code = "closed_unmerged".to_owned();
+    receipt.seal.reason_code = "closed_unmerged".into();
     receipt.seal.summary =
-        "Target PR was closed without merge; source issue remains unresolved.".to_owned();
+        "Target PR was closed without merge; source issue remains unresolved.".into();
     receipt.seal.disposition = ClosureDisposition::Closed;
     receipt.seal.criteria.retain(|criterion| {
         matches!(
@@ -671,14 +671,13 @@ fn closed_unmerged_receipt() -> Result<Receipt, serde_json::Error> {
     });
     for criterion in &mut receipt.seal.criteria {
         if criterion.criterion_id == "post_merge.provider_state" {
-            criterion.summary = Some("Provider reported closed without merge.".to_owned());
+            criterion.summary = Some("Provider reported closed without merge.".into());
         }
     }
     receipt
         .acts
         .retain(|act| act.form == ActForm::Observation || act.form == ActForm::Reply);
-    receipt.idempotency.content_hash =
-        "sha256:post-merge-closure-closed-unmerged-nitrosend".to_owned();
+    receipt.idempotency.content_hash = "sha256:post-merge-closure-closed-unmerged-nitrosend".into();
     Ok(receipt)
 }
 

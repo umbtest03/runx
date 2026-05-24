@@ -88,8 +88,8 @@ impl Ed25519ReceiptSigner {
         let kid = kid.into();
         let issuer = ReceiptIssuer {
             issuer_type,
-            kid,
-            public_key_sha256: sha256_prefixed(key_pair.public_key().as_ref()),
+            kid: kid.into(),
+            public_key_sha256: sha256_prefixed(key_pair.public_key().as_ref()).into(),
         };
         validate_production_issuer(&issuer)?;
         Ok(Self { issuer, key_pair })
@@ -108,7 +108,7 @@ impl Ed25519ReceiptSigner {
     #[must_use]
     pub fn production_key(&self) -> ProductionReceiptKey {
         ProductionReceiptKey::new(
-            self.issuer.kid.clone(),
+            self.issuer.kid.to_string(),
             self.key_pair.public_key().as_ref().to_vec(),
         )
     }
@@ -134,7 +134,8 @@ impl RuntimeReceiptSigner for Ed25519ReceiptSigner {
             value: format!(
                 "{RECEIPT_SIGNATURE_BASE64_PREFIX}{}",
                 URL_SAFE_NO_PAD.encode(signature.as_ref())
-            ),
+            )
+            .into(),
         })
     }
 }

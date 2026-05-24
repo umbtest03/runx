@@ -533,8 +533,8 @@ fn validate_child_receipts(
         let child_ref = receipt_ref(evidence.receipt);
         if !graph_child_receipts.contains(child_ref.as_str()) {
             return Err(PaymentLedgerProjectionError::ChildReceiptNotReferenced {
-                graph_receipt_id: graph_receipt.id.clone(),
-                child_receipt_id: evidence.receipt.id.clone(),
+                graph_receipt_id: graph_receipt.id.to_string(),
+                child_receipt_id: evidence.receipt.id.to_string(),
             });
         }
     }
@@ -569,9 +569,9 @@ fn validate_receipt_rail_proof(
                 .flat_map(|criterion| criterion.verification_refs.iter())
                 .any(|reference| is_matching_payment_rail_proof(reference, settlement))
         })
-        .map(|act| act.id.clone())
+        .map(|act| act.id.to_string())
         .ok_or_else(|| PaymentLedgerProjectionError::MissingReceiptRailProof {
-            receipt_id: receipt.id.clone(),
+            receipt_id: receipt.id.to_string(),
             proof_ref: settlement.proof_ref.clone(),
         })?;
     Ok(act_id)

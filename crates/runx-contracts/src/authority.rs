@@ -19,7 +19,7 @@ pub enum AuthorityResourceFamily {
     Publication,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthorityVerb {
     Read,
@@ -41,7 +41,7 @@ pub enum AuthorityVerb {
     SpawnChild,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthorityCapability {
     FilesystemRead,
@@ -55,16 +55,16 @@ pub enum AuthorityCapability {
     PaymentSingleUseSpend,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PaymentCredentialForm {
     SingleUseSpendCapability,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PaymentAuthorityBounds {
-    pub currency: String,
+    pub currency: NonEmptyString,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_per_call_minor: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -72,14 +72,14 @@ pub struct PaymentAuthorityBounds {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_per_period_minor: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub period: Option<String>,
-    pub rails: Vec<String>,
+    pub period: Option<NonEmptyString>,
+    pub rails: Vec<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub realm: Option<String>,
+    pub realm: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub counterparty: Option<String>,
+    pub counterparty: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub operation: Option<String>,
+    pub operation: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quote_ttl_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -100,21 +100,21 @@ pub struct PaymentAuthorityBounds {
     pub single_use_spend: bool,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorityBounds {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub repo_path_globs: Vec<String>,
+    pub repo_path_globs: Vec<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub branch_patterns: Vec<String>,
+    pub branch_patterns: Vec<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub filesystem_roots: Vec<String>,
+    pub filesystem_roots: Vec<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub network_destinations: Vec<String>,
+    pub network_destinations: Vec<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub deployment_environments: Vec<String>,
+    pub deployment_environments: Vec<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub token_audiences: Vec<String>,
+    pub token_audiences: Vec<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_spend_usd: Option<JsonNumber>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -127,7 +127,7 @@ pub struct AuthorityBounds {
     pub max_child_depth: Option<u32>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthorityConditionPredicate {
     SignalVerified,
@@ -145,10 +145,10 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorityCondition {
-    pub condition_id: String,
+    pub condition_id: NonEmptyString,
     pub predicate: AuthorityConditionPredicate,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub refs: Vec<Reference>,
@@ -156,22 +156,22 @@ pub struct AuthorityCondition {
     pub parameters: Option<JsonObject>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorityApproval {
     pub approval_ref: Reference,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub approved_by_ref: Option<Reference>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub approved_at: Option<String>,
+    pub approved_at: Option<IsoDateTime>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub criterion_ids: Vec<String>,
+    pub criterion_ids: Vec<NonEmptyString>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorityTerm {
-    pub term_id: String,
+    pub term_id: NonEmptyString,
     pub principal_ref: Reference,
     pub resource_ref: Reference,
     pub resource_family: AuthorityResourceFamily,
@@ -184,7 +184,7 @@ pub struct AuthorityTerm {
     #[serde(default)]
     pub capabilities: Vec<AuthorityCapability>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<String>,
+    pub expires_at: Option<IsoDateTime>,
     pub issued_by_ref: Reference,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub credential_ref: Option<Reference>,
@@ -227,18 +227,25 @@ pub struct AuthoritySubsetProof {
     pub checked_at: IsoDateTime,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorityAttenuation {
     pub parent_authority_ref: Option<Reference>,
     pub subset_proof: Option<AuthoritySubsetProof>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+pub enum AuthoritySchema {
+    #[serde(rename = "runx.authority.v1")]
+    V1,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.authority.v1")]
 pub struct Authority {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub schema: Option<String>,
+    pub schema: Option<AuthoritySchema>,
     pub actor_ref: Reference,
     #[serde(default)]
     pub authority_proof_refs: Vec<Reference>,

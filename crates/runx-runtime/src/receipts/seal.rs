@@ -144,7 +144,7 @@ pub(crate) fn step_receipt_with_disposition_and_policy(
 /// from the skill output and its reference set.
 fn process_exit_criterion(output: &SkillOutput, output_refs: &OutputRefs) -> CriterionBinding {
     CriterionBinding {
-        criterion_id: "process_exit".to_owned(),
+        criterion_id: "process_exit".into(),
         status: if output.succeeded() {
             CriterionStatus::Verified
         } else {
@@ -152,7 +152,7 @@ fn process_exit_criterion(output: &SkillOutput, output_refs: &OutputRefs) -> Cri
         },
         evidence_refs: output_refs.source_refs.clone(),
         verification_refs: output_refs.verification_refs.clone(),
-        summary: Some(output_summary(output)),
+        summary: Some(output_summary(output).into()),
     }
 }
 
@@ -357,12 +357,12 @@ fn build_receipt(parts: BuildReceipt<'_>) -> Receipt {
     };
     Receipt {
         schema: ReceiptSchema::V1,
-        id,
-        created_at: created_at.to_owned(),
-        canonicalization: RECEIPT_CANONICALIZATION.to_owned(),
+        id: id.into(),
+        created_at: created_at.into(),
+        canonicalization: RECEIPT_CANONICALIZATION.into(),
         issuer: local_issuer(),
         signature: placeholder_signature(),
-        digest: "sha256:runtime-skeleton".to_owned(),
+        digest: "sha256:runtime-skeleton".into(),
         idempotency: idempotency(graph_name, node_id),
         subject: subject(graph_name, node_id, kind),
         authority: authority(),
@@ -418,7 +418,7 @@ fn observation_act(
     let mut artifact_refs = refs.artifact_refs.clone();
     artifact_refs.extend(refs.surface_refs.iter().cloned());
     ReceiptAct {
-        id: format!("act_{step_id}"),
+        id: format!("act_{step_id}").into(),
         form: ActForm::Observation,
         intent: Intent {
             purpose: format!("Run graph step {step_id}").into(),
@@ -431,9 +431,9 @@ fn observation_act(
             constraints: Vec::new(),
             derived_from: Vec::new(),
         },
-        summary: format!("Executed graph step {step_id}"),
+        summary: format!("Executed graph step {step_id}").into(),
         criterion_bindings: vec![CriterionBinding {
-            criterion_id: "process_exit".to_owned(),
+            criterion_id: "process_exit".into(),
             status: if output.succeeded() {
                 CriterionStatus::Verified
             } else {
@@ -441,7 +441,7 @@ fn observation_act(
             },
             evidence_refs: refs.source_refs.clone(),
             verification_refs: refs.verification_refs.clone(),
-            summary: Some(output_summary(output)),
+            summary: Some(output_summary(output).into()),
         }],
         by: None,
         source_refs: refs.source_refs.clone(),
@@ -468,10 +468,10 @@ fn seal(
 ) -> Seal {
     Seal {
         disposition,
-        reason_code,
-        summary,
-        closed_at: closed_at.to_owned(),
-        last_observed_at: closed_at.to_owned(),
+        reason_code: reason_code.into(),
+        summary: summary.into(),
+        closed_at: closed_at.into(),
+        last_observed_at: closed_at.into(),
         criteria,
     }
 }
@@ -503,7 +503,7 @@ fn authority() -> ReceiptAuthority {
         },
         mandate_ref: None,
         enforcement: ReceiptEnforcement {
-            profile_hash: "sha256:runtime-skeleton-enforcement".to_owned(),
+            profile_hash: "sha256:runtime-skeleton-enforcement".into(),
             redaction_refs: Vec::new(),
             setup_refs: Vec::new(),
             teardown_refs: Vec::new(),
@@ -513,9 +513,9 @@ fn authority() -> ReceiptAuthority {
 
 fn idempotency(graph_name: &str, node_id: &str) -> ReceiptIdempotency {
     ReceiptIdempotency {
-        intent_key: format!("sha256:{graph_name}-{node_id}-intent"),
-        trigger_fingerprint: format!("sha256:{graph_name}-{node_id}-trigger"),
-        content_hash: format!("sha256:{graph_name}-{node_id}-content"),
+        intent_key: format!("sha256:{graph_name}-{node_id}-intent").into(),
+        trigger_fingerprint: format!("sha256:{graph_name}-{node_id}-trigger").into(),
+        content_hash: format!("sha256:{graph_name}-{node_id}-content").into(),
     }
 }
 
@@ -757,15 +757,15 @@ fn attach_parent_to_child_receipts(
 fn local_issuer() -> ReceiptIssuer {
     ReceiptIssuer {
         issuer_type: ReceiptIssuerType::Local,
-        kid: "runtime-skeleton".to_owned(),
-        public_key_sha256: "sha256:runtime-skeleton-public".to_owned(),
+        kid: "runtime-skeleton".into(),
+        public_key_sha256: "sha256:runtime-skeleton-public".into(),
     }
 }
 
 fn placeholder_signature() -> ReceiptSignature {
     ReceiptSignature {
         alg: SignatureAlgorithm::Ed25519,
-        value: "sig:pending".to_owned(),
+        value: "sig:pending".into(),
     }
 }
 
@@ -777,15 +777,16 @@ fn seal_receipt(
     // Content-address the id over the canonical body (id = hash(canonical_body),
     // excluding id/signature/digest/metadata/lineage) before the digest commits
     // it. Lineage is excluded so parent<->child wiring does not perturb the id.
-    receipt.id =
-        content_addressed_receipt_id(receipt).map_err(|error| RuntimeError::ReceiptInvalid {
+    receipt.id = content_addressed_receipt_id(receipt)
+        .map_err(|error| RuntimeError::ReceiptInvalid {
             message: error.to_string(),
-        })?;
+        })?
+        .into();
     let digest =
         canonical_receipt_body_digest(receipt).map_err(|error| RuntimeError::ReceiptInvalid {
             message: error.to_string(),
         })?;
-    receipt.digest = digest.clone();
+    receipt.digest = digest.clone().into();
     signature_policy.sign_receipt(receipt, &digest)?;
 
     let proof_contexts = RuntimeReceiptProofContextProvider::new(signature_policy);
@@ -914,7 +915,7 @@ impl<'a> RuntimeReceiptSignaturePolicy<'a> {
 
     fn sign_receipt(self, receipt: &mut Receipt, body_digest: &str) -> Result<(), RuntimeError> {
         if self.allows_local_pseudo_signatures() {
-            receipt.signature.value = format!("sig:{body_digest}");
+            receipt.signature.value = format!("sig:{body_digest}").into();
             return Ok(());
         }
         let Some(signer) = self.production_signer else {

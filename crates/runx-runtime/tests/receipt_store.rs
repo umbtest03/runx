@@ -15,7 +15,7 @@ use serde_json::json;
 // Receipt ids are content-addressed (`id = hash(canonical_body)`), so the
 // store fixtures derive their ids from the sealed receipt rather than a literal.
 fn success_receipt_id() -> String {
-    success_receipt().expect("success receipt").id
+    success_receipt().expect("success receipt").id.into_string()
 }
 
 #[test]
@@ -205,7 +205,7 @@ fn exact_read_rejects_structural_receipt_with_tampered_signature()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = TestDir::new()?;
     let mut receipt = success_receipt()?;
-    receipt.signature.value = "sig:tampered".to_owned();
+    receipt.signature.value = "sig:tampered".into();
     write_json(temp.path(), &receipt_file_name(&receipt.id), &receipt)?;
     let store = LocalReceiptStore::new(temp.path());
 
@@ -223,7 +223,7 @@ fn list_rejects_structural_receipt_with_tampered_digest() -> Result<(), Box<dyn 
 {
     let temp = TestDir::new()?;
     let mut receipt = success_receipt()?;
-    receipt.digest = "sha256:tampered".to_owned();
+    receipt.digest = "sha256:tampered".into();
     write_json(temp.path(), &receipt_file_name(&receipt.id), &receipt)?;
     let store = LocalReceiptStore::new(temp.path());
 
@@ -241,7 +241,7 @@ fn load_index_rejects_indexed_structural_receipt_with_invalid_proof()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = TestDir::new()?;
     let mut receipt = success_receipt()?;
-    receipt.signature.value = "sig:tampered".to_owned();
+    receipt.signature.value = "sig:tampered".into();
     write_json(temp.path(), &receipt_file_name(&receipt.id), &receipt)?;
     write_json(
         temp.path(),
@@ -290,7 +290,7 @@ fn write_receipt_rejects_invalid_proof_without_writing() -> Result<(), Box<dyn s
     let temp = TestDir::new()?;
     let store = LocalReceiptStore::new(temp.path().join("receipts"));
     let mut receipt = success_receipt()?;
-    receipt.signature.value = "sig:tampered".to_owned();
+    receipt.signature.value = "sig:tampered".into();
 
     let result = store.write_receipt(&receipt);
 
@@ -309,7 +309,7 @@ fn write_receipt_allows_identical_and_rejects_divergent_rewrite()
     let store = LocalReceiptStore::new(temp.path());
     let receipt = success_receipt()?;
     let mut changed = receipt.clone();
-    changed.signature.value = "sig:different".to_owned();
+    changed.signature.value = "sig:different".into();
 
     store.write_receipt(&receipt)?;
     store.write_receipt(&receipt)?;

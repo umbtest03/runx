@@ -444,7 +444,7 @@ where
         &output,
         &runtime.options.created_at,
     )?;
-    let admission_witness = StepAdmissionWitness::local_runtime(&step.id, &receipt.id);
+    let admission_witness = StepAdmissionWitness::local_runtime(&step.id, receipt.id.as_str());
     Ok(StepRun {
         step_id: step.id.clone(),
         attempt,
@@ -605,7 +605,7 @@ where
         &output,
         &runtime.options.created_at,
     )?;
-    let admission_witness = StepAdmissionWitness::local_runtime(&step.id, &receipt.id);
+    let admission_witness = StepAdmissionWitness::local_runtime(&step.id, receipt.id.as_str());
     Ok(StepRun {
         step_id: step.id.clone(),
         attempt,

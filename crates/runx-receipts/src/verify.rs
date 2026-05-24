@@ -188,7 +188,7 @@ impl Verifier {
             let criterion_path = format!("seal.criteria[{index}]");
             // A rolled-up seal criterion must be backed by a per-act criterion
             // binding (or declared success criterion) of the same id.
-            if !receipt.acts.is_empty() && !act_criteria.contains(&criterion.criterion_id) {
+            if !receipt.acts.is_empty() && !act_criteria.contains(criterion.criterion_id.as_str()) {
                 self.push(
                     ReceiptFindingCode::SealCriterionUnbound,
                     format!("{criterion_path}.criterion_id"),
@@ -241,7 +241,7 @@ fn act_criterion_ids(acts: &[ReceiptAct]) -> BTreeSet<String> {
         .flat_map(|act| {
             act.criterion_bindings
                 .iter()
-                .map(|binding| binding.criterion_id.clone())
+                .map(|binding| binding.criterion_id.as_str().to_owned())
                 .chain(
                     act.intent
                         .success_criteria
@@ -253,5 +253,5 @@ fn act_criterion_ids(acts: &[ReceiptAct]) -> BTreeSet<String> {
 }
 
 fn act_ids(acts: &[ReceiptAct]) -> BTreeSet<String> {
-    acts.iter().map(|act| act.id.clone()).collect()
+    acts.iter().map(|act| act.id.as_str().to_owned()).collect()
 }

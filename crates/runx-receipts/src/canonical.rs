@@ -175,8 +175,8 @@ mod tests {
         let baseline_json = canonical_receipt_body_json(&receipt)?;
         let baseline_digest = canonical_receipt_body_digest(&receipt)?;
 
-        receipt.signature.value = "base64:changed".to_owned();
-        receipt.digest = "sha256:changed".to_owned();
+        receipt.signature.value = "base64:changed".into();
+        receipt.digest = "sha256:changed".into();
 
         assert_eq!(canonical_receipt_body_json(&receipt)?, baseline_json);
         assert_eq!(canonical_receipt_body_digest(&receipt)?, baseline_digest);

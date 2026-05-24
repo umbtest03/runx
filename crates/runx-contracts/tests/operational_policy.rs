@@ -68,10 +68,10 @@ fn invalid_created_at_is_rejected_like_typescript_schema() -> Result<(), Box<dyn
 {
     let mut policy: OperationalPolicy = serde_json::from_str(NITROSEND_LIKE)?;
 
-    policy.created_at = Some("2026-05-19 00:00:00".to_owned());
+    policy.created_at = Some("2026-05-19 00:00:00".into());
     let missing_t = validate_operational_policy_contract(&policy);
 
-    policy.created_at = Some("2026-05-19T00:00:00+10:00".to_owned());
+    policy.created_at = Some("2026-05-19T00:00:00+10:00".into());
     let offset = validate_operational_policy_contract(&policy);
 
     assert!(missing_t.is_err());

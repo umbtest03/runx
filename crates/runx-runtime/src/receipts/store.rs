@@ -90,7 +90,7 @@ impl LocalReceiptStore {
                 return Ok(());
             }
             return Err(ReceiptStoreError::ReceiptAlreadyExists {
-                receipt_id: receipt.id.clone(),
+                receipt_id: receipt.id.to_string(),
             });
         }
 
@@ -218,9 +218,9 @@ impl LocalReceiptStore {
             .list_with_policy(signature_policy)?
             .into_iter()
             .map(|receipt| ReceiptStoreIndexEntry {
-                receipt_id: receipt.id.clone(),
+                receipt_id: receipt.id.to_string(),
                 file_name: format!("{}.json", receipt.id),
-                created_at: receipt.created_at,
+                created_at: receipt.created_at.to_string(),
             })
             .collect::<Vec<_>>();
         let index = ReceiptStoreIndex {
@@ -262,7 +262,7 @@ impl LocalReceiptStore {
                 });
             }
             let receipt = self.read_exact_with_policy(&entry.receipt_id, signature_policy)?;
-            if receipt.created_at != entry.created_at {
+            if receipt.created_at.as_str() != entry.created_at {
                 return Err(ReceiptStoreError::ReceiptIndexStale {
                     path: self.index_path(),
                     message: "index created_at does not match receipt JSON".to_owned(),
@@ -524,7 +524,7 @@ fn parse_receipt_contents_without_proof(
     if receipt.id != expected_id {
         return Err(ReceiptStoreError::IdFilenameMismatch {
             path: path.to_path_buf(),
-            receipt_id: receipt.id,
+            receipt_id: receipt.id.into_string(),
             file_stem: expected_id.to_owned(),
         });
     }
@@ -549,7 +549,7 @@ fn verify_stored_receipt_proof(
     } else {
         Err(ReceiptStoreError::ReceiptProofInvalid {
             path: path.to_path_buf(),
-            receipt_id: receipt.id.clone(),
+            receipt_id: receipt.id.to_string(),
             message: format!("{:?}", verification.findings),
         })
     }

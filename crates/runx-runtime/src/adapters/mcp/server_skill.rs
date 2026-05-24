@@ -238,13 +238,13 @@ fn graph_run_mcp_result(
         McpHostRunResult::Completed {
             skill_name: skill_name.to_owned(),
             output: String::new(),
-            receipt_id: run.receipt.id.clone(),
+            receipt_id: run.receipt.id.to_string(),
             runx: terminal_runx("completed", skill_name, run_id, &run.receipt.id),
         }
     } else {
         McpHostRunResult::Failed {
             skill_name: skill_name.to_owned(),
-            receipt_id: Some(run.receipt.id.clone()),
+            receipt_id: Some(run.receipt.id.to_string()),
             error: format!("graph ended with status {:?}", run.state.status),
             runx: terminal_runx("failed", skill_name, run_id, &run.receipt.id),
         }
@@ -276,13 +276,13 @@ fn complete_mcp_server_skill(
         McpHostRunResult::Completed {
             skill_name: execution.skill.name.clone(),
             output: output.stdout.clone(),
-            receipt_id: receipt.id.clone(),
+            receipt_id: receipt.id.to_string(),
             runx: completed_runx(&execution.skill.name, run_id, &receipt.id, &output),
         }
     } else {
         McpHostRunResult::Failed {
             skill_name: execution.skill.name.clone(),
-            receipt_id: Some(receipt.id.clone()),
+            receipt_id: Some(receipt.id.to_string()),
             error: if output.stderr.is_empty() {
                 "skill execution failed".to_owned()
             } else {

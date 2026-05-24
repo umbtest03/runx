@@ -138,8 +138,7 @@ fn missing_source_thread_metadata_fails_closed_before_commands()
 fn public_command_text_redacts_local_paths_and_env_secrets()
 -> Result<(), Box<dyn std::error::Error>> {
     let mut receipt = post_merge_observer_receipt()?;
-    receipt.seal.summary =
-        "Verified from /Users/kam/dev/runx/.env OPENAI_API_KEY=sk-live".to_owned();
+    receipt.seal.summary = "Verified from /Users/kam/dev/runx/.env OPENAI_API_KEY=sk-live".into();
     let dedupe = dedupe_plan(&receipt, PostMergeObserverSignalSource::Webhook);
     let mut ledger = PostMergeObserverPublicationLedger::new();
 
@@ -689,9 +688,9 @@ fn post_merge_observer_receipt() -> Result<Receipt, serde_json::Error> {
 
 fn closed_unmerged_receipt() -> Result<Receipt, serde_json::Error> {
     let mut receipt = post_merge_observer_receipt()?;
-    receipt.seal.reason_code = "closed_unmerged".to_owned();
+    receipt.seal.reason_code = "closed_unmerged".into();
     receipt.seal.summary =
-        "Target PR was closed without merge; source issue remains unresolved.".to_owned();
+        "Target PR was closed without merge; source issue remains unresolved.".into();
     receipt.seal.disposition = ClosureDisposition::Closed;
     receipt.seal.criteria.retain(|criterion| {
         matches!(
@@ -704,15 +703,14 @@ fn closed_unmerged_receipt() -> Result<Receipt, serde_json::Error> {
     receipt
         .acts
         .retain(|act| act.form == ActForm::Observation || act.form == ActForm::Reply);
-    receipt.idempotency.content_hash =
-        "sha256:post-merge-closure-closed-unmerged-nitrosend".to_owned();
+    receipt.idempotency.content_hash = "sha256:post-merge-closure-closed-unmerged-nitrosend".into();
     Ok(receipt)
 }
 
 fn failed_verification_receipt() -> Result<Receipt, serde_json::Error> {
     let mut receipt = post_merge_observer_receipt()?;
-    receipt.seal.reason_code = "failed_verification".to_owned();
-    receipt.seal.summary = "Merged PR was observed, but post-merge verification failed.".to_owned();
+    receipt.seal.reason_code = "failed_verification".into();
+    receipt.seal.summary = "Merged PR was observed, but post-merge verification failed.".into();
     receipt.seal.disposition = ClosureDisposition::Failed;
     receipt.seal.criteria.retain(|criterion| {
         matches!(
@@ -725,14 +723,14 @@ fn failed_verification_receipt() -> Result<Receipt, serde_json::Error> {
     });
     for criterion in &mut receipt.seal.criteria {
         if criterion.criterion_id == "post_merge.verification_passed" {
-            criterion.criterion_id = "post_merge.verification_failed".to_owned();
+            criterion.criterion_id = "post_merge.verification_failed".into();
             criterion.status = CriterionStatus::Failed;
-            criterion.summary = Some("Nitrosend dogfood verification failed.".to_owned());
+            criterion.summary = Some("Nitrosend dogfood verification failed.".into());
         }
     }
     receipt.acts.retain(|act| act.form != ActForm::Revision);
     receipt.idempotency.content_hash =
-        "sha256:post-merge-closure-failed-verification-nitrosend".to_owned();
+        "sha256:post-merge-closure-failed-verification-nitrosend".into();
     Ok(receipt)
 }
 
@@ -744,7 +742,7 @@ fn dedupe_plan(
         decision: PostMergeObserverRuntimeDecision::SealAndPublish,
         signal_source,
         lock_key: format!("post-merge-observer:{}", receipt.idempotency.content_hash),
-        receipt_id: receipt.id.clone(),
+        receipt_id: receipt.id.to_string(),
         receipt_ref: Reference {
             reference_type: ReferenceType::Receipt,
             uri: format!("runx:receipt:{}", receipt.id).into(),
@@ -758,7 +756,7 @@ fn dedupe_plan(
             "post-merge-publication:{}:{}",
             receipt.idempotency.intent_key, receipt.idempotency.content_hash
         ),
-        content_hash: receipt.idempotency.content_hash.clone(),
+        content_hash: receipt.idempotency.content_hash.to_string(),
     }
 }
 

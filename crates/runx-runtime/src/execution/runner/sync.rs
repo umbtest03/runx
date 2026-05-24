@@ -20,7 +20,7 @@ pub(super) fn latest_fanout_receipt_ids(
             runs.iter()
                 .rev()
                 .find(|run| run.step_id == step.id)
-                .map(|run| run.receipt.id.clone())
+                .map(|run| run.receipt.id.to_string())
         })
         .collect()
 }
@@ -30,16 +30,16 @@ pub(super) fn fanout_sync_point(
     branch_receipts: &[String],
 ) -> FanoutReceiptSyncPoint {
     FanoutReceiptSyncPoint {
-        group_id: decision.group_id.clone(),
+        group_id: decision.group_id.clone().into(),
         strategy: receipt_strategy(&decision.strategy),
         decision: receipt_decision(&decision.decision),
-        rule_fired: decision.rule_fired.clone(),
-        reason: decision.reason.clone(),
+        rule_fired: decision.rule_fired.clone().into(),
+        reason: decision.reason.clone().into(),
         branch_count: decision.branch_count,
         success_count: decision.success_count,
         failure_count: decision.failure_count,
         required_successes: decision.required_successes,
-        branch_receipts: branch_receipts.to_vec(),
+        branch_receipts: branch_receipts.iter().cloned().map(Into::into).collect(),
         gate: decision_gate(&decision.gate),
     }
 }

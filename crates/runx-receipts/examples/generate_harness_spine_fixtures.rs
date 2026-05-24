@@ -112,47 +112,47 @@ fn oracle_case(name: &str, fixture: &str, receipt: &Receipt) -> Value {
 }
 
 fn sealed(mut receipt: Receipt) -> Receipt {
-    receipt.id = content_addressed_receipt_id(&receipt).unwrap();
+    receipt.id = content_addressed_receipt_id(&receipt).unwrap().into();
     let digest = canonical_receipt_body_digest(&receipt).unwrap();
-    receipt.digest = digest.clone();
-    receipt.signature.value = format!("sig:{digest}");
+    receipt.digest = digest.clone().into();
+    receipt.signature.value = format!("sig:{digest}").into();
     receipt
 }
 
 fn base(id: &str, kind: ReceiptSubjectKind, subject_id: &str) -> Receipt {
     Receipt {
         schema: ReceiptSchema::V1,
-        id: id.to_owned(),
-        created_at: "2026-05-22T00:00:00Z".to_owned(),
-        canonicalization: RECEIPT_CANONICALIZATION.to_owned(),
+        id: id.into(),
+        created_at: "2026-05-22T00:00:00Z".into(),
+        canonicalization: RECEIPT_CANONICALIZATION.into(),
         issuer: ReceiptIssuer {
             issuer_type: ReceiptIssuerType::Local,
-            kid: "fixture-key".to_owned(),
-            public_key_sha256: format!("sha256:{}", "0".repeat(64)),
+            kid: "fixture-key".into(),
+            public_key_sha256: format!("sha256:{}", "0".repeat(64)).into(),
         },
         signature: ReceiptSignature {
             alg: SignatureAlgorithm::Ed25519,
-            value: "sig:pending".to_owned(),
+            value: "sig:pending".into(),
         },
-        digest: "sha256:pending".to_owned(),
+        digest: "sha256:pending".into(),
         idempotency: ReceiptIdempotency {
-            intent_key: format!("sha256:{}", "1".repeat(64)),
-            trigger_fingerprint: format!("sha256:{}", "2".repeat(64)),
-            content_hash: format!("sha256:{}", "3".repeat(64)),
+            intent_key: format!("sha256:{}", "1".repeat(64)).into(),
+            trigger_fingerprint: format!("sha256:{}", "2".repeat(64)).into(),
+            content_hash: format!("sha256:{}", "3".repeat(64)).into(),
         },
         subject: Subject {
             kind,
             reference: Reference::runx(ReferenceType::Harness, subject_id),
             input_context: Some(ReceiptInputContext {
-                source: format!("runx:signal:{subject_id}"),
+                source: format!("runx:signal:{subject_id}").into(),
                 preview: format!("Run {subject_id}"),
-                value_hash: format!("sha256:{}", "6".repeat(64)),
+                value_hash: format!("sha256:{}", "6".repeat(64)).into(),
             }),
             commitments: vec![ReceiptCommitment {
                 scope: ReceiptCommitmentScope::Output,
                 algorithm: HashAlgorithm::Sha256,
-                value: format!("sha256:{}", "4".repeat(64)),
-                canonicalization: "runx.stable-json.v1".to_owned(),
+                value: format!("sha256:{}", "4".repeat(64)).into(),
+                canonicalization: "runx.stable-json.v1".into(),
             }],
         },
         authority: ReceiptAuthority {
@@ -167,7 +167,7 @@ fn base(id: &str, kind: ReceiptSubjectKind, subject_id: &str) -> Receipt {
             },
             mandate_ref: None,
             enforcement: ReceiptEnforcement {
-                profile_hash: format!("sha256:{}", "5".repeat(64)),
+                profile_hash: format!("sha256:{}", "5".repeat(64)).into(),
                 redaction_refs: Vec::new(),
                 setup_refs: Vec::new(),
                 teardown_refs: Vec::new(),
@@ -178,10 +178,10 @@ fn base(id: &str, kind: ReceiptSubjectKind, subject_id: &str) -> Receipt {
         acts: Vec::new(),
         seal: Seal {
             disposition: ClosureDisposition::Closed,
-            reason_code: "process_closed".to_owned(),
-            summary: "closed".to_owned(),
-            closed_at: "2026-05-22T00:00:00Z".to_owned(),
-            last_observed_at: "2026-05-22T00:00:00Z".to_owned(),
+            reason_code: "process_closed".into(),
+            summary: "closed".into(),
+            closed_at: "2026-05-22T00:00:00Z".into(),
+            last_observed_at: "2026-05-22T00:00:00Z".into(),
             criteria: Vec::new(),
         },
         lineage: Some(Lineage::default()),
@@ -213,16 +213,16 @@ fn observation_act(
     binding_summary: &str,
 ) -> ReceiptAct {
     ReceiptAct {
-        id: id.to_owned(),
+        id: id.into(),
         form: ActForm::Observation,
         intent: observation_intent("process_exit", "cli-tool exits successfully"),
-        summary: summary.to_owned(),
+        summary: summary.into(),
         criterion_bindings: vec![CriterionBinding {
-            criterion_id: "process_exit".to_owned(),
+            criterion_id: "process_exit".into(),
             status,
             evidence_refs: Vec::new(),
             verification_refs: Vec::new(),
-            summary: Some(binding_summary.to_owned()),
+            summary: Some(binding_summary.into()),
         }],
         by: None,
         source_refs: Vec::new(),
@@ -280,13 +280,13 @@ fn success_receipt() -> Receipt {
         "cli-tool exited successfully",
     )];
     receipt.decisions = vec![open_decision("act_echo")];
-    receipt.seal.summary = "cli-tool exited successfully".to_owned();
+    receipt.seal.summary = "cli-tool exited successfully".into();
     receipt.seal.criteria = vec![CriterionBinding {
-        criterion_id: "process_exit".to_owned(),
+        criterion_id: "process_exit".into(),
         status: CriterionStatus::Verified,
         evidence_refs: Vec::new(),
         verification_refs: Vec::new(),
-        summary: Some("cli-tool exited successfully".to_owned()),
+        summary: Some("cli-tool exited successfully".into()),
     }];
     receipt.signals = vec![Reference::runx(ReferenceType::Signal, "echo_success")];
     receipt
@@ -307,14 +307,14 @@ fn abnormal_receipt() -> Receipt {
     )];
     receipt.decisions = vec![open_decision("act_echo")];
     receipt.seal.disposition = ClosureDisposition::Failed;
-    receipt.seal.reason_code = "process_failed".to_owned();
-    receipt.seal.summary = "cli-tool failed".to_owned();
+    receipt.seal.reason_code = "process_failed".into();
+    receipt.seal.summary = "cli-tool failed".into();
     receipt.seal.criteria = vec![CriterionBinding {
-        criterion_id: "process_exit".to_owned(),
+        criterion_id: "process_exit".into(),
         status: CriterionStatus::Failed,
         evidence_refs: Vec::new(),
         verification_refs: Vec::new(),
-        summary: Some("cli-tool failed".to_owned()),
+        summary: Some("cli-tool failed".into()),
     }];
     receipt
 }
@@ -326,8 +326,7 @@ fn post_merge_receipt() -> Receipt {
         "post_merge_observer",
     );
     receipt.idempotency.intent_key =
-        "post-merge:github://runxhq/nitrosend/issues/77:github://runxhq/nitrosend/pulls/188"
-            .to_owned();
+        "post-merge:github://runxhq/nitrosend/issues/77:github://runxhq/nitrosend/pulls/188".into();
     let issue_ref = Reference {
         provider: Some("github".to_owned().into()),
         locator: Some("runxhq/nitrosend#77".to_owned().into()),
@@ -380,11 +379,11 @@ fn post_merge_receipt() -> Receipt {
     let observe_bindings = post_merge_criteria
         .iter()
         .map(|id| CriterionBinding {
-            criterion_id: (*id).to_owned(),
+            criterion_id: (*id).into(),
             status: CriterionStatus::Verified,
             evidence_refs: vec![pr_ref.clone()],
             verification_refs: vec![verification_ref.clone()],
-            summary: Some(format!("{id} verified")),
+            summary: Some(format!("{id} verified").into()),
         })
         .collect::<Vec<_>>();
     let verification = Verification {
@@ -405,15 +404,15 @@ fn post_merge_receipt() -> Receipt {
     };
     let revision = RevisionDetails {
         change_request: ChangeRequest {
-            request_id: "act_revise_request".to_owned(),
-            summary: "Ship the target pull request".to_owned(),
+            request_id: "act_revise_request".into(),
+            summary: "Ship the target pull request".into(),
             target_surfaces: Vec::new(),
             success_criteria: Vec::new(),
         },
         change_plan: ChangePlan {
-            plan_id: "act_revise_plan".to_owned(),
-            summary: "Open and merge the target pull request".to_owned(),
-            steps: vec!["Open PR".to_owned(), "Merge PR".to_owned()],
+            plan_id: "act_revise_plan".into(),
+            summary: "Open and merge the target pull request".into(),
+            steps: vec!["Open PR".into(), "Merge PR".into()],
             risks: Vec::new(),
         },
         target_surfaces: Vec::new(),
@@ -423,7 +422,7 @@ fn post_merge_receipt() -> Receipt {
         revision_refs: Vec::new(),
     };
     let post_merge_act = |id: &str, form: ActForm| ReceiptAct {
-        id: id.to_owned(),
+        id: id.into(),
         form: form.clone(),
         intent: match form {
             ActForm::Observation => observe_intent.clone(),
@@ -435,7 +434,7 @@ fn post_merge_receipt() -> Receipt {
                 derived_from: Vec::new(),
             },
         },
-        summary: format!("post-merge {id}"),
+        summary: format!("post-merge {id}").into(),
         criterion_bindings: match form {
             ActForm::Observation => observe_bindings.clone(),
             _ => Vec::new(),
@@ -461,7 +460,7 @@ fn post_merge_receipt() -> Receipt {
         },
         verification: if matches!(form, ActForm::Verification) {
             Some(VerificationDetails {
-                criterion_ids: vec!["post_merge.verification_passed".to_owned()],
+                criterion_ids: vec!["post_merge.verification_passed".into()],
                 verification: verification.clone(),
                 deployment_ref: None,
             })
@@ -476,8 +475,8 @@ fn post_merge_receipt() -> Receipt {
         post_merge_act("act_revise", ActForm::Revision),
     ];
     receipt.decisions = vec![open_decision("act_observe")];
-    receipt.seal.reason_code = "merged_verified".to_owned();
-    receipt.seal.summary = "Target PR shipped and verified.".to_owned();
+    receipt.seal.reason_code = "merged_verified".into();
+    receipt.seal.summary = "Target PR shipped and verified.".into();
     receipt.seal.criteria = vec![
         criterion(
             "post_merge.provider_state",
@@ -526,10 +525,10 @@ fn criterion(
     summary: Option<&str>,
 ) -> CriterionBinding {
     CriterionBinding {
-        criterion_id: id.to_owned(),
+        criterion_id: id.into(),
         status: CriterionStatus::Verified,
         evidence_refs,
         verification_refs,
-        summary: summary.map(str::to_owned),
+        summary: summary.map(Into::into),
     }
 }

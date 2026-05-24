@@ -28,7 +28,7 @@ pub fn receipt_proof_status(
     verification: &ReceiptVerification,
 ) -> ReceiptProofStatus {
     ReceiptProofStatus {
-        receipt_id: receipt.id.clone(),
+        receipt_id: receipt.id.to_string(),
         status: if verification.valid {
             ReceiptProofStatusKind::Verified
         } else {

@@ -505,7 +505,7 @@ fn sealed_output(
     output.insert("run_id".to_owned(), JsonValue::String(run_id.to_owned()));
     output.insert(
         "receipt_id".to_owned(),
-        JsonValue::String(receipt.id.clone()),
+        JsonValue::String(receipt.id.to_string()),
     );
     output.insert(
         "closure".to_owned(),
@@ -525,15 +525,15 @@ fn closure_output(seal: &runx_contracts::Seal) -> JsonObject {
     );
     closure.insert(
         "reason_code".to_owned(),
-        JsonValue::String(seal.reason_code.clone()),
+        JsonValue::String(seal.reason_code.to_string()),
     );
     closure.insert(
         "summary".to_owned(),
-        JsonValue::String(seal.summary.clone()),
+        JsonValue::String(seal.summary.to_string()),
     );
     closure.insert(
         "closed_at".to_owned(),
-        JsonValue::String(seal.closed_at.clone()),
+        JsonValue::String(seal.closed_at.to_string()),
     );
     closure
 }

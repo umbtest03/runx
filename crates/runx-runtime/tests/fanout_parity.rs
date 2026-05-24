@@ -372,7 +372,7 @@ fn sync_point_without_receipts(
     decision: &runx_core::state_machine::FanoutSyncDecision,
 ) -> FanoutReceiptSyncPoint {
     FanoutReceiptSyncPoint {
-        group_id: decision.group_id.clone(),
+        group_id: decision.group_id.clone().into(),
         strategy: match decision.strategy {
             runx_core::state_machine::FanoutSyncStrategy::All => FanoutReceiptStrategy::All,
             runx_core::state_machine::FanoutSyncStrategy::Any => FanoutReceiptStrategy::Any,
@@ -386,8 +386,8 @@ fn sync_point_without_receipts(
                 FanoutReceiptDecision::Escalate
             }
         },
-        rule_fired: decision.rule_fired.clone(),
-        reason: decision.reason.clone(),
+        rule_fired: decision.rule_fired.clone().into(),
+        reason: decision.reason.clone().into(),
         branch_count: decision.branch_count,
         success_count: decision.success_count,
         failure_count: decision.failure_count,

@@ -499,7 +499,7 @@ pub fn persist_payment_step_state(
         store.consume_spend_capability(SpendCapabilityConsumption {
             capability_ref: input.spend_capability_ref.clone(),
             idempotency_key: input.idempotency_key.clone(),
-            receipt_ref: Some(receipt.id.clone()),
+            receipt_ref: Some(receipt.id.to_string()),
             recovery_state: Some(recovery_state.clone()),
         })?;
     }
@@ -523,9 +523,9 @@ pub fn persist_payment_step_state(
             .and_then(|packet| packet.result.as_ref());
         store.record_idempotency(PaymentIdempotencyEntry {
             idempotency_key: input.idempotency_key.clone(),
-            receipt_ref: receipt.id.clone(),
-            receipt_created_at: receipt.created_at.clone(),
-            receipt_digest: receipt.digest.clone(),
+            receipt_ref: receipt.id.to_string(),
+            receipt_created_at: receipt.created_at.to_string(),
+            receipt_digest: receipt.digest.to_string(),
             rail_proof_ref: proof_ref.to_owned(),
             supervisor_proof: supervisor_proof.clone(),
             amount_minor: result

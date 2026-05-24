@@ -65,7 +65,7 @@ fn abnormal_failed_receipt_verifies_basic_invariants() -> Result<(), serde_json:
 #[test]
 fn seal_criterion_must_bind_to_act_criteria() -> Result<(), serde_json::Error> {
     let mut receipt = fixture(SUCCESS_RECEIPT)?;
-    receipt.seal.criteria[0].criterion_id = "missing_criterion".to_owned();
+    receipt.seal.criteria[0].criterion_id = "missing_criterion".into();
 
     let verification = verify_receipt(&receipt);
 
@@ -87,7 +87,7 @@ fn child_refs_must_be_receipt_refs() -> Result<(), serde_json::Error> {
 #[test]
 fn idempotency_requires_sha256_prefixes() -> Result<(), serde_json::Error> {
     let mut receipt = fixture(SUCCESS_RECEIPT)?;
-    receipt.idempotency.intent_key = "not-a-hash".to_owned();
+    receipt.idempotency.intent_key = "not-a-hash".into();
 
     let verification = verify_receipt(&receipt);
 
@@ -98,7 +98,7 @@ fn idempotency_requires_sha256_prefixes() -> Result<(), serde_json::Error> {
 #[test]
 fn subject_commitment_requires_sha256_prefix() -> Result<(), serde_json::Error> {
     let mut receipt = fixture(SUCCESS_RECEIPT)?;
-    receipt.subject.commitments[0].value = "stdout".to_owned();
+    receipt.subject.commitments[0].value = "stdout".into();
     assert_eq!(
         receipt.subject.commitments[0].scope,
         ReceiptCommitmentScope::Output
@@ -135,7 +135,7 @@ fn receipt_tree_requires_supplied_child_receipts() -> Result<(), serde_json::Err
 fn receipt_tree_accepts_matching_child_receipts() -> Result<(), serde_json::Error> {
     let mut receipt = with_child(fixture(SUCCESS_RECEIPT)?);
     let mut child = fixture(ABNORMAL_RECEIPT)?;
-    child.id = "hrn_rcpt_child_1".to_owned();
+    child.id = "hrn_rcpt_child_1".into();
 
     assert!(validate_receipt_tree(&receipt, &[child]).is_ok());
     receipt.lineage.as_mut().unwrap().children.clear();
@@ -147,7 +147,7 @@ fn receipt_tree_accepts_matching_child_receipts() -> Result<(), serde_json::Erro
 fn receipt_tree_rejects_child_receipt_cycles() -> Result<(), serde_json::Error> {
     let receipt = with_child(fixture(SUCCESS_RECEIPT)?);
     let mut child = fixture(ABNORMAL_RECEIPT)?;
-    child.id = "hrn_rcpt_child_1".to_owned();
+    child.id = "hrn_rcpt_child_1".into();
     child
         .lineage
         .get_or_insert_with(Default::default)
@@ -164,7 +164,7 @@ fn receipt_tree_rejects_child_receipt_cycles() -> Result<(), serde_json::Error> 
 fn receipt_tree_rejects_orphan_supplied_children() -> Result<(), serde_json::Error> {
     let receipt = fixture(SUCCESS_RECEIPT)?;
     let mut child = fixture(ABNORMAL_RECEIPT)?;
-    child.id = "hrn_rcpt_orphan".to_owned();
+    child.id = "hrn_rcpt_orphan".into();
 
     let verification = verify_receipt_tree(&receipt, &[child]);
 
@@ -176,7 +176,7 @@ fn receipt_tree_rejects_orphan_supplied_children() -> Result<(), serde_json::Err
 fn receipt_tree_rejects_duplicate_child_receipt_ids() -> Result<(), serde_json::Error> {
     let receipt = with_child(fixture(SUCCESS_RECEIPT)?);
     let mut first = fixture(ABNORMAL_RECEIPT)?;
-    first.id = "hrn_rcpt_child_1".to_owned();
+    first.id = "hrn_rcpt_child_1".into();
     let second = first.clone();
 
     let verification = verify_receipt_tree(&receipt, &[first, second]);
@@ -219,7 +219,7 @@ fn structural_validation_does_not_claim_strict_proof() -> Result<(), serde_json:
 #[test]
 fn strict_proof_rejects_tampered_body_digest() -> Result<(), serde_json::Error> {
     let mut receipt = proof_receipt()?;
-    receipt.acts[0].summary = "tampered".to_owned();
+    receipt.acts[0].summary = "tampered".into();
     let verifier = FixtureSignatureVerifier;
     let context = proof_context(&verifier);
 
@@ -243,7 +243,7 @@ fn strict_proof_requires_signature_verifier() -> Result<(), serde_json::Error> {
 #[test]
 fn strict_proof_rejects_tampered_signature() -> Result<(), serde_json::Error> {
     let mut receipt = proof_receipt()?;
-    receipt.signature.value = "sig:tampered".to_owned();
+    receipt.signature.value = "sig:tampered".into();
     let verifier = FixtureSignatureVerifier;
     let context = proof_context(&verifier);
 
@@ -352,8 +352,8 @@ fn proof_receipt() -> Result<Receipt, serde_json::Error> {
 fn refresh_proof_digest_and_signature(receipt: &mut Receipt) -> Result<(), serde_json::Error> {
     let digest = canonical_receipt_body_digest(receipt)
         .map_err(|error| serde_json::Error::io(std::io::Error::other(error.to_string())))?;
-    receipt.digest = digest.clone();
-    receipt.signature.value = format!("sig:{digest}");
+    receipt.digest = digest.clone().into();
+    receipt.signature.value = format!("sig:{digest}").into();
     Ok(())
 }
 

@@ -35,8 +35,8 @@ pub mod tools;
 pub mod verification;
 
 pub use act::{
-    Act, ActForm, ChangePlan, ChangeRequest, CriterionBinding, CriterionStatus, GovernedActRef,
-    Intent, RevisionDetails, SuccessCriterion, TargetSurface, VerificationDetails,
+    Act, ActForm, ActSchema, ChangePlan, ChangeRequest, CriterionBinding, CriterionStatus,
+    GovernedActRef, Intent, RevisionDetails, SuccessCriterion, TargetSurface, VerificationDetails,
 };
 pub use act_assignment::{
     ActAssignment, ActAssignmentActor, ActAssignmentHost, ActAssignmentHostKind,
@@ -53,7 +53,7 @@ pub use aster::{
 };
 pub use authority::{
     Authority, AuthorityApproval, AuthorityAttenuation, AuthorityBounds, AuthorityCapability,
-    AuthorityCondition, AuthorityConditionPredicate, AuthorityResourceFamily,
+    AuthorityCondition, AuthorityConditionPredicate, AuthorityResourceFamily, AuthoritySchema,
     AuthoritySubsetComparison, AuthoritySubsetProof, AuthoritySubsetRelation,
     AuthoritySubsetResult, AuthorityTerm, AuthorityVerb, PaymentAuthorityBounds,
     PaymentCredentialForm,

@@ -31,7 +31,7 @@ pub fn plan_target_repo_runner(
     let context = runner_policy_context(policy, &values)?;
 
     Ok(TargetRepoRunnerPlan {
-        policy_id: policy.policy_id.clone(),
+        policy_id: policy.policy_id.to_string(),
         action: request.action,
         source: TargetRepoRunnerSourcePlan {
             source_id: values.source_id,
@@ -47,7 +47,7 @@ pub fn plan_target_repo_runner(
         target: TargetRepoRunnerTargetPlan {
             repo: values.target_repo,
             scafld_required: context.target.scafld_required,
-            base_branch: context.target.base_branch.clone(),
+            base_branch: context.target.base_branch.as_ref().map(ToString::to_string),
         },
         runner: TargetRepoRunnerRunnerPlan {
             runner_id: values.runner_id,
@@ -627,11 +627,12 @@ fn static_string(value: &'static str) -> JsonValue {
     JsonValue::String(value.to_owned())
 }
 
-fn target_scoped_key_fields(configured: &[String]) -> Vec<String> {
+fn target_scoped_key_fields<T: AsRef<str>>(configured: &[T]) -> Vec<String> {
     let mut fields = Vec::with_capacity(configured.len() + 1);
     for field in configured {
+        let field = field.as_ref();
         if !fields.iter().any(|existing| existing == field) {
-            fields.push(field.clone());
+            fields.push(field.to_owned());
         }
     }
     if !fields

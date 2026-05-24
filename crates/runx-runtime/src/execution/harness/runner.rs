@@ -347,7 +347,7 @@ fn run_graph_replay_fixture(
         let outputs = skill_output_object(&output);
         let succeeded = output.succeeded();
         let admission_witness =
-            StepAdmissionWitness::local_runtime(&replay_step.step_id, &receipt.id);
+            StepAdmissionWitness::local_runtime(&replay_step.step_id, receipt.id.as_str());
         runs.push(StepRun {
             step_id: replay_step.step_id,
             attempt: 1,
@@ -582,7 +582,7 @@ fn step_receipt_digest(graph_run: &GraphRun, step_id: &str) -> Result<String, Ha
         .steps
         .iter()
         .find(|run| run.step_id == step_id)
-        .map(|run| run.receipt.digest.clone())
+        .map(|run| run.receipt.digest.to_string())
         .ok_or_else(|| HarnessReplayError::Mismatch {
             field: "metadata.x402_idempotency_replay.step",
             expected: step_id.to_owned(),

@@ -161,7 +161,7 @@ fn runtime_fanout_receipt_tree_uses_explicit_receipts() -> Result<(), Box<dyn st
 fn runtime_tree_rejects_structurally_valid_child_proof_tamper()
 -> Result<(), Box<dyn std::error::Error>> {
     let (root, mut children) = graph_with_steps("tree_runtime_child_tamper", &["child"])?;
-    children[0].acts[0].summary = "tampered child proof body".to_owned();
+    children[0].acts[0].summary = "tampered child proof body".into();
 
     assert!(runx_receipts::verify_receipt_tree(&root, &children).valid);
     let verification = verify_runtime_receipt_tree(&root, children, ReceiptTreeConfig::default());
@@ -184,7 +184,7 @@ fn runtime_tree_rejects_valid_alternate_child_with_same_id()
 -> Result<(), Box<dyn std::error::Error>> {
     let (root, children) = graph_with_steps("tree_runtime_child_digest", &["child"])?;
     let mut alternate = children[0].clone();
-    alternate.acts[0].summary = "valid alternate child body".to_owned();
+    alternate.acts[0].summary = "valid alternate child body".into();
     refresh_local_digest_and_signature(&mut alternate)?;
 
     let verification =
@@ -321,7 +321,7 @@ fn step_run(
 ) -> Result<StepRun, Box<dyn std::error::Error>> {
     let output = skill_output(status);
     let receipt = step_receipt(graph_name, step_id, 1, &output, CREATED_AT)?;
-    let admission_witness = StepAdmissionWitness::local_runtime(step_id, &receipt.id);
+    let admission_witness = StepAdmissionWitness::local_runtime(step_id, receipt.id.as_str());
     Ok(StepRun {
         step_id: step_id.to_owned(),
         attempt: 1,
@@ -352,11 +352,11 @@ fn skill_output(status: InvocationStatus) -> SkillOutput {
 
 fn fanout_sync_point(steps: &[StepRun]) -> FanoutReceiptSyncPoint {
     FanoutReceiptSyncPoint {
-        group_id: "advisors".to_owned(),
+        group_id: "advisors".into(),
         strategy: FanoutReceiptStrategy::Quorum,
         decision: FanoutReceiptDecision::Proceed,
-        rule_fired: "quorum.min_success".to_owned(),
-        reason: "1/2 branches succeeded".to_owned(),
+        rule_fired: "quorum.min_success".into(),
+        reason: "1/2 branches succeeded".into(),
         branch_count: 2,
         success_count: 1,
         failure_count: 1,
@@ -371,7 +371,7 @@ fn fanout_sync_point(steps: &[StepRun]) -> FanoutReceiptSyncPoint {
 
 fn resign_for_test_verifier(receipt: &mut Receipt) -> Result<(), Box<dyn std::error::Error>> {
     let digest = canonical_receipt_body_digest(receipt)?;
-    receipt.signature.value = format!("ed25519-test:{digest}");
+    receipt.signature.value = format!("ed25519-test:{digest}").into();
     Ok(())
 }
 
@@ -379,8 +379,8 @@ fn refresh_local_digest_and_signature(
     receipt: &mut Receipt,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let digest = canonical_receipt_body_digest(receipt)?;
-    receipt.digest = digest.clone();
-    receipt.signature.value = format!("sig:{digest}");
+    receipt.digest = digest.clone().into();
+    receipt.signature.value = format!("sig:{digest}").into();
     Ok(())
 }
 

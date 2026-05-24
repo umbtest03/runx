@@ -362,6 +362,42 @@ impl std::ops::Deref for IsoDateTime {
     }
 }
 
+impl AsRef<str> for IsoDateTime {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl PartialEq<String> for IsoDateTime {
+    fn eq(&self, other: &String) -> bool {
+        &self.0 == other
+    }
+}
+
+impl PartialEq<&str> for IsoDateTime {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<str> for IsoDateTime {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
+
+impl PartialEq<IsoDateTime> for String {
+    fn eq(&self, other: &IsoDateTime) -> bool {
+        self == &other.0
+    }
+}
+
+impl PartialEq<IsoDateTime> for str {
+    fn eq(&self, other: &IsoDateTime) -> bool {
+        self == other.0.as_str()
+    }
+}
+
 impl std::fmt::Display for IsoDateTime {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(&self.0)

@@ -164,7 +164,7 @@ pub fn compute_verification_summary(
     let hash_commitments_valid = hash_commitments(receipt).iter().all(|commitment| {
         context
             .verified_hash_commitments
-            .contains(&commitment.value)
+            .contains(commitment.value.as_str())
     });
     ReceiptVerificationSummary {
         signature_valid,

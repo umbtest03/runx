@@ -10,13 +10,14 @@
 
 use std::path::PathBuf;
 
+use runx_contracts::act::Act;
 use runx_contracts::act_assignment::ActAssignment;
 use runx_contracts::artifact::Artifact;
 use runx_contracts::aster::{
     FeedEntry, Opportunity, ReflectionEntry, Selection, SelectionCycle, SkillBinding, Target,
     TargetTransitionEntry, ThesisAssessment,
 };
-use runx_contracts::authority::AuthoritySubsetProof;
+use runx_contracts::authority::{Authority, AuthoritySubsetProof};
 use runx_contracts::credential_delivery::{
     CredentialDeliveryBrokerResponse, CredentialDeliveryObservation, CredentialDeliveryProfile,
     CredentialDeliveryRequest,
@@ -29,6 +30,8 @@ use runx_contracts::external_adapter::{
     ExternalAdapterResponse,
 };
 use runx_contracts::host_protocol::{ApprovalGate, Question, ResolutionResponse};
+use runx_contracts::operational_policy::OperationalPolicy;
+use runx_contracts::receipt::Receipt;
 use runx_contracts::redaction::Redaction;
 use runx_contracts::reference::Reference;
 use runx_contracts::schema::RunxSchema;
@@ -223,6 +226,487 @@ fn covered() -> Vec<Covered> {
             emitted: AuthoritySubsetProof::json_schema(),
             corpus: authority_subset_proof_corpus(),
         },
+        Covered {
+            file_name: "authority.schema.json",
+            emitted: Authority::json_schema(),
+            corpus: authority_corpus(),
+        },
+        Covered {
+            file_name: "operational-policy.schema.json",
+            emitted: OperationalPolicy::json_schema(),
+            corpus: operational_policy_corpus(),
+        },
+        Covered {
+            file_name: "act.schema.json",
+            emitted: Act::json_schema(),
+            corpus: act_corpus(),
+        },
+        Covered {
+            file_name: "receipt.schema.json",
+            emitted: Receipt::json_schema(),
+            corpus: receipt_corpus(),
+        },
+    ]
+}
+
+fn receipt_corpus() -> Vec<(&'static str, Value)> {
+    let valid = json!({
+        "schema": "runx.receipt.v1",
+        "id": "hrn_rcpt_1",
+        "created_at": "2026-01-01T00:00:00Z",
+        "canonicalization": "runx.receipt.c14n.v1",
+        "issuer": {
+            "type": "local",
+            "kid": "fixture-key",
+            "public_key_sha256": "sha256:abc",
+        },
+        "signature": { "alg": "Ed25519", "value": "sig:abc" },
+        "digest": "sha256:abc",
+        "idempotency": {
+            "intent_key": "sha256:intent",
+            "trigger_fingerprint": "sha256:trigger",
+            "content_hash": "sha256:content",
+        },
+        "subject": {
+            "kind": "skill",
+            "ref": a_ref(),
+            "commitments": [],
+        },
+        "authority": {
+            "actor_ref": a_ref(),
+            "grant_refs": [],
+            "scope_refs": [],
+            "authority_proof_refs": [],
+            "attenuation": { "parent_authority_ref": null, "subset_proof": null },
+            "terms": [],
+            "enforcement": {
+                "profile_hash": "sha256:profile",
+                "redaction_refs": [],
+                "setup_refs": [],
+                "teardown_refs": [],
+            },
+        },
+        "signals": [],
+        "decisions": [],
+        "acts": [],
+        "seal": {
+            "disposition": "closed",
+            "reason_code": "process_closed",
+            "summary": "closed",
+            "closed_at": "2026-01-01T00:00:00Z",
+            "last_observed_at": "2026-01-01T00:00:00Z",
+            "criteria": [],
+        },
+    });
+    vec![
+        ("minimal valid", valid.clone()),
+        ("full valid (act + seal criteria + lineage)", {
+            let mut v = valid.clone();
+            v["acts"] = json!([{
+                "id": "act_1",
+                "form": "observation",
+                "intent": an_intent(),
+                "summary": "did the thing",
+                "criterion_bindings": [{
+                    "criterion_id": "c1",
+                    "status": "verified",
+                    "evidence_refs": [],
+                    "verification_refs": [],
+                    "summary": "ok",
+                }],
+                "source_refs": [],
+                "target_refs": [],
+                "artifact_refs": [],
+                "closure": act_closure(),
+            }]);
+            v["seal"]["criteria"] = json!([{
+                "criterion_id": "c1",
+                "status": "verified",
+                "evidence_refs": [],
+                "verification_refs": [],
+            }]);
+            v["lineage"] = json!({
+                "children": [],
+                "sync": [],
+            });
+            v
+        }),
+        ("missing schema", drop_field(valid.clone(), "schema")),
+        ("missing id", drop_field(valid.clone(), "id")),
+        ("missing seal", drop_field(valid.clone(), "seal")),
+        ("missing digest", drop_field(valid.clone(), "digest")),
+        (
+            "empty id rejected",
+            set_field(valid.clone(), "id", json!("")),
+        ),
+        (
+            "empty digest rejected",
+            set_field(valid.clone(), "digest", json!("")),
+        ),
+        (
+            "wrong schema const",
+            set_field(valid.clone(), "schema", json!("runx.act.v1")),
+        ),
+        (
+            "malformed created_at",
+            set_field(valid.clone(), "created_at", json!("nope")),
+        ),
+        (
+            "unknown issuer type",
+            set_field(
+                valid.clone(),
+                "issuer",
+                json!({ "type": "alien", "kid": "k", "public_key_sha256": "sha256:x" }),
+            ),
+        ),
+        (
+            "additional property",
+            set_field(valid.clone(), "bogus", json!(true)),
+        ),
+    ]
+}
+
+fn act_closure() -> Value {
+    json!({
+        "disposition": "closed",
+        "reason_code": "done",
+        "summary": "completed",
+        "closed_at": "2026-01-01T00:00:00Z",
+    })
+}
+
+fn act_corpus() -> Vec<(&'static str, Value)> {
+    let valid = json!({
+        "schema": "runx.act.v1",
+        "act_id": "act_1",
+        "form": "observation",
+        "intent": an_intent(),
+        "summary": "did the thing",
+        "closure": act_closure(),
+        "criterion_bindings": [],
+        "source_refs": [],
+        "target_refs": [],
+        "surface_refs": [],
+        "artifact_refs": [],
+        "verification_refs": [],
+        "harness_refs": [],
+        "performed_at": "2026-01-01T00:00:00Z",
+    });
+    vec![
+        ("minimal valid", valid.clone()),
+        ("full valid (revision + bindings)", {
+            let mut v = valid.clone();
+            v["form"] = json!("revision");
+            v["criterion_bindings"] = json!([{
+                "criterion_id": "c1",
+                "status": "verified",
+                "evidence_refs": [],
+                "verification_refs": [],
+                "summary": "looks good",
+            }]);
+            v["revision"] = json!({
+                "change_request": {
+                    "request_id": "req_1",
+                    "summary": "ship it",
+                    "target_surfaces": [
+                        { "surface_ref": a_ref(), "mutating": true, "rationale": "open pr" },
+                    ],
+                    "success_criteria": [],
+                },
+                "change_plan": {
+                    "plan_id": "plan_1",
+                    "summary": "open and merge",
+                    "steps": ["open pr"],
+                    "risks": [],
+                },
+                "target_surfaces": [],
+                "invariants": ["keep tests green"],
+                "handoff_refs": [],
+                "revision_refs": [],
+            });
+            v
+        }),
+        (
+            "missing schema (optional)",
+            drop_field(valid.clone(), "schema"),
+        ),
+        ("missing act_id", drop_field(valid.clone(), "act_id")),
+        ("missing closure", drop_field(valid.clone(), "closure")),
+        (
+            "missing performed_at",
+            drop_field(valid.clone(), "performed_at"),
+        ),
+        (
+            "empty act_id",
+            set_field(valid.clone(), "act_id", json!("")),
+        ),
+        (
+            "empty summary",
+            set_field(valid.clone(), "summary", json!("")),
+        ),
+        (
+            "unknown form",
+            set_field(valid.clone(), "form", json!("teleport")),
+        ),
+        (
+            "malformed performed_at",
+            set_field(valid.clone(), "performed_at", json!("nope")),
+        ),
+        (
+            "empty criterion binding criterion_id",
+            set_field(
+                valid.clone(),
+                "criterion_bindings",
+                json!([{
+                    "criterion_id": "",
+                    "status": "verified",
+                    "evidence_refs": [],
+                    "verification_refs": [],
+                }]),
+            ),
+        ),
+        (
+            "additional property",
+            set_field(valid.clone(), "bogus", json!(true)),
+        ),
+    ]
+}
+
+fn operational_policy_corpus() -> Vec<(&'static str, Value)> {
+    let valid = json!({
+        "schema": "runx.operational_policy.v1",
+        "schema_version": "runx.operational_policy.v1",
+        "policy_id": "nitrosend.intake",
+        "sources": [{
+            "source_id": "slack.intake",
+            "provider": "slack",
+            "allowed_locators": ["C123"],
+            "allowed_actions": ["issue-intake"],
+            "source_thread": {
+                "required": true,
+                "publish_mode": "reply",
+                "missing_behavior": "fail_closed",
+            },
+        }],
+        "runners": [{
+            "runner_id": "local.default",
+            "kind": "local",
+            "state": "available",
+            "allowed_actions": ["issue-intake"],
+            "target_repos": ["acme/widgets"],
+            "scafld_required": true,
+        }],
+        "owner_routes": [{
+            "route_id": "default.route",
+            "owners": ["alice"],
+            "target_repos": ["acme/widgets"],
+        }],
+        "targets": [{
+            "repo": "acme/widgets",
+            "runner_ids": ["local.default"],
+            "allowed_actions": ["issue-intake"],
+            "default_owner_route": "default.route",
+            "scafld_required": true,
+        }],
+        "dedupe": {
+            "strategy": "source_fingerprint",
+            "key_fields": ["source_id"],
+            "on_duplicate": "reuse",
+        },
+        "outcomes": {
+            "observe_provider": true,
+            "verification_required": true,
+            "close_source_issue": "when_verified",
+            "publish_final_source_thread_update": true,
+        },
+        "permissions": {
+            "auto_merge": false,
+            "mutate_target_repo": true,
+            "require_human_merge_gate": true,
+        },
+    });
+    vec![
+        ("minimal valid", valid.clone()),
+        ("full valid (created_at + optionals)", {
+            let mut v = valid.clone();
+            v["created_at"] = json!("2026-01-01T00:00:00Z");
+            v["sources"][0]["minimum_confidence"] = json!(0.5);
+            v["sources"][0]["sentry"] = json!({ "production_only": true, "unresolved_only": true });
+            v["owner_routes"][0]["labels"] = json!(["bug"]);
+            v["owner_routes"][0]["project"] = json!("Roadmap");
+            v["targets"][0]["base_branch"] = json!("main");
+            v
+        }),
+        ("missing schema", drop_field(valid.clone(), "schema")),
+        (
+            "missing schema_version",
+            drop_field(valid.clone(), "schema_version"),
+        ),
+        ("missing policy_id", drop_field(valid.clone(), "policy_id")),
+        ("missing dedupe", drop_field(valid.clone(), "dedupe")),
+        (
+            "empty policy_id rejected",
+            set_field(valid.clone(), "policy_id", json!("")),
+        ),
+        (
+            "wrong schema const",
+            set_field(valid.clone(), "schema", json!("runx.other.v1")),
+        ),
+        (
+            "unknown dedupe strategy",
+            set_field(
+                valid.clone(),
+                "dedupe",
+                json!({
+                    "strategy": "magic",
+                    "key_fields": ["source_id"],
+                    "on_duplicate": "reuse",
+                }),
+            ),
+        ),
+        (
+            "malformed created_at",
+            set_field(valid.clone(), "created_at", json!("nope")),
+        ),
+        (
+            "additional property",
+            set_field(valid.clone(), "bogus", json!(true)),
+        ),
+    ]
+}
+
+fn authority_term() -> Value {
+    json!({
+        "term_id": "term_1",
+        "principal_ref": a_ref(),
+        "resource_ref": a_ref(),
+        "resource_family": "github_repo",
+        "verbs": ["read", "write"],
+        "bounds": {},
+        "conditions": [],
+        "approvals": [],
+        "capabilities": [],
+        "issued_by_ref": a_ref(),
+    })
+}
+
+fn authority_corpus() -> Vec<(&'static str, Value)> {
+    let valid = json!({
+        "schema": "runx.authority.v1",
+        "actor_ref": a_ref(),
+        "authority_proof_refs": [],
+        "grant_refs": [],
+        "scope_refs": [],
+        "policy_refs": [],
+        "terms": [authority_term()],
+        "attenuation": {
+            "parent_authority_ref": null,
+            "subset_proof": null,
+        },
+    });
+    vec![
+        ("minimal valid (nullable attenuation)", valid.clone()),
+        ("full valid", {
+            let mut v = valid.clone();
+            v["attenuation"] = json!({
+                "parent_authority_ref": a_ref(),
+                "subset_proof": {
+                    "parent_authority_ref": a_ref(),
+                    "comparison_algorithm": "runx.subset.v1",
+                    "result": "subset",
+                    "compared_terms": [
+                        { "child_term_id": "c1", "parent_term_id": "p1", "relation": "subset" },
+                    ],
+                    "checked_at": "2026-01-01T00:00:00Z",
+                },
+            });
+            v["mandate_ref"] = a_ref();
+            v["terms"] = json!([{
+                "term_id": "term_1",
+                "principal_ref": a_ref(),
+                "resource_ref": a_ref(),
+                "resource_family": "payment",
+                "verbs": ["spend"],
+                "bounds": {
+                    "payment": {
+                        "currency": "USD",
+                        "rails": ["card"],
+                        "max_per_call_minor": 2500,
+                    },
+                },
+                "conditions": [
+                    { "condition_id": "cond_1", "predicate": "within_budget" },
+                ],
+                "approvals": [
+                    { "approval_ref": a_ref(), "approved_at": "2026-01-01T00:00:00Z" },
+                ],
+                "capabilities": ["payment_single_use_spend"],
+                "expires_at": "2026-02-01T00:00:00Z",
+                "issued_by_ref": a_ref(),
+            }]);
+            v
+        }),
+        ("missing actor_ref", drop_field(valid.clone(), "actor_ref")),
+        (
+            "missing attenuation",
+            drop_field(valid.clone(), "attenuation"),
+        ),
+        (
+            "empty term_id rejected",
+            set_field(
+                valid.clone(),
+                "terms",
+                json!([set_field(authority_term(), "term_id", json!(""))]),
+            ),
+        ),
+        (
+            "unknown resource_family",
+            set_field(
+                valid.clone(),
+                "terms",
+                json!([set_field(
+                    authority_term(),
+                    "resource_family",
+                    json!("nope")
+                )]),
+            ),
+        ),
+        (
+            "unknown verb",
+            set_field(
+                valid.clone(),
+                "terms",
+                json!([set_field(authority_term(), "verbs", json!(["fly"]))]),
+            ),
+        ),
+        (
+            "empty payment currency rejected",
+            set_field(
+                valid.clone(),
+                "terms",
+                json!([set_field(
+                    authority_term(),
+                    "bounds",
+                    json!({ "payment": { "currency": "", "rails": ["card"] } }),
+                )]),
+            ),
+        ),
+        (
+            "malformed approval approved_at",
+            set_field(
+                valid.clone(),
+                "terms",
+                json!([set_field(
+                    authority_term(),
+                    "approvals",
+                    json!([{ "approval_ref": a_ref(), "approved_at": "nope" }]),
+                )]),
+            ),
+        ),
+        (
+            "additional property",
+            set_field(valid.clone(), "bogus", json!(true)),
+        ),
     ]
 }
 

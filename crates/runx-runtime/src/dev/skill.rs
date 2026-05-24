@@ -216,7 +216,7 @@ fn dev_output_from_harness(output: &HarnessReplayOutput) -> JsonValue {
     let mut object = JsonObject::new();
     object.insert(
         "receipt_id".to_owned(),
-        JsonValue::String(output.receipt.id.clone()),
+        JsonValue::String(output.receipt.id.to_string()),
     );
     object.insert(
         "harness_id".to_owned(),
@@ -242,7 +242,7 @@ fn dev_output_from_harness(output: &HarnessReplayOutput) -> JsonValue {
             output
                 .step_receipts
                 .iter()
-                .map(|receipt| JsonValue::String(receipt.id.clone()))
+                .map(|receipt| JsonValue::String(receipt.id.to_string()))
                 .collect(),
         ),
     );

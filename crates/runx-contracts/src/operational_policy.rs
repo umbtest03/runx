@@ -8,6 +8,8 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::schema::{IsoDateTime, NonEmptyString, RunxSchema};
+
 mod evaluate;
 
 pub use evaluate::{
@@ -16,7 +18,7 @@ pub use evaluate::{
     validate_operational_policy_semantics,
 };
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
 pub enum OperationalPolicySchema {
     #[serde(rename = "runx.operational_policy.v1")]
     V1,
@@ -28,7 +30,9 @@ impl fmt::Display for OperationalPolicySchema {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, RunxSchema,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum OperationalPolicyAction {
     ReplyOnly,
@@ -47,7 +51,7 @@ impl fmt::Display for OperationalPolicyAction {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum OperationalPolicySourceProvider {
     Slack,
@@ -71,7 +75,7 @@ impl fmt::Display for OperationalPolicySourceProvider {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum OperationalPolicyRunnerKind {
     Local,
@@ -91,7 +95,7 @@ impl fmt::Display for OperationalPolicyRunnerKind {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum OperationalPolicyRunnerState {
     Available,
@@ -109,7 +113,7 @@ impl fmt::Display for OperationalPolicyRunnerState {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum OperationalPolicyDedupeStrategy {
     SourceFingerprint,
@@ -117,7 +121,7 @@ pub enum OperationalPolicyDedupeStrategy {
     Branch,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum OperationalPolicyOutcomeCloseMode {
     Never,
@@ -125,7 +129,7 @@ pub enum OperationalPolicyOutcomeCloseMode {
     WhenTerminal,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum OperationalPolicyPublishMode {
     Reply,
@@ -143,13 +147,13 @@ impl fmt::Display for OperationalPolicyPublishMode {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
 pub enum OperationalPolicyMissingBehavior {
     #[serde(rename = "fail_closed")]
     FailClosed,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum OperationalPolicyDuplicateBehavior {
     Reuse,
@@ -157,14 +161,15 @@ pub enum OperationalPolicyDuplicateBehavior {
     Block,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.operational_policy.v1")]
 pub struct OperationalPolicy {
     pub schema: OperationalPolicySchema,
     pub schema_version: OperationalPolicySchema,
-    pub policy_id: String,
+    pub policy_id: NonEmptyString,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_at: Option<String>,
+    pub created_at: Option<IsoDateTime>,
     pub sources: Vec<OperationalPolicySourceRule>,
     pub runners: Vec<OperationalPolicyRunnerRule>,
     pub owner_routes: Vec<OperationalPolicyOwnerRoute>,
@@ -174,12 +179,12 @@ pub struct OperationalPolicy {
     pub permissions: OperationalPolicyAutomationPermissions,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicySourceRule {
-    pub source_id: String,
+    pub source_id: NonEmptyString,
     pub provider: OperationalPolicySourceProvider,
-    pub allowed_locators: Vec<String>,
+    pub allowed_locators: Vec<NonEmptyString>,
     pub allowed_actions: Vec<OperationalPolicyAction>,
     pub source_thread: OperationalPolicySourceThreadPolicy,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -188,7 +193,7 @@ pub struct OperationalPolicySourceRule {
     pub sentry: Option<OperationalPolicySentryPolicy>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicySourceThreadPolicy {
     pub required: bool,
@@ -196,7 +201,7 @@ pub struct OperationalPolicySourceThreadPolicy {
     pub missing_behavior: OperationalPolicyMissingBehavior,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicySentryPolicy {
     pub production_only: bool,
@@ -205,10 +210,10 @@ pub struct OperationalPolicySentryPolicy {
     pub regressed_only: Option<bool>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicyRunnerRule {
-    pub runner_id: String,
+    pub runner_id: NonEmptyString,
     pub kind: OperationalPolicyRunnerKind,
     pub state: OperationalPolicyRunnerState,
     pub allowed_actions: Vec<OperationalPolicyAction>,
@@ -216,39 +221,39 @@ pub struct OperationalPolicyRunnerRule {
     pub scafld_required: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicyOwnerRoute {
-    pub route_id: String,
-    pub owners: Vec<String>,
+    pub route_id: NonEmptyString,
+    pub owners: Vec<NonEmptyString>,
     pub target_repos: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub labels: Vec<String>,
+    pub labels: Vec<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub project: Option<String>,
+    pub project: Option<NonEmptyString>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicyTargetRule {
     pub repo: String,
-    pub runner_ids: Vec<String>,
+    pub runner_ids: Vec<NonEmptyString>,
     pub allowed_actions: Vec<OperationalPolicyAction>,
-    pub default_owner_route: String,
+    pub default_owner_route: NonEmptyString,
     pub scafld_required: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub base_branch: Option<String>,
+    pub base_branch: Option<NonEmptyString>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicyDedupePolicy {
     pub strategy: OperationalPolicyDedupeStrategy,
-    pub key_fields: Vec<String>,
+    pub key_fields: Vec<NonEmptyString>,
     pub on_duplicate: OperationalPolicyDuplicateBehavior,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicyOutcomePolicy {
     pub observe_provider: bool,
@@ -257,7 +262,7 @@ pub struct OperationalPolicyOutcomePolicy {
     pub publish_final_source_thread_update: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicyAutomationPermissions {
     pub auto_merge: bool,

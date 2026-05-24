@@ -270,23 +270,23 @@ fn rec_wrong_ns_child(id: &str, child_id: &str) -> Value {
 fn base(id: &str) -> Receipt {
     Receipt {
         schema: ReceiptSchema::V1,
-        id: id.to_owned(),
-        created_at: "2026-05-22T00:00:00Z".to_owned(),
-        canonicalization: RECEIPT_CANONICALIZATION.to_owned(),
+        id: id.into(),
+        created_at: "2026-05-22T00:00:00Z".into(),
+        canonicalization: RECEIPT_CANONICALIZATION.into(),
         issuer: ReceiptIssuer {
             issuer_type: ReceiptIssuerType::Local,
-            kid: "fixture-key".to_owned(),
-            public_key_sha256: format!("sha256:{}", "0".repeat(64)),
+            kid: "fixture-key".into(),
+            public_key_sha256: format!("sha256:{}", "0".repeat(64)).into(),
         },
         signature: ReceiptSignature {
             alg: SignatureAlgorithm::Ed25519,
-            value: "sig:pending".to_owned(),
+            value: "sig:pending".into(),
         },
-        digest: format!("sha256:{}", "9".repeat(64)),
+        digest: format!("sha256:{}", "9".repeat(64)).into(),
         idempotency: ReceiptIdempotency {
-            intent_key: format!("sha256:{}", "1".repeat(64)),
-            trigger_fingerprint: format!("sha256:{}", "2".repeat(64)),
-            content_hash: format!("sha256:{}", "3".repeat(64)),
+            intent_key: format!("sha256:{}", "1".repeat(64)).into(),
+            trigger_fingerprint: format!("sha256:{}", "2".repeat(64)).into(),
+            content_hash: format!("sha256:{}", "3".repeat(64)).into(),
         },
         subject: Subject {
             kind: ReceiptSubjectKind::Skill,
@@ -306,7 +306,7 @@ fn base(id: &str) -> Receipt {
             },
             mandate_ref: None,
             enforcement: ReceiptEnforcement {
-                profile_hash: format!("sha256:{}", "5".repeat(64)),
+                profile_hash: format!("sha256:{}", "5".repeat(64)).into(),
                 redaction_refs: Vec::new(),
                 setup_refs: Vec::new(),
                 teardown_refs: Vec::new(),
@@ -317,10 +317,10 @@ fn base(id: &str) -> Receipt {
         acts: Vec::new(),
         seal: Seal {
             disposition: ClosureDisposition::Closed,
-            reason_code: "closed".to_owned(),
-            summary: "closed".to_owned(),
-            closed_at: "2026-05-22T00:00:00Z".to_owned(),
-            last_observed_at: "2026-05-22T00:00:00Z".to_owned(),
+            reason_code: "closed".into(),
+            summary: "closed".into(),
+            closed_at: "2026-05-22T00:00:00Z".into(),
+            last_observed_at: "2026-05-22T00:00:00Z".into(),
             criteria: Vec::new(),
         },
         lineage: Some(Lineage::default()),

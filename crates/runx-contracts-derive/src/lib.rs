@@ -500,6 +500,8 @@ fn serde_skip(attrs: &[syn::Attribute]) -> bool {
 /// contract types use.
 fn apply_rename_all(ident: &str, rule: Option<&str>) -> String {
     match rule {
+        Some("lowercase") => ident.to_lowercase(),
+        Some("UPPERCASE") => ident.to_uppercase(),
         Some("snake_case") => to_snake_case(ident),
         Some("camelCase") => to_camel_case(ident),
         Some("PascalCase") => to_pascal_case(ident),

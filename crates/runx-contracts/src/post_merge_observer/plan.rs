@@ -41,7 +41,7 @@ pub fn normalize_post_merge_observer_command(
 
     Ok(PostMergeObserverCommand {
         command_key: observer_command_key(&request.source_issue_ref, &request.pull_request_ref),
-        source_id: source.source_id.clone(),
+        source_id: source.source_id.to_string(),
         source_issue_ref: request.source_issue_ref.clone(),
         source_thread_ref,
         pull_request_ref: request.pull_request_ref.clone(),
@@ -84,8 +84,8 @@ pub fn plan_post_merge_observer_closure(
     );
 
     Ok(PostMergeObserverPlan {
-        policy_id: policy.policy_id.clone(),
-        source_id: source.source_id.clone(),
+        policy_id: policy.policy_id.to_string(),
+        source_id: source.source_id.to_string(),
         final_state,
         reason_code,
         seal_disposition,
@@ -166,8 +166,8 @@ pub fn project_post_merge_observer_publication_from_receipt(
         pull_request_ref,
         source_thread_ref: Some(source_thread_ref),
         merge_sha,
-        reason_code: receipt.seal.reason_code.clone(),
-        summary: receipt.seal.summary.clone(),
+        reason_code: receipt.seal.reason_code.to_string(),
+        summary: receipt.seal.summary.to_string(),
         verification_summary: publication_criteria
             .verification_criterion_id
             .and_then(|criterion_id| receipt_criterion_summary(receipt, criterion_id)),
@@ -330,7 +330,7 @@ fn normalized_source_thread_ref(
     let source_thread_required = source_thread_publication_required(policy, source);
     if source_thread_required && request.source_thread_ref.is_none() {
         return Err(PostMergeObserverPlanError::MissingSourceThread {
-            source_id: source.source_id.clone(),
+            source_id: source.source_id.to_string(),
         });
     }
     if let Some(reference) = &request.source_thread_ref {
@@ -451,7 +451,7 @@ fn publication_plan(
     let final_source_thread_update = source_thread_publication_required(policy, source);
     if final_source_thread_update && request.source_thread_ref.is_none() {
         return Err(PostMergeObserverPlanError::MissingSourceThread {
-            source_id: source.source_id.clone(),
+            source_id: source.source_id.to_string(),
         });
     }
     Ok(PostMergeObserverPublicationPlan {

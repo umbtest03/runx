@@ -1572,22 +1572,23 @@ fn target_repo_runner_revision_receipt(
     );
     let mut receipt = Receipt {
         schema: ReceiptSchema::V1,
-        id: receipt_id.clone(),
-        created_at: created_at.to_owned(),
-        canonicalization: RECEIPT_CANONICALIZATION.to_owned(),
+        id: receipt_id.clone().into(),
+        created_at: created_at.into(),
+        canonicalization: RECEIPT_CANONICALIZATION.into(),
         issuer: local_issuer(),
         signature: runx_contracts::ReceiptSignature {
             alg: SignatureAlgorithm::Ed25519,
-            value: "sig:pending".to_owned(),
+            value: "sig:pending".into(),
         },
-        digest: "sha256:pending".to_owned(),
+        digest: "sha256:pending".into(),
         idempotency: ReceiptIdempotency {
             intent_key: stable_hash(&format!(
                 "target-runner:{}:{}",
                 execution.execution_plan.checkout.target_repo, execution.dedupe_execution.key
-            )),
-            trigger_fingerprint: stable_hash(&execution.dedupe_execution.key),
-            content_hash: stable_hash(&receipt_id),
+            ))
+            .into(),
+            trigger_fingerprint: stable_hash(&execution.dedupe_execution.key).into(),
+            content_hash: stable_hash(&receipt_id).into(),
         },
         subject: Subject {
             kind: ReceiptSubjectKind::Skill,
@@ -1696,7 +1697,7 @@ fn target_repo_runner_source_publication_receipt_node(
         required: true,
     }];
     let act = ReceiptAct {
-        id: act_id.to_owned(),
+        id: act_id.into(),
         form: ActForm::Reply,
         intent: Intent {
             purpose: format!(
@@ -1709,13 +1710,13 @@ fn target_repo_runner_source_publication_receipt_node(
             constraints: Vec::new(),
             derived_from: vec![observation.source_thread_ref.clone()],
         },
-        summary: summary.clone(),
+        summary: summary.clone().into(),
         criterion_bindings: vec![CriterionBinding {
-            criterion_id: criterion_id.to_owned(),
+            criterion_id: criterion_id.into(),
             status: CriterionStatus::Verified,
             evidence_refs: evidence_refs.clone(),
             verification_refs: Vec::new(),
-            summary: Some(summary.clone()),
+            summary: Some(summary.clone().into()),
         }],
         by: None,
         source_refs: vec![observation.source_thread_ref.clone()],
@@ -1753,22 +1754,23 @@ fn target_repo_runner_source_publication_receipt_node(
     );
     let mut receipt = Receipt {
         schema: ReceiptSchema::V1,
-        id: receipt_id.clone(),
-        created_at: created_at.to_owned(),
-        canonicalization: RECEIPT_CANONICALIZATION.to_owned(),
+        id: receipt_id.clone().into(),
+        created_at: created_at.into(),
+        canonicalization: RECEIPT_CANONICALIZATION.into(),
         issuer: local_issuer(),
         signature: runx_contracts::ReceiptSignature {
             alg: SignatureAlgorithm::Ed25519,
-            value: "sig:pending".to_owned(),
+            value: "sig:pending".into(),
         },
-        digest: "sha256:pending".to_owned(),
+        digest: "sha256:pending".into(),
         idempotency: ReceiptIdempotency {
             intent_key: stable_hash(&format!(
                 "target-runner-source-publication:{}:{}",
                 observation.source_thread_ref.uri, observation.pull_request_ref.uri
-            )),
-            trigger_fingerprint: stable_hash(&observation.pull_request_ref.uri),
-            content_hash: stable_hash(&receipt_id),
+            ))
+            .into(),
+            trigger_fingerprint: stable_hash(&observation.pull_request_ref.uri).into(),
+            content_hash: stable_hash(&receipt_id).into(),
         },
         subject: Subject {
             kind: ReceiptSubjectKind::Skill,
@@ -1842,7 +1844,7 @@ fn revision_act(input: RevisionActInput<'_>) -> ReceiptAct {
     }];
     let revision = revision_change_set(act_id, summary, pull_request_ref, success_criteria.clone());
     ReceiptAct {
-        id: act_id.to_owned(),
+        id: act_id.into(),
         form: ActForm::Revision,
         intent: Intent {
             purpose: format!("Open target pull request {}", pull_request_ref.uri).into(),
@@ -1851,13 +1853,13 @@ fn revision_act(input: RevisionActInput<'_>) -> ReceiptAct {
             constraints: Vec::new(),
             derived_from: vec![source_thread_ref.clone()],
         },
-        summary: summary.to_owned(),
+        summary: summary.into(),
         criterion_bindings: vec![CriterionBinding {
-            criterion_id: criterion_id.to_owned(),
+            criterion_id: criterion_id.into(),
             status: CriterionStatus::Verified,
             evidence_refs: target_refs.clone(),
             verification_refs: verification_refs.to_vec(),
-            summary: Some(summary.to_owned()),
+            summary: Some(summary.into()),
         }],
         by: None,
         source_refs: vec![source_thread_ref.clone()],
@@ -1888,19 +1890,19 @@ fn revision_change_set(
 ) -> RevisionDetails {
     RevisionDetails {
         change_request: ChangeRequest {
-            request_id: format!("{act_id}_request"),
-            summary: summary.to_owned(),
+            request_id: format!("{act_id}_request").into(),
+            summary: summary.into(),
             target_surfaces: vec![TargetSurface {
                 surface_ref: pull_request_ref.clone(),
                 mutating: true,
-                rationale: Some("Open the target pull request".to_owned()),
+                rationale: Some("Open the target pull request".into()),
             }],
             success_criteria,
         },
         change_plan: ChangePlan {
-            plan_id: format!("{act_id}_plan"),
-            summary: summary.to_owned(),
-            steps: vec!["Prepare and publish the target pull request".to_owned()],
+            plan_id: format!("{act_id}_plan").into(),
+            summary: summary.into(),
+            steps: vec!["Prepare and publish the target pull request".into()],
             risks: Vec::new(),
         },
         target_surfaces: Vec::new(),
@@ -1927,7 +1929,8 @@ fn target_runner_authority(execution: &TargetRepoRunnerFixtureExecution) -> Rece
             profile_hash: stable_hash(&format!(
                 "target-runner:{}",
                 execution.execution_plan.checkout.target_repo
-            )),
+            ))
+            .into(),
             redaction_refs: Vec::new(),
             setup_refs: Vec::new(),
             teardown_refs: Vec::new(),
@@ -1960,7 +1963,8 @@ fn source_publication_authority(
         },
         mandate_ref: None,
         enforcement: ReceiptEnforcement {
-            profile_hash: stable_hash(&format!("target-runner-source-publication:{target_repo}")),
+            profile_hash: stable_hash(&format!("target-runner-source-publication:{target_repo}"))
+                .into(),
             redaction_refs: Vec::new(),
             setup_refs: Vec::new(),
             teardown_refs: Vec::new(),
@@ -2084,27 +2088,28 @@ fn receipt_seal(inputs: ReceiptSealInputs<'_>) -> Seal {
     let _ = inputs.artifact_refs;
     Seal {
         disposition: ClosureDisposition::Closed,
-        reason_code: inputs.reason_code.to_owned(),
-        summary: inputs.summary.to_owned(),
-        closed_at: inputs.created_at.to_owned(),
-        last_observed_at: inputs.created_at.to_owned(),
+        reason_code: inputs.reason_code.into(),
+        summary: inputs.summary.into(),
+        closed_at: inputs.created_at.into(),
+        last_observed_at: inputs.created_at.into(),
         criteria: vec![CriterionBinding {
-            criterion_id: inputs.criterion_id.to_owned(),
+            criterion_id: inputs.criterion_id.into(),
             status: CriterionStatus::Verified,
             verification_refs: inputs.verification_refs.to_vec(),
             evidence_refs: inputs.evidence_refs.to_vec(),
-            summary: Some(inputs.summary.to_owned()),
+            summary: Some(inputs.summary.into()),
         }],
     }
 }
 
 fn seal_revision_receipt(receipt: &mut Receipt) -> Result<(), TargetRepoRunnerRuntimeError> {
     receipt.id = content_addressed_receipt_id(receipt)
-        .map_err(|error| TargetRepoRunnerRuntimeError::Receipt(error.to_string()))?;
+        .map_err(|error| TargetRepoRunnerRuntimeError::Receipt(error.to_string()))?
+        .into();
     let digest = canonical_receipt_body_digest(receipt)
         .map_err(|error| TargetRepoRunnerRuntimeError::Receipt(error.to_string()))?;
-    receipt.digest = digest.clone();
-    receipt.signature.value = format!("sig:{digest}");
+    receipt.digest = digest.clone().into();
+    receipt.signature.value = format!("sig:{digest}").into();
     validate_receipt(receipt)
         .map_err(|verification| TargetRepoRunnerRuntimeError::Receipt(format!("{verification:?}")))
 }
@@ -2153,13 +2158,13 @@ pub fn project_target_repo_runner_revision_receipt(
     let source_issue_ref = find_ref(&act.artifact_refs, ReferenceType::GithubIssue);
     Ok(TargetRepoRunnerRevisionReceiptProjection {
         receipt_ref: Reference::runx(ReferenceType::Receipt, &receipt.id),
-        act_id: act.id.clone(),
+        act_id: act.id.to_string(),
         disposition: projection_disposition(&metadata)?,
         target_repo_ref,
         source_issue_ref,
         source_thread_ref,
         pull_request_ref,
-        summary: receipt.seal.summary.clone(),
+        summary: receipt.seal.summary.to_string(),
         metadata,
     })
 }
@@ -2218,7 +2223,7 @@ pub fn project_target_repo_runner_source_publication_receipt(
         source_thread_ref,
         pull_request_ref,
         published_refs,
-        summary: receipt.seal.summary.clone(),
+        summary: receipt.seal.summary.to_string(),
         metadata,
     })
 }
@@ -2279,8 +2284,8 @@ fn disposition_name(disposition: TargetRepoRunnerPullRequestDisposition) -> &'st
 fn local_issuer() -> ReceiptIssuer {
     ReceiptIssuer {
         issuer_type: ReceiptIssuerType::Local,
-        kid: "target-runner-runtime".to_owned(),
-        public_key_sha256: "sha256:target-runner-runtime-public".to_owned(),
+        kid: "target-runner-runtime".into(),
+        public_key_sha256: "sha256:target-runner-runtime-public".into(),
     }
 }
 

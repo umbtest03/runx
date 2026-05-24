@@ -190,7 +190,7 @@ fn graph_result(run: GraphRun) -> Result<RunResult, OrchestratorError> {
     Ok(RunResult {
         status,
         output,
-        receipt_refs: vec![run.receipt.id.clone()],
+        receipt_refs: vec![run.receipt.id.to_string()],
         child_receipt_refs: child_receipt_refs(&run.receipt),
         pending_requests: Vec::new(),
         diagnostics: Vec::new(),
@@ -203,7 +203,7 @@ fn harness_result(output: HarnessReplayOutput) -> Result<RunResult, Orchestrator
     Ok(RunResult {
         status,
         output: value,
-        receipt_refs: vec![output.receipt.id.clone()],
+        receipt_refs: vec![output.receipt.id.to_string()],
         child_receipt_refs: child_receipt_refs(&output.receipt),
         pending_requests: Vec::new(),
         diagnostics: Vec::new(),

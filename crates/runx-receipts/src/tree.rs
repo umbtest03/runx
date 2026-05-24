@@ -364,7 +364,7 @@ impl<R: ReceiptResolver, P: ChildProofPolicy> TreeTraversal<'_, R, P> {
         receipt: &Receipt,
         depth: usize,
     ) -> Vec<ReceiptFinding> {
-        if !self.visiting.insert(receipt.id.clone()) {
+        if !self.visiting.insert(receipt.id.to_string()) {
             return vec![ReceiptFinding {
                 code: ReceiptFindingCode::ChildReceiptCycle,
                 path: join(path, "id"),
@@ -444,7 +444,7 @@ impl<R: ReceiptResolver, P: ChildProofPolicy> TreeTraversal<'_, R, P> {
         }
         findings.extend(parent_link_findings(path, parent, child, self.config));
         findings.extend(self.subtree_findings(&child_path, child, next_depth));
-        self.reached.insert(child.id.clone());
+        self.reached.insert(child.id.to_string());
         findings
     }
 }
@@ -934,7 +934,7 @@ mod tests {
         let mut root = proof_root()?;
         let mut child = proof_child("hrn_rcpt_child_1")?;
         link_child_digest(&mut root, 0, &child)?;
-        child.acts[0].summary = "tampered child proof body".to_owned();
+        child.acts[0].summary = "tampered child proof body".into();
         let proof_contexts = FixtureProofContexts::default();
 
         assert!(verify_receipt_tree(&root, std::slice::from_ref(&child)).valid);
@@ -960,7 +960,7 @@ mod tests {
         let original = proof_child("hrn_rcpt_child_1")?;
         link_child_digest(&mut root, 0, &original)?;
         let mut alternate = proof_child("hrn_rcpt_child_1")?;
-        alternate.acts[0].summary = "valid alternate child body".to_owned();
+        alternate.acts[0].summary = "valid alternate child body".into();
         refresh_proof_digest_and_signature(&mut alternate)?;
         let proof_contexts = FixtureProofContexts::default();
 
@@ -980,7 +980,7 @@ mod tests {
         let mut root = proof_root()?;
         let mut child = proof_child("hrn_rcpt_child_1")?;
         link_child_digest(&mut root, 0, &child)?;
-        child.acts[0].summary = "hidden tampered child".to_owned();
+        child.acts[0].summary = "hidden tampered child".into();
         let resolver = HiddenChildResolver { child: &child };
         let proof_contexts = FixtureProofContexts::default();
 
@@ -1040,7 +1040,7 @@ mod tests {
         child_refs_mut(&mut root)[0].locator = Some(first.digest.clone().into());
         child_refs_mut(&mut root)[1].locator = Some(second.digest.clone().into());
         refresh_proof_digest_and_signature(&mut root)?;
-        second.acts[0].summary = "hidden duplicate-id tamper".to_owned();
+        second.acts[0].summary = "hidden duplicate-id tamper".into();
         let resolver = DuplicateIdResolver {
             first: &first,
             second: &second,
@@ -1084,7 +1084,7 @@ mod tests {
 
     fn child(id: &str) -> Result<Receipt, serde_json::Error> {
         let mut receipt = fixture(ABNORMAL_RECEIPT)?;
-        receipt.id = id.to_owned();
+        receipt.id = id.into();
         child_refs_mut(&mut receipt).clear();
         Ok(receipt)
     }
@@ -1097,7 +1097,7 @@ mod tests {
 
     fn proof_child(id: &str) -> Result<Receipt, serde_json::Error> {
         let mut receipt = fixture(SUCCESS_RECEIPT)?;
-        receipt.id = id.to_owned();
+        receipt.id = id.into();
         child_refs_mut(&mut receipt).clear();
         refresh_proof_digest_and_signature(&mut receipt)?;
         Ok(receipt)
@@ -1115,8 +1115,8 @@ mod tests {
     fn refresh_proof_digest_and_signature(receipt: &mut Receipt) -> Result<(), serde_json::Error> {
         let digest = canonical_receipt_body_digest(receipt)
             .map_err(|error| serde_json::Error::io(std::io::Error::other(error.to_string())))?;
-        receipt.digest = digest.clone();
-        receipt.signature.value = format!("sig:{digest}");
+        receipt.digest = digest.clone().into();
+        receipt.signature.value = format!("sig:{digest}").into();
         Ok(())
     }
 

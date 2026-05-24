@@ -411,7 +411,7 @@ fn history_projection_fails_structurally_valid_stale_receipt_digest()
     let project_runx_dir = workspace.join(".runx");
     let store = LocalReceiptStore::new(project_runx_dir.join("receipts"));
     let mut receipt = generated_runtime_receipt()?;
-    receipt.digest = "sha256:stale".to_owned();
+    receipt.digest = "sha256:stale".into();
     assert!(runx_receipts::verify_receipt(&receipt).valid);
     write_receipt_json(store.root(), &receipt)?;
 
@@ -437,7 +437,7 @@ fn history_projection_fails_structurally_valid_tampered_receipt_signature()
     let project_runx_dir = workspace.join(".runx");
     let store = LocalReceiptStore::new(project_runx_dir.join("receipts"));
     let mut receipt = generated_runtime_receipt()?;
-    receipt.signature.value = "sig:sha256:tampered".to_owned();
+    receipt.signature.value = "sig:sha256:tampered".into();
     assert!(runx_receipts::verify_receipt(&receipt).valid);
     write_receipt_json(store.root(), &receipt)?;
 
@@ -617,15 +617,15 @@ fn generated_runtime_receipt_with(
         &output,
         created_at,
     )?;
-    receipt.id = id.to_owned();
+    receipt.id = id.into();
     reseal_receipt(&mut receipt)?;
     Ok(receipt)
 }
 
 fn reseal_receipt(receipt: &mut Receipt) -> Result<(), Box<dyn std::error::Error>> {
     let digest = runx_receipts::canonical_receipt_body_digest(receipt)?;
-    receipt.digest = digest.clone();
-    receipt.signature.value = format!("sig:{digest}");
+    receipt.digest = digest.clone().into();
+    receipt.signature.value = format!("sig:{digest}").into();
     Ok(())
 }
 

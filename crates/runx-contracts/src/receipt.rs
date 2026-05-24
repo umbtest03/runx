@@ -15,6 +15,7 @@
 //! Verification is computed at read time, never part of the signed body.
 use serde::{Deserialize, Serialize};
 
+use crate::schema::{IsoDateTime, NonEmptyString, RunxSchema};
 use crate::{
     ActForm, AuthorityAttenuation, AuthorityTerm, Closure, ClosureDisposition, CriterionBinding,
     Decision, HashAlgorithm, Intent, JsonObject, Reference, RevisionDetails, VerificationDetails,
@@ -26,13 +27,13 @@ pub const RECEIPT_SCHEMA: &str = "runx.receipt.v1";
 /// The canonicalization byte contract this receipt's digest commits under.
 pub const RECEIPT_CANONICALIZATION: &str = "runx.receipt.c14n.v1";
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 pub enum ReceiptSchema {
     #[serde(rename = "runx.receipt.v1")]
     V1,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FanoutReceiptStrategy {
     All,
@@ -40,7 +41,7 @@ pub enum FanoutReceiptStrategy {
     Quorum,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FanoutReceiptDecision {
     Proceed,
@@ -49,26 +50,26 @@ pub enum FanoutReceiptDecision {
     Escalate,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FanoutReceiptSyncPoint {
-    pub group_id: String,
+    pub group_id: NonEmptyString,
     pub strategy: FanoutReceiptStrategy,
     pub decision: FanoutReceiptDecision,
-    pub rule_fired: String,
-    pub reason: String,
+    pub rule_fired: NonEmptyString,
+    pub reason: NonEmptyString,
     pub branch_count: usize,
     pub success_count: usize,
     pub failure_count: usize,
     pub required_successes: usize,
     #[serde(default)]
-    pub branch_receipts: Vec<String>,
+    pub branch_receipts: Vec<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub gate: Option<JsonObject>,
 }
 
 /// Scoped byte commitment; unifies the old hash_commitments + enforcement.std*_hash.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReceiptCommitmentScope {
     Input,
@@ -78,16 +79,16 @@ pub enum ReceiptCommitmentScope {
     Error,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptCommitment {
     pub scope: ReceiptCommitmentScope,
     pub algorithm: HashAlgorithm,
-    pub value: String,
-    pub canonicalization: String,
+    pub value: NonEmptyString,
+    pub canonicalization: NonEmptyString,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReceiptSubjectKind {
     Skill,
@@ -96,15 +97,15 @@ pub enum ReceiptSubjectKind {
 
 /// The input signal for training and inspection: where the run's input came
 /// from, a human-readable preview, and a content hash for integrity.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptInputContext {
-    pub source: String,
+    pub source: NonEmptyString,
     pub preview: String,
-    pub value_hash: String,
+    pub value_hash: NonEmptyString,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Subject {
     pub kind: ReceiptSubjectKind,
@@ -117,10 +118,10 @@ pub struct Subject {
 }
 
 /// Enforcement profile is hashed; the granted authority stays readable.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptEnforcement {
-    pub profile_hash: String,
+    pub profile_hash: NonEmptyString,
     #[serde(default)]
     pub redaction_refs: Vec<Reference>,
     #[serde(default)]
@@ -129,7 +130,7 @@ pub struct ReceiptEnforcement {
     pub teardown_refs: Vec<Reference>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptAuthority {
     pub actor_ref: Reference,
@@ -147,16 +148,16 @@ pub struct ReceiptAuthority {
     pub enforcement: ReceiptEnforcement,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptIdempotency {
-    pub intent_key: String,
-    pub trigger_fingerprint: String,
-    pub content_hash: String,
+    pub intent_key: NonEmptyString,
+    pub trigger_fingerprint: NonEmptyString,
+    pub content_hash: NonEmptyString,
 }
 
 /// Runner provenance for agent acts (drives the trainable-export projection).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RunnerProvenance {
     pub provider: Option<String>,
@@ -168,13 +169,13 @@ pub struct RunnerProvenance {
 /// criteria, criterion bindings, outcome) stays in the signed body; only the
 /// bulky execution I/O (the agent-context envelope: instructions/inputs/output
 /// and tool calls) is referenced via `context_ref` and hydrated by projections.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptAct {
-    pub id: String,
+    pub id: NonEmptyString,
     pub form: ActForm,
     pub intent: Intent,
-    pub summary: String,
+    pub summary: NonEmptyString,
     #[serde(default)]
     pub criterion_bindings: Vec<CriterionBinding>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -197,21 +198,21 @@ pub struct ReceiptAct {
 }
 
 /// Exactly one seal. `deferred` expresses a suspended (waiting/delegated) run.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Seal {
     pub disposition: ClosureDisposition,
-    pub reason_code: String,
-    pub summary: String,
-    pub closed_at: String,
+    pub reason_code: NonEmptyString,
+    pub summary: NonEmptyString,
+    pub closed_at: IsoDateTime,
     /// The last time the run was observed (advances for `deferred`/`monitor`
     /// runs awaiting a follow-up verdict); equals `closed_at` for terminal seals.
-    pub last_observed_at: String,
+    pub last_observed_at: IsoDateTime,
     #[serde(default)]
     pub criteria: Vec<CriterionBinding>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Lineage {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -227,7 +228,7 @@ pub struct Lineage {
     pub resume_ref: Option<Reference>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReceiptIssuerType {
     Local,
@@ -236,26 +237,26 @@ pub enum ReceiptIssuerType {
     Verifier,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptIssuer {
     #[serde(rename = "type")]
     pub issuer_type: ReceiptIssuerType,
-    pub kid: String,
-    pub public_key_sha256: String,
+    pub kid: NonEmptyString,
+    pub public_key_sha256: NonEmptyString,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "PascalCase")]
 pub enum SignatureAlgorithm {
     Ed25519,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptSignature {
     pub alg: SignatureAlgorithm,
-    pub value: String,
+    pub value: NonEmptyString,
 }
 
 /// The single signed governance receipt: `runx.receipt.v1`.
@@ -265,16 +266,17 @@ pub struct ReceiptSignature {
 /// and the training signal are the same artifact. `metadata` is a runtime-local
 /// read aid (skill name, source type, actor labels for history projection) and
 /// is NOT part of the canonical signed body (the canonicalizer strips it).
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.receipt.v1")]
 pub struct Receipt {
     pub schema: ReceiptSchema,
-    pub id: String,
-    pub created_at: String,
-    pub canonicalization: String,
+    pub id: NonEmptyString,
+    pub created_at: IsoDateTime,
+    pub canonicalization: NonEmptyString,
     pub issuer: ReceiptIssuer,
     pub signature: ReceiptSignature,
-    pub digest: String,
+    pub digest: NonEmptyString,
     pub idempotency: ReceiptIdempotency,
     pub subject: Subject,
     pub authority: ReceiptAuthority,

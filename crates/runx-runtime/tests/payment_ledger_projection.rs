@@ -263,7 +263,7 @@ fn x402_projection_event_persists_refusal_for_blocked_graph_receipt()
         std::slice::from_ref(&reserve),
     )?;
     graph.seal.disposition = ClosureDisposition::Blocked;
-    graph.seal.reason_code = "graph_blocked".to_owned();
+    graph.seal.reason_code = "graph_blocked".into();
 
     let event = persist_x402_payment_ledger_projection_event(
         temp.path(),
@@ -309,8 +309,8 @@ fn paid_echo_supervisor_proof(receipt: &Receipt) -> PaymentSupervisorProof {
         idempotency_key: "payment:paid-echo-001".to_owned(),
         spend_capability_ref: "runx:payment-capability:paid-echo-spend-1".to_owned(),
         act_id: "act_fulfill".to_owned(),
-        receipt_ref: receipt.id.clone(),
-        receipt_digest: receipt.digest.clone(),
+        receipt_ref: receipt.id.to_string(),
+        receipt_digest: receipt.digest.to_string(),
         evidence_digest: "sha256:test-supervisor-evidence".to_owned(),
     }
 }
@@ -355,7 +355,7 @@ fn step_run(
         metadata: JsonObject::new(),
     };
     let receipt = step_receipt(graph_name, step_id, 1, &output, CREATED_AT)?;
-    let admission_witness = StepAdmissionWitness::local_runtime(step_id, &receipt.id);
+    let admission_witness = StepAdmissionWitness::local_runtime(step_id, receipt.id.as_str());
     let outputs = serde_json::from_str::<runx_contracts::JsonValue>(&output.stdout)
         .ok()
         .and_then(|value| match value {

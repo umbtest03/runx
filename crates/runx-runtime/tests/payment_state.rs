@@ -242,7 +242,7 @@ fn persists_sealed_payment_step_state_for_replay_and_reuse_lookups()
         .ok_or("sealed idempotency entry should be available through public lookup")?;
     assert_eq!(entry.receipt_ref, receipt.id);
     assert_eq!(entry.rail_proof_ref, "receipt-proof:mock:paid-echo-001");
-    assert_eq!(entry.receipt_created_at, receipt.created_at);
+    assert_eq!(entry.receipt_created_at, receipt.created_at.as_str());
     assert_eq!(entry.receipt_digest, receipt.digest);
     let entry_text = serde_json::to_string(&entry)?;
     assert!(
@@ -461,8 +461,8 @@ fn supervisor_proof_for_receipt(
         idempotency_key: input.idempotency_key.key.clone(),
         spend_capability_ref: input.spend_capability_ref.clone(),
         act_id: input.act_id.clone(),
-        receipt_ref: receipt.id.clone(),
-        receipt_digest: receipt.digest.clone(),
+        receipt_ref: receipt.id.to_string(),
+        receipt_digest: receipt.digest.to_string(),
         evidence_digest: "sha256:test-supervisor-evidence".to_owned(),
     }
 }
