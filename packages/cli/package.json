@@ -43,7 +43,7 @@
     "@runxhq/cli-linux-x64": "0.5.22",
     "@runxhq/cli-win32-x64": "0.5.22"
   },
-  "dependencies": {
+  "devDependencies": {
     "yaml": "^2.8.3"
   },
   "files": [
