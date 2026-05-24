@@ -131,9 +131,9 @@ impl Reference {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ActRef {
     pub receipt_ref: Reference,
-    pub act_id: String,
+    pub act_id: NonEmptyString,
 }

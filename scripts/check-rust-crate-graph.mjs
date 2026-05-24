@@ -8,6 +8,7 @@ const cratesRoot = path.join(workspaceRoot, "crates");
 const expectedMembers = [
   "runx-cli",
   "runx-contracts",
+  "runx-contracts-derive",
   "runx-core",
   "runx-parser",
   "runx-receipts",
@@ -34,7 +35,8 @@ const publishableLibraryCrates = new Set([
 
 const allowedRunxDeps = new Map([
   ["runx-cli", new Set(["runx-runtime", "runx-contracts"])],
-  ["runx-contracts", new Set()],
+  ["runx-contracts", new Set(["runx-contracts-derive"])],
+  ["runx-contracts-derive", new Set()],
   ["runx-core", new Set(["runx-contracts"])],
   ["runx-parser", new Set(["runx-contracts", "runx-core"])],
   ["runx-receipts", new Set(["runx-contracts"])],
