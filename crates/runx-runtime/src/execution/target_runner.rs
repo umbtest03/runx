@@ -1840,8 +1840,7 @@ fn revision_act(input: RevisionActInput<'_>) -> ReceiptAct {
         statement: "Target pull request is ready for human review".to_owned(),
         required: true,
     }];
-    let revision =
-        revision_change_set(act_id, summary, &pull_request_ref, success_criteria.clone());
+    let revision = revision_change_set(act_id, summary, pull_request_ref, success_criteria.clone());
     ReceiptAct {
         id: act_id.to_owned(),
         form: ActForm::Revision,

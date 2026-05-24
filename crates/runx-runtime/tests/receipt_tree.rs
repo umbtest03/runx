@@ -1,3 +1,7 @@
+// Test oracle: asserting via expect/unwrap is the intended failure mode, so the
+// workspace expect/unwrap bans are lifted for this test target.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 use runx_contracts::{
     FanoutReceiptDecision, FanoutReceiptStrategy, FanoutReceiptSyncPoint, JsonObject, Receipt,
     ReceiptIssuer, ReceiptSignature,

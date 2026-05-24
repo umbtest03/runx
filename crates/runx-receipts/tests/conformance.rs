@@ -11,6 +11,11 @@
 //! `receipt.schema.json` (generated from the TS contract). Any divergence between
 //! Rust types, the JSON Schema, and the emitter fails one of these gates.
 
+// Test oracle: asserting via expect/unwrap and panicking on an unknown fixture
+// is the intended failure mode, so the workspace expect/unwrap/panic bans are
+// lifted for this test target.
+#![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+
 use jsonschema::Validator;
 use runx_contracts::Receipt;
 use runx_receipts::{

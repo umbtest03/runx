@@ -2,6 +2,11 @@
 //! canonical-json oracle. Run with:
 //!   cargo run --manifest-path crates/Cargo.toml -p runx-receipts \
 //!     --example generate_harness_spine_fixtures
+
+// Fixture/oracle generator tool: failing loud on a construction error and
+// printing progress is intended, so the workspace unwrap/print bans are lifted.
+#![allow(clippy::unwrap_used, clippy::print_stdout)]
+
 use std::fs;
 use std::path::Path;
 

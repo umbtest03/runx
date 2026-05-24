@@ -60,6 +60,10 @@ pub(super) fn status_from_disposition(disposition: &ClosureDisposition) -> Harne
     }
 }
 
+// The RUNX_REGEN_FIXTURES branch prints regenerated digests to stderr so a
+// human can paste them back into fixtures; it is a developer regen path, not
+// runtime logging, so the workspace print ban is lifted for this function only.
+#[allow(clippy::print_stderr)]
 fn assert_receipt(
     expected: &ReceiptExpectation,
     actual: &Receipt,

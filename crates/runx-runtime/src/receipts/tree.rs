@@ -110,13 +110,12 @@ pub fn verify_runtime_receipt_tree_with_policy(
 ) -> ReceiptVerification {
     let resolver = RuntimeReceiptResolver::new(receipts);
     let proof_contexts = RuntimeReceiptProofContextProvider::new(signature_policy);
-    let verification = verify_receipt_tree_proof_with_resolver(
+    verify_receipt_tree_proof_with_resolver(
         root,
         &resolver,
         runtime_receipt_tree_config(config),
         &proof_contexts,
-    );
-    verification
+    )
 }
 
 fn runtime_receipt_path(index: usize) -> String {

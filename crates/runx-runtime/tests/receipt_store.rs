@@ -1,3 +1,7 @@
+// Test oracle: asserting via expect/unwrap is the intended failure mode, so the
+// workspace expect/unwrap bans are lifted for this test target.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -12,10 +16,6 @@ use serde_json::json;
 // store fixtures derive their ids from the sealed receipt rather than a literal.
 fn success_receipt_id() -> String {
     success_receipt().expect("success receipt").id
-}
-
-fn abnormal_receipt_id() -> String {
-    abnormal_receipt().expect("abnormal receipt").id
 }
 
 #[test]
