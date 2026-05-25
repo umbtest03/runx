@@ -138,6 +138,11 @@ describe("scafld issue-to-PR skill contract", () => {
         current_branch: "read-current-branch.git_branch.data",
         fix_bundle: "author-fix.fix_bundle.data",
       },
+      inputs: {
+        thread_body: "$input.thread_body",
+        repo_context: "$input.repo_context",
+        repo_snapshot: "$input.repo_snapshot",
+      },
     });
     expect(graph.steps.find((step) => step.id === "package-pull-request")?.label).toBe("package reviewer PR story");
     expect(graph.steps.find((step) => step.id === "push-pull-request")).toMatchObject({

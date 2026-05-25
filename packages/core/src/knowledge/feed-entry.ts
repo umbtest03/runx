@@ -63,6 +63,7 @@ export interface RenderIssueToPrReviewerMarkdownOptions {
   readonly title?: string;
   readonly sourceTitle?: string;
   readonly sourceLocator?: string;
+  readonly sourceSummary?: string;
   readonly branch?: string;
   readonly base?: string;
   readonly governanceStatus?: string;
@@ -72,6 +73,8 @@ export interface RenderIssueToPrReviewerMarkdownOptions {
   readonly reviewVerdict?: string;
   readonly blockingCount?: number;
   readonly nonBlockingCount?: number;
+  readonly changedFiles?: readonly string[];
+  readonly qualityGateSummary?: string;
   readonly handoffMarkdown?: string;
 }
 
@@ -226,10 +229,14 @@ export function renderIssueToPrReviewerMarkdown(
   const title = sanitizePublicMarkdown(options.title) ?? options.taskId;
   const sourceTitle = sanitizePublicMarkdown(options.sourceTitle);
   const sourceLocator = sanitizePublicMarkdown(options.sourceLocator);
+  const sourceSummary = summarizeReviewerSourceSummary(options.sourceSummary);
   const branch = sanitizePublicMarkdown(options.branch);
   const base = sanitizePublicMarkdown(options.base);
   const reviewVerdict = sanitizePublicMarkdown(options.reviewVerdict);
   const handoff = summarizePublicHandoffMarkdown(options.handoffMarkdown);
+  const changedFiles = (options.changedFiles ?? [])
+    .map((filePath) => sanitizePublicMarkdown(filePath))
+    .filter((filePath): filePath is string => typeof filePath === "string" && filePath.length > 0);
   const lines = [
     `# ${title}`,
     "",
@@ -237,16 +244,27 @@ export function renderIssueToPrReviewerMarkdown(
     `- Thread: ${sourceLocator ? `\`${sourceLocator}\`` : "not provided"}`,
     `- Request: ${sourceTitle ?? "not provided"}`,
     "",
+    ...(sourceSummary ? [
+      "## Source Context",
+      sourceSummary,
+      "",
+    ] : []),
     "## Scoped Change",
     `- Task: \`${sanitizePublicMarkdown(options.taskId) ?? options.taskId}\``,
     `- Branch: ${branch ? `\`${branch}\`` : "not reported"}`,
     `- Base: ${base ? `\`${base}\`` : "not reported"}`,
     `- Governance status: ${sanitizePublicMarkdown(options.governanceStatus) ?? "not reported"}`,
     "",
+    "## Changed Files",
+    ...(changedFiles.length > 0
+      ? changedFiles.slice(0, 12).map((filePath) => `- \`${filePath}\``)
+      : ["- not reported"]),
+    "",
     "## Validation",
     `- scafld build: ${sanitizePublicMarkdown(options.checkStatus) ?? "not reported"}`,
     `- Passed: ${formatReportedNumber(options.buildPassed)}`,
     `- Failed: ${formatReportedNumber(options.buildFailed)}`,
+    `- Quality gate: ${sanitizePublicMarkdown(options.qualityGateSummary) ?? "not reported"}`,
     "",
     "## Review",
     `- Verdict: ${reviewVerdict ?? "not reported"}`,
@@ -262,6 +280,22 @@ export function renderIssueToPrReviewerMarkdown(
     handoff ?? "No scafld handoff was reported.",
   ];
   return `${lines.join("\n")}\n`;
+}
+
+function summarizeReviewerSourceSummary(value: string | undefined): string | undefined {
+  const sanitized = sanitizePublicMarkdown(value);
+  if (!sanitized) {
+    return undefined;
+  }
+  const summary = sanitized
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim().length > 0)
+    .slice(0, 18)
+    .join("\n")
+    .slice(0, 1600)
+    .trim();
+  return summary.length > 0 ? summary : undefined;
 }
 
 export function summarizePublicHandoffMarkdown(value: string | undefined): string | undefined {

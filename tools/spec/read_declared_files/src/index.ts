@@ -102,6 +102,12 @@ function runReadDeclaredFiles({ inputs, env }) {
     rememberPath(extraPath, "input.extra_files");
   }
 
+  for (const relativePath of [...declared.keys()]) {
+    for (const relatedPath of relatedTestFilePaths(repoRoot, relativePath)) {
+      rememberPath(relatedPath, "related.test");
+    }
+  }
+
   const files = [...declared.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([relativePath, declaredIn]) => {
@@ -155,6 +161,155 @@ function normalizeRepoRelativePath(value) {
     return undefined;
   }
   return normalized;
+}
+
+function relatedTestFilePaths(repoRoot, relativePath) {
+  const normalized = normalizeRepoRelativePath(relativePath);
+  if (!normalized || isTestLikePath(normalized) || !isCodeLikePath(normalized)) {
+    return [];
+  }
+
+  const candidates = new Set(explicitTestCandidates(normalized));
+  for (const candidate of fuzzyTestCandidates(repoRoot, normalized)) {
+    candidates.add(candidate);
+  }
+
+  return [...candidates]
+    .filter((candidate) => fs.existsSync(resolveInsideRepo(repoRoot, candidate)))
+    .slice(0, 4);
+}
+
+function explicitTestCandidates(relativePath) {
+  const extension = path.extname(relativePath);
+  const withoutExtension = relativePath.slice(0, -extension.length);
+  const candidates = [];
+
+  if (extension === ".rb") {
+    const railsAppMatch = withoutExtension.match(/^app\/([^/]+)\/(.+)$/u);
+    if (railsAppMatch) {
+      const [, appArea, areaPath] = railsAppMatch;
+      candidates.push(`spec/${appArea}/${areaPath}_spec.rb`);
+      candidates.push(`test/${appArea}/${areaPath}_test.rb`);
+    }
+
+    const controllerMatch = withoutExtension.match(/^app\/controllers\/(.+)_controller$/u);
+    if (controllerMatch) {
+      candidates.push(`spec/requests/${controllerMatch[1]}_spec.rb`);
+      candidates.push(`spec/controllers/${controllerMatch[1]}_controller_spec.rb`);
+      candidates.push(`test/controllers/${controllerMatch[1]}_controller_test.rb`);
+      candidates.push(`test/integration/${controllerMatch[1]}_test.rb`);
+    }
+  }
+
+  if (/\.[cm]?[jt]sx?$/u.test(relativePath)) {
+    const directory = path.dirname(relativePath);
+    const basename = path.basename(withoutExtension);
+    for (const testExtension of [
+      `.test${extension}`,
+      `.spec${extension}`,
+      ".test.ts",
+      ".test.tsx",
+      ".spec.ts",
+      ".spec.tsx",
+      ".test.js",
+      ".spec.js",
+    ]) {
+      candidates.push(path.posix.join(directory, `${basename}${testExtension}`));
+    }
+    candidates.push(path.posix.join("test", `${basename}.test${extension}`));
+    candidates.push(path.posix.join("tests", `${basename}.test${extension}`));
+    candidates.push(path.posix.join("__tests__", `${basename}.test${extension}`));
+  }
+
+  return candidates;
+}
+
+function fuzzyTestCandidates(repoRoot, relativePath) {
+  const tokens = path.basename(relativePath, path.extname(relativePath))
+    .replace(/_controller$/u, "")
+    .split(/[^A-Za-z0-9]+/u)
+    .map((token) => token.toLowerCase())
+    .filter((token) => token.length >= 4);
+  if (tokens.length === 0) {
+    return [];
+  }
+
+  const testRoots = ["spec", "test", "tests", "__tests__"];
+  const matches = [];
+  for (const testRoot of testRoots) {
+    const absoluteRoot = path.join(repoRoot, testRoot);
+    if (!fs.existsSync(absoluteRoot)) {
+      continue;
+    }
+    for (const candidate of walkFiles(absoluteRoot, repoRoot)) {
+      if (!isTestLikePath(candidate)) {
+        continue;
+      }
+      const score = fuzzyTestScore(candidate, relativePath, tokens);
+      if (score > 0) {
+        matches.push({ path: candidate, score });
+      }
+    }
+  }
+
+  return matches
+    .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
+    .map((match) => match.path)
+    .slice(0, 4);
+}
+
+function fuzzyTestScore(candidate, sourcePath, tokens) {
+  const candidateText = candidate.toLowerCase();
+  let score = 0;
+  for (const token of tokens) {
+    if (candidateText.includes(token)) {
+      score += 20;
+    }
+  }
+  const sourceSegments = sourcePath.toLowerCase().split("/");
+  for (const segment of sourceSegments.slice(1, -1)) {
+    if (segment.length >= 3 && candidateText.includes(`/${segment}/`)) {
+      score += 8;
+    }
+  }
+  if (sourcePath.includes("/controllers/") && candidate.startsWith("spec/requests/")) {
+    score += 15;
+  }
+  return score;
+}
+
+function walkFiles(root, repoRoot) {
+  const files = [];
+  const stack = [root];
+  while (stack.length > 0 && files.length < 500) {
+    const current = stack.pop();
+    if (!current) {
+      continue;
+    }
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const absolutePath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        if (!["node_modules", "vendor", "tmp", "log", ".git"].includes(entry.name)) {
+          stack.push(absolutePath);
+        }
+        continue;
+      }
+      if (entry.isFile()) {
+        files.push(path.relative(repoRoot, absolutePath).replace(/\\/gu, "/"));
+      }
+    }
+  }
+  return files;
+}
+
+function isCodeLikePath(relativePath) {
+  return /\.(?:rb|[cm]?[jt]sx?|py|go|rs|java|kt|php|cs)$/u.test(relativePath);
+}
+
+function isTestLikePath(relativePath) {
+  return /(^|\/)(?:spec|test|tests|__tests__)\//u.test(relativePath)
+    || /(?:_spec|_test)\.[^.]+$/u.test(relativePath)
+    || /\.(?:spec|test)\.[^.]+$/u.test(relativePath);
 }
 
 function stripQuotes(value) {

@@ -412,6 +412,12 @@ describe("thread contract", () => {
       reviewVerdict: "pass",
       blockingCount: 0,
       nonBlockingCount: 1,
+      sourceSummary: "Expected fix:\nAdd focused coverage.",
+      changedFiles: [
+        "app/controllers/api/v1/my/subscription_controller.rb",
+        "spec/requests/api/v1/my/subscription_spec.rb",
+      ],
+      qualityGateSummary: "Code quality gate passed with 1 validation check, 1 test/spec file, source context present.",
       handoffMarkdown: [
         "# Handoff: Fix fixture behavior",
         "Status: completed",
@@ -423,7 +429,12 @@ describe("thread contract", () => {
     });
 
     expect(markdown).toContain("## Source Thread");
+    expect(markdown).toContain("## Source Context");
+    expect(markdown).toContain("Expected fix:");
+    expect(markdown).toContain("## Changed Files");
+    expect(markdown).toContain("spec/requests/api/v1/my/subscription_spec.rb");
     expect(markdown).toContain("## Human Merge Gate");
+    expect(markdown).toContain("Quality gate: Code quality gate passed");
     expect(markdown).toContain("Blocking findings: 0");
     expect(markdown).toContain("Status: completed");
     expect(markdown).toContain("Detailed handoff output omitted");

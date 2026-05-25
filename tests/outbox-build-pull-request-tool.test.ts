@@ -34,6 +34,7 @@ describe("outbox.build_pull_request tool", () => {
         },
       },
       handoff_markdown: "# Handoff: Fix fixture behavior\n\nStatus: completed\nNext: none\n",
+      thread_body: "Fix the runtime behavior and add focused regression coverage.",
       build_result: {
         status: "review",
         passed: 2,
@@ -62,7 +63,8 @@ describe("outbox.build_pull_request tool", () => {
       branch: "fixture-task",
       fix_bundle: {
         files: [
-          { path: "app.txt", contents: "fixed\n" },
+          { path: "app.rb", contents: "fixed\n" },
+          { path: "spec/app_spec.rb", contents: "expect(app).to be_fixed\n" },
           { path: "notes.md", contents: "governed\n" },
         ],
       },
@@ -91,7 +93,12 @@ describe("outbox.build_pull_request tool", () => {
         review_verdict: "pass_with_issues",
         check_status: "success",
         push_ready: true,
-        changed_files: ["app.txt", "notes.md"],
+        changed_files: ["app.rb", "spec/app_spec.rb", "notes.md"],
+        quality_gate: {
+          status: "passed",
+          required_regression_coverage: true,
+          validation_check_count: 2,
+        },
         dedupe: {
           strategy: "branch",
           key: "example/repo:fixture-task",
@@ -134,13 +141,20 @@ describe("outbox.build_pull_request tool", () => {
         sync_status: "ok",
         build_passed: 2,
         build_failed: 0,
-        changed_files: ["app.txt", "notes.md"],
+        changed_files: ["app.rb", "spec/app_spec.rb", "notes.md"],
+        quality_gate: {
+          required_regression_coverage: true,
+          test_file_count: 1,
+        },
       },
       thread: {
         thread_locator: "github://example/repo/issues/123",
       },
     });
     expect(result.draft_pull_request.pull_request.body_markdown).toContain("## Source Thread");
+    expect(result.draft_pull_request.pull_request.body_markdown).toContain("## Source Context");
+    expect(result.draft_pull_request.pull_request.body_markdown).toContain("## Changed Files");
+    expect(result.draft_pull_request.pull_request.body_markdown).toContain("spec/app_spec.rb");
     expect(result.draft_pull_request.pull_request.body_markdown).toContain("## scafld Handoff");
     expect(result.outbox_entry.metadata).toMatchObject({
       human_merge_gate: "required",
@@ -280,6 +294,54 @@ describe("outbox.build_pull_request tool", () => {
         expect(result.stderr).toContain("changed_files must not contain secret material");
       }
     }
+  });
+
+  it("fails closed when requested coverage is missing from a code PR", () => {
+    const result = runToolRaw({
+      ...minimalPullRequestInputs(),
+      thread_body: "Fix the bug and add focused request/service coverage.",
+      build_result: {
+        passed: 1,
+        failed: 0,
+      },
+      fix_bundle: {
+        files: [
+          {
+            path: "app/controllers/api/v1/my/subscription_controller.rb",
+            contents: "class Api::V1::My::SubscriptionController; end\n",
+          },
+        ],
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("requested regression coverage");
+    expect(result.stderr).not.toContain("/tmp/");
+  });
+
+  it("fails closed when a code PR has no scafld validation checks", () => {
+    const result = runToolRaw({
+      ...minimalPullRequestInputs(),
+      build_result: {
+        passed: 0,
+        failed: 0,
+      },
+      fix_bundle: {
+        files: [
+          {
+            path: "app/controllers/api/v1/my/subscription_controller.rb",
+            contents: "class Api::V1::My::SubscriptionController; end\n",
+          },
+          {
+            path: "spec/requests/api/v1/my/subscription_spec.rb",
+            contents: "RSpec.describe 'subscription checkout' do\nend\n",
+          },
+        ],
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("at least one scafld validation check");
   });
 
   it("admits PR packaging through operational policy before producing packets", () => {

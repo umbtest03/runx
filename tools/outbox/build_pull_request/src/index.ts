@@ -19,6 +19,7 @@ export default defineTool({
   inputs: {
     task_id: stringInput({ description: "scafld task id that produced the completed engineering state." }),
     thread_title: stringInput({ optional: true, description: "Canonical thread title when the caller already has one." }),
+    thread_body: stringInput({ optional: true, description: "Bounded source-thread body used for reviewer context and quality gates." }),
     thread_locator: stringInput({ optional: true, description: "Canonical thread locator for the bounded harness." }),
     thread: recordInput({ optional: true, description: "Optional hydrated thread that may already carry a pull_request outbox entry." }),
     outbox_entry: recordInput({ optional: true, description: "Optional current pull_request outbox entry when refreshing an existing draft." }),
@@ -29,6 +30,8 @@ export default defineTool({
     runner_id: stringInput({ optional: true, description: "Operational policy runner id for request-time admission." }),
     policy_action: stringInput({ optional: true, description: "Operational policy action, defaults to issue-to-pr." }),
     source_thread_locator: stringInput({ optional: true, description: "Recoverable source-thread locator for request-time admission." }),
+    repo_context: stringInput({ optional: true, description: "Bounded repository context used for reviewer context and quality gates." }),
+    repo_snapshot: recordInput({ optional: true, description: "Structured repository snapshot used for reviewer context and quality gates." }),
     branch: stringInput({ optional: true, description: "Explicit head branch for provider publication." }),
     fix_bundle: recordInput({ optional: true, description: "Bounded fix bundle used to derive the governed file list for provider publication." }),
     handoff_markdown: stringInput({ description: "Native markdown emitted by `scafld handoff`." }),
@@ -118,6 +121,13 @@ function runBuildPullRequest({ inputs }) {
     optionalRecord(completionResult.review)?.status,
   );
   const check = buildCheck(buildResult);
+  const qualityGate = buildQualityGate({
+    changedFiles,
+    buildResult,
+    threadBody: inputs.thread_body,
+    repoContext: inputs.repo_context,
+    handoffMarkdown,
+  });
   const checkStatus = firstNonEmptyString(check.status);
   const syncStatus = firstNonEmptyString(statusSnapshot?.session_ok === false ? "degraded" : "ok");
   const pushReady =
@@ -167,6 +177,7 @@ function runBuildPullRequest({ inputs }) {
         title,
         threadLocator,
         threadContext,
+        threadBody: inputs.thread_body,
         handoffMarkdown,
         buildResult,
         reviewResult,
@@ -176,6 +187,8 @@ function runBuildPullRequest({ inputs }) {
         reviewVerdict,
         branch,
         base,
+        changedFiles,
+        qualityGate,
       }),
       is_draft: true,
     },
@@ -193,6 +206,7 @@ function runBuildPullRequest({ inputs }) {
       build_passed: numberOrUndefined(buildResult.passed),
       build_failed: numberOrUndefined(buildResult.failed),
       changed_files: changedFiles,
+      quality_gate: qualityGate,
     }),
   });
 
@@ -225,6 +239,7 @@ function runBuildPullRequest({ inputs }) {
       sync_status: syncStatus,
       push_ready: pushReady,
       changed_files: changedFiles,
+      quality_gate: qualityGate,
       dedupe,
       source_thread: buildSourceThreadMetadata(sourceThreadLocator),
       human_merge_gate: "required",
@@ -399,6 +414,7 @@ function buildReviewerPullRequestBody(options) {
     title,
     threadLocator,
     threadContext,
+    threadBody,
     handoffMarkdown,
     buildResult,
     reviewResult,
@@ -408,6 +424,8 @@ function buildReviewerPullRequestBody(options) {
     reviewVerdict,
     branch,
     base,
+    changedFiles,
+    qualityGate,
   } = options;
   const sourceTitle = sanitizePublicMarkdown(firstNonEmptyString(
     threadContext.title,
@@ -429,6 +447,7 @@ function buildReviewerPullRequestBody(options) {
     title,
     sourceTitle,
     sourceLocator,
+    sourceSummary: summarizeSourceContext(threadBody),
     branch,
     base,
     governanceStatus: completedStatus,
@@ -438,8 +457,84 @@ function buildReviewerPullRequestBody(options) {
     reviewVerdict,
     blockingCount,
     nonBlockingCount,
+    changedFiles,
+    qualityGateSummary: qualityGate?.summary,
     handoffMarkdown: handoff,
   });
+}
+
+function buildQualityGate({ changedFiles, buildResult, threadBody, repoContext, handoffMarkdown }) {
+  const files = Array.isArray(changedFiles) ? changedFiles : [];
+  const codeFiles = files.filter((filePath) => isCodeFile(filePath) && !isTestFile(filePath));
+  const testFiles = files.filter((filePath) => isTestFile(filePath));
+  const requiresRegressionCoverage = sourceRequiresRegressionCoverage(threadBody);
+  const passed = numberOrUndefined(buildResult.passed);
+  const failed = numberOrUndefined(buildResult.failed);
+  const validationCount = (passed ?? 0) + (failed ?? 0);
+  const contextSummary = firstNonEmptyString(repoContext, handoffMarkdown);
+
+  if (codeFiles.length > 0 && requiresRegressionCoverage && testFiles.length === 0) {
+    throw new Error(
+      "pull request quality gate failed: source/spec requested regression coverage, but the fix bundle changed code without a test/spec file.",
+    );
+  }
+
+  if (codeFiles.length > 0 && validationCount === 0) {
+    throw new Error(
+      "pull request quality gate failed: code PRs must publish with at least one scafld validation check.",
+    );
+  }
+
+  return prune({
+    status: "passed",
+    summary: qualityGateSummary({
+      codeFileCount: codeFiles.length,
+      testFileCount: testFiles.length,
+      requiresRegressionCoverage,
+      validationCount,
+      hasContext: typeof contextSummary === "string" && contextSummary.trim().length > 0,
+    }),
+    code_file_count: codeFiles.length,
+    test_file_count: testFiles.length,
+    required_regression_coverage: requiresRegressionCoverage,
+    validation_check_count: validationCount,
+  });
+}
+
+function qualityGateSummary({ codeFileCount, testFileCount, requiresRegressionCoverage, validationCount, hasContext }) {
+  if (codeFileCount === 0) {
+    return "No code files changed; code validation gate not required.";
+  }
+  const parts = [`${validationCount} validation check${validationCount === 1 ? "" : "s"}`];
+  if (requiresRegressionCoverage) {
+    parts.push(`${testFileCount} test/spec file${testFileCount === 1 ? "" : "s"}`);
+  }
+  if (hasContext) {
+    parts.push("source context present");
+  }
+  return `Code quality gate passed with ${parts.join(", ")}.`;
+}
+
+function sourceRequiresRegressionCoverage(value) {
+  const text = firstNonEmptyString(value)?.toLowerCase() ?? "";
+  if (!text) {
+    return false;
+  }
+  return /\b(?:regression coverage|focused (?:request\/service )?coverage|request\/service coverage|automated coverage|add(?:ed)? (?:focused )?(?:tests?|specs?)|update(?:d)? (?:focused )?(?:tests?|specs?)|with (?:focused )?(?:tests?|specs?)|coverage)\b/u.test(text);
+}
+
+function summarizeSourceContext(value) {
+  const sanitized = sanitizePublicMarkdown(firstNonEmptyText(value));
+  if (!sanitized) {
+    return undefined;
+  }
+  const lines = sanitized
+    .split(/\r?\n/u)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim().length > 0)
+    .filter((line) => !/^<!--/.test(line.trim()));
+  const summary = lines.slice(0, 18).join("\n").slice(0, 1600).trim();
+  return summary.length > 0 ? summary : undefined;
 }
 
 function firstNonEmptyText(...values) {
@@ -522,6 +617,16 @@ function normalizeChangedFilePath(value) {
     throw new Error("outbox changed file path must be a relative path inside the workspace.");
   }
   return normalized;
+}
+
+function isCodeFile(filePath) {
+  return /\.(?:rb|[cm]?[jt]sx?|py|go|rs|java|kt|php|cs)$/u.test(filePath);
+}
+
+function isTestFile(filePath) {
+  return /(^|\/)(?:spec|test|tests|__tests__)\//u.test(filePath)
+    || /(?:_spec|_test)\.[^.]+$/u.test(filePath)
+    || /\.(?:spec|test)\.[^.]+$/u.test(filePath);
 }
 
 function assertNoPublicLeakage(value, label) {

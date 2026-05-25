@@ -115,6 +115,11 @@ describe("issue-to-PR composite skill", () => {
         current_branch: "read-current-branch.git_branch.data",
         fix_bundle: "author-fix.fix_bundle.data",
       },
+      inputs: {
+        thread_body: "$input.thread_body",
+        repo_context: "$input.repo_context",
+        repo_snapshot: "$input.repo_snapshot",
+      },
     });
     expect(graph.steps.find((step) => step.id === "package-feed-entry")).toMatchObject({
       label: "package feed entry",

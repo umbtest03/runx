@@ -69,6 +69,10 @@ such as spec authoring, fix authoring, review, and human merge gate.
 - Evidence bar: every spec objective, file impact, validation command, and PR
   claim must trace to the thread, repo snapshot, scafld state, or actual
   working-tree change.
+- Coverage bar: code-change PRs must include at least one executable scafld
+  validation check. When the source thread or acceptance criteria asks for
+  tests, specs, regression coverage, or request/service coverage, the fix
+  bundle must include a targeted test/spec file or stop before PR publication.
 - Story bar: public source-thread and PR surfaces should show the signal,
   decision, scoped change, validation, review verdict, PR link, human
   merge gate, and final provider outcome when observed without becoming a raw
@@ -123,6 +127,14 @@ repo-local checks such as test, lint, build, or file-content commands. Never use
 runx runtime internals or `skills/scafld/run.mjs` as a validation command;
 scafld is already the lifecycle runner around the task.
 
+For code changes, the approved spec must include at least one executable
+validation command. If the source thread asks for tests, specs, regression
+coverage, focused coverage, or request/service coverage, the spec must declare
+the relevant test/spec file in the changed-file scope and include a targeted
+test command. If no grounded test path or command can be inferred from the repo
+snapshot, stop with a missing-evidence reason instead of publishing a code-only
+PR.
+
 Preserve source-thread context in the spec's Summary, Origin, and Planning Log
 so later PR packaging can explain why the lane ran and what evidence justified
 the mutation.
@@ -142,6 +154,14 @@ or spec before blocking. If the source thread includes a runtime exception,
 backtrace, failing command, or named behavior and the recommended file exists,
 prefer the smallest conventional fix plus targeted regression coverage over an
 empty bundle.
+
+If the approved spec, source thread, or acceptance criteria asks for tests,
+specs, regression coverage, focused coverage, or request/service coverage,
+`fix_bundle.files` must include the smallest production fix and a targeted
+test/spec file. Do not publish a code-only fix for a source request that asks
+for coverage. If no test file exists, create the narrow conventional test file
+when the repository structure makes that path inferable; otherwise block with
+the missing path and evidence reason.
 
 If a declared file has `exists: false` and the approved spec intentionally
 creates it, write the new file when the desired contents are inferable from the
