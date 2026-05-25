@@ -588,6 +588,71 @@ fn native_graph_skill_run_executes_local_tool_step() -> Result<(), Box<dyn std::
 
 #[cfg(feature = "catalog")]
 #[test]
+fn native_graph_skill_run_resolves_agent_step_named_emit_context()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let skill_dir = write_graph_agent_artifact_context_skill(temp.path())?;
+    write_echo_tool(temp.path())?;
+    let receipt_dir = temp.path().join("receipts");
+    let tool_root = temp.path().join("tools");
+    let answers_path = temp.path().join("answers.json");
+    fs::write(
+        &answers_path,
+        serde_json::json!({
+            "answers": {
+                "agent_step.graph-author.output": {
+                    "fix_bundle": {
+                        "message": "Graph tool bug"
+                    }
+                }
+            }
+        })
+        .to_string(),
+    )?;
+    let env = [(
+        "RUNX_TOOL_ROOTS".to_owned(),
+        tool_root.to_string_lossy().into_owned(),
+    )]
+    .into_iter()
+    .collect::<BTreeMap<_, _>>();
+    let pending = run_skill(SkillRunRequest {
+        skill_path: skill_dir.clone(),
+        receipt_dir: Some(receipt_dir.clone()),
+        run_id: None,
+        answers_path: None,
+        inputs: BTreeMap::new(),
+        env: env.clone(),
+        cwd: temp.path().to_path_buf(),
+        local_credential: None,
+    })?;
+    let pending_output = object(&pending.output, "pending graph agent artifact result")?;
+    assert_eq!(string_field(pending_output, "status"), Some("needs_agent"));
+    let run_id = string_field(pending_output, "run_id")
+        .ok_or("pending graph agent artifact result missing run_id")?
+        .to_owned();
+
+    let result = run_skill(SkillRunRequest {
+        skill_path: skill_dir,
+        receipt_dir: Some(receipt_dir),
+        run_id: Some(run_id),
+        answers_path: Some(answers_path),
+        inputs: BTreeMap::new(),
+        env,
+        cwd: temp.path().to_path_buf(),
+        local_credential: None,
+    })?;
+
+    let output = object(&result.output, "graph agent artifact result")?;
+    assert_eq!(string_field(output, "status"), Some("sealed"));
+    let payload = object_field(output, "payload").ok_or("missing payload")?;
+    let echo = object_field(payload, "echo").ok_or("missing echo")?;
+    assert_eq!(string_field(echo, "message"), Some("Graph tool bug"));
+
+    Ok(())
+}
+
+#[cfg(feature = "catalog")]
+#[test]
 fn native_graph_skill_run_omits_missing_optional_graph_input_references()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
@@ -949,6 +1014,46 @@ runners:
 "#,
     )?;
     Ok(skill_dir.to_path_buf())
+}
+
+#[cfg(feature = "catalog")]
+fn write_graph_agent_artifact_context_skill(
+    root: &Path,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let skill_dir = root.join("graph-agent-artifact-context");
+    fs::create_dir_all(&skill_dir)?;
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: graph-agent-artifact-context\n---\n# Graph Agent Artifact Context\n",
+    )?;
+    fs::write(
+        skill_dir.join("X.yaml"),
+        r#"
+skill: graph-agent-artifact-context
+runners:
+  graph:
+    default: true
+    type: graph
+    graph:
+      name: graph-agent-artifact-context
+      steps:
+        - id: author
+          run:
+            type: agent-step
+            agent: builder
+            task: graph-author
+            outputs:
+              fix_bundle: object
+          artifacts:
+            named_emits:
+              fix_bundle: fix_bundle
+        - id: echo
+          tool: test.echo
+          context:
+            message: author.fix_bundle.data.message
+"#,
+    )?;
+    Ok(skill_dir)
 }
 
 #[cfg(feature = "catalog")]
