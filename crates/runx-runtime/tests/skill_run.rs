@@ -442,6 +442,44 @@ fn native_graph_skill_run_executes_local_tool_step() -> Result<(), Box<dyn std::
     Ok(())
 }
 
+#[cfg(feature = "catalog")]
+#[test]
+fn native_graph_skill_run_prefers_built_cli_tool_root() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let skill_dir = write_graph_tool_skill_under_skills(temp.path())?;
+    write_echo_tool_at(&temp.path().join("tools/test/echo"), "root tools")?;
+    write_echo_tool_at(
+        &temp.path().join("packages/cli/tools/test/echo"),
+        "package cli tools",
+    )?;
+    let receipt_dir = temp.path().join("receipts");
+    let inputs = [(
+        "thread_title".to_owned(),
+        JsonValue::String("Graph tool bug".to_owned()),
+    )]
+    .into_iter()
+    .collect::<BTreeMap<_, _>>();
+
+    let result = run_skill(SkillRunRequest {
+        skill_path: skill_dir,
+        receipt_dir: Some(receipt_dir),
+        run_id: None,
+        answers_path: None,
+        inputs,
+        env: BTreeMap::new(),
+        cwd: temp.path().to_path_buf(),
+        local_credential: None,
+    })?;
+
+    let output = object(&result.output, "graph tool result")?;
+    assert_eq!(string_field(output, "status"), Some("sealed"));
+    let payload = object_field(output, "payload").ok_or("missing payload")?;
+    let echo = object_field(payload, "echo").ok_or("missing echo")?;
+    assert_eq!(string_field(echo, "message"), Some("package cli tools"));
+
+    Ok(())
+}
+
 #[cfg(feature = "cli-tool")]
 #[test]
 fn native_graph_skill_run_executes_nested_cli_tool_skill() -> Result<(), Box<dyn std::error::Error>>
@@ -553,7 +591,7 @@ runners:
         required: false
 "#,
     )?;
-    Ok(skill_dir)
+    Ok(skill_dir.to_path_buf())
 }
 
 fn write_graph_agent_step_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
@@ -584,12 +622,23 @@ runners:
           instructions: Use the full issue context.
 "#,
     )?;
-    Ok(skill_dir)
+    Ok(skill_dir.to_path_buf())
 }
 
 #[cfg(feature = "catalog")]
 fn write_graph_tool_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let skill_dir = root.join("graph-tool");
+    write_graph_tool_skill_at(&skill_dir)
+}
+
+#[cfg(feature = "catalog")]
+fn write_graph_tool_skill_under_skills(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let skill_dir = root.join("skills/graph-tool");
+    write_graph_tool_skill_at(&skill_dir)
+}
+
+#[cfg(feature = "catalog")]
+fn write_graph_tool_skill_at(skill_dir: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     fs::create_dir_all(&skill_dir)?;
     fs::write(
         skill_dir.join("SKILL.md"),
@@ -612,12 +661,16 @@ runners:
             message: $input.thread_title
 "#,
     )?;
-    Ok(skill_dir)
+    Ok(skill_dir.to_path_buf())
 }
 
 #[cfg(feature = "catalog")]
 fn write_echo_tool(root: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    let tool_dir = root.join("tools/test/echo");
+    write_echo_tool_at(&root.join("tools/test/echo"), "Graph tool bug")
+}
+
+#[cfg(feature = "catalog")]
+fn write_echo_tool_at(tool_dir: &Path, message: &str) -> Result<(), Box<dyn std::error::Error>> {
     fs::create_dir_all(&tool_dir)?;
     fs::write(
         tool_dir.join("manifest.json"),
@@ -639,12 +692,15 @@ fn write_echo_tool(root: &Path) -> Result<(), Box<dyn std::error::Error>> {
     )?;
     fs::write(
         tool_dir.join("run.sh"),
-        r#"raw="$(cat)"
+        format!(
+            r#"raw="$(cat)"
 case "$raw" in
-  *"Graph tool bug"*) printf '%s\n' '{"echo":{"message":"Graph tool bug"}}' ;;
-  *) printf '%s\n' '{"echo":{"message":"unexpected"}}' ;;
+  *"Graph tool bug"*) printf '%s\n' '{{"echo":{{"message":"{}"}}}}' ;;
+  *) printf '%s\n' '{{"echo":{{"message":"unexpected"}}}}' ;;
 esac
 "#,
+            message
+        ),
     )?;
     Ok(())
 }

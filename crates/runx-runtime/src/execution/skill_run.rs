@@ -378,7 +378,7 @@ fn inferred_tool_roots(skill_dir: &Path) -> Option<String> {
         .parent()
         .filter(|parent| parent.file_name().and_then(|name| name.to_str()) == Some("skills"))
         .and_then(Path::parent)?;
-    let roots = [root.join("tools"), root.join("packages/cli/tools")]
+    let roots = [root.join("packages/cli/tools"), root.join("tools")]
         .into_iter()
         .filter(|path| path.is_dir())
         .collect::<Vec<_>>();

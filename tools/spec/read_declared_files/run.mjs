@@ -8,8 +8,7 @@ const packageRoot = path.resolve(here, "../../../");
 const relativeToolDir = path.relative(packageRoot, here);
 const sourceEntry = path.join(here, "src", "index.ts");
 const distEntry = path.join(packageRoot, "dist", relativeToolDir, "src", "index.js");
-const runningFromInstalledPackage = fileURLToPath(import.meta.url).includes(`${path.sep}node_modules${path.sep}`);
-const entry = (runningFromInstalledPackage || !fs.existsSync(sourceEntry)) && fs.existsSync(distEntry)
+const entry = fs.existsSync(distEntry)
   ? distEntry
   : sourceEntry;
 const tool = (await import(pathToFileURL(entry).href)).default;
