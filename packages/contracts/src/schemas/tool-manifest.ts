@@ -1,32 +1,71 @@
-import { Type, type Static } from "../internal.js";
-import {
-  JSON_SCHEMA_DRAFT_2020_12,
-  RUNX_CONTRACT_IDS,
-  RUNX_LOGICAL_SCHEMAS,
-  type DeepReadonly,
-  unknownRecordSchema,
-} from "../internal.js";
+import type { DeepReadonly, JsonSchema, UnknownRecord } from "../internal.js";
+import { runxSchemaArtifacts } from "../schema-artifacts.js";
 
-export const toolManifestV1Schema = Type.Object(
-  {
-    schema: Type.Literal(RUNX_LOGICAL_SCHEMAS.toolManifest),
-    name: Type.String(),
-    version: Type.String(),
-    description: Type.Optional(Type.String()),
-    source_hash: Type.String(),
-    schema_hash: Type.String(),
-    runtime: unknownRecordSchema(),
-    inputs: Type.Optional(unknownRecordSchema()),
-    output: unknownRecordSchema(),
-    scopes: Type.Optional(Type.Array(Type.String())),
-    toolkit_version: Type.Optional(Type.String()),
-  },
-  {
-    $schema: JSON_SCHEMA_DRAFT_2020_12,
-    $id: RUNX_CONTRACT_IDS.toolManifest,
-    "x-runx-schema": RUNX_LOGICAL_SCHEMAS.toolManifest,
-    additionalProperties: false,
-  },
-);
+export type ToolManifestSourceTypeContract = "cli-tool" | "mcp" | "a2a" | "catalog";
+export type ToolCommandInputModeContract = "args" | "stdin" | "none";
 
-export type ToolManifestContract = DeepReadonly<Static<typeof toolManifestV1Schema>>;
+export type ToolManifestSourceContract = DeepReadonly<{
+  type: ToolManifestSourceTypeContract;
+  command?: string;
+  args?: readonly string[];
+  cwd?: string;
+  input_mode?: ToolCommandInputModeContract;
+  sandbox?: UnknownRecord;
+  server?: string;
+  catalog_ref?: string;
+  tool?: string;
+  arguments?: UnknownRecord;
+  agent_card_url?: string;
+  agent_identity?: string;
+}>;
+
+export type ToolManifestRuntimeContract = DeepReadonly<{
+  command: string;
+  args?: readonly string[];
+  cwd?: string;
+  env?: Readonly<Record<string, string>>;
+}>;
+
+export type ToolManifestInputContract = DeepReadonly<{
+  type: string;
+  required: boolean;
+  description?: string;
+  default?: unknown;
+}>;
+
+export type ToolManifestOutputContract = DeepReadonly<{
+  packet?: string;
+  wrap_as?: string;
+} & UnknownRecord>;
+
+export type ToolRetryPolicyContract = DeepReadonly<{
+  max_attempts: number;
+}>;
+
+export type ToolIdempotencyPolicyContract = DeepReadonly<{
+  key?: string;
+}>;
+
+export type ToolManifestContract = DeepReadonly<{
+  schema: "runx.tool.manifest.v1";
+  name: string;
+  version?: string;
+  description?: string;
+  source: ToolManifestSourceContract;
+  inputs?: Readonly<Record<string, ToolManifestInputContract>>;
+  scopes?: readonly string[];
+  risk?: unknown;
+  runx?: UnknownRecord;
+  runtime: ToolManifestRuntimeContract;
+  output: ToolManifestOutputContract;
+  retry?: ToolRetryPolicyContract;
+  idempotency?: ToolIdempotencyPolicyContract;
+  mutating?: boolean;
+  source_hash: string;
+  schema_hash: string;
+  toolkit_version?: string;
+}>;
+
+export const toolManifestV1Schema = runxSchemaArtifacts[
+  "tool-manifest.schema.json"
+] as JsonSchema<ToolManifestContract>;
