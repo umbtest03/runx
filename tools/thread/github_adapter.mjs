@@ -606,16 +606,10 @@ export function pushGitHubPullRequest({
     ?? parseGitHubPullRequestNumber(optionalRecord(outbox.metadata)?.number);
   const existingByBranch = existingNumber
     ? undefined
-    : findGitHubPullRequestByHead(repoSlug, branch, workspacePath, env, { state: "all" });
+    : findGitHubPullRequestByHead(repoSlug, branch, workspacePath, env, { state: "open" });
   let pullRequestRef = existingNumber;
   if (!pullRequestRef && existingByBranch) {
     pullRequestRef = firstNonEmptyString(existingByBranch.url, existingByBranch.number);
-    reopenGitHubPullRequestIfClosed({
-      repoSlug,
-      pullRequest: existingByBranch,
-      workspacePath,
-      env,
-    });
   }
 
   if (pullRequestRef) {
@@ -640,17 +634,11 @@ export function pushGitHubPullRequest({
         env,
       });
     } catch (error) {
-      const fallback = findGitHubPullRequestByHead(repoSlug, branch, workspacePath, env, { state: "all" });
+      const fallback = findGitHubPullRequestByHead(repoSlug, branch, workspacePath, env, { state: "open" });
       if (!fallback) {
         throw error;
       }
       pullRequestRef = firstNonEmptyString(fallback.url, fallback.number);
-      reopenGitHubPullRequestIfClosed({
-        repoSlug,
-        pullRequest: fallback,
-        workspacePath,
-        env,
-      });
     }
   }
 
@@ -1101,30 +1089,6 @@ function findGitHubPullRequestByHead(repoSlug, branch, workspacePath, env, optio
       }
       return String(right.updatedAt ?? "").localeCompare(String(left.updatedAt ?? ""));
     })[0];
-}
-
-function reopenGitHubPullRequestIfClosed({ repoSlug, pullRequest, workspacePath, env }) {
-  const state = String(pullRequest?.state ?? "").toUpperCase();
-  if (state !== "CLOSED") {
-    return;
-  }
-  if (firstNonEmptyString(pullRequest?.mergedAt)) {
-    throw new Error(`GitHub pull request ${firstNonEmptyString(pullRequest.number, pullRequest.url)} is merged and cannot be reopened.`);
-  }
-  const pullRequestRef = firstNonEmptyString(pullRequest.url, pullRequest.number);
-  if (!pullRequestRef) {
-    throw new Error("GitHub pull request reference is required to reopen a closed branch match.");
-  }
-  runGhCommand([
-    "pr",
-    "reopen",
-    pullRequestRef,
-    "--repo",
-    repoSlug,
-  ], {
-    cwd: workspacePath,
-    env,
-  }, { tokenFallback: true });
 }
 
 function gitHubPullRequestOpenScore(pullRequest) {

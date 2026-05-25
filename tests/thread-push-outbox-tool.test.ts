@@ -1200,8 +1200,8 @@ describe("thread.push_outbox tool", () => {
     }
   }, 15_000);
 
-  it("reopens and updates a closed unmerged GitHub pull request with the same head branch", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-thread-gh-reopen-tool-"));
+  it("creates a new GitHub pull request instead of reopening a closed unmerged branch match", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-thread-gh-closed-branch-tool-"));
     const workspace = path.join(tempDir, "workspace");
     const remote = path.join(tempDir, "remote.git");
     const fakeGh = path.join(tempDir, "fake-gh.mjs");
@@ -1244,9 +1244,6 @@ describe("thread.push_outbox tool", () => {
           ],
           nextPullNumber: 113,
           nextCommentId: 1000,
-          failPrListTokens: ["bad-token"],
-          failPrMutationTokens: ["bad-token"],
-          failPrViewTokens: ["bad-token"],
         }, null, 2)}\n`,
       );
       await writeFakeGhScript(fakeGh);
@@ -1293,34 +1290,35 @@ describe("thread.push_outbox tool", () => {
         workspace_path: workspace,
         next_status: "draft",
       }, {
-        GH_TOKEN: "bad-token",
-        GITHUB_TOKEN: "good-token",
         RUNX_GH_BIN: fakeGh,
         RUNX_FAKE_GH_STATE: fakeState,
       });
 
       expect(result).toMatchObject({
         outbox_entry: {
-          entry_id: "pr-112",
-          locator: "https://github.com/example/repo/pull/112",
+          entry_id: "pr-113",
+          locator: "https://github.com/example/repo/pull/113",
           status: "draft",
         },
         push: {
           status: "pushed",
           pull_request: {
-            number: "112",
-            url: "https://github.com/example/repo/pull/112",
+            number: "113",
+            url: "https://github.com/example/repo/pull/113",
           },
         },
       });
       expect(JSON.parse(await readFile(fakeState, "utf8"))).toMatchObject({
-        ghListTokens: ["bad-token", "good-token", "bad-token", "good-token"],
-        ghMutationTokens: ["bad-token", "good-token", "bad-token", "good-token"],
-        ghViewTokens: ["bad-token", "good-token"],
-        nextPullNumber: 113,
+        nextPullNumber: 114,
         pulls: [
           {
             number: 112,
+            title: "Old title",
+            state: "CLOSED",
+            headRefName: "issue-closed",
+          },
+          {
+            number: 113,
             title: "Fix fixture behavior",
             body: expect.stringContaining("Updated body."),
             state: "OPEN",
@@ -1333,7 +1331,7 @@ describe("thread.push_outbox tool", () => {
     }
   }, 15_000);
 
-  it("lease-updates a stale generated branch before reopening an existing pull request", async () => {
+  it("lease-updates a stale generated branch before creating a fresh pull request", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-thread-gh-stale-branch-tool-"));
     const workspace = path.join(tempDir, "workspace");
     const remote = path.join(tempDir, "remote.git");
@@ -1442,15 +1440,15 @@ describe("thread.push_outbox tool", () => {
       expect(remoteHead).toBe(localHead);
       expect(result).toMatchObject({
         outbox_entry: {
-          entry_id: "pr-112",
-          locator: "https://github.com/example/repo/pull/112",
+          entry_id: "pr-113",
+          locator: "https://github.com/example/repo/pull/113",
           status: "draft",
         },
         push: {
           status: "pushed",
           pull_request: {
-            number: "112",
-            url: "https://github.com/example/repo/pull/112",
+            number: "113",
+            url: "https://github.com/example/repo/pull/113",
           },
         },
       });
@@ -1458,6 +1456,11 @@ describe("thread.push_outbox tool", () => {
         pulls: [
           {
             number: 112,
+            state: "CLOSED",
+            headRefName: branch,
+          },
+          {
+            number: 113,
             state: "OPEN",
             title: "Fix fixture behavior",
             body: expect.stringContaining("Updated body."),
