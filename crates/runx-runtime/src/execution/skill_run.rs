@@ -49,6 +49,13 @@ pub(crate) fn execute_skill_run(request: &SkillRunRequest) -> Result<JsonValue, 
     let skill_dir = resolve_skill_dir(&request.skill_path)?;
     let manifest = load_runner_manifest(&skill_dir)?;
     let runner = selected_runner(&manifest)?;
+    if runner.source.source_type == runx_parser::SourceKind::CliTool
+        && request.local_credential.is_some()
+    {
+        return Err(invalid(
+            "local credential process-env delivery is not supported for cli-tool runners",
+        ));
+    }
     let invocation = runner_invocation(
         &skill_dir,
         runner,

@@ -1,11 +1,7 @@
-//! Local, no-network per-run credential provision.
+//! Local, no-network per-run credential provision boundary.
 //!
-//! Proves the OSS run path can supply a credential to a skill without any
-//! network or hosted dependency: the descriptor on `SkillRunRequest` is turned
-//! into a `CredentialDelivery` in-memory, the secret reaches the skill process,
-//! and the secret value is redacted from the captured output, the sealed
-//! receipt, and the run metadata. There is no brokerage, no persistence, and no
-//! outbound call: the only process spawned is the cli-tool skill itself.
+//! `cli-tool` execution no longer accepts process-env local credentials. This
+//! keeps the secret boundary fail-closed until a non-env delivery channel exists.
 
 #![cfg(feature = "cli-tool")]
 
@@ -18,17 +14,16 @@ use runx_runtime::{LocalOrchestrator, RunResult, SkillRunRequest};
 use tempfile::tempdir;
 
 const SECRET: &str = "ghs_local_provision_secret_value";
-const REDACTED: &str = "[redacted-credential]";
-
 #[test]
-fn local_credential_is_delivered_and_redacted() -> Result<(), Box<dyn std::error::Error>> {
+fn local_credential_for_cli_tool_is_rejected_before_spawn() -> Result<(), Box<dyn std::error::Error>>
+{
     let temp = tempdir()?;
     let skill_dir = write_echo_token_skill(temp.path())?;
     let receipt_dir = temp.path().join("receipts");
 
     let request = SkillRunRequest {
         skill_path: skill_dir,
-        receipt_dir: Some(receipt_dir),
+        receipt_dir: Some(receipt_dir.clone()),
         run_id: None,
         answers_path: None,
         inputs: BTreeMap::new(),
@@ -44,33 +39,26 @@ fn local_credential_is_delivered_and_redacted() -> Result<(), Box<dyn std::error
         }),
     };
 
-    let result = run_skill(request)?;
-
-    // (1) The credential reached the skill process: the echo skill emitted the
-    // delivered env var, redacted on the way back out.
-    let serialized = serde_json::to_string(&result.output)?;
+    let error = match run_skill(request) {
+        Ok(_) => {
+            return Err(
+                std::io::Error::other("cli-tool local credential unexpectedly succeeded").into(),
+            );
+        }
+        Err(error) => error,
+    };
+    let message = error.to_string();
     assert!(
-        serialized.contains(REDACTED),
-        "expected the delivered credential to be redacted in the output, got: {serialized}",
-    );
-
-    // (2) The secret value never appears anywhere in the output, receipt, or
-    // metadata that the run produced.
-    assert!(
-        !serialized.contains(SECRET),
-        "raw secret leaked into the run output/receipt/metadata",
-    );
-
-    // (3) The sealed run records a non-secret credential-delivery observation,
-    // so the receipt carries an auditable trace that a credential was
-    // provisioned (the material ref appears only as a hash, never the secret).
-    assert!(
-        serialized.contains("credential_delivery_observations"),
-        "expected the sealed run to record a credential delivery observation, got: {serialized}",
+        message.contains("local credential process-env delivery is not supported for cli-tool"),
+        "unexpected error: {message}",
     );
     assert!(
-        serialized.contains("sha256:"),
-        "expected the observation to carry a hashed material ref, got: {serialized}",
+        !message.contains(SECRET),
+        "raw secret leaked into the error output",
+    );
+    assert!(
+        !receipt_dir.exists(),
+        "rejected credential run must not write receipts",
     );
 
     Ok(())

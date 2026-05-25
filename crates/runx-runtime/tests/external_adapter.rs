@@ -4,6 +4,8 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(unix)]
+use std::time::{Duration, Instant};
 
 use runx_contracts::{
     CredentialDeliveryMode, CredentialDeliveryObservation, CredentialDeliveryObservationSchema,
@@ -159,6 +161,46 @@ IFS= read -r _invocation
     assert_eq!(cancellation.adapter_id, "adapter.github.issue-intake");
     assert_eq!(cancellation.invocation_id, "external_inv_123");
     assert_eq!(cancellation.reason, "invocation timeout after 50ms");
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn external_adapter_process_supervisor_timeout_kills_descendant_processes()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let sentinel_path = temp.path().join("descendant-survived");
+    let script = write_script(
+        temp.path(),
+        r#"set -eu
+IFS= read -r _invocation
+(
+  /bin/sleep 3
+  printf 'survived' > "$RUNX_DESCENDANT_SENTINEL"
+) &
+/bin/sleep 10
+"#,
+    )?;
+    let mut manifest = manifest_for_script(&script)?;
+    manifest.timeouts.invocation_ms = 1_000;
+    let invocation =
+        invocation_with_env([("RUNX_DESCENDANT_SENTINEL", path_string(&sentinel_path)?)]);
+
+    let started = Instant::now();
+    let Err(error) = ExternalAdapterProcessSupervisor.invoke(&manifest, &invocation) else {
+        return Err("timed out process must fail closed".into());
+    };
+
+    let ExternalAdapterSupervisorError::TimedOut { timeout_ms, .. } = error else {
+        return Err(format!("unexpected timeout error: {error}").into());
+    };
+    assert_eq!(timeout_ms, 1_000);
+    assert!(started.elapsed() < Duration::from_secs(5));
+    std::thread::sleep(Duration::from_secs(3));
+    assert!(
+        !sentinel_path.exists(),
+        "descendant process survived external adapter timeout"
+    );
     Ok(())
 }
 

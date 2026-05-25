@@ -17,8 +17,10 @@ pub struct SkillPlan {
     pub answers: Option<PathBuf>,
     pub json: bool,
     pub inputs: BTreeMap<String, JsonValue>,
-    /// One-shot, per-run local credential supplied via `--credential` and
-    /// `--secret-env`. Never persisted; redacted by the runtime.
+    /// One-shot, per-run local credential descriptor supplied via
+    /// `--credential` and `--secret-env`. Runner-specific execution validates
+    /// whether that delivery channel is supported before any child process
+    /// starts.
     pub local_credential: Option<LocalCredentialDescriptor>,
 }
 
@@ -129,8 +131,9 @@ fn parse_secret_env(value: &str) -> Result<(String, String), String> {
 
 /// Build the per-run local credential descriptor from the parsed flags.
 ///
-/// `--secret-env` is required to provision a credential (it carries the env var
-/// and the secret); `--credential` supplies the non-secret binding metadata.
+/// `--secret-env` carries the env var and secret material; `--credential`
+/// supplies non-secret binding metadata. The runtime rejects unsupported
+/// runner/delivery combinations before execution.
 fn finalize_local_credential(
     state: &SkillParseState,
 ) -> Result<Option<LocalCredentialDescriptor>, String> {
