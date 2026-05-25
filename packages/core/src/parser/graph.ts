@@ -123,8 +123,8 @@ export function validateGraph(raw: RawGraphIR): ExecutionGraph {
 export function validateGraphDocument(document: Record<string, unknown>, raw?: RawGraphIR): ExecutionGraph {
   rejectUnsupportedTopLevel(document);
 
-  const name = requiredString(document.name, "name");
-  const owner = optionalString(document.owner, "owner");
+  const name = requiredNullableString(document.name, "name");
+  const owner = optionalNullableString(document.owner, "owner");
   const rawSteps = requiredArray(document.steps, "steps");
   const fanoutGroups = validateFanoutGroups(document.fanout, "fanout");
   const policy = validateGraphPolicy(document.policy, "policy");
@@ -133,7 +133,7 @@ export function validateGraphDocument(document: Record<string, unknown>, raw?: R
 
   for (let index = 0; index < rawSteps.length; index += 1) {
     const field = `steps.${index}`;
-    const rawStep = requiredRecord(rawSteps[index], field);
+    const rawStep = requiredNullableRecord(rawSteps[index], field);
     const step = validateStep(rawStep, field, seenStepIds);
     seenStepIds.add(step.id);
     steps.push(step);
@@ -158,7 +158,7 @@ function validateStep(
 ): GraphStep {
   rejectUnsupportedStepFields(rawStep, field);
 
-  const id = requiredString(rawStep.id, `${field}.id`);
+  const id = requiredNullableString(rawStep.id, `${field}.id`);
   if (previousStepIds.has(id)) {
     throw new GraphValidationError(`${field}.id '${id}' must be unique.`);
   }
@@ -166,7 +166,7 @@ function validateStep(
 
   const skill = optionalNonEmptyString(rawStep.skill, `${field}.skill`);
   const tool = optionalNonEmptyString(rawStep.tool, `${field}.tool`);
-  const run = optionalRecord(rawStep.run, `${field}.run`);
+  const run = optionalNullableRecord(rawStep.run, `${field}.run`);
   if ((skill ? 1 : 0) + (tool ? 1 : 0) + (run ? 1 : 0) !== 1) {
     throw new GraphValidationError(`${field} must declare exactly one of skill, tool, or run.`);
   }
@@ -177,16 +177,16 @@ function validateStep(
   if ((run || tool) && runner) {
     throw new GraphValidationError(`${field}.runner is only valid for nested skill steps.`);
   }
-  const inputs = optionalRecord(rawStep.inputs, `${field}.inputs`) ?? {};
+  const inputs = optionalNullableRecord(rawStep.inputs, `${field}.inputs`) ?? {};
   const context = optionalStringRecord(rawStep.context, `${field}.context`) ?? {};
-  const scopes = optionalStringArray(rawStep.scopes, `${field}.scopes`) ?? [];
-  const allowedTools = optionalStringArray(rawStep.allowed_tools, `${field}.allowed_tools`);
+  const scopes = optionalNullableStringArray(rawStep.scopes, `${field}.scopes`) ?? [];
+  const allowedTools = optionalNullableStringArray(rawStep.allowed_tools, `${field}.allowed_tools`);
   const retry = validateRetry(rawStep.retry, `${field}.retry`);
-  const policy = optionalRecord(rawStep.policy, `${field}.policy`);
-  const fanoutGroup = optionalString(rawStep.fanout_group, `${field}.fanout_group`);
+  const policy = optionalNullableRecord(rawStep.policy, `${field}.policy`);
+  const fanoutGroup = optionalNullableString(rawStep.fanout_group, `${field}.fanout_group`);
   const mutating = validateMutation(rawStep.mutation, `${field}.mutation`);
-  const instructions = optionalString(rawStep.instructions, `${field}.instructions`);
-  const artifacts = optionalRecord(rawStep.artifacts, `${field}.artifacts`);
+  const instructions = optionalNullableString(rawStep.instructions, `${field}.instructions`);
+  const artifacts = optionalNullableRecord(rawStep.artifacts, `${field}.artifacts`);
   const idempotencyKey = optionalNonEmptyString(rawStep.idempotency_key, `${field}.idempotency_key`);
   const contextEdges = Object.entries(context).map(([input, reference]) =>
     parseContextReference(input, reference, previousStepIds, `${field}.context.${input}`),
@@ -243,17 +243,17 @@ function rejectUnsupportedStepFields(rawStep: Readonly<Record<string, unknown>>,
 }
 
 function validateFanoutGroups(value: unknown, field: string): Readonly<Record<string, FanoutGroupPolicy>> {
-  const fanout = optionalRecord(value, field);
+  const fanout = optionalNullableRecord(value, field);
   if (!fanout) {
     return {};
   }
-  const groups = requiredRecord(fanout.groups, `${field}.groups`);
+  const groups = requiredNullableRecord(fanout.groups, `${field}.groups`);
   const validated: Record<string, FanoutGroupPolicy> = {};
 
   for (const [groupId, rawGroup] of Object.entries(groups)) {
-    const group = requiredRecord(rawGroup, `${field}.groups.${groupId}`);
+    const group = requiredNullableRecord(rawGroup, `${field}.groups.${groupId}`);
     const strategy = optionalSyncStrategy(group.strategy, `${field}.groups.${groupId}.strategy`) ?? "all";
-    const minSuccess = optionalNumber(group.min_success, `${field}.groups.${groupId}.min_success`);
+    const minSuccess = optionalNullableNumber(group.min_success, `${field}.groups.${groupId}.min_success`);
     const onBranchFailure =
       optionalBranchFailurePolicy(group.on_branch_failure, `${field}.groups.${groupId}.on_branch_failure`)
       ?? (strategy === "all" ? "halt" : "continue");
@@ -276,7 +276,7 @@ function validateFanoutGroups(value: unknown, field: string): Readonly<Record<st
 }
 
 function validateGraphPolicy(value: unknown, field: string): GraphPolicy | undefined {
-  const policy = optionalRecord(value, field);
+  const policy = optionalNullableRecord(value, field);
   if (!policy) {
     return undefined;
   }
@@ -286,7 +286,7 @@ function validateGraphPolicy(value: unknown, field: string): GraphPolicy | undef
   }
   const transitions = requiredArray(transitionsValue, `${field}.transitions`).map((rawGate, index) => {
     const gateField = `${field}.transitions.${index}`;
-    const gate = requiredRecord(rawGate, gateField);
+    const gate = requiredNullableRecord(rawGate, gateField);
     const equals = gate.equals;
     const notEquals = gate.not_equals;
     if (equals !== undefined && notEquals !== undefined) {
@@ -296,8 +296,8 @@ function validateGraphPolicy(value: unknown, field: string): GraphPolicy | undef
       throw new GraphValidationError(`${gateField} must declare equals or not_equals.`);
     }
     return {
-      to: requiredString(gate.to, `${gateField}.to`),
-      field: requiredString(gate.field, `${gateField}.field`),
+      to: requiredNullableString(gate.to, `${gateField}.to`),
+      field: requiredNullableString(gate.field, `${gateField}.field`),
       equals,
       notEquals,
     };
@@ -312,15 +312,15 @@ function validateThresholdGates(value: unknown, field: string): readonly FanoutT
   const gates = requiredArray(value, field);
   return gates.map((rawGate, index) => {
     const gateField = `${field}.${index}`;
-    const gate = requiredRecord(rawGate, gateField);
+    const gate = requiredNullableRecord(rawGate, gateField);
     for (const unsupported of ["contains", "matches", "semantic", "prompt", "sentiment"]) {
       if (gate[unsupported] !== undefined) {
         throw new GraphValidationError(`${gateField}.${unsupported} is not supported; graph policy must evaluate structured fields.`);
       }
     }
     return {
-      step: requiredString(gate.step, `${gateField}.step`),
-      field: requiredString(gate.field, `${gateField}.field`),
+      step: requiredNullableString(gate.step, `${gateField}.step`),
+      field: requiredNullableString(gate.field, `${gateField}.field`),
       above: requiredNumber(gate.above, `${gateField}.above`),
       action: requiredThresholdAction(gate.action, `${gateField}.action`),
     };
@@ -334,15 +334,15 @@ function validateConflictGates(value: unknown, field: string): readonly FanoutCo
   const gates = requiredArray(value, field);
   return gates.map((rawGate, index) => {
     const gateField = `${field}.${index}`;
-    const gate = requiredRecord(rawGate, gateField);
+    const gate = requiredNullableRecord(rawGate, gateField);
     for (const unsupported of ["contains", "matches", "semantic", "prompt", "sentiment"]) {
       if (gate[unsupported] !== undefined) {
         throw new GraphValidationError(`${gateField}.${unsupported} is not supported; graph policy must evaluate structured fields.`);
       }
     }
     return {
-      field: requiredString(gate.field, `${gateField}.field`),
-      steps: optionalStringArray(gate.steps, `${gateField}.steps`) ?? [],
+      field: requiredNullableString(gate.field, `${gateField}.field`),
+      steps: optionalNullableStringArray(gate.steps, `${gateField}.steps`) ?? [],
       action: requiredConflictAction(gate.action, `${gateField}.action`),
     };
   });
@@ -437,13 +437,13 @@ function parseContextReference(
 }
 
 function validateRetry(value: unknown, field: string): GraphRetryPolicy | undefined {
-  const retry = optionalRecord(value, field);
+  const retry = optionalNullableRecord(value, field);
   if (!retry) {
     return undefined;
   }
 
-  const maxAttempts = optionalNumber(retry.max_attempts, `${field}.max_attempts`) ?? 1;
-  const backoffMs = optionalNumber(retry.backoff_ms, `${field}.backoff_ms`);
+  const maxAttempts = optionalNullableNumber(retry.max_attempts, `${field}.max_attempts`) ?? 1;
+  const backoffMs = optionalNullableNumber(retry.backoff_ms, `${field}.backoff_ms`);
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
     throw new GraphValidationError(`${field}.max_attempts must be a positive integer.`);
   }
@@ -467,15 +467,15 @@ function validateMutation(value: unknown, field: string): boolean {
   throw new GraphValidationError(`${field} must be a boolean.`);
 }
 
-function requiredString(value: unknown, field: string): string {
-  const stringValue = optionalString(value, field);
+function requiredNullableString(value: unknown, field: string): string {
+  const stringValue = optionalNullableString(value, field);
   if (!stringValue) {
     throw new GraphValidationError(`${field} is required.`);
   }
   return stringValue;
 }
 
-function optionalString(value: unknown, field: string): string | undefined {
+function optionalNullableString(value: unknown, field: string): string | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -486,7 +486,7 @@ function optionalString(value: unknown, field: string): string | undefined {
 }
 
 function optionalNonEmptyString(value: unknown, field: string): string | undefined {
-  const stringValue = optionalString(value, field);
+  const stringValue = optionalNullableString(value, field);
   if (stringValue !== undefined && stringValue.trim() === "") {
     throw new GraphValidationError(`${field} must not be empty.`);
   }
@@ -503,14 +503,14 @@ function requiredArray(value: unknown, field: string): readonly unknown[] {
   return value;
 }
 
-function requiredRecord(value: unknown, field: string): Record<string, unknown> {
+function requiredNullableRecord(value: unknown, field: string): Record<string, unknown> {
   if (!isRecord(value)) {
     throw new GraphValidationError(`${field} must be an object.`);
   }
   return value;
 }
 
-function optionalRecord(value: unknown, field: string): Readonly<Record<string, unknown>> | undefined {
+function optionalNullableRecord(value: unknown, field: string): Readonly<Record<string, unknown>> | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -521,7 +521,7 @@ function optionalRecord(value: unknown, field: string): Readonly<Record<string, 
 }
 
 function optionalStringRecord(value: unknown, field: string): Readonly<Record<string, string>> | undefined {
-  const record = optionalRecord(value, field);
+  const record = optionalNullableRecord(value, field);
   if (!record) {
     return undefined;
   }
@@ -534,7 +534,7 @@ function optionalStringRecord(value: unknown, field: string): Readonly<Record<st
   return record as Readonly<Record<string, string>>;
 }
 
-function optionalStringArray(value: unknown, field: string): readonly string[] | undefined {
+function optionalNullableStringArray(value: unknown, field: string): readonly string[] | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -544,7 +544,7 @@ function optionalStringArray(value: unknown, field: string): readonly string[] |
   return value;
 }
 
-function optionalNumber(value: unknown, field: string): number | undefined {
+function optionalNullableNumber(value: unknown, field: string): number | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -555,7 +555,7 @@ function optionalNumber(value: unknown, field: string): number | undefined {
 }
 
 function requiredNumber(value: unknown, field: string): number {
-  const numberValue = optionalNumber(value, field);
+  const numberValue = optionalNullableNumber(value, field);
   if (numberValue === undefined) {
     throw new GraphValidationError(`${field} is required.`);
   }
