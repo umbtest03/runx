@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use runx_contracts::JsonObject;
 use runx_parser::SkillSource;
+use serde::{Deserialize, Serialize};
 
 use crate::RuntimeError;
 use crate::credentials::CredentialDelivery;
@@ -11,7 +12,7 @@ use crate::credentials::CredentialDelivery;
 /// observations are recorded on [`SkillOutput::metadata`].
 pub const CREDENTIAL_DELIVERY_OBSERVATIONS_METADATA: &str = "credential_delivery_observations";
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InvocationStatus {
     Success,
     Failure,
@@ -28,7 +29,7 @@ pub struct SkillInvocation {
     pub credential_delivery: CredentialDelivery,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SkillOutput {
     pub status: InvocationStatus,
     pub stdout: String,

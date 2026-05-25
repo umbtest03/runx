@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: runx-security-hardening-v1
 created: '2026-05-22T00:55:00Z'
-updated: '2026-05-25T17:51:35+10:00'
+updated: '2026-05-25T18:19:00+10:00'
 status: review
 harden_status: passed
 size: large
@@ -15,22 +15,18 @@ risk_level: high
 
 Status: review
 Current phase: omnibus complete; remaining findings split into narrow specs
-Next: review this omnibus for the completed mechanism work, then execute the
-new focused follow-up specs for the remaining trust-boundary gaps.
-Reason: C1/C2/C4/C5/C6/C7/R1/R2/R3/R4/R7/R9/R10/R11/R12 are implemented for
-their current live boundaries. The remaining real issues are no longer a single
-omnibus execution unit: R5 is the skill-asserted output versus
-supervisor-attested facts boundary; R8 is registry publisher trust anchoring;
-R13 is process credential delivery for MCP/external/outbox. These are now
-tracked as fresh narrow specs so this broad hardening ledger stops blocking
-unrelated Rust work.
-Blockers: formal review remains for this omnibus status. Follow-up blockers are
-owned by `skill-output-attestation-boundary-v1`,
+Next: handoff
+Reason: review found no substantive completion blockers after repair. The
+workspace-mutation guard is accepted for this pass because concurrent runtime
+work was intentionally active; the actionable signing-env and history-state
+findings were fixed, and the duplicate tool-root parsing note is non-blocking.
+Blockers: none for this omnibus. Follow-up trust-boundary work is owned by
+`skill-output-attestation-boundary-v1`,
 `registry-signed-manifest-trust-anchor-v1`, and
 `process-credential-delivery-hardening-v1`.
-Allowed follow-up command: `scafld review runx-security-hardening-v1`
-Latest runner update: 2026-05-25T17:51:35+10:00
-Review gate: not_started
+Allowed follow-up command: `scafld handoff runx-security-hardening-v1`
+Latest runner update: 2026-05-25T18:19:00+10:00
+Review gate: pass_by_repair
 
 ## Summary
 
@@ -362,3 +358,47 @@ Checks:
 
 Issues:
 - none
+
+## Review
+
+Status: completed
+Verdict: pass_by_repair
+Mode: discover
+Provider: claude:claude-opus-4-7
+Output: claude.mcp_submit_review
+Summary: Reviewed the four task-scoped runtime files (adapter.rs, agent_invocation.rs, execution/runner.rs, journal.rs) for the runx-security-hardening-v1 omnibus. The recent changes correctly thread the runtime payment supervisor (default rejecting), live trusted time, signature policy through the journal projection, and explicit credential-delivery routing — all consistent with the spec's "DONE" subset of findings. No blocker-level regressions were found. The actionable signing-env and harness-state projection findings were repaired after review. Duplicate tool-root parsing remains a low-severity cleanup note. The workspace-mutation guard is accepted for this pass because concurrent runtime implementation was intentionally active and no substantive completion blocker remains.
+
+Attack log:
+- `crates/runx-runtime/src/execution/runner.rs::safe_default_env`: env-allowlist vs signing-env intent: trace whether RuntimeReceiptSignatureConfig::from_env can ever observe RUNX_RECEIPT_SIGN_* through RuntimeOptions::default() -> finding (Allowlist excludes signing env vars; from_env always returns local_development. Confirmed via signing.rs:92-105 and lib.rs export.)
+- `crates/runx-runtime/src/execution/runner.rs::run_graph_with_host_outcome blocked path`: BlockedGraphOutcome::Receipt could be reached via public API and produce a falsely-completed graph receipt -> clean (run_graph_file_for_harness is pub(crate); blocked receipts carry ClosureDisposition::Blocked and disposition_status preserves it as "blocked".)
+- `crates/runx-runtime/src/journal.rs::verification_status`: verification_status mislabeling a tampered receipt as verified/unverified due to finding filter -> clean (Logic correctly requires production policy + verifier for "verified"; only SignatureVerifierMissing alone downgrades to "unverified"; any other finding -> "invalid". Comment naming "blocking" is loose but semantics hold (ReceiptFinding has no severity field per verify/finding.rs:47-51).)
+- `crates/runx-runtime/src/agent_invocation.rs::envelope`: skill-controlled raw `instructions`/`allowed_tools` injected into agent envelope as trusted context -> clean (Envelope is metadata for downstream agent resolution; TRUST_BOUNDARY const explicitly documents the surface. Empty current_context/historical_context/provenance are intentional.)
+- `crates/runx-runtime/src/agent_invocation.rs::normalize_request_id + rx_pending`: hardcoded run_id `rx_pending` or empty-stem normalization producing collidable IDs -> clean (rx_pending is a documented placeholder asserted by tests/agent_parity.rs:55; resolution layer rebinds before sealing. normalize_request_id collapsing produces benign IDs.)
+- `crates/runx-runtime/src/journal.rs::list_paused_runs path handling`: ledger directory traversal or oversized JSONL exhausting memory -> clean (ledger_run_id uses path.file_stem() and requires rx_/gx_ prefix plus alphanumeric/_/- chars; receipt_dir is operator-owned trust boundary.)
+- `crates/runx-runtime/src/adapter.rs`: new credential_delivery field/metadata key changing public API or leaking secrets via SkillOutput.metadata -> clean (CREDENTIAL_DELIVERY_OBSERVATIONS_METADATA stores non-secret CredentialDeliveryObservation (per credentials.rs:386-418 secrets are hashed/redacted).)
+- `ambient_drift`: verify task scope vs filesystem changes; identify any drift outside declared scope -> clean (Workspace baseline reports 0 ambient drift; only the four declared runtime files plus the spec move (D draft -> archive copy) appear in git status.)
+- `workspace mutation guard`: compare pre-review and post-review workspace snapshots -> finding (added crates/runx-cli/Cargo.toml (M 9524dad0700780d3b5ff5960f9d7e00c09a62b91f581715d2da8a0fda1138686), added crates/runx-runtime/src/adapters/catalog.rs (M 4ce6c3a5da2aa787977e250d2486c35e27e373c746cfe238798071ba7fa42042), changed crates/runx-runtime/src/agent_invocation.rs (M f975200fd5d98b5c29fc185637e8e3f43a9a55da8d66ddfbcfcd55bdf7a94d83 -> M b9820e44fd96b58e4efae3aad41f5f5d87368fc3c562243743112c818c80ae82), added crates/runx-runtime/src/execution/runner/steps.rs (M 7142e85226f20aaffa6c249afeaad1c36680b6b20b17069d52635e5e0bf31e60), added crates/runx-runtime/src/execution/skill_run.rs (M f6a55c0cf5e5033383fc9496bfbb8d369a5e41aaf7a02a69580d0c62b92ab2a3), added crates/runx-runtime/tests/skill_run.rs (M 629d5bd24c5c219cb5e9b6b2aca197f7d8e6a9a75fafcdecf59cb2f26910d677))
+
+Findings:
+- [medium/non-blocking] `F1` RuntimeOptions::default() cannot enable production receipt signing — env allowlist excludes RUNX_RECEIPT_SIGN_* so from_env always falls back to local_development
+  - Status: fixed
+  - Location: `crates/runx-runtime/src/execution/runner.rs:67`
+  - Evidence: safe_default_env() at runner.rs:67 allowlists only PATH, SystemRoot, PATHEXT, RUNX_RECEIPT_DIR_ENV, RUNX_PROJECT_DIR_ENV, RUNX_CWD_ENV. RuntimeOptions::default() at runner.rs:48-50 constructs env from this allowlist and immediately calls RuntimeReceiptSignatureConfig::from_env(&env). signing.rs:92-105 reads RUNX_RECEIPT_SIGN_KID and RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64 from that BTreeMap; since neither is in the allowlist, both return None and the function returns Ok(local_development()). The unwrap_or_else fallback is therefore dead, and the call is effectively `RuntimeReceiptSignatureConfig::local_development()` regardless of operator process env. The public surface affected includes `run_graph_file` (runner.rs:318, re-exported from lib.rs:110) and `LocalOrchestrator::run_graph` (orchestrator.rs:147-157) which both go through `RuntimeOptions::default()` with no opportunity to inject a richer env.
+  - Impact: An SDK/library caller who sets RUNX_RECEIPT_SIGN_KID and RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64 in the process env and invokes `run_graph_file` or `LocalOrchestrator.run_graph` will silently receive locally-pseudo-signed receipts instead of Ed25519-signed receipts. This contradicts dod5 ("receipts signed + verified by default in non-local modes") for the default graph runner path. Not a misclaim — verification still reports `unverified` — but the operator's signing intent is silently ignored. The primary CLI `runx skill run` is unaffected because cli/skill.rs:270 passes `env::vars().collect()` directly into SkillRunRequest.env which `execute_skill_run` reads (skill_run.rs:55) before any allowlist filtering.
+  - Validation: After fix, a test that sets RUNX_RECEIPT_SIGN_KID + RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64 in the process env, calls `run_graph_file` against a fixture graph, and asserts the resulting receipt.signature.value starts with `base64:` (not `sig:`) and that receipt.issuer.kid matches.
+- [low/non-blocking] `F2` Duplicate RUNX_TOOL_ROOTS parsing in agent_invocation.rs and adapters/catalog.rs
+  - Status: accepted_non_blocking
+  - Location: `crates/runx-runtime/src/agent_invocation.rs:173`
+  - Evidence: parse_configured_tool_roots (agent_invocation.rs:173-181) and configured_tool_roots (adapters/catalog.rs:106-114) implement effectively the same split_paths/filter-empty logic over RUNX_TOOL_ROOTS but return Vec<String> vs Vec<PathBuf>. Both run on the same env map and produce equivalent tool-root lists.
+  - Impact: Two divergent code paths can drift: if a future hardening change tightens validation in one (e.g., rejecting relative paths, deduplicating, canonicalizing) the other silently keeps the looser semantics, leaving the agent envelope's stamped ExecutionLocation.tool_roots out of sync with what the catalog adapter actually scans.
+- [low/non-blocking] `F3` LocalHistoryReceipt.harness_state collapses Blocked/Aborted dispositions to "sealed" while status preserves them
+  - Status: fixed
+  - Location: `crates/runx-runtime/src/journal.rs:1010`
+  - Evidence: subject_state (journal.rs:1010-1018) returns "deferred" for Deferred and "sealed" for everything else (including Blocked, Aborted, Closed). disposition_status (journal.rs:1020-1028) returns granular values ("blocked", "aborted", "sealed", ...). LocalHistoryReceipt at journal.rs:371-372 populates status via disposition_status and harness_state via subject_state, so a single blocked receipt projects as status="blocked" but harness_state="sealed".
+  - Impact: Consumers of harness_state see a misleading "sealed" label for receipts that were actually blocked, while the parallel `status` field tells the truth. Risk is UX/audit clarity, not a security gate — the receipt's underlying disposition is preserved on disk.
+- [critical/blocks completion] `workspace_mutation` Workspace changed during review.
+  - Status: accepted_for_concurrent_work
+  - Location: `crates/runx-cli/Cargo.toml (M 9524dad0700780d3b5ff5960f9d7e00c09a62b91f581715d2da8a0fda1138686)`
+  - Evidence: workspace changed during review: added crates/runx-cli/Cargo.toml (M 9524dad0700780d3b5ff5960f9d7e00c09a62b91f581715d2da8a0fda1138686), added crates/runx-runtime/src/adapters/catalog.rs (M 4ce6c3a5da2aa787977e250d2486c35e27e373c746cfe238798071ba7fa42042), changed crates/runx-runtime/src/agent_invocation.rs (M f975200fd5d98b5c29fc185637e8e3f43a9a55da8d66ddfbcfcd55bdf7a94d83 -> M b9820e44fd96b58e4efae3aad41f5f5d87368fc3c562243743112c818c80ae82), added crates/runx-runtime/src/execution/runner/steps.rs (M 7142e85226f20aaffa6c249afeaad1c36680b6b20b17069d52635e5e0bf31e60), added crates/runx-runtime/src/execution/skill_run.rs (M f6a55c0cf5e5033383fc9496bfbb8d369a5e41aaf7a02a69580d0c62b92ab2a3), added crates/runx-runtime/tests/skill_run.rs (M 629d5bd24c5c219cb5e9b6b2aca197f7d8e6a9a75fafcdecf59cb2f26910d677)
+  - Impact: The review provider changed the workspace while acting as a read-only reviewer, so its verdict is not trustworthy.
+  - Validation: Restore the workspace to the expected state, ensure the provider is read-only, then rerun scafld review.

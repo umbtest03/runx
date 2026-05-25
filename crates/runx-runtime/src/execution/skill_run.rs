@@ -4,11 +4,16 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use runx_contracts::{ClosureDisposition, JsonNumber, JsonObject, JsonValue};
+use runx_contracts::{
+    ClosureDisposition, JsonNumber, JsonObject, JsonValue, ResolutionRequest, ResolutionResponse,
+    ResolutionResponseActor, sha256_hex,
+};
+use runx_core::state_machine::GraphStatus;
 use runx_parser::{
-    SkillRunnerDefinition, SkillRunnerManifest, parse_runner_manifest_yaml,
+    ExecutionGraph, SkillRunnerDefinition, SkillRunnerManifest, parse_runner_manifest_yaml,
     validate_runner_manifest,
 };
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "cli-tool")]
 use sha2::{Digest, Sha256};
 use thiserror::Error;
@@ -23,7 +28,11 @@ use crate::agent_invocation::{
     AgentActInvocationSourceType, agent_act_invocation_id, agent_act_resolution_request,
 };
 use crate::execution::orchestrator::SkillRunRequest;
-use crate::receipts::paths::{ReceiptPathInputs, resolve_receipt_path};
+use crate::execution::runner::{GraphCheckpoint, GraphRun, Runtime, RuntimeOptions};
+use crate::host::Host;
+use crate::receipts::paths::{
+    RUNX_CWD_ENV, RUNX_PROJECT_DIR_ENV, ReceiptPathInputs, resolve_receipt_path,
+};
 use crate::receipts::store::{LocalReceiptStore, ReceiptStoreError};
 use crate::receipts::{
     RuntimeReceiptSignatureConfig, StepReceiptWithDisposition,
@@ -31,6 +40,7 @@ use crate::receipts::{
 };
 
 const SKILL_RUN_SCHEMA: &str = "runx.skill_run.v1";
+const GRAPH_SKILL_STATE_SCHEMA: &str = "runx.graph_skill_state.v1";
 
 #[derive(Debug, Error)]
 pub enum SkillRunError {
@@ -71,6 +81,9 @@ pub(crate) fn execute_skill_run(request: &SkillRunRequest) -> Result<JsonValue, 
             invocation,
         );
     }
+    if runner.source.source_type == runx_parser::SourceKind::Graph {
+        return execute_graph_skill_run(request, &signature_config, &manifest, runner);
+    }
 
     execute_agent_skill_run(request, &signature_config, &manifest, runner, invocation)
 }
@@ -110,6 +123,472 @@ fn execute_agent_skill_run(
         &receipt,
         contract_json_value(&receipt)?,
     )))
+}
+
+fn execute_graph_skill_run(
+    request: &SkillRunRequest,
+    signature_config: &RuntimeReceiptSignatureConfig,
+    manifest: &SkillRunnerManifest,
+    runner: &SkillRunnerDefinition,
+) -> Result<JsonValue, SkillRunError> {
+    if request.local_credential.is_some() {
+        return Err(invalid(
+            "local credential process-env delivery is not supported for graph runners",
+        ));
+    }
+    let graph = runner
+        .source
+        .graph
+        .clone()
+        .ok_or_else(|| invalid("graph runner is missing source.graph"))?;
+    let graph = materialize_graph_inputs(graph, &request.inputs);
+    let run_id = graph_run_id(request, runner)?;
+    let skill_dir = resolve_skill_dir(&request.skill_path)?;
+    let env = graph_runtime_env(request, &skill_dir);
+    let runtime = Runtime::new(
+        SkillRunGraphAdapter,
+        RuntimeOptions {
+            created_at: crate::time::now_iso8601(),
+            env,
+            receipt_signature: signature_config.clone(),
+            payment_supervisor: Default::default(),
+        },
+    );
+    let answers = match &request.answers_path {
+        Some(path) => read_answers(path)?,
+        None => JsonObject::new(),
+    };
+    let mut host = SkillRunGraphHost::new(answers);
+    let mut checkpoint = if request.answers_path.is_some() {
+        read_graph_state(request, &run_id, &runner.name)?.checkpoint
+    } else {
+        runtime.run_graph_until_steps_with_host(&skill_dir, &graph, 0, &mut host)?
+    };
+
+    loop {
+        let previous_checkpoint = checkpoint.clone();
+        match runtime
+            .resume_graph_until_steps_with_host(&skill_dir, &graph, checkpoint, 1, &mut host)
+        {
+            Ok(next_checkpoint) => {
+                if next_checkpoint.state.status == GraphStatus::Succeeded {
+                    let mut final_host = SkillRunGraphHost::new(JsonObject::new());
+                    let run = runtime.resume_graph_with_host(
+                        &skill_dir,
+                        graph.clone(),
+                        previous_checkpoint,
+                        &mut final_host,
+                    )?;
+                    write_skill_receipt(request, &run.receipt, signature_config)?;
+                    let payload = graph_payload(&run)?;
+                    let output = graph_skill_output(&payload, &run)?;
+                    return Ok(JsonValue::Object(sealed_output(
+                        manifest,
+                        &run_id,
+                        &output,
+                        &payload,
+                        &run.receipt,
+                        contract_json_value(&run.receipt)?,
+                    )));
+                }
+                write_graph_state(
+                    request,
+                    &run_id,
+                    &GraphSkillRunState {
+                        schema: GRAPH_SKILL_STATE_SCHEMA.to_owned(),
+                        run_id: run_id.clone(),
+                        runner_name: runner.name.clone(),
+                        checkpoint: next_checkpoint.clone(),
+                    },
+                )?;
+                checkpoint = next_checkpoint;
+            }
+            Err(RuntimeError::GraphBlocked { .. }) if host.pending_request().is_some() => {
+                write_graph_state(
+                    request,
+                    &run_id,
+                    &GraphSkillRunState {
+                        schema: GRAPH_SKILL_STATE_SCHEMA.to_owned(),
+                        run_id: run_id.clone(),
+                        runner_name: runner.name.clone(),
+                        checkpoint: previous_checkpoint,
+                    },
+                )?;
+                let (request_id, request_value) = host
+                    .pending_request()
+                    .ok_or_else(|| invalid("graph blocked without pending request"))?;
+                return Ok(JsonValue::Object(needs_agent_output(
+                    &run_id,
+                    request_id,
+                    request_value.clone(),
+                )));
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct GraphSkillRunState {
+    schema: String,
+    run_id: String,
+    runner_name: String,
+    checkpoint: GraphCheckpoint,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct SkillRunGraphAdapter;
+
+impl crate::adapter::SkillAdapter for SkillRunGraphAdapter {
+    fn adapter_type(&self) -> &'static str {
+        "skill-run-graph"
+    }
+
+    fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
+        match request.source.source_type.as_str() {
+            "cli-tool" => invoke_graph_cli_tool(request),
+            "catalog" => invoke_graph_catalog_tool(request),
+            other => Err(RuntimeError::UnsupportedAdapter {
+                adapter_type: other.to_owned(),
+            }),
+        }
+    }
+}
+
+#[cfg(feature = "cli-tool")]
+fn invoke_graph_cli_tool(request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
+    CliToolAdapter.invoke(request)
+}
+
+#[cfg(not(feature = "cli-tool"))]
+fn invoke_graph_cli_tool(request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
+    Err(RuntimeError::UnsupportedAdapter {
+        adapter_type: request.source.source_type.as_str().to_owned(),
+    })
+}
+
+#[cfg(feature = "catalog")]
+fn invoke_graph_catalog_tool(request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
+    crate::adapters::catalog::CatalogAdapter::default().invoke(request)
+}
+
+#[cfg(not(feature = "catalog"))]
+fn invoke_graph_catalog_tool(request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
+    Err(RuntimeError::UnsupportedAdapter {
+        adapter_type: request.source.source_type.as_str().to_owned(),
+    })
+}
+
+#[derive(Default)]
+struct SkillRunGraphHost {
+    answers: JsonObject,
+    pending: Vec<(String, JsonValue)>,
+}
+
+impl SkillRunGraphHost {
+    fn new(answers: JsonObject) -> Self {
+        Self {
+            answers,
+            pending: Vec::new(),
+        }
+    }
+
+    fn pending_request(&self) -> Option<(&str, &JsonValue)> {
+        self.pending
+            .first()
+            .map(|(request_id, request)| (request_id.as_str(), request))
+    }
+}
+
+impl Host for SkillRunGraphHost {
+    fn report(&mut self, _event: runx_contracts::ExecutionEvent) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
+    fn resolve(
+        &mut self,
+        request: ResolutionRequest,
+    ) -> Result<Option<ResolutionResponse>, RuntimeError> {
+        let request_id = resolution_request_id(&request).to_owned();
+        if let Some(answer) = self.answers.get(&request_id) {
+            return Ok(Some(ResolutionResponse {
+                actor: ResolutionResponseActor::Agent,
+                payload: answer.clone(),
+            }));
+        }
+        let request_value = serde_json::to_value(&request)
+            .and_then(serde_json::from_value)
+            .map_err(|source| RuntimeError::json("serializing graph resolution request", source))?;
+        self.pending.push((request_id, request_value));
+        Ok(None)
+    }
+}
+
+fn resolution_request_id(request: &ResolutionRequest) -> &str {
+    match request {
+        ResolutionRequest::Input { id, .. }
+        | ResolutionRequest::Approval { id, .. }
+        | ResolutionRequest::AgentAct { id, .. } => id.as_str(),
+    }
+}
+
+fn graph_run_id(
+    request: &SkillRunRequest,
+    runner: &SkillRunnerDefinition,
+) -> Result<String, SkillRunError> {
+    match (&request.run_id, &request.answers_path) {
+        (Some(run_id), Some(_)) => Ok(run_id.clone()),
+        (Some(_), None) => Err(invalid("runx skill --run-id requires --answers")),
+        (None, Some(_)) => Err(invalid("runx skill --answers requires --run-id")),
+        (None, None) => {
+            let input_bytes = serde_json::to_vec(&request.inputs).unwrap_or_default();
+            let digest = sha256_hex(&input_bytes);
+            Ok(format!(
+                "run_{}_{}",
+                identifier_segment(&runner.name),
+                digest.chars().take(12).collect::<String>()
+            ))
+        }
+    }
+}
+
+fn graph_runtime_env(request: &SkillRunRequest, skill_dir: &Path) -> BTreeMap<String, String> {
+    let mut env = request.env.clone();
+    for key in ["PATH", "SystemRoot", "PATHEXT"] {
+        if !env.contains_key(key) {
+            if let Ok(value) = std::env::var(key) {
+                env.insert(key.to_owned(), value);
+            }
+        }
+    }
+    let cwd = request.cwd.to_string_lossy().into_owned();
+    env.entry(RUNX_CWD_ENV.to_owned())
+        .or_insert_with(|| cwd.clone());
+    env.entry(RUNX_PROJECT_DIR_ENV.to_owned()).or_insert(cwd);
+    if !env.contains_key("RUNX_TOOL_ROOTS") {
+        if let Some(joined) = inferred_tool_roots(skill_dir) {
+            env.insert("RUNX_TOOL_ROOTS".to_owned(), joined);
+        }
+    }
+    env
+}
+
+fn inferred_tool_roots(skill_dir: &Path) -> Option<String> {
+    let root = skill_dir
+        .parent()
+        .filter(|parent| parent.file_name().and_then(|name| name.to_str()) == Some("skills"))
+        .and_then(Path::parent)?;
+    let roots = [root.join("tools"), root.join("packages/cli/tools")]
+        .into_iter()
+        .filter(|path| path.is_dir())
+        .collect::<Vec<_>>();
+    if roots.is_empty() {
+        return None;
+    }
+    std::env::join_paths(roots)
+        .ok()
+        .map(|value| value.to_string_lossy().into_owned())
+}
+
+fn read_answers(path: &Path) -> Result<JsonObject, SkillRunError> {
+    let raw = fs::read_to_string(path)
+        .map_err(|source| RuntimeError::io(format!("reading {}", path.display()), source))?;
+    let value = serde_json::from_str::<JsonValue>(&raw).map_err(|source| {
+        RuntimeError::json(format!("parsing answers file {}", path.display()), source)
+    })?;
+    let answers = match value {
+        JsonValue::Object(mut object) => match object.remove("answers") {
+            Some(JsonValue::Object(nested)) => nested,
+            Some(_) => return Err(invalid("answers field must be a JSON object")),
+            None => object,
+        },
+        _ => return Err(invalid("answers file must be a JSON object")),
+    };
+    Ok(answers)
+}
+
+fn graph_state_path(request: &SkillRunRequest, run_id: &str) -> PathBuf {
+    let receipt_path = resolve_receipt_path(ReceiptPathInputs {
+        explicit_dir: request.receipt_dir.as_deref(),
+        runtime_config: None,
+        env: &request.env,
+        cwd: &request.cwd,
+    });
+    receipt_path
+        .path
+        .join("runs")
+        .join(format!("{}.graph-state.json", identifier_segment(run_id)))
+}
+
+fn write_graph_state(
+    request: &SkillRunRequest,
+    run_id: &str,
+    state: &GraphSkillRunState,
+) -> Result<(), SkillRunError> {
+    let path = graph_state_path(request, run_id);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|source| RuntimeError::io(format!("creating {}", parent.display()), source))?;
+    }
+    let bytes = serde_json::to_vec_pretty(state)
+        .map_err(|source| RuntimeError::json("serializing graph state", source))?;
+    fs::write(&path, bytes)
+        .map_err(|source| RuntimeError::io(format!("writing {}", path.display()), source))?;
+    Ok(())
+}
+
+fn read_graph_state(
+    request: &SkillRunRequest,
+    run_id: &str,
+    runner_name: &str,
+) -> Result<GraphSkillRunState, SkillRunError> {
+    let path = graph_state_path(request, run_id);
+    let raw = fs::read_to_string(&path)
+        .map_err(|source| RuntimeError::io(format!("reading {}", path.display()), source))?;
+    let state: GraphSkillRunState = serde_json::from_str(&raw)
+        .map_err(|source| RuntimeError::json(format!("parsing {}", path.display()), source))?;
+    if state.schema != GRAPH_SKILL_STATE_SCHEMA {
+        return Err(invalid(format!(
+            "graph state schema mismatch for run {run_id}: expected {GRAPH_SKILL_STATE_SCHEMA}, got {}",
+            state.schema
+        )));
+    }
+    if state.run_id != run_id {
+        return Err(invalid(format!(
+            "graph state run_id mismatch: expected {run_id}, got {}",
+            state.run_id
+        )));
+    }
+    if state.runner_name != runner_name {
+        return Err(invalid(format!(
+            "graph state runner_name mismatch for run {run_id}: expected {runner_name}, got {}",
+            state.runner_name
+        )));
+    }
+    Ok(state)
+}
+
+fn materialize_graph_inputs(
+    mut graph: ExecutionGraph,
+    graph_inputs: &BTreeMap<String, JsonValue>,
+) -> ExecutionGraph {
+    let graph_inputs = graph_inputs
+        .iter()
+        .map(|(key, value)| (key.clone(), value.clone()))
+        .collect::<JsonObject>();
+    for step in &mut graph.steps {
+        let mut inputs = graph_inputs.clone();
+        for (key, value) in &step.inputs {
+            inputs.insert(
+                key.clone(),
+                materialize_graph_input_value(value, &graph_inputs),
+            );
+        }
+        step.inputs = inputs;
+    }
+    graph
+}
+
+fn materialize_graph_input_value(value: &JsonValue, graph_inputs: &JsonObject) -> JsonValue {
+    match value {
+        JsonValue::String(value) => value
+            .strip_prefix("$input.")
+            .and_then(|path| resolve_json_path(graph_inputs, path))
+            .cloned()
+            .unwrap_or_else(|| JsonValue::String(value.clone())),
+        JsonValue::Array(values) => JsonValue::Array(
+            values
+                .iter()
+                .map(|value| materialize_graph_input_value(value, graph_inputs))
+                .collect(),
+        ),
+        JsonValue::Object(object) => JsonValue::Object(
+            object
+                .iter()
+                .map(|(key, value)| {
+                    (
+                        key.clone(),
+                        materialize_graph_input_value(value, graph_inputs),
+                    )
+                })
+                .collect(),
+        ),
+        other => other.clone(),
+    }
+}
+
+fn resolve_json_path<'a>(object: &'a JsonObject, path: &str) -> Option<&'a JsonValue> {
+    let mut segments = path.split('.');
+    let mut value = object.get(segments.next()?)?;
+    for segment in segments {
+        let JsonValue::Object(nested) = value else {
+            return None;
+        };
+        value = nested.get(segment)?;
+    }
+    Some(value)
+}
+
+fn graph_payload(run: &GraphRun) -> Result<JsonValue, SkillRunError> {
+    let mut payload = JsonObject::new();
+    payload.insert(
+        "graph".to_owned(),
+        JsonValue::String(run.graph.name.clone()),
+    );
+    payload.insert(
+        "graph_status".to_owned(),
+        JsonValue::String(format!("{:?}", run.state.status)),
+    );
+    let mut step_outputs = JsonObject::new();
+    let mut step_summaries = Vec::new();
+    for step in &run.steps {
+        let mut summary = JsonObject::new();
+        summary.insert(
+            "step_id".to_owned(),
+            JsonValue::String(step.step_id.clone()),
+        );
+        summary.insert("skill".to_owned(), JsonValue::String(step.skill.clone()));
+        summary.insert(
+            "status".to_owned(),
+            JsonValue::String(if step.output.succeeded() {
+                "success".to_owned()
+            } else {
+                "failure".to_owned()
+            }),
+        );
+        summary.insert(
+            "receipt_id".to_owned(),
+            JsonValue::String(step.receipt.id.to_string()),
+        );
+        step_summaries.push(JsonValue::Object(summary));
+        step_outputs.insert(
+            step.step_id.clone(),
+            JsonValue::Object(step.outputs.clone()),
+        );
+        for (key, value) in &step.outputs {
+            payload.entry(key.clone()).or_insert_with(|| value.clone());
+        }
+    }
+    payload.insert("steps".to_owned(), JsonValue::Array(step_summaries));
+    payload.insert("step_outputs".to_owned(), JsonValue::Object(step_outputs));
+    Ok(JsonValue::Object(payload))
+}
+
+fn graph_skill_output(payload: &JsonValue, run: &GraphRun) -> Result<SkillOutput, SkillRunError> {
+    let stdout = serde_json::to_string(payload)
+        .map_err(|source| RuntimeError::json("serializing graph payload", source))?;
+    Ok(SkillOutput {
+        status: if run.state.status == GraphStatus::Succeeded {
+            InvocationStatus::Success
+        } else {
+            InvocationStatus::Failure
+        },
+        stdout,
+        stderr: String::new(),
+        exit_code: Some(0),
+        duration_ms: 0,
+        metadata: JsonObject::new(),
+    })
 }
 
 fn agent_run_id(request: &SkillRunRequest, request_id: &str) -> Result<String, SkillRunError> {
@@ -200,10 +679,10 @@ fn runner_invocation(
 ) -> Result<SkillInvocation, SkillRunError> {
     if !matches!(
         runner.source.source_type.as_str(),
-        "agent" | "agent-step" | "cli-tool"
+        "agent" | "agent-step" | "cli-tool" | "graph"
     ) {
         return Err(invalid(format!(
-            "runx skill native execution only supports agent, agent-step, and cli-tool runners, got {}",
+            "runx skill native execution only supports agent, agent-step, graph, and cli-tool runners, got {}",
             runner.source.source_type
         )));
     }

@@ -83,9 +83,9 @@ fn envelope(
         run_id: "rx_pending".into(),
         step_id: None,
         skill: skill_name(request, source_type).into(),
-        instructions: "Resolve the runx agent act using the supplied inputs and context.".into(),
+        instructions: envelope_instructions(request).into(),
         inputs: request.inputs.clone(),
-        allowed_tools: Vec::new(),
+        allowed_tools: envelope_allowed_tools(request),
         current_context: Vec::new(),
         historical_context: Vec::new(),
         provenance: Vec::new(),
@@ -103,6 +103,35 @@ fn envelope(
     })
 }
 
+fn envelope_instructions(request: &SkillInvocation) -> String {
+    request
+        .source
+        .raw
+        .get("instructions")
+        .and_then(json_string)
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_owned)
+        .unwrap_or_else(|| {
+            "Resolve the runx agent act using the supplied inputs and context.".to_owned()
+        })
+}
+
+fn envelope_allowed_tools(request: &SkillInvocation) -> Vec<NonEmptyString> {
+    request
+        .source
+        .raw
+        .get("allowed_tools")
+        .and_then(json_array)
+        .map(|tools| {
+            tools
+                .iter()
+                .filter_map(json_string)
+                .filter_map(|value| NonEmptyString::new(value.to_owned()))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
 fn optional_non_empty(value: Option<&str>) -> Option<NonEmptyString> {
     value.and_then(NonEmptyString::new)
 }
@@ -113,6 +142,20 @@ fn output_contract(raw: &JsonObject) -> Result<BTreeMap<String, OutputField>, Ru
     let Output(output) = serde_json::from_value(value)
         .map_err(|source| RuntimeError::json("parsing agent output contract", source))?;
     Ok(output)
+}
+
+fn json_array(value: &JsonValue) -> Option<&Vec<JsonValue>> {
+    match value {
+        JsonValue::Array(values) => Some(values),
+        _ => None,
+    }
+}
+
+fn json_string(value: &JsonValue) -> Option<&str> {
+    match value {
+        JsonValue::String(value) => Some(value),
+        _ => None,
+    }
 }
 
 fn execution_location(skill_directory: &Path, env: &BTreeMap<String, String>) -> ExecutionLocation {

@@ -4,11 +4,11 @@
 use std::path::Path;
 
 use runx_contracts::{
-    ApprovalGate, AuthorityVerb, ExecutionEvent, JsonObject, JsonValue, ProofKind,
-    ResolutionRequest, ResolutionResponseActor,
+    ApprovalGate, AuthorityVerb, ClosureDisposition, ExecutionEvent, JsonObject, JsonValue,
+    ProofKind, ResolutionRequest, ResolutionResponse, ResolutionResponseActor,
 };
 use runx_core::state_machine::StepAdmissionWitness;
-use runx_parser::GraphStep;
+use runx_parser::{GraphStep, SkillSource, SourceKind};
 
 use super::super::graph::{load_skill, output_object, resolve_inputs, skill_dir};
 use super::authority::{
@@ -21,13 +21,21 @@ use super::inputs::{optional_input_string, required_input_string, string_value, 
 use super::{Runtime, StepRun};
 use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
+#[cfg(feature = "catalog")]
+use crate::adapters::catalog::CatalogAdapter;
+use crate::agent_invocation::{
+    AgentActInvocationSourceType, agent_act_invocation_id, agent_act_resolution_request,
+};
 use crate::approval::{ApprovalResolution, request_approval};
 use crate::host::Host;
 use crate::payment::state::{PaymentStepStateInput, persist_payment_step_state};
 use crate::payment::supervisor::{
     PaymentSupervisorProof, insert_payment_supervisor_proof_metadata,
 };
-use crate::receipts::step_receipt_with_signature_policy;
+use crate::receipts::{
+    StepReceiptWithDisposition, step_receipt_with_disposition_and_policy,
+    step_receipt_with_signature_policy,
+};
 
 const EXTERNAL_ADAPTER_HOST_RESOLUTION_REQUEST_METADATA: &str =
     "external_adapter_host_resolution_request";
@@ -64,7 +72,10 @@ where
     let authority =
         enforce_step_authority_admission(step, &inputs, &runtime.options.env, graph_dir)?;
     if step.run.is_some() {
-        return run_native_step(runtime, graph_name, step, attempt, inputs, host);
+        return run_native_step(runtime, graph_dir, graph_name, step, attempt, inputs, host);
+    }
+    if step.tool.is_some() {
+        return run_tool_step(runtime, graph_dir, graph_name, step, attempt, inputs);
     }
 
     let skill_dir = skill_dir(graph_dir, step)?;
@@ -394,6 +405,7 @@ fn receipt_has_payment_rail_proof(receipt: &runx_contracts::Receipt, rail_proof_
 
 pub(super) fn run_native_step<A>(
     runtime: &Runtime<A>,
+    graph_dir: &Path,
     graph_name: &str,
     step: &GraphStep,
     attempt: u32,
@@ -406,10 +418,333 @@ where
     let run_type = run_type(step)?;
     match run_type.as_str() {
         "approval" => run_approval_step(runtime, graph_name, step, attempt, inputs, host),
+        "agent-step" => run_agent_step(runtime, graph_dir, graph_name, step, attempt, inputs, host),
         other => Err(RuntimeError::UnsupportedRunStep {
             step_id: step.id.clone(),
             run_type: other.to_owned(),
         }),
+    }
+}
+
+fn run_agent_step<A>(
+    runtime: &Runtime<A>,
+    graph_dir: &Path,
+    graph_name: &str,
+    step: &GraphStep,
+    attempt: u32,
+    inputs: JsonObject,
+    host: &mut dyn Host,
+) -> Result<StepRun, RuntimeError>
+where
+    A: SkillAdapter,
+{
+    let source = agent_step_source(step)?;
+    let invocation = SkillInvocation {
+        skill_name: step.id.clone(),
+        source,
+        inputs,
+        resolved_inputs: JsonObject::new(),
+        skill_directory: graph_dir.to_path_buf(),
+        env: runtime.options.env.clone(),
+        credential_delivery: crate::credentials::CredentialDelivery::none(),
+    };
+    let source_type = AgentActInvocationSourceType::AgentStep;
+    let request_id = agent_act_invocation_id(&invocation, source_type);
+    let request = agent_act_resolution_request(&invocation, source_type)?;
+    host.report(ExecutionEvent::ResolutionRequested {
+        message: format!("agent step '{}' requested resolution", step.id),
+        data: Some(resolution_event_data(step, &request)?),
+    })?;
+    let Some(response) = host.resolve(request)? else {
+        return Err(RuntimeError::GraphBlocked {
+            step_id: step.id.clone(),
+            reason: format!("agent act {request_id} requires resolution"),
+        });
+    };
+    let output = agent_step_output(response)?;
+    let outputs = output_object(&output);
+    let disposition = agent_answer_disposition(&outputs);
+    let disposition_label = closure_disposition_label(&disposition);
+    let receipt = step_receipt_with_disposition_and_policy(
+        StepReceiptWithDisposition {
+            graph_name,
+            step_id: &step.id,
+            attempt,
+            output: &output,
+            created_at: &runtime.options.created_at,
+            disposition,
+            reason_code: format!("agent_act_{disposition_label}"),
+            summary: format!("agent act closed with {disposition_label}"),
+        },
+        runtime.options.signature_policy(),
+    )?;
+    let admission_witness = StepAdmissionWitness::local_runtime(&step.id, receipt.id.as_str());
+    Ok(StepRun {
+        step_id: step.id.clone(),
+        attempt,
+        skill: "run:agent-step".to_owned(),
+        runner: step.runner.clone(),
+        fanout_group: step.fanout_group.clone(),
+        output,
+        outputs,
+        receipt,
+        admission_witness,
+    })
+}
+
+fn agent_step_source(step: &GraphStep) -> Result<SkillSource, RuntimeError> {
+    let Some(run) = &step.run else {
+        return Err(RuntimeError::InvalidRunStep {
+            step_id: step.id.clone(),
+            reason: "missing run configuration".to_owned(),
+        });
+    };
+    let mut raw = run.clone();
+    if let Some(instructions) = &step.instructions {
+        raw.insert(
+            "instructions".to_owned(),
+            JsonValue::String(instructions.clone()),
+        );
+    }
+    if let Some(allowed_tools) = &step.allowed_tools {
+        raw.insert(
+            "allowed_tools".to_owned(),
+            JsonValue::Array(
+                allowed_tools
+                    .iter()
+                    .cloned()
+                    .map(JsonValue::String)
+                    .collect(),
+            ),
+        );
+    }
+    Ok(SkillSource {
+        source_type: SourceKind::AgentStep,
+        command: None,
+        args: Vec::new(),
+        cwd: None,
+        timeout_seconds: None,
+        input_mode: None,
+        sandbox: None,
+        server: None,
+        catalog_ref: None,
+        tool: None,
+        arguments: None,
+        agent_card_url: None,
+        agent_identity: None,
+        agent: optional_string(run, "agent"),
+        task: optional_string(run, "task"),
+        hook: None,
+        outputs: optional_object(run, "outputs"),
+        graph: None,
+        raw,
+    })
+}
+
+fn run_tool_step<A>(
+    runtime: &Runtime<A>,
+    graph_dir: &Path,
+    graph_name: &str,
+    step: &GraphStep,
+    attempt: u32,
+    inputs: JsonObject,
+) -> Result<StepRun, RuntimeError>
+where
+    A: SkillAdapter,
+{
+    #[cfg(not(feature = "catalog"))]
+    {
+        let _ = (runtime, graph_dir, graph_name, step, attempt, inputs);
+        return Err(RuntimeError::UnsupportedAdapter {
+            adapter_type: "catalog".to_owned(),
+        });
+    }
+
+    #[cfg(feature = "catalog")]
+    {
+        let tool_ref = step
+            .tool
+            .as_deref()
+            .ok_or_else(|| RuntimeError::InvalidRunStep {
+                step_id: step.id.clone(),
+                reason: "tool step missing tool reference".to_owned(),
+            })?;
+        let invocation = SkillInvocation {
+            skill_name: tool_ref.to_owned(),
+            source: catalog_source(tool_ref),
+            inputs,
+            resolved_inputs: JsonObject::new(),
+            skill_directory: graph_dir.to_path_buf(),
+            env: runtime.options.env.clone(),
+            credential_delivery: crate::credentials::CredentialDelivery::none(),
+        };
+        let output = CatalogAdapter::default().invoke(invocation)?;
+        let outputs = output_object(&output);
+        let receipt = step_receipt_with_signature_policy(
+            graph_name,
+            &step.id,
+            attempt,
+            &output,
+            &runtime.options.created_at,
+            runtime.options.signature_policy(),
+        )?;
+        let admission_witness = StepAdmissionWitness::local_runtime(&step.id, receipt.id.as_str());
+        Ok(StepRun {
+            step_id: step.id.clone(),
+            attempt,
+            skill: format!("tool:{tool_ref}"),
+            runner: step.runner.clone(),
+            fanout_group: step.fanout_group.clone(),
+            output,
+            outputs,
+            receipt,
+            admission_witness,
+        })
+    }
+}
+
+#[cfg(feature = "catalog")]
+#[cfg(feature = "catalog")]
+fn catalog_source(tool_ref: &str) -> SkillSource {
+    let mut raw = JsonObject::new();
+    raw.insert("type".to_owned(), JsonValue::String("catalog".to_owned()));
+    raw.insert(
+        "catalog_ref".to_owned(),
+        JsonValue::String(tool_ref.to_owned()),
+    );
+    SkillSource {
+        source_type: SourceKind::Catalog,
+        command: None,
+        args: Vec::new(),
+        cwd: None,
+        timeout_seconds: None,
+        input_mode: None,
+        sandbox: None,
+        server: None,
+        catalog_ref: Some(tool_ref.to_owned()),
+        tool: None,
+        arguments: None,
+        agent_card_url: None,
+        agent_identity: None,
+        agent: None,
+        task: None,
+        hook: None,
+        outputs: None,
+        graph: None,
+        raw,
+    }
+}
+
+fn agent_step_output(response: ResolutionResponse) -> Result<SkillOutput, RuntimeError> {
+    let disposition = agent_answer_disposition_value(&response.payload);
+    let succeeded = disposition == ClosureDisposition::Closed;
+    let stdout = serde_json::to_string(&response.payload)
+        .map_err(|source| RuntimeError::json("serializing agent-step response", source))?;
+    Ok(SkillOutput {
+        status: if succeeded {
+            InvocationStatus::Success
+        } else {
+            InvocationStatus::Failure
+        },
+        stdout,
+        stderr: if succeeded {
+            String::new()
+        } else {
+            format!(
+                "agent act closed with {}",
+                closure_disposition_label(&disposition)
+            )
+        },
+        exit_code: succeeded.then_some(0),
+        duration_ms: 0,
+        metadata: JsonObject::new(),
+    })
+}
+
+fn resolution_event_data(
+    step: &GraphStep,
+    request: &ResolutionRequest,
+) -> Result<JsonValue, RuntimeError> {
+    let request_value = serde_json::to_value(request)
+        .and_then(serde_json::from_value)
+        .map_err(|source| RuntimeError::json("serializing agent-step request", source))?;
+    let mut data = JsonObject::new();
+    data.insert("step_id".to_owned(), JsonValue::String(step.id.clone()));
+    data.insert("request".to_owned(), request_value);
+    Ok(JsonValue::Object(data))
+}
+
+fn optional_string(object: &JsonObject, field: &str) -> Option<String> {
+    object.get(field).and_then(json_string).map(str::to_owned)
+}
+
+fn optional_object(object: &JsonObject, field: &str) -> Option<JsonObject> {
+    match object.get(field) {
+        Some(JsonValue::Object(value)) => Some(value.clone()),
+        _ => None,
+    }
+}
+
+fn json_string(value: &JsonValue) -> Option<&str> {
+    match value {
+        JsonValue::String(value) => Some(value),
+        _ => None,
+    }
+}
+
+fn agent_answer_disposition(outputs: &JsonObject) -> ClosureDisposition {
+    match outputs
+        .get("closure")
+        .and_then(json_object)
+        .and_then(|closure| closure.get("disposition"))
+        .and_then(json_string)
+    {
+        Some("deferred") => ClosureDisposition::Deferred,
+        Some("superseded") => ClosureDisposition::Superseded,
+        Some("declined") => ClosureDisposition::Declined,
+        Some("blocked") => ClosureDisposition::Blocked,
+        Some("failed") => ClosureDisposition::Failed,
+        Some("killed") => ClosureDisposition::Killed,
+        Some("timed_out") => ClosureDisposition::TimedOut,
+        _ => ClosureDisposition::Closed,
+    }
+}
+
+fn agent_answer_disposition_value(answer: &JsonValue) -> ClosureDisposition {
+    match json_object(answer)
+        .and_then(|object| object.get("closure"))
+        .and_then(json_object)
+        .and_then(|closure| closure.get("disposition"))
+        .and_then(json_string)
+    {
+        Some("deferred") => ClosureDisposition::Deferred,
+        Some("superseded") => ClosureDisposition::Superseded,
+        Some("declined") => ClosureDisposition::Declined,
+        Some("blocked") => ClosureDisposition::Blocked,
+        Some("failed") => ClosureDisposition::Failed,
+        Some("killed") => ClosureDisposition::Killed,
+        Some("timed_out") => ClosureDisposition::TimedOut,
+        _ => ClosureDisposition::Closed,
+    }
+}
+
+fn json_object(value: &JsonValue) -> Option<&JsonObject> {
+    match value {
+        JsonValue::Object(object) => Some(object),
+        _ => None,
+    }
+}
+
+fn closure_disposition_label(disposition: &ClosureDisposition) -> &'static str {
+    match disposition {
+        ClosureDisposition::Closed => "closed",
+        ClosureDisposition::Deferred => "deferred",
+        ClosureDisposition::Superseded => "superseded",
+        ClosureDisposition::Declined => "declined",
+        ClosureDisposition::Blocked => "blocked",
+        ClosureDisposition::Failed => "failed",
+        ClosureDisposition::Killed => "killed",
+        ClosureDisposition::TimedOut => "timed_out",
     }
 }
 

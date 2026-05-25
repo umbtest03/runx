@@ -23,12 +23,12 @@ pub const JOURNAL_PROJECTOR_ID: &str = "runx-runtime.local-journal.v1";
 pub const HISTORY_PROJECTOR_ID: &str = "runx-runtime.local-history.v1";
 pub const RECEIPT_REF_PREFIX: &str = "runx:receipt:";
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct JournalEntry {
     pub event: ExecutionEvent,
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct ExecutionJournal {
     entries: Vec<JournalEntry>,
 }
@@ -1008,13 +1008,7 @@ fn compare_optional_timestamp_desc(
 }
 
 fn subject_state(_kind: &ReceiptSubjectKind, disposition: &ClosureDisposition) -> String {
-    // The eleven-state machine collapses to one durable invariant: a receipt is
-    // either suspended (deferred) or terminally sealed.
-    if matches!(disposition, ClosureDisposition::Deferred) {
-        "deferred".to_owned()
-    } else {
-        "sealed".to_owned()
-    }
+    disposition_status(disposition)
 }
 
 fn disposition_status(disposition: &ClosureDisposition) -> String {

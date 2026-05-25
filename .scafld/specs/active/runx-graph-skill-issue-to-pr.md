@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: runx-graph-skill-issue-to-pr
 created: '2026-05-25T07:52:32Z'
-updated: '2026-05-25T07:54:21Z'
+updated: '2026-05-25T18:18:00+10:00'
 status: active
 harden_status: passed
 size: medium
@@ -15,11 +15,13 @@ risk_level: high
 
 Status: active
 Current phase: phase1
-Next: build
-Reason: phase phase1 opened
-Blockers: none
+Next: validate issue-to-pr doctor output and live Nitrosend dogfood
+Reason: Rust graph-backed skill execution is implemented for inline
+agent-step, nested cli-tool skills, and local manifest-backed tool steps.
+Focused runtime tests are the local gate; doctor and live dogfood remain open.
+Blockers: live Nitrosend workflow dispatch is not yet recorded.
 Allowed follow-up command: `scafld handoff runx-graph-skill-issue-to-pr`
-Latest runner update: 2026-05-25T07:54:21Z
+Latest runner update: 2026-05-25T18:18:00+10:00
 Review gate: not_started
 
 ## Summary
@@ -105,8 +107,8 @@ boundaries expected by the latest runx contracts.
 Profile: standard
 
 Validation:
-- `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test skill_run`
-- `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test hello_graph`
+- `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool,catalog --test skill_run`
+- `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool,catalog --test hello_graph`
 - `./crates/target/debug/runx doctor skills/issue-to-pr --json`
 - Nitrosend wrapper tests with `RUNX_BIN` pointing at the fixed Rust binary
 - Live Nitrosend issue intake workflow dispatch for the Slack-origin Stripe
@@ -123,21 +125,31 @@ Changes:
 - Dispatch graph-source skill runners to the Rust graph runtime.
 - Persist and reload graph continuation state for caller-mediated agent-step answers.
 - Add native graph step support for inline `agent-step` and local tool manifests.
+- Execute graph child skills through the Rust adapter without falling back to
+  fixture catalogs.
 - Package final graph outputs so callers can find draft PR and source-thread publication results.
 
 Acceptance:
-- [ ] `ac1` command - Runtime skill tests
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test skill_run`
+- [x] `ac1` command - Runtime skill tests
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool,catalog --test skill_run`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `ac2` command - Graph runtime smoke tests
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test hello_graph`
+  - Status: passed
+  - Evidence: 2026-05-25T18:21+10:00 passed 10 tests, covering agent-step
+    pause/resume, checkpoint identity validation, local manifest-backed tool
+    steps, nested cli-tool child skills, production signing env, and standard
+    skill-run paths.
+- [x] `ac2` command - Graph runtime smoke tests
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool,catalog --test hello_graph`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `ac3` command - Issue-to-PR manifest validation
-  - Command: `./crates/target/debug/runx doctor skills/issue-to-pr --json`
+  - Status: passed
+  - Evidence: 2026-05-25T18:21+10:00 passed 2 tests and validated the graph
+    receipt tree.
+- [x] `ac3` command - Issue-to-PR manifest validation
+  - Command: `cargo run --manifest-path crates/Cargo.toml -p runx-cli -- doctor skills/issue-to-pr --json`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: passed
+  - Evidence: 2026-05-25T18:22+10:00 doctor returned
+    `runx.doctor.v1` with status `success`, 0 errors, 0 warnings, 0 infos.
 - [ ] `ac4` manual - Live Nitrosend dogfood
   - Command: `gh workflow run issue-intake.yml --repo nitrosend/nitrosend --ref main -f issue_number=187 -f publish=true -f source_repo=nitrosend/nitrosend`
   - Expected kind: `exit_code_zero`

@@ -66,11 +66,11 @@ fn invoke_local_tool(
     started: Instant,
 ) -> Result<Option<SkillOutput>, RuntimeError> {
     let resolution = match resolve_local_tool(&ToolInspectOptions {
-        root: request.skill_directory.clone(),
+        root: workspace_root(&request.env, &request.skill_directory),
         tool_ref: catalog_ref.to_owned(),
         source: None,
         search_from_directory: request.skill_directory.clone(),
-        tool_roots: Vec::new(),
+        tool_roots: configured_tool_roots(&request.env),
         fixture_catalog_enabled: false,
     }) {
         Ok(resolution) => resolution,
@@ -101,6 +101,23 @@ fn invoke_local_tool(
         credential_delivery: request.credential_delivery.clone(),
     };
     Ok(Some(CliToolAdapter.invoke(invocation)?))
+}
+
+fn configured_tool_roots(env: &std::collections::BTreeMap<String, String>) -> Vec<PathBuf> {
+    env.get("RUNX_TOOL_ROOTS")
+        .map(|value| {
+            std::env::split_paths(value)
+                .filter(|path| !path.as_os_str().is_empty())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn workspace_root(env: &std::collections::BTreeMap<String, String>, fallback: &Path) -> PathBuf {
+    env.get("RUNX_CWD")
+        .or_else(|| env.get("RUNX_PROJECT_DIR"))
+        .map(PathBuf::from)
+        .unwrap_or_else(|| fallback.to_path_buf())
 }
 
 fn local_lookup_miss(error: &ToolCatalogError) -> bool {

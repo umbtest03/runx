@@ -13,6 +13,7 @@ use runx_contracts::{
 };
 use runx_core::state_machine::{SequentialGraphState, StepAdmissionWitness};
 use runx_parser::ExecutionGraph;
+use serde::{Deserialize, Serialize};
 
 use super::graph::load_graph;
 use crate::RuntimeError;
@@ -22,6 +23,7 @@ use crate::journal::ExecutionJournal;
 use crate::payment::supervisor::RuntimePaymentSupervisor;
 use crate::receipts::paths::{RUNX_CWD_ENV, RUNX_PROJECT_DIR_ENV, RUNX_RECEIPT_DIR_ENV};
 use crate::receipts::{
+    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_KID_ENV,
     RuntimeReceiptSignatureConfig, RuntimeReceiptSignaturePolicy,
     graph_receipt_with_disposition_and_policy, graph_receipt_with_signature_policy,
 };
@@ -64,21 +66,29 @@ impl RuntimeOptions {
 }
 
 fn safe_default_env() -> BTreeMap<String, String> {
+    safe_default_env_from(|key| std::env::var(key).ok())
+}
+
+fn safe_default_env_from(
+    mut value_for_key: impl FnMut(&str) -> Option<String>,
+) -> BTreeMap<String, String> {
     let allowed = [
         "PATH",
         "SystemRoot",
         "PATHEXT",
         RUNX_RECEIPT_DIR_ENV,
+        RUNX_RECEIPT_SIGN_KID_ENV,
+        RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV,
         RUNX_PROJECT_DIR_ENV,
         RUNX_CWD_ENV,
     ];
     allowed
         .into_iter()
-        .filter_map(|key| std::env::var(key).ok().map(|value| (key.to_owned(), value)))
+        .filter_map(|key| value_for_key(key).map(|value| (key.to_owned(), value)))
         .collect()
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StepRun {
     pub step_id: String,
     pub attempt: u32,
@@ -101,7 +111,7 @@ pub struct GraphRun {
     pub journal: ExecutionJournal,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GraphCheckpoint {
     pub graph_name: String,
     pub state: SequentialGraphState,
@@ -320,4 +330,29 @@ pub fn run_graph_file(graph_path: impl AsRef<Path>) -> Result<GraphRun, RuntimeE
         RuntimeOptions::default(),
     );
     runtime.run_graph_file(graph_path.as_ref())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_KID_ENV, safe_default_env_from,
+    };
+
+    #[test]
+    fn safe_default_env_preserves_receipt_signing_inputs() {
+        let env = safe_default_env_from(|key| match key {
+            RUNX_RECEIPT_SIGN_KID_ENV => Some("kid_prod".to_owned()),
+            RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV => Some("seed".to_owned()),
+            _ => None,
+        });
+
+        assert_eq!(
+            env.get(RUNX_RECEIPT_SIGN_KID_ENV),
+            Some(&"kid_prod".to_owned())
+        );
+        assert_eq!(
+            env.get(RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV),
+            Some(&"seed".to_owned())
+        );
+    }
 }
