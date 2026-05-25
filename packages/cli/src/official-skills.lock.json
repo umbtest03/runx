@@ -66,8 +66,8 @@
   },
   {
     "skill_id": "runx/issue-to-pr",
-    "version": "sha-8b5d3246bf8d",
-    "digest": "080c59b4d6884c059eb6360e0f700f1cdb15513d61ebaf2ed40878886806b660"
+    "version": "sha-046724245069",
+    "digest": "d02a7fde9baed6f3eb0c0a9ba59d64499c633431b57683b1258dca8b63b48dae"
   },
   {
     "skill_id": "runx/issue-triage",
@@ -241,13 +241,13 @@
   },
   {
     "skill_id": "runx/work-plan",
-    "version": "sha-5754fe0df7c6",
-    "digest": "50695dabec35905a323f32978ba6309fde4bf74d3cdcae40c08d7d48078a3f6e"
+    "version": "sha-bccb0e205626",
+    "digest": "ba007b997503258ca52e6a067e0dd6ed12ec7250add5dae35e048663b2a502a2"
   },
   {
     "skill_id": "runx/write-harness",
-    "version": "sha-1d1cdadf267d",
-    "digest": "36f3688bf51cf497d6bee4a1272bd7bd283422521c894f9607c65a9f927f38c1"
+    "version": "sha-456390cd765d",
+    "digest": "f4fbf60192335baff43a5d50f3702a17f96a42a25d69508f457cf0e396320528"
   },
   {
     "skill_id": "runx/x402-pay",

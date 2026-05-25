@@ -20,6 +20,7 @@ use crate::registry::local::trust::{
 use crate::registry::local::util::{
     missing_field, now_iso8601, required_string, validate_publisher, validate_source_metadata,
 };
+use crate::registry::sign_registry_manifest;
 
 pub fn build_registry_skill_version(
     markdown: &str,
@@ -33,6 +34,13 @@ pub fn build_registry_skill_version(
     let defaults = registry_version_defaults(&digest, binding.digest.as_deref(), options);
     let manifest = binding.manifest.as_ref();
     let skill_id = build_skill_id(&defaults.owner, &skill.name)?;
+    let signed_manifest = registry_signed_manifest(
+        &skill_id,
+        &defaults.version,
+        &digest,
+        binding.digest.as_deref(),
+        options,
+    )?;
     Ok(RegistrySkillVersion {
         skill_id,
         owner: defaults.owner,
@@ -40,6 +48,7 @@ pub fn build_registry_skill_version(
         description: skill.description.clone(),
         version: defaults.version,
         digest,
+        signed_manifest,
         markdown: markdown.to_owned(),
         profile_document: options.profile_document.clone(),
         profile_digest: binding.digest,
@@ -64,6 +73,28 @@ pub fn build_registry_skill_version(
         created_at: defaults.created_at,
         updated_at: now_iso8601(),
     })
+}
+
+fn registry_signed_manifest(
+    skill_id: &str,
+    version: &str,
+    digest: &str,
+    profile_digest: Option<&str>,
+    options: &IngestSkillOptions,
+) -> Result<Option<super::super::types::RegistrySignedManifest>, LocalRegistryError> {
+    let Some(key) = options.manifest_signing_key.as_ref() else {
+        return Ok(None);
+    };
+    let profile_digest = profile_digest.map(|profile_digest| format!("sha256:{profile_digest}"));
+    sign_registry_manifest(
+        key,
+        skill_id,
+        version,
+        &format!("sha256:{digest}"),
+        profile_digest.as_deref(),
+    )
+    .map(Some)
+    .map_err(Into::into)
 }
 
 struct RegistryVersionDefaults {
@@ -169,18 +200,67 @@ pub(super) fn registry_tags(
 pub fn normalize_registry_skill_version(
     payload: RegistrySkillVersionPayload,
 ) -> Result<RegistrySkillVersion, LocalRegistryError> {
-    let owner = required_string(payload.owner, "registry_version.owner")?;
-    let created_at = required_string(payload.created_at, "registry_version.created_at")?;
+    let governance = normalize_registry_version_governance(&payload)?;
+    Ok(RegistrySkillVersion {
+        skill_id: required_string(payload.skill_id, "registry_version.skill_id")?,
+        owner: governance.owner,
+        name: required_string(payload.name, "registry_version.name")?,
+        description: payload.description,
+        version: required_string(payload.version, "registry_version.version")?,
+        digest: required_string(payload.digest, "registry_version.digest")?,
+        signed_manifest: payload.signed_manifest,
+        markdown: required_string(payload.markdown, "registry_version.markdown")?,
+        profile_document: payload.profile_document,
+        profile_digest: payload.profile_digest,
+        runner_names: payload.runner_names.unwrap_or_default(),
+        source_type: required_string(payload.source_type, "registry_version.source_type")?,
+        trust_tier: governance.trust_tier,
+        // Preserved through re-ingest; defaults to the Alpha floor when absent.
+        maturity: payload.maturity.unwrap_or_default(),
+        catalog_kind: Some(governance.catalog.kind.as_str().to_owned()),
+        catalog_audience: Some(governance.catalog.audience.as_str().to_owned()),
+        catalog_visibility: Some(governance.catalog.visibility.as_str().to_owned()),
+        source_metadata: governance.source_metadata,
+        attestations: governance.attestations,
+        required_scopes: payload.required_scopes.unwrap_or_default(),
+        runtime: payload.runtime,
+        auth: payload.auth,
+        risk: payload.risk,
+        runx: payload.runx,
+        tags: payload.tags.unwrap_or_default(),
+        publisher: governance.publisher,
+        updated_at: governance.updated_at,
+        created_at: governance.created_at,
+    })
+}
+
+struct NormalizedRegistryVersionGovernance {
+    owner: String,
+    created_at: String,
+    publisher: RegistryPublisher,
+    trust_tier: TrustTier,
+    source_metadata: Option<RegistrySourceMetadata>,
+    attestations: Vec<RegistryAttestation>,
+    catalog: runx_parser::CatalogMetadata,
+    updated_at: String,
+}
+
+fn normalize_registry_version_governance(
+    payload: &RegistrySkillVersionPayload,
+) -> Result<NormalizedRegistryVersionGovernance, LocalRegistryError> {
+    let owner = required_string(payload.owner.clone(), "registry_version.owner")?;
+    let created_at = required_string(payload.created_at.clone(), "registry_version.created_at")?;
     let publisher = validate_publisher(
         payload
             .publisher
+            .clone()
             .ok_or_else(|| missing_field("registry_version.publisher"))?,
         "registry_version.publisher",
     )?;
-    let trust_tier = payload.trust_tier.unwrap_or(TrustTier::Community);
-    let source_metadata = normalize_source_metadata(payload.source_metadata)?;
+    let trust_tier = payload.trust_tier.clone().unwrap_or(TrustTier::Community);
+    let source_metadata = normalize_source_metadata(payload.source_metadata.clone())?;
     let attestations = normalize_attestations(
-        payload.attestations.unwrap_or_default(),
+        payload.attestations.clone().unwrap_or_default(),
         source_metadata.as_ref(),
         &publisher,
         &trust_tier,
@@ -193,37 +273,19 @@ pub fn normalize_registry_skill_version(
     );
     let updated_at = payload
         .updated_at
+        .as_ref()
         .filter(|value| !value.is_empty())
+        .cloned()
         .unwrap_or_else(|| created_at.clone());
-    Ok(RegistrySkillVersion {
-        skill_id: required_string(payload.skill_id, "registry_version.skill_id")?,
+    Ok(NormalizedRegistryVersionGovernance {
         owner,
-        name: required_string(payload.name, "registry_version.name")?,
-        description: payload.description,
-        version: required_string(payload.version, "registry_version.version")?,
-        digest: required_string(payload.digest, "registry_version.digest")?,
-        markdown: required_string(payload.markdown, "registry_version.markdown")?,
-        profile_document: payload.profile_document,
-        profile_digest: payload.profile_digest,
-        runner_names: payload.runner_names.unwrap_or_default(),
-        source_type: required_string(payload.source_type, "registry_version.source_type")?,
+        created_at,
+        publisher,
         trust_tier,
-        // Preserved through re-ingest; defaults to the Alpha floor when absent.
-        maturity: payload.maturity.unwrap_or_default(),
-        catalog_kind: Some(catalog.kind.as_str().to_owned()),
-        catalog_audience: Some(catalog.audience.as_str().to_owned()),
-        catalog_visibility: Some(catalog.visibility.as_str().to_owned()),
         source_metadata,
         attestations,
-        required_scopes: payload.required_scopes.unwrap_or_default(),
-        runtime: payload.runtime,
-        auth: payload.auth,
-        risk: payload.risk,
-        runx: payload.runx,
-        tags: payload.tags.unwrap_or_default(),
-        publisher,
+        catalog,
         updated_at,
-        created_at,
     })
 }
 
@@ -263,6 +325,7 @@ pub struct RegistrySkillVersionPayload {
     description: Option<String>,
     version: Option<String>,
     digest: Option<String>,
+    signed_manifest: Option<super::super::types::RegistrySignedManifest>,
     markdown: Option<String>,
     profile_document: Option<String>,
     profile_digest: Option<String>,

@@ -42,7 +42,7 @@ Use the id from the previous command as a history query:
 crates/target/debug/runx history <receipt-id> --json
 ```
 
-The history projection should show a `runx.harness_receipt.v1` receipt. In
+The history projection should show a `runx.receipt.v1` receipt. In
 local development that receipt is structurally checked but not
 production-verified, because the default deterministic pseudo signature is only
 for stable local fixtures. It is still durable evidence that runx executed the

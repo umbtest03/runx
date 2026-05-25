@@ -69,7 +69,7 @@ condition, action, and exit artifact.
 - `change_set`: the parent change artifact inherited from intake or constructed
   for the objective when intake did not already produce one. It should preserve
   the shared objective, target surfaces, invariants, and success criteria.
-- `harness_context`: when supplied, the same `runx.harness_receipt.v1` packet with state
+- `harness_context`: when supplied, the same `runx.receipt.v1` packet with state
   advanced to `planning_ready` or `blocked`. Preserve source events, dedupe,
   and triage fields rather than reconstructing them from prose.
 - `objective_summary`: one sentence capturing the deliverable.

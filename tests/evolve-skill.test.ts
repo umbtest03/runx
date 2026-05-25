@@ -123,7 +123,7 @@ describe("evolve skill", () => {
       };
       expect(report.status).toBe("success");
       expect(report.receipt).toMatchObject({
-        schema: "runx.harness_receipt.v1",
+        schema: "runx.receipt.v1",
       });
 
       const ledger = await readFile(path.join(receiptDir, "ledgers", `${report.receipt.id}.jsonl`), "utf8");
@@ -233,7 +233,7 @@ describe("evolve skill", () => {
       };
       expect(report.status).toBe("success");
       expect(report.receipt).toMatchObject({
-        schema: "runx.harness_receipt.v1",
+        schema: "runx.receipt.v1",
       });
 
       const ledger = await readFile(path.join(receiptDir, "ledgers", `${report.receipt.id}.jsonl`), "utf8");
@@ -281,7 +281,7 @@ describe("evolve skill", () => {
         receipt: { schema: string };
       };
       expect(report.status).toBe("failure");
-      expect(report.receipt.schema).toBe("runx.harness_receipt.v1");
+      expect(report.receipt.schema).toBe("runx.receipt.v1");
       expect(report.execution.stderr || report.execution.errorMessage).toContain("evolve currently stops at spec");
     } finally {
       await rm(tempDir, { recursive: true, force: true });

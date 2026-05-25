@@ -35,7 +35,7 @@ describe("MCP skill runner", () => {
       }
 
       expect(result.execution.stdout).toBe("super-secret-value");
-      expect(result.receipt.schema).toBe("runx.harness_receipt.v1");
+      expect(result.receipt.schema).toBe("runx.receipt.v1");
       expect(result.receipt.seal.disposition).toBe("closed");
       expect(result.receipt.metadata).toMatchObject({
         mcp: {

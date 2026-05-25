@@ -13,7 +13,7 @@ use runx_contracts::JsonValue;
 
 use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
-use crate::credentials::{CredentialDelivery, CredentialDeliveryError};
+use crate::credentials::CredentialDelivery;
 use crate::sandbox::{SandboxPlan, prepare_process_sandbox};
 
 const OUTPUT_LIMIT_BYTES: usize = 1024 * 1024;
@@ -31,7 +31,7 @@ impl SkillAdapter for CliToolAdapter {
     fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
         let started = Instant::now();
         let credential_delivery = request.credential_delivery.clone();
-        reject_process_env_credential_delivery(&credential_delivery)?;
+        credential_delivery.reject_process_env_boundary("cli-tool")?;
         let sandbox = prepare_process_sandbox(
             &request.source,
             &request.skill_directory,
@@ -66,19 +66,6 @@ impl SkillAdapter for CliToolAdapter {
         }
         Ok(output)
     }
-}
-
-fn reject_process_env_credential_delivery(
-    credential_delivery: &CredentialDelivery,
-) -> Result<(), RuntimeError> {
-    if credential_delivery.secret_env().is_empty() {
-        return Ok(());
-    }
-    Err(RuntimeError::CredentialDelivery(
-        CredentialDeliveryError::ProcessEnvBoundaryUnsupported {
-            boundary: "cli-tool".to_owned(),
-        },
-    ))
 }
 
 fn spawn_cli_tool_process(sandbox: &SandboxPlan) -> Result<Child, RuntimeError> {
@@ -343,8 +330,8 @@ fn cleanup_sandbox(sandbox: &SandboxPlan) -> Vec<String> {
 
 pub fn output_object(output: &SkillOutput) -> runx_contracts::JsonObject {
     let mut object = runx_contracts::JsonObject::new();
-    if let Ok(JsonValue::Object(parsed)) = serde_json::from_str::<JsonValue>(&output.stdout) {
-        object.extend(parsed);
+    if let Ok(parsed) = serde_json::from_str::<JsonValue>(&output.stdout) {
+        object.insert("skill_claim".to_owned(), parsed);
     }
     object.insert(
         "stdout".to_owned(),

@@ -61,7 +61,7 @@ describe("approval receipt metadata", () => {
       }
       expect(result.receipt).toBeDefined();
       const receipt = JSON.parse(await readFile(path.join(receiptDir, `${result.receipt?.id}.json`), "utf8"));
-      expect(receipt.schema).toBe("runx.harness_receipt.v1");
+      expect(receipt.schema).toBe("runx.receipt.v1");
       expect(receipt.seal.disposition).toBe("declined");
       expect(receipt.metadata?.runx).toMatchObject({
         status: "failure",

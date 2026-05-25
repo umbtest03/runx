@@ -16,8 +16,7 @@ export type ReceiptAuditKind =
   | "retired_receipt_type"
   | "retired_receipt_shape"
   | "legacy_receipt_id_prefix"
-  | "runtime_pseudo_signature"
-  | "harness_receipt_shape";
+  | "runtime_pseudo_signature";
 
 export interface ReceiptAuditFinding {
   readonly file: string;
@@ -83,7 +82,6 @@ const ignoredFiles = new Set([
   "tests/check-receipt-importers.test.ts",
 ]);
 
-const migratedHarnessPattern = /\brunx\.harness_receipt\.v1\b|\bHarnessReceipt\b|\bharness receipt\b/iu;
 const runtimePseudoSignaturePattern = /\bsig:\{digest\}|\bsig:pending\b|\bruntime-skeleton\b|\bLocalHarnessSignatureVerifier\b/u;
 const legacyIdPrefixPattern = /\.startsWith\(["']gx_["']\)|\.startsWith\(["']rx_["']\)/u;
 const retiredReceiptTypePattern =
@@ -187,10 +185,6 @@ export function scanFile(file: string, source: string): readonly ReceiptAuditFin
       findings.push(finding(file, lineNumber, "runtime_pseudo_signature", pseudoSignature, line));
     }
 
-    const harnessShape = line.match(migratedHarnessPattern)?.[0];
-    if (harnessShape) {
-      findings.push(finding(file, lineNumber, "harness_receipt_shape", harnessShape, line));
-    }
   }
 
   return findings;
@@ -237,10 +231,6 @@ function classifyFinding(
   token: string,
   text: string,
 ): ReceiptAuditClassification {
-  if (kind === "harness_receipt_shape") {
-    return "migrated";
-  }
-
   if (isGeneratedStaleArtifact(file)) {
     return "generated_stale_artifact";
   }

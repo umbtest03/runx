@@ -90,6 +90,9 @@ impl ThreadOutboxProviderProcessSupervisor {
         request: ThreadOutboxProviderRequest<'_>,
         credential_delivery: &CredentialDelivery,
     ) -> Result<ThreadOutboxProviderProcessOutcome, ThreadOutboxProviderSupervisorError> {
+        credential_delivery
+            .reject_process_env_boundary("thread-outbox-provider")
+            .map_err(|_| ThreadOutboxProviderSupervisorError::CredentialProcessEnvUnsupported)?;
         let started = Instant::now();
         let command = process_command(manifest)?;
         let mut child = Command::new(command);
@@ -101,12 +104,6 @@ impl ThreadOutboxProviderProcessSupervisor {
         }
         child
             .env_clear()
-            .envs(
-                credential_delivery
-                    .secret_env()
-                    .iter()
-                    .map(|(key, value)| (key.to_owned(), value.to_owned())),
-            )
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -178,6 +175,10 @@ pub enum ThreadOutboxProviderSupervisorError {
     ResponseTooLarge { limit_bytes: usize },
     #[error("thread outbox provider stderr exceeded {limit_bytes} bytes")]
     StderrTooLarge { limit_bytes: usize },
+    #[error(
+        "thread outbox provider process credential delivery must use structured credential refs, not ambient child environment"
+    )]
+    CredentialProcessEnvUnsupported,
     #[error("thread outbox provider response was empty")]
     EmptyResponse,
     #[error("thread outbox provider response contained private secret-like field '{field}'")]

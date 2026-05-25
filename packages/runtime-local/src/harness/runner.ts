@@ -331,14 +331,14 @@ async function deterministicReceiptIds(
 ): Promise<ReceiptIds> {
   if (fixture.kind === "skill") {
     const skillName = await targetSkillName(targetPath);
-    return { runId: harnessReceiptId(fixture.name, skillName) };
+    return { runId: receiptId(fixture.name, skillName) };
   }
 
   const graph = await validateGraphYamlViaParser(await readFile(targetPath, "utf8"), { env });
   return {
-    runId: harnessReceiptId(graph.name, "graph"),
+    runId: receiptId(graph.name, "graph"),
     stepRunIds: Object.fromEntries(
-      graph.steps.map((step) => [step.id, harnessReceiptId(graph.name, step.id)]),
+      graph.steps.map((step) => [step.id, receiptId(graph.name, step.id)]),
     ),
   };
 }
@@ -356,7 +356,7 @@ async function resolveSkillFilePath(skillPath: string): Promise<string> {
   return (await stat(skillPath)).isDirectory() ? path.join(skillPath, "SKILL.md") : skillPath;
 }
 
-function harnessReceiptId(...parts: readonly string[]): string {
+function receiptId(...parts: readonly string[]): string {
   return `hrn_rcpt_${parts.map(safeHarnessSegment).join("_")}`;
 }
 

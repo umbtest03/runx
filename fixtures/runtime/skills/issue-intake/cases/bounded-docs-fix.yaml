@@ -150,10 +150,11 @@ expect:
   status: "sealed"
   receipt:
     schema: "runx.receipt.v1"
+    receipt_id: "hrn_rcpt_bounded-docs-fix_bounded-docs-fix"
     harness_id: "hrn_bounded-docs-fix_bounded-docs-fix"
     state: "sealed"
     disposition: "closed"
-    reason_code: "process_closed"
+    reason_code: "bounded-docs-fix_closed"
     act_ids:
       - "act_bounded-docs-fix"
     decision_ids:

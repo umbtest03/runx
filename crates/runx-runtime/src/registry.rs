@@ -3,6 +3,7 @@ mod install;
 mod local;
 mod payload;
 mod refs;
+mod trust_anchor;
 mod types;
 
 use runx_contracts::{JsonNumber, JsonObject, JsonValue};
@@ -28,11 +29,21 @@ pub use refs::{
     ParsedRegistryRef, RegistryResolveError, materialization_cache_path,
     materialization_digest_marker, parse_registry_ref, safe_skill_package_parts,
 };
+pub use trust_anchor::{
+    REGISTRY_SIGNED_MANIFEST_SCHEMA, RUNX_REGISTRY_MANIFEST_SIGNER_ID_ENV,
+    RUNX_REGISTRY_MANIFEST_SIGNING_KEY_ID_ENV, RUNX_REGISTRY_MANIFEST_SIGNING_SEED_ENV,
+    RUNX_REGISTRY_MANIFEST_TRUST_KEY_ENV, RUNX_REGISTRY_MANIFEST_TRUST_KEY_ID_ENV,
+    RegistryManifestKeyError, RegistryManifestSigningFailure, RegistryManifestSigningKey,
+    RegistryManifestVerificationFailure, TrustedRegistryManifestKey,
+    default_trusted_registry_manifest_keys, sign_registry_manifest,
+    verify_registry_signed_manifest,
+};
 pub use types::{
     AcquiredRegistrySkill, ProfileMode, PublishSkillMarkdownResult, PublishStatus,
-    RegistryAttestation, RegistryLinkResolution, RegistryPublisher, RegistrySearchResult,
-    RegistrySkill, RegistrySkillDetail, RegistrySkillResolution, RegistrySkillVersion,
-    RegistrySourceMetadata, ResolvedRegistryRef, TrustSignal, TrustTier,
+    RegistryAttestation, RegistryLinkResolution, RegistryManifestSignature, RegistryManifestSigner,
+    RegistryPublisher, RegistrySearchResult, RegistrySignedManifest, RegistrySkill,
+    RegistrySkillDetail, RegistrySkillResolution, RegistrySkillVersion, RegistrySourceMetadata,
+    ResolvedRegistryRef, TrustSignal, TrustTier,
 };
 
 #[derive(Clone, Copy, Debug)]

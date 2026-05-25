@@ -16,7 +16,10 @@ use runx_receipts::{
 };
 
 use crate::adapter::SkillOutput;
-use crate::payment::supervisor::rebind_supervisor_proof_to_receipt;
+use crate::payment::supervisor::{
+    payment_supervisor_evidence_from_metadata, payment_supervisor_proof_from_metadata,
+    rebind_supervisor_proof_to_receipt,
+};
 use crate::{RuntimeError, StepRun};
 
 use super::signing::{
@@ -541,163 +544,35 @@ fn output_refs(output: &SkillOutput) -> OutputRefs {
             proof_kind: None,
         });
     }
-    let Ok(JsonValue::Object(payload)) = serde_json::from_str::<JsonValue>(&output.stdout) else {
-        return refs;
-    };
-    collect_payload_refs(&payload, &mut refs);
+    collect_supervisor_metadata_refs(&output.metadata, &mut refs);
     refs
 }
 
-fn collect_payload_refs(payload: &JsonObject, refs: &mut OutputRefs) {
-    collect_packet_refs(payload, refs);
-    if let Some(signal) = object_field(payload, "signal") {
-        collect_signal_refs(signal, refs);
-    }
-    if let Some(change_set) = object_field(payload, "change_set") {
-        collect_change_set_refs(change_set, refs);
-    }
-    if let Some(artifact) = object_field(payload, "artifact") {
-        collect_artifact_ref(artifact, refs);
-    }
-    if let Some(verification) = object_field(payload, "verification") {
-        collect_verification_ref(verification, refs);
-    }
-    if let Some(rail_proof) = object_field(payload, "rail_proof") {
-        collect_rail_proof_ref(rail_proof, refs);
-    }
-    if let Some(credential_envelope) = object_field(payload, "credential_envelope") {
-        collect_credential_ref(credential_envelope, refs);
-    }
-}
-
-fn collect_packet_refs(payload: &JsonObject, refs: &mut OutputRefs) {
-    for packet_key in [
-        "payment_quote_packet",
-        "payment_reservation_packet",
-        "payment_approval",
-        "payment_rail_packet",
-        "payment_recovery_packet",
-    ] {
-        let Some(packet) = object_field(payload, packet_key) else {
-            continue;
+fn collect_supervisor_metadata_refs(metadata: &JsonObject, refs: &mut OutputRefs) {
+    let Ok(Some(proof)) = payment_supervisor_proof_from_metadata(metadata) else {
+        let Ok(Some(evidence)) = payment_supervisor_evidence_from_metadata(metadata) else {
+            return;
         };
-        if let Some(data) = object_field(packet, "data") {
-            collect_payload_refs(data, refs);
-        }
-    }
-}
-
-fn collect_signal_refs(signal: &JsonObject, refs: &mut OutputRefs) {
-    if let Some(signal_id) = string_field(signal, "signal_id") {
-        refs.signal_refs
-            .push(Reference::runx(ReferenceType::Signal, signal_id));
-    }
-    if let Some(events) = array_field(signal, "source_events") {
-        refs.source_refs
-            .extend(events.iter().filter_map(source_event_ref));
-    }
-    if let Some(artifact) = object_field(signal, "artifact") {
-        collect_artifact_ref(artifact, refs);
-    }
-}
-
-fn collect_change_set_refs(change_set: &JsonObject, refs: &mut OutputRefs) {
-    if let Some(surfaces) = array_field(change_set, "target_surfaces") {
-        refs.surface_refs
-            .extend(surfaces.iter().filter_map(target_surface_ref));
-    }
-}
-
-fn collect_artifact_ref(artifact: &JsonObject, refs: &mut OutputRefs) {
-    if let Some(artifact_id) = string_field(artifact, "artifact_id") {
-        refs.artifact_refs
-            .push(Reference::runx(ReferenceType::Artifact, artifact_id));
-    }
-}
-
-fn collect_verification_ref(verification: &JsonObject, refs: &mut OutputRefs) {
-    if let Some(verification_id) = string_field(verification, "verification_id") {
-        refs.verification_refs.push(Reference::runx(
-            ReferenceType::Verification,
-            verification_id,
-        ));
-    }
-}
-
-fn collect_rail_proof_ref(rail_proof: &JsonObject, refs: &mut OutputRefs) {
-    if let Some(proof_ref) = string_field(rail_proof, "proof_ref") {
         refs.verification_refs.push(Reference {
-            uri: proof_ref.to_owned().into(),
+            uri: evidence.proof_ref.into(),
             reference_type: ReferenceType::Verification,
             provider: None,
-            locator: string_field(rail_proof, "idempotency_key").map(|s| s.to_owned().into()),
-            label: Some("payment rail proof".to_owned().into()),
+            locator: Some(evidence.idempotency_key.into()),
+            label: Some("payment rail supervisor proof".to_owned().into()),
             observed_at: None,
             proof_kind: Some(ProofKind::PaymentRail),
         });
-    }
-}
-
-fn collect_credential_ref(credential_envelope: &JsonObject, refs: &mut OutputRefs) {
-    if let Some(credential_ref) = string_field(credential_envelope, "credential_ref") {
-        refs.source_refs.push(Reference {
-            uri: credential_ref.to_owned().into(),
-            reference_type: ReferenceType::Credential,
-            provider: None,
-            locator: None,
-            label: Some("scoped payment credential".to_owned().into()),
-            observed_at: None,
-            proof_kind: None,
-        });
-    }
-}
-
-fn source_event_ref(value: &JsonValue) -> Option<Reference> {
-    let JsonValue::Object(event) = value else {
-        return None;
+        return;
     };
-    let locator =
-        string_field(event, "source_locator").or_else(|| string_field(event, "thread_locator"))?;
-    let provider = string_field(event, "provider");
-    Some(Reference {
-        uri: locator.to_owned().into(),
-        reference_type: source_reference_type(provider),
-        provider: provider.map(|s| s.to_owned().into()),
-        locator: Some(locator.to_owned().into()),
-        label: string_field(event, "title").map(|s| s.to_owned().into()),
+    refs.verification_refs.push(Reference {
+        uri: proof.proof_ref.into(),
+        reference_type: ReferenceType::Verification,
+        provider: None,
+        locator: Some(proof.idempotency_key.into()),
+        label: Some("payment rail supervisor proof".to_owned().into()),
         observed_at: None,
-        proof_kind: None,
-    })
-}
-
-fn source_reference_type(provider: Option<&str>) -> ReferenceType {
-    match provider {
-        Some("github") => ReferenceType::GithubIssue,
-        Some("slack") => ReferenceType::SlackThread,
-        _ => ReferenceType::ExternalUrl,
-    }
-}
-
-fn target_surface_ref(value: &JsonValue) -> Option<Reference> {
-    let JsonValue::Object(surface) = value else {
-        return None;
-    };
-    string_field(surface, "surface")
-        .map(|surface_id| Reference::runx(ReferenceType::Surface, surface_id))
-}
-
-fn object_field<'a>(object: &'a JsonObject, field: &str) -> Option<&'a JsonObject> {
-    match object.get(field) {
-        Some(JsonValue::Object(value)) => Some(value),
-        _ => None,
-    }
-}
-
-fn array_field<'a>(object: &'a JsonObject, field: &str) -> Option<&'a Vec<JsonValue>> {
-    match object.get(field) {
-        Some(JsonValue::Array(value)) => Some(value),
-        _ => None,
-    }
+        proof_kind: Some(ProofKind::PaymentRail),
+    });
 }
 
 fn string_field<'a>(object: &'a JsonObject, field: &str) -> Option<&'a str> {

@@ -88,7 +88,7 @@ inputs:
 expect:
   status: sealed
   receipt:
-    schema: runx.harness_receipt.v1
+    schema: runx.receipt.v1
     state: sealed
     disposition: closed
     reason_code: process_closed
@@ -98,24 +98,21 @@ expect:
       const harness = await core.harnessRun(harnessFixturePath);
       expect(harness.status).toBe("success");
       expect(harness.data?.assertionErrors).toEqual([]);
-      const harnessReceipt = expectRecord(harness.data?.receipt);
-      expect(harnessReceipt).toMatchObject({
-        schema: "runx.harness_receipt.v1",
-        harness: {
-          state: "sealed",
-        },
+      const receipt = expectRecord(harness.data?.receipt);
+      expect(receipt).toMatchObject({
+        schema: "runx.receipt.v1",
         seal: {
           disposition: "closed",
           reason_code: "process_closed",
         },
       });
-      const seal = expectRecord(harnessReceipt.seal);
-      const harnessBody = expectRecord(harnessReceipt.harness);
-      const acts = expectArray(harnessBody.acts).map(expectRecord);
-      expect(seal.digest).toMatch(/^sha256:[a-f0-9]{64}$/);
-      expect(harnessBody.harness_id).toMatch(/^hrn_/);
+      const subject = expectRecord(receipt.subject);
+      const subjectRef = expectRecord(subject.ref);
+      const acts = expectArray(receipt.acts).map(expectRecord);
+      expect(receipt.digest).toMatch(/^sha256:[a-f0-9]{64}$/);
+      expect(subjectRef.uri).toMatch(/^hrn_/);
       expect(acts).toHaveLength(1);
-      expect(acts[0]?.act_id).toMatch(/^act_/);
+      expect(acts[0]?.id).toMatch(/^act_/);
 
       const registered: string[] = [];
       const disposables = registerRunxCommands(

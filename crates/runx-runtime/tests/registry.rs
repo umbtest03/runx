@@ -4,22 +4,30 @@ use runx_contracts::{JsonNumber, JsonValue};
 use runx_runtime::registry::{
     AcquiredRegistrySkill, FileRegistryStore, IngestSkillOptions, InstallCandidate,
     InstallLocalSkillResult, InstallStatus, PublishSkillMarkdownOptions, PublishStatus,
-    RegistryPublisher, RegistryResolveOptions, RegistrySearchOptions, TrustTier,
-    create_local_registry_client, ingest_skill_markdown, publish_skill_markdown,
+    RegistryManifestSigningKey, RegistryPublisher, RegistryResolveOptions, RegistrySearchOptions,
+    TrustTier, create_local_registry_client, ingest_skill_markdown, publish_skill_markdown,
     read_registry_skill, resolve_registry_skill, resolve_runx_link, search_registry_with_options,
+    sign_registry_manifest,
 };
 use runx_runtime::{RegistryInstallMetadataInput, registry_install_receipt_metadata};
 use tempfile::tempdir;
 
+const TEST_MANIFEST_KEY_ID: &str = "runx-registry-test-key";
+const TEST_MANIFEST_SIGNER_ID: &str = "runx-registry-test-signer";
+const TEST_MANIFEST_SEED: [u8; 32] = [
+    112, 159, 67, 38, 232, 56, 225, 151, 83, 175, 233, 32, 161, 159, 13, 18, 74, 244, 201, 44, 120,
+    138, 111, 5, 213, 12, 48, 174, 150, 253, 17, 89,
+];
+
 #[test]
-fn registry_install_metadata_records_installed_digest() {
-    let candidate = install_candidate();
+fn registry_install_metadata_records_installed_digest() -> Result<(), Box<dyn std::error::Error>> {
+    let candidate = install_candidate()?;
     let install = install_result(
         "sha256:installed",
         Some("sha256:profile-installed"),
         InstallStatus::Installed,
     );
-    let acquisition = acquisition("sha256:remote-advertised", 7);
+    let acquisition = acquisition("sha256:remote-advertised", 7)?;
 
     let metadata = registry_install_receipt_metadata(RegistryInstallMetadataInput {
         candidate: &candidate,
@@ -59,11 +67,13 @@ fn registry_install_metadata_records_installed_digest() {
             .collect()
         ))
     );
+    Ok(())
 }
 
 #[test]
-fn registry_install_metadata_omits_absent_remote_fields() {
-    let candidate = install_candidate();
+fn registry_install_metadata_omits_absent_remote_fields() -> Result<(), Box<dyn std::error::Error>>
+{
+    let candidate = install_candidate()?;
     let install = install_result("sha256:installed", None, InstallStatus::Unchanged);
 
     let metadata = registry_install_receipt_metadata(RegistryInstallMetadataInput {
@@ -77,6 +87,7 @@ fn registry_install_metadata_omits_absent_remote_fields() {
     assert!(!metadata.contains_key("profile_digest"));
     assert!(!metadata.contains_key("publisher"));
     assert!(!metadata.contains_key("install_count"));
+    Ok(())
 }
 
 #[test]
@@ -266,8 +277,8 @@ fn file_registry_store_rejects_path_traversal_skill_ids() -> Result<(), Box<dyn 
     Ok(())
 }
 
-fn install_candidate() -> InstallCandidate {
-    InstallCandidate {
+fn install_candidate() -> Result<InstallCandidate, Box<dyn std::error::Error>> {
+    Ok(InstallCandidate {
         markdown: "---\nname: echo\n---\n# Echo\n".to_owned(),
         profile_document: None,
         source: "runx-registry".to_owned(),
@@ -275,11 +286,17 @@ fn install_candidate() -> InstallCandidate {
         r#ref: "acme/echo@1.0.0".to_owned(),
         skill_id: Some("acme/echo".to_owned()),
         version: Some("1.0.0".to_owned()),
-        digest: Some("sha256:advertised".to_owned()),
+        signed_manifest: Some(sign_registry_manifest(
+            &signing_key()?,
+            "acme/echo",
+            "1.0.0",
+            "sha256:advertised",
+            None,
+        )?),
         profile_digest: None,
         runner_names: Vec::new(),
         trust_tier: Some(TrustTier::Verified),
-    }
+    })
 }
 
 fn install_result(
@@ -303,13 +320,23 @@ fn install_result(
     }
 }
 
-fn acquisition(digest: &str, install_count: u64) -> AcquiredRegistrySkill {
-    AcquiredRegistrySkill {
+fn acquisition(
+    digest: &str,
+    install_count: u64,
+) -> Result<AcquiredRegistrySkill, Box<dyn std::error::Error>> {
+    Ok(AcquiredRegistrySkill {
         skill_id: "acme/echo".to_owned(),
         owner: "acme".to_owned(),
         name: "echo".to_owned(),
         version: "1.0.0".to_owned(),
         digest: digest.to_owned(),
+        signed_manifest: Some(sign_registry_manifest(
+            &signing_key()?,
+            "acme/echo",
+            "1.0.0",
+            digest,
+            None,
+        )?),
         markdown: "---\nname: echo\n---\n# Echo\n".to_owned(),
         profile_document: None,
         profile_digest: None,
@@ -324,9 +351,17 @@ fn acquisition(digest: &str, install_count: u64) -> AcquiredRegistrySkill {
         source_metadata: None,
         attestations: Vec::new(),
         install_count,
-    }
+    })
 }
 
 fn string(value: &str) -> JsonValue {
     JsonValue::String(value.to_owned())
+}
+
+fn signing_key() -> Result<RegistryManifestSigningKey, Box<dyn std::error::Error>> {
+    Ok(RegistryManifestSigningKey::from_seed_bytes(
+        TEST_MANIFEST_SIGNER_ID.to_owned(),
+        TEST_MANIFEST_KEY_ID.to_owned(),
+        &TEST_MANIFEST_SEED,
+    )?)
 }

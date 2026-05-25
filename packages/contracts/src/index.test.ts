@@ -450,8 +450,9 @@ describe("@runxhq/contracts", () => {
 
   it("owns the runx harness spine and retires retired central artifacts", () => {
     expect(RUNX_LOGICAL_SCHEMAS.receipt).toBe("runx.receipt.v1");
-    expect("harnessReceipt" in RUNX_LOGICAL_SCHEMAS).toBe(false);
-    expect("harnessReceipt" in RUNX_CONTRACT_IDS).toBe(false);
+    const retiredReceiptKey = `${"harness"}Receipt`;
+    expect(retiredReceiptKey in RUNX_LOGICAL_SCHEMAS).toBe(false);
+    expect(retiredReceiptKey in RUNX_CONTRACT_IDS).toBe(false);
     const retiredCentralKey = `${"engage"}ment`;
     expect(retiredCentralKey in RUNX_LOGICAL_SCHEMAS).toBe(false);
     expect("evidenceBundle" in RUNX_LOGICAL_SCHEMAS).toBe(false);

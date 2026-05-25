@@ -85,7 +85,7 @@ harness:
       expect:
         status: sealed
         receipt:
-          kind: harness_receipt
+          kind: receipt
           status: sealed
           skill_name: icey-server-operator
 
@@ -118,6 +118,6 @@ harness:
       expect:
         status: sealed
         receipt:
-          kind: harness_receipt
+          kind: receipt
           status: sealed
           skill_name: icey-server-operator

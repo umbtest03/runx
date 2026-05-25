@@ -18,10 +18,16 @@ expect:
   status: "needs_agent"
   receipt:
     schema: "runx.receipt.v1"
+    receipt_id: "hrn_rcpt_issue-to-pr-reaches-fix-boundary"
     harness_id: "hrn_issue-to-pr-reaches-fix-boundary_graph"
-    state: "deferred"
+    state: "sealed"
     disposition: "deferred"
     reason_code: "issue-to-pr-reaches-fix-boundary_deferred"
+    decision_ids:
+      - "dec_graph"
+    child_receipt_refs:
+      - "runx:receipt:hrn_rcpt_issue-to-pr-reaches-fix-boundary_author-spec"
+      - "runx:receipt:hrn_rcpt_issue-to-pr-reaches-fix-boundary_author-fix"
   steps:
     - "author-spec"
     - "author-fix"

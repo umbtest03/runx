@@ -570,6 +570,11 @@ fn graph_payload(run: &GraphRun) -> Result<JsonValue, SkillRunError> {
             step.step_id.clone(),
             JsonValue::Object(step.outputs.clone()),
         );
+        if let Some(JsonValue::Object(claim)) = step.outputs.get("skill_claim") {
+            for (key, value) in claim {
+                payload.entry(key.clone()).or_insert_with(|| value.clone());
+            }
+        }
         for (key, value) in &step.outputs {
             payload.entry(key.clone()).or_insert_with(|| value.clone());
         }
@@ -994,6 +999,7 @@ fn sealed_output(
         }),
     );
     execution.insert("structured_output".to_owned(), payload.clone());
+    execution.insert("skill_claim".to_owned(), payload.clone());
     if let Some(observations) = skill_output
         .metadata
         .get(crate::adapter::CREDENTIAL_DELIVERY_OBSERVATIONS_METADATA)

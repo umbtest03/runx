@@ -42,11 +42,11 @@ export interface AddSkillOptions {
 
 export interface HarnessRunResult {
   readonly assertionErrors: readonly string[];
-  readonly receipt: HarnessReceiptLike;
+  readonly receipt: ReceiptLike;
   readonly inputs?: Readonly<Record<string, unknown>>;
 }
 
-export interface HarnessReceiptLike {
+export interface ReceiptLike {
   readonly id?: string;
   readonly schema?: string;
   readonly seal?: {
@@ -187,7 +187,7 @@ async function runHarness(
     if (result.status !== 0) {
       throw new Error(firstNonEmpty(result.stderr, result.stdout, `runx harness exited with ${result.status ?? 1}.`));
     }
-    const receipt = harnessReceipt(parseJson(result.stdout));
+    const receipt = receiptFromJson(parseJson(result.stdout));
     await persistReceipt(receipt, context.receiptDir);
     return {
       assertionErrors: [],
@@ -423,7 +423,6 @@ function parseJson(value: string): unknown {
   return JSON.parse(value);
 }
 
-function harnessReceipt(value: unknown): HarnessReceiptLike {
+function receiptFromJson(value: unknown): ReceiptLike {
   return isRecord(value) ? value : {};
 }
-

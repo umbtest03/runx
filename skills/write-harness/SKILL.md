@@ -26,7 +26,7 @@ inputs:
 expect:
   status: sealed               # or failure, needs_agent, etc.
   receipt:
-    schema: runx.harness_receipt.v1
+    schema: runx.receipt.v1
     status: sealed
     skill_name: expected-name
     source_type: cli-tool    # or agent, managed-agent, graph, etc.
@@ -41,7 +41,7 @@ target: ../graphs/my-graph.yaml
 expect:
   status: sealed
   receipt:
-    schema: runx.harness_receipt.v1
+    schema: runx.receipt.v1
     status: sealed
     graph_name: my-graph
   steps:

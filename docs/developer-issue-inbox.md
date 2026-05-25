@@ -2,7 +2,7 @@
 
 The runx developer inbox is a harness context queue, not another chat stream. Slack,
 Sentry, GitHub, file, and API adapters may submit source events, but every
-accepted event must become one `runx.harness_receipt.v1` packet with an explicit
+accepted event must become one `runx.receipt.v1` packet with an explicit
 state, dedupe fingerprint, triage action, and source-thread locator.
 
 ## Admission Policy

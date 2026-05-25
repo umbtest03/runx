@@ -71,7 +71,7 @@ describe("agent-step and harness-hook boundary", () => {
         verdict: "pass",
         checked: "caller boundary",
       });
-      expect(result.receipt.schema).toBe("runx.harness_receipt.v1");
+      expect(result.receipt.schema).toBe("runx.receipt.v1");
       expect(result.receipt.seal.disposition).toBe("closed");
       expect(result.receipt.metadata).toMatchObject({
         agent_hook: {
@@ -111,7 +111,7 @@ describe("agent-step and harness-hook boundary", () => {
       if (result.status !== "sealed") {
         return;
       }
-      expect(result.receipt.schema).toBe("runx.harness_receipt.v1");
+      expect(result.receipt.schema).toBe("runx.receipt.v1");
       expect(result.receipt.seal.disposition).toBe("closed");
       expect(result.receipt.metadata).toMatchObject({
         agent_hook: {
