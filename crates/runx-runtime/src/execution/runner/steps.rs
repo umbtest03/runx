@@ -475,7 +475,8 @@ where
             reason: format!("agent act {request_id} requires resolution"),
         });
     };
-    let output = agent_step_output(response)?;
+    let mut output = agent_step_output(response)?;
+    apply_graph_step_artifact_wrappers(&mut output, step)?;
     let outputs = output_object(&output);
     let disposition = agent_answer_disposition(&outputs);
     let disposition_label = closure_disposition_label(&disposition);
@@ -534,7 +535,8 @@ where
             reason: format!("agent act {request_id} requires resolution"),
         });
     };
-    let output = agent_step_output(response)?;
+    let mut output = agent_step_output(response)?;
+    apply_graph_step_artifact_wrappers(&mut output, step)?;
     let outputs = output_object(&output);
     let disposition = agent_answer_disposition(&outputs);
     let disposition_label = closure_disposition_label(&disposition);
@@ -661,7 +663,8 @@ where
             env: runtime.options.env.clone(),
             credential_delivery: crate::credentials::CredentialDelivery::none(),
         };
-        let output = CatalogAdapter::default().invoke(invocation)?;
+        let mut output = CatalogAdapter::default().invoke(invocation)?;
+        apply_graph_step_artifact_wrappers(&mut output, step)?;
         let outputs = output_object(&output);
         let receipt = step_receipt_with_signature_policy(
             graph_name,
@@ -716,6 +719,48 @@ fn catalog_source(tool_ref: &str) -> SkillSource {
         graph: None,
         raw,
     }
+}
+
+fn apply_graph_step_artifact_wrappers(
+    output: &mut SkillOutput,
+    step: &GraphStep,
+) -> Result<(), RuntimeError> {
+    let Some(artifacts) = &step.artifacts else {
+        return Ok(());
+    };
+    let Ok(JsonValue::Object(mut object)) = serde_json::from_str::<JsonValue>(&output.stdout)
+    else {
+        return Ok(());
+    };
+
+    let mut changed = false;
+    if let Some(wrap_as) = artifacts.get("wrap_as").and_then(json_string)
+        && !object.contains_key(wrap_as)
+    {
+        let mut wrapper = JsonObject::new();
+        wrapper.insert("data".to_owned(), JsonValue::Object(object.clone()));
+        object.insert(wrap_as.to_owned(), JsonValue::Object(wrapper));
+        changed = true;
+    }
+
+    if let Some(JsonValue::Object(named_emits)) = artifacts.get("named_emits") {
+        for name in named_emits.keys() {
+            let Some(value) = object.get(name).cloned() else {
+                continue;
+            };
+            let mut wrapper = JsonObject::new();
+            wrapper.insert("data".to_owned(), value);
+            object.insert(name.clone(), JsonValue::Object(wrapper));
+            changed = true;
+        }
+    }
+
+    if changed {
+        output.stdout = serde_json::to_string(&JsonValue::Object(object)).map_err(|source| {
+            RuntimeError::json("serializing graph step artifact wrappers", source)
+        })?;
+    }
+    Ok(())
 }
 
 fn agent_step_output(response: ResolutionResponse) -> Result<SkillOutput, RuntimeError> {
