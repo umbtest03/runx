@@ -171,12 +171,7 @@ function harnessChildReceiptRefs(receipt: unknown): unknown[] {
     const refs = (lineage as { children?: unknown }).children;
     return Array.isArray(refs) ? refs : [];
   }
-  const harness = typeof receipt === "object" && receipt !== null ? (receipt as { harness?: unknown }).harness : undefined;
-  if (!harness || typeof harness !== "object") {
-    return [];
-  }
-  const refs = (harness as { child_harness_receipt_refs?: unknown }).child_harness_receipt_refs;
-  return Array.isArray(refs) ? refs : [];
+  return [];
 }
 
 function answerForAgentStep(questionId: string): unknown {

@@ -4,6 +4,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use super::RegistryManifestSigningKey;
 use super::refs::parse_registry_ref;
 use super::types::{
     PublishSkillMarkdownResult, PublishStatus, RegistryAttestation, RegistryLinkResolution,
@@ -31,6 +32,7 @@ pub struct IngestSkillOptions {
     pub trust_tier: Option<TrustTier>,
     pub attestations: Vec<RegistryAttestation>,
     pub source_metadata: Option<RegistrySourceMetadata>,
+    pub manifest_signing_key: Option<RegistryManifestSigningKey>,
     pub upsert: bool,
 }
 
@@ -97,6 +99,8 @@ pub enum LocalRegistryError {
     VersionConflict { skill_id: String, version: String },
     #[error("Registry ref '{0}' is ambiguous. Use '<owner>/<name>' instead.")]
     Ambiguous(String),
+    #[error("{0}")]
+    ManifestSigning(#[from] super::trust_anchor::RegistryManifestSigningFailure),
 }
 
 impl FileRegistryStore {
@@ -328,6 +332,7 @@ pub fn publish_skill_markdown(
         name: result.record.name.clone(),
         version: result.record.version.clone(),
         digest: result.record.digest.clone(),
+        signed_manifest: result.record.signed_manifest.clone(),
         profile_digest: result.record.profile_digest.clone(),
         runner_names: result.record.runner_names.clone(),
         source_type: result.record.source_type.clone(),
@@ -389,6 +394,7 @@ pub fn resolve_registry_skill(
             name: record.name,
             version: record.version,
             digest: record.digest,
+            signed_manifest: record.signed_manifest,
             source: "runx-registry".to_owned(),
             source_label: "runx registry".to_owned(),
             source_type: record.source_type,

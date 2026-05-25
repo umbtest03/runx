@@ -65,11 +65,11 @@ describe("x402-pay Phase 1 mock dogfood fixtures", () => {
       expect(exitCode).toBe(0);
       expect(stderr.contents()).toBe("");
       const receipt = requireRecord(JSON.parse(stdout.contents()), "receipt");
-      expect(requireRecord(receipt.harness, "receipt.harness").state).toBe("sealed");
+      expect(receiptState(receipt)).toBe("sealed");
       expect(requireRecord(receipt.seal, "receipt.seal").disposition).toBe("closed");
       expect(childReceiptUris(receipt)).toEqual([
-        "runx:harness_receipt:hrn_rcpt_x402-pay-approval_approve-spend",
-        "runx:harness_receipt:hrn_rcpt_x402-pay-approval_fulfill",
+        "runx:receipt:hrn_rcpt_x402-pay-approval_approve-spend",
+        "runx:receipt:hrn_rcpt_x402-pay-approval_fulfill",
       ]);
     } finally {
       await rm(tempDir, { recursive: true, force: true });
@@ -83,11 +83,11 @@ describe("x402-pay Phase 1 mock dogfood fixtures", () => {
       const { receipt, stdout } = await runHarnessJson(paymentGraphFixture, {
         RUNX_HOME: path.join(tempDir, "home"),
       });
-      expect(requireRecord(receipt.harness, "receipt.harness").state).toBe("sealed");
+      expect(receiptState(receipt)).toBe("sealed");
       expect(requireRecord(receipt.seal, "receipt.seal").disposition).toBe("closed");
       expect(childReceiptUris(receipt)).toEqual([
-        "runx:harness_receipt:hrn_rcpt_x402-pay-approval_approve-spend",
-        "runx:harness_receipt:hrn_rcpt_x402-pay-approval_fulfill",
+        "runx:receipt:hrn_rcpt_x402-pay-approval_approve-spend",
+        "runx:receipt:hrn_rcpt_x402-pay-approval_fulfill",
       ]);
 
       expect(stdout).not.toContain("rail_session_material_ref");
@@ -118,13 +118,13 @@ describe("x402-pay Phase 1 mock dogfood fixtures", () => {
         RUNX_HOME: path.join(tempDir, "home"),
       });
 
-      expect(requireRecord(receipt.harness, "receipt.harness").state).toBe("sealed");
+      expect(receiptState(receipt)).toBe("sealed");
       expect(requireRecord(receipt.seal, "receipt.seal")).toMatchObject({
         disposition: "blocked",
         reason_code: "graph_blocked",
       });
       expect(childReceiptUris(receipt)).toEqual([
-        "runx:harness_receipt:hrn_rcpt_x402-pay-approval_approve-spend",
+        "runx:receipt:hrn_rcpt_x402-pay-approval_approve-spend",
       ]);
     } finally {
       await rm(tempDir, { recursive: true, force: true });
@@ -224,9 +224,14 @@ async function writeReceiptForHistory(receiptDir: string, receipt: Record<string
 }
 
 function childReceiptUris(receipt: Record<string, unknown>): readonly string[] {
-  const harness = requireRecord(receipt.harness, "receipt.harness");
-  const refs = Array.isArray(harness.child_harness_receipt_refs) ? harness.child_harness_receipt_refs : [];
-  return refs.map((ref) => requireRecord(ref, "child_harness_receipt_ref").uri).filter(isString);
+  const lineage = requireRecord(receipt.lineage, "receipt.lineage");
+  const refs = Array.isArray(lineage.children) ? lineage.children : [];
+  return refs.map((ref) => requireRecord(ref, "child_receipt_ref").uri).filter(isString);
+}
+
+function receiptState(receipt: Record<string, unknown>): string {
+  const seal = requireRecord(receipt.seal, "receipt.seal");
+  return seal.disposition === "deferred" ? "deferred" : "sealed";
 }
 
 function requireRecord(value: unknown, label: string): Record<string, unknown> {

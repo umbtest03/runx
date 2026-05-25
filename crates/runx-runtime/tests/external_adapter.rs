@@ -365,50 +365,31 @@ fn external_adapter_manifest_path_rejects_directory_escape()
 }
 
 #[test]
-fn external_adapter_process_supervisor_delivers_credentials_and_redacts_observations()
+fn external_adapter_process_supervisor_rejects_process_env_credential_delivery()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempfile::tempdir()?;
     let script = write_script(
         temp.path(),
         r#"set -eu
 IFS= read -r _invocation
-if [ "${GITHUB_TOKEN:-}" != "ghs_secret_token" ]; then
-  printf 'missing delivered credential env\n' >&2
-  exit 18
-fi
-if [ "${SCOPED_ONLY:-}" != "scoped" ]; then
-  printf 'missing scoped env\n' >&2
-  exit 19
-fi
-printf '{"schema":"runx.external_adapter.response.v1","protocol_version":"runx.external_adapter.v1","invocation_id":"external_inv_123","adapter_id":"adapter.github.issue-intake","status":"completed","stdout":"stdout:%s","stderr":"stderr:%s","exit_code":0,"output":{"token":"%s","nested":["%s"]},"artifacts":[{"artifact_ref":{"type":"artifact","uri":"runx:artifact:secret"},"summary":"artifact:%s"}],"errors":[{"code":"secret_%s","message":"error:%s","retryable":false}],"telemetry":[{"name":"metric_%s","value":"value:%s","unit":"unit:%s"}],"metadata":{"token":"%s"},"observed_at":"2026-05-21T15:00:00Z"}' "$GITHUB_TOKEN" "$GITHUB_TOKEN" "$GITHUB_TOKEN" "$GITHUB_TOKEN" "$GITHUB_TOKEN" "$GITHUB_TOKEN" "$GITHUB_TOKEN" "$GITHUB_TOKEN" "$GITHUB_TOKEN" "$GITHUB_TOKEN" "$GITHUB_TOKEN"
+printf '{"schema":"runx.external_adapter.response.v1","protocol_version":"runx.external_adapter.v1","invocation_id":"external_inv_123","adapter_id":"adapter.github.issue-intake","status":"completed","stdout":"should-not-run","exit_code":0,"observed_at":"2026-05-21T15:00:00Z"}'
 "#,
     )?;
-    let invocation = invocation_with_env([
-        ("GITHUB_TOKEN", "scoped_token".to_owned()),
-        ("SCOPED_ONLY", "scoped".to_owned()),
-    ]);
+    let invocation = invocation_with_env([("GITHUB_TOKEN", "scoped_token".to_owned())]);
 
-    let outcome = ExternalAdapterProcessSupervisor.invoke_with_delivery(
+    let result = ExternalAdapterProcessSupervisor.invoke_with_delivery(
         &manifest_for_script(&script)?,
         &invocation,
         &allowed_delivery()?,
-    )?;
+    );
 
-    assert_eq!(
-        outcome.response.stdout.as_deref(),
-        Some("stdout:[redacted-credential]")
-    );
-    assert_eq!(
-        outcome.response.stderr.as_deref(),
-        Some("stderr:[redacted-credential]")
-    );
+    assert!(matches!(
+        result,
+        Err(ExternalAdapterSupervisorError::CredentialProcessEnvUnsupported)
+    ));
     assert!(
-        !serde_json::to_string(&outcome.response)?.contains("ghs_secret_token"),
-        "external adapter observations must be redacted before runtime mapping"
-    );
-    assert!(
-        !serde_json::to_string(&outcome.response)?.contains("scoped_token"),
-        "delivered credential env must override scoped env for the credential binding"
+        !format!("{result:?}").contains("ghs_secret_token"),
+        "process boundary denial must not leak raw credential material"
     );
     Ok(())
 }
@@ -442,7 +423,7 @@ printf '%s' "$invocation" > "$RUNX_CAPTURE_INVOCATION"
             ),
             ("RUNX_RESPONSE_PATH", path_string(response_path.as_path())?),
         ],
-        allowed_delivery_with_public_observation()?,
+        credential_observation_only(),
     )?)?;
 
     assert_eq!(output.status, runx_runtime::InvocationStatus::Success);
@@ -613,35 +594,32 @@ fn external_adapter_skill_adapter_preserves_supervisor_fail_closed_response_mism
 }
 
 #[test]
-fn external_adapter_skill_adapter_passes_credential_delivery_to_supervisor()
+fn external_adapter_skill_adapter_rejects_process_env_credential_delivery()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempfile::tempdir()?;
     let script = write_script(
         temp.path(),
         r#"set -eu
 IFS= read -r _invocation
-if [ "${GITHUB_TOKEN:-}" != "ghs_secret_token" ]; then
-  printf 'missing delivered credential env\n' >&2
-  exit 18
-fi
-printf '{"schema":"runx.external_adapter.response.v1","protocol_version":"runx.external_adapter.v1","invocation_id":"external_adapter.external-smoke.invoke","adapter_id":"adapter.github.issue-intake","status":"completed","stdout":"%s","stderr":"stderr:%s","exit_code":0,"metadata":{"token":"%s"},"observed_at":"2026-05-21T15:00:00Z"}' "$GITHUB_TOKEN" "$GITHUB_TOKEN" "$GITHUB_TOKEN"
+printf '{"schema":"runx.external_adapter.response.v1","protocol_version":"runx.external_adapter.v1","invocation_id":"external_adapter.external-smoke.invoke","adapter_id":"adapter.github.issue-intake","status":"completed","stdout":"should-not-run","exit_code":0,"observed_at":"2026-05-21T15:00:00Z"}'
 "#,
     )?;
     let manifest = manifest_for_script(&script)?;
 
-    let output = ExternalAdapterSkillAdapter::default().invoke(skill_invocation_with_source(
+    let result = ExternalAdapterSkillAdapter::default().invoke(skill_invocation_with_source(
         temp.path(),
         skill_source(Some(manifest))?,
         [("GITHUB_TOKEN", "scoped_token".to_owned())],
         allowed_delivery()?,
-    )?)?;
+    )?);
 
-    assert_eq!(output.stdout, "[redacted-credential]");
-    assert_eq!(output.stderr, "stderr:[redacted-credential]");
-    let metadata_json = serde_json::to_string(&output.metadata)?;
-    assert!(metadata_json.contains("[redacted-credential]"));
-    assert!(!metadata_json.contains("ghs_secret_token"));
-    assert!(!metadata_json.contains("scoped_token"));
+    assert!(matches!(
+        result,
+        Err(RuntimeError::SkillFailed { ref message, .. })
+            if message.contains("structured credential refs")
+    ));
+    assert!(!format!("{result:?}").contains("ghs_secret_token"));
+    assert!(!format!("{result:?}").contains("scoped_token"));
     Ok(())
 }
 
@@ -955,9 +933,8 @@ fn allowed_delivery() -> Result<CredentialDelivery, CredentialDeliveryError> {
     )
 }
 
-fn allowed_delivery_with_public_observation() -> Result<CredentialDelivery, CredentialDeliveryError>
-{
-    Ok(allowed_delivery()?.with_public_observation(credential_delivery_observation()))
+fn credential_observation_only() -> CredentialDelivery {
+    CredentialDelivery::none().with_public_observation(credential_delivery_observation())
 }
 
 fn credential_delivery_observation() -> CredentialDeliveryObservation {

@@ -268,7 +268,7 @@ fn mcp_adapter_delivers_secret_env_and_redacts_tool_result()
 }
 
 #[test]
-fn mcp_process_transport_delivers_secret_env_and_redacts_tool_result()
+fn mcp_process_transport_rejects_process_env_credential_delivery()
 -> Result<(), Box<dyn std::error::Error>> {
     let mut inputs = runx_contracts::JsonObject::new();
     inputs.insert(
@@ -285,9 +285,11 @@ fn mcp_process_transport_delivers_secret_env_and_redacts_tool_result()
         credential_delivery: allowed_delivery()?,
     })?;
 
-    assert_eq!(output.status, InvocationStatus::Success);
-    assert_eq!(output.stdout.trim(), "[redacted-credential]");
+    assert_eq!(output.status, InvocationStatus::Failure);
+    assert_eq!(output.stdout, "");
+    assert_eq!(output.stderr, "MCP adapter failed.");
     assert!(!output.stdout.contains("ghs_secret_token"));
+    assert!(!output.stderr.contains("ghs_secret_token"));
     assert!(!serde_json::to_string(&output.metadata)?.contains("ghs_secret_token"));
     Ok(())
 }

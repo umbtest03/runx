@@ -20,6 +20,11 @@
       "required": false,
       "description": "Canonical thread title when the caller already has one."
     },
+    "thread_body": {
+      "type": "string",
+      "required": false,
+      "description": "Bounded source-thread body used for reviewer context and quality gates."
+    },
     "thread_locator": {
       "type": "string",
       "required": false,
@@ -69,6 +74,16 @@
       "type": "string",
       "required": false,
       "description": "Recoverable source-thread locator for request-time admission."
+    },
+    "repo_context": {
+      "type": "string",
+      "required": false,
+      "description": "Bounded repository context used for reviewer context and quality gates."
+    },
+    "repo_snapshot": {
+      "type": "json",
+      "required": false,
+      "description": "Structured repository snapshot used for reviewer context and quality gates."
     },
     "branch": {
       "type": "string",
@@ -147,7 +162,7 @@
       "./run.mjs"
     ]
   },
-  "source_hash": "sha256:33dce722c368fda02eec7c9f434223dc249c176284605b162824e43620a2dca9",
-  "schema_hash": "sha256:4fb119cf6e5480a934814b462ba27789024be08698a3adc23fac9d1ac283a55a",
+  "source_hash": "sha256:c28b0fe0e782aa88cb9dba48821d2c6a03cb68441c7879efb01193df4cfea857",
+  "schema_hash": "sha256:acb31a4949db4b76155909a4adda45d2427b5e615d6557f9816482a07a8ce3de",
   "toolkit_version": "0.1.4"
 }

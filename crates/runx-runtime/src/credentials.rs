@@ -308,6 +308,18 @@ impl CredentialDelivery {
         &self.secret_env
     }
 
+    pub fn reject_process_env_boundary(
+        &self,
+        boundary: &'static str,
+    ) -> Result<(), CredentialDeliveryError> {
+        if self.secret_env.is_empty() {
+            return Ok(());
+        }
+        Err(CredentialDeliveryError::ProcessEnvBoundaryUnsupported {
+            boundary: boundary.to_owned(),
+        })
+    }
+
     #[must_use]
     pub fn with_public_observation(
         mut self,

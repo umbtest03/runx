@@ -42,7 +42,7 @@ describe("A2A skill runner", () => {
         return;
       }
       expect(result.execution.stdout).toBe("hi");
-      expect(result.receipt.schema).toBe("runx.harness_receipt.v1");
+      expect(result.receipt.schema).toBe("runx.receipt.v1");
       expect(result.receipt.seal.disposition).toBe("closed");
       expect(result.receipt.metadata).toMatchObject({
         a2a: {

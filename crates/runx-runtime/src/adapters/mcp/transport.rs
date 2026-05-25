@@ -9,7 +9,6 @@ use std::time::Duration;
 use runx_contracts::{JsonObject, JsonValue};
 use serde_json::{self, Value as JsonWireValue};
 
-use crate::credentials::SecretEnv;
 use crate::sandbox::SandboxPlan;
 
 use super::rmcp_content_length::{RmcpContentLengthTransport, RmcpTransportErrorState};
@@ -136,7 +135,7 @@ where
 async fn list_tools_with_rmcp_async(
     request: McpListToolsRequest,
 ) -> Result<Vec<McpToolDescriptor>, McpTransportError> {
-    let mut child = spawn_tokio_mcp_server(&request.sandbox, &SecretEnv::default())?;
+    let mut child = spawn_tokio_mcp_server(&request.sandbox)?;
     drain_tokio_stderr(child.stderr.take());
     let result = tokio::time::timeout(request.timeout, async {
         let error_state = RmcpTransportErrorState::default();
@@ -163,7 +162,12 @@ async fn list_tools_with_rmcp_async(
 async fn call_tool_with_rmcp_async(
     request: McpToolCallRequest,
 ) -> Result<JsonValue, McpTransportError> {
-    let mut child = spawn_tokio_mcp_server(&request.sandbox, &request.secret_env)?;
+    if !request.secret_env.is_empty() {
+        return Err(McpTransportError::failed(
+            "MCP process credential delivery must use structured credential refs, not ambient child environment.",
+        ));
+    }
+    let mut child = spawn_tokio_mcp_server(&request.sandbox)?;
     drain_tokio_stderr(child.stderr.take());
     let timeout = request.timeout;
     let result = tokio::time::timeout(timeout, async {
@@ -228,17 +232,13 @@ where
         .map_err(|error| rmcp_initialization_error(error, error_state))
 }
 
-fn spawn_tokio_mcp_server(
-    plan: &SandboxPlan,
-    secret_env: &SecretEnv,
-) -> Result<tokio::process::Child, McpTransportError> {
+fn spawn_tokio_mcp_server(plan: &SandboxPlan) -> Result<tokio::process::Child, McpTransportError> {
     let mut command = tokio::process::Command::new(&plan.command);
     command
         .args(&plan.args)
         .current_dir(&plan.cwd)
         .env_clear()
         .envs(&plan.env)
-        .envs(secret_env.iter())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());

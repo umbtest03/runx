@@ -39,6 +39,30 @@ pub struct RegistryPublisher {
     pub display_name: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RegistryManifestSigner {
+    pub id: String,
+    pub key_id: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RegistryManifestSignature {
+    pub alg: String,
+    pub value: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RegistrySignedManifest {
+    pub schema: String,
+    pub skill_id: String,
+    pub version: String,
+    pub digest: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_digest: Option<String>,
+    pub signer: RegistryManifestSigner,
+    pub signature: RegistryManifestSignature,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RegistryAttestation {
     pub kind: String,
@@ -123,6 +147,8 @@ pub struct RegistrySkillVersion {
     pub description: Option<String>,
     pub version: String,
     pub digest: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signed_manifest: Option<RegistrySignedManifest>,
     pub markdown: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub profile_document: Option<String>,
@@ -182,6 +208,8 @@ pub struct RegistrySkillResolution {
     pub name: String,
     pub version: String,
     pub digest: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signed_manifest: Option<RegistrySignedManifest>,
     pub source: String,
     pub source_label: String,
     pub source_type: String,
@@ -199,6 +227,8 @@ pub struct PublishSkillMarkdownResult {
     pub name: String,
     pub version: String,
     pub digest: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signed_manifest: Option<RegistrySignedManifest>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub profile_digest: Option<String>,
     pub runner_names: Vec<String>,
@@ -225,6 +255,8 @@ pub struct RegistrySkillDetail {
     pub description: Option<String>,
     pub version: String,
     pub digest: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signed_manifest: Option<RegistrySignedManifest>,
     pub markdown: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub profile_digest: Option<String>,
@@ -248,6 +280,8 @@ pub struct AcquiredRegistrySkill {
     pub name: String,
     pub version: String,
     pub digest: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signed_manifest: Option<RegistrySignedManifest>,
     pub markdown: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub profile_document: Option<String>,

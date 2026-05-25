@@ -36,7 +36,7 @@ cargo build --manifest-path crates/Cargo.toml -p runx-cli
 crates/target/debug/runx harness examples/hello-graph/harness.yaml --json
 ```
 
-The harness expects a sealed `runx.harness_receipt.v1` receipt and the ordered
+The harness expects a sealed `runx.receipt.v1` receipt and the ordered
 steps `first`, then `second`.
 
 ## When To Use A Graph

@@ -23,7 +23,7 @@ fn provider_process_pushes_idempotently_and_injects_delivery_observation()
 -> Result<(), Box<dyn std::error::Error>> {
     let manifest = manifest_with_fixture_args(&["push", "created"])?;
     let push = push_fixture()?;
-    let delivery = credential_delivery()?;
+    let delivery = credential_observation_only();
 
     let outcome = ThreadOutboxProviderProcessSupervisor::default()
         .invoke_push(&manifest, &push, &delivery)?;
@@ -138,22 +138,20 @@ fn provider_process_rejects_secret_like_response_fields() -> Result<(), Box<dyn 
 }
 
 #[test]
-fn provider_process_redacts_credentials_from_stderr_and_observation()
+fn provider_process_rejects_process_env_credential_delivery()
 -> Result<(), Box<dyn std::error::Error>> {
     let manifest = manifest_with_fixture_args(&["leaky"])?;
     let push = push_fixture()?;
     let delivery = credential_delivery()?;
 
-    let outcome = ThreadOutboxProviderProcessSupervisor::default()
-        .invoke_push(&manifest, &push, &delivery)?;
+    let result =
+        ThreadOutboxProviderProcessSupervisor::default().invoke_push(&manifest, &push, &delivery);
 
-    assert!(outcome.redacted_stderr.contains("[redacted-credential]"));
-    assert!(!outcome.redacted_stderr.contains("ghs_TEST_SECRET_TOKEN"));
-    let errors = outcome.observation.errors.as_ref();
-    let message = errors
-        .and_then(|errors| errors.first())
-        .map(|error| error.message.as_str());
-    assert_eq!(message, Some("provider mentioned [redacted-credential]"));
+    assert!(matches!(
+        result,
+        Err(ThreadOutboxProviderSupervisorError::CredentialProcessEnvUnsupported)
+    ));
+    assert!(!format!("{result:?}").contains("ghs_TEST_SECRET_TOKEN"));
     Ok(())
 }
 
@@ -271,4 +269,49 @@ fn credential_delivery() -> Result<CredentialDelivery, Box<dyn std::error::Error
         observed_at: "2026-05-22T00:00:00Z".into(),
     });
     Ok(delivery)
+}
+
+fn credential_observation_only() -> CredentialDelivery {
+    CredentialDelivery::none().with_public_observation(CredentialDeliveryObservation {
+        schema: runx_contracts::CredentialDeliveryObservationSchema::V1,
+        observation_id: "cred_obs_123".into(),
+        request_id: "cred_req_123".into(),
+        response_id: Some("cred_resp_123".into()),
+        status: CredentialDeliveryObservationStatus::Delivered,
+        harness_ref: Reference {
+            reference_type: ReferenceType::Harness,
+            uri: "runx:harness:hrn_123".to_owned().into(),
+            provider: None,
+            locator: None,
+            label: None,
+            observed_at: None,
+            proof_kind: None,
+        },
+        host_ref: Some(Reference {
+            reference_type: ReferenceType::Host,
+            uri: "runx:host:local-cli".to_owned().into(),
+            provider: None,
+            locator: None,
+            label: None,
+            observed_at: None,
+            proof_kind: None,
+        }),
+        profile_id: "github-provider-api-env".into(),
+        provider: "github".into(),
+        purpose: CredentialDeliveryPurpose::ProviderApi,
+        delivery_mode: Some(CredentialDeliveryMode::ProcessEnv),
+        credential_refs: vec![Reference {
+            reference_type: ReferenceType::Credential,
+            uri: "runx:credential:github-installation:123".to_owned().into(),
+            provider: Some("github".to_owned().into()),
+            locator: None,
+            label: None,
+            observed_at: None,
+            proof_kind: None,
+        }],
+        material_ref_hash: Some("sha256:material-ref".into()),
+        delivered_roles: vec![CredentialMaterialRole::AccessToken],
+        redaction_refs: None,
+        observed_at: "2026-05-22T00:00:01Z".into(),
+    })
 }

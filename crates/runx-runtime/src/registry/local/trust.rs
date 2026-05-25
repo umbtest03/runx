@@ -341,6 +341,7 @@ pub(super) fn detail_for_version(
         description: version.description.clone(),
         version: version.version.clone(),
         digest: version.digest.clone(),
+        signed_manifest: version.signed_manifest.clone(),
         markdown: version.markdown.clone(),
         profile_digest: version.profile_digest.clone(),
         runner_names: version.runner_names.clone(),

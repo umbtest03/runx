@@ -783,13 +783,11 @@ fn agent_step_output(
 }
 
 fn skill_output_object(output: &SkillOutput) -> JsonObject {
-    serde_json::from_str::<JsonValue>(&output.stdout)
-        .ok()
-        .and_then(|value| match value {
-            JsonValue::Object(object) => Some(object),
-            _ => None,
-        })
-        .unwrap_or_default()
+    let mut object = JsonObject::new();
+    if let Ok(parsed) = serde_json::from_str::<JsonValue>(&output.stdout) {
+        object.insert("skill_claim".to_owned(), parsed);
+    }
+    object
 }
 
 fn string_metadata<'a>(fixture: &'a HarnessFixture, field: &str) -> Option<&'a str> {

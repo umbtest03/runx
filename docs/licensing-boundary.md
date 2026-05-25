@@ -129,7 +129,7 @@ secrets.
 - `crates/runx-receipts/src/tree.rs`
 - `crates/runx-receipts/src/verify.rs`
 - `crates/runx-receipts/src/verify/proof.rs`
-- `crates/runx-receipts/tests/harness_receipts.rs`
+- `crates/runx-receipts/tests/receipt_contracts.rs`
 - `crates/runx-runtime/src/adapter.rs`
 - `crates/runx-runtime/src/adapters/catalog.rs`
 - `crates/runx-runtime/src/adapters/cli_tool.rs`

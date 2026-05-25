@@ -444,14 +444,7 @@ function harnessChildReceiptRefs(receipt: unknown): Array<{ uri?: string }> {
     const refs = (lineage as { children?: unknown }).children;
     return Array.isArray(refs) ? refs as Array<{ uri?: string }> : [];
   }
-  const harness = typeof receipt === "object" && receipt !== null ? (receipt as { harness?: unknown }).harness : undefined;
-  if (!harness || typeof harness !== "object") {
-    return [];
-  }
-  const refs = (harness as { child_harness_receipt_refs?: unknown }).child_harness_receipt_refs;
-  return Array.isArray(refs)
-    ? refs.filter((ref): ref is { uri?: string } => typeof ref === "object" && ref !== null)
-    : [];
+  return [];
 }
 
 function createMemoryStream(): NodeJS.WriteStream & { contents: () => string; clear: () => void } {

@@ -252,6 +252,10 @@ pub enum ExternalAdapterSupervisorError {
     EmptyResponse,
     #[error("external adapter process response exceeded {limit_bytes} bytes")]
     ResponseTooLarge { limit_bytes: usize },
+    #[error(
+        "external adapter process credential delivery must use structured credential refs, not ambient child environment"
+    )]
+    CredentialProcessEnvUnsupported,
     #[error("external adapter process made an unexpected credential request '{request_id}'")]
     UnexpectedCredentialRequest { request_id: String },
     #[error("external adapter process returned unsupported frame schema '{schema}'")]
@@ -294,6 +298,9 @@ impl ExternalAdapterProcessSupervisor {
         invocation: &ExternalAdapterInvocation,
         credential_delivery: &CredentialDelivery,
     ) -> Result<ExternalAdapterProcessOutcome, ExternalAdapterSupervisorError> {
+        credential_delivery
+            .reject_process_env_boundary("external-adapter")
+            .map_err(|_| ExternalAdapterSupervisorError::CredentialProcessEnvUnsupported)?;
         validate_invocation_contract(manifest, invocation)?;
         let started = Instant::now();
         let command = process_command(manifest)?;
@@ -808,7 +815,7 @@ fn spawn_process(
 
 fn process_env(
     invocation: &ExternalAdapterInvocation,
-    credential_delivery: &CredentialDelivery,
+    _credential_delivery: &CredentialDelivery,
 ) -> Result<BTreeMap<String, String>, ExternalAdapterSupervisorError> {
     let mut env = BTreeMap::new();
     if let Some(scoped_env) = invocation.env.as_ref() {
@@ -821,9 +828,6 @@ fn process_env(
     }
     if let Some(receipt_dir) = invocation.receipt_dir.as_ref() {
         env.insert("RUNX_RECEIPT_DIR".to_owned(), receipt_dir.to_string());
-    }
-    for (key, value) in credential_delivery.secret_env().iter() {
-        env.insert(key.to_owned(), value.to_owned());
     }
     Ok(env)
 }

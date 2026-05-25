@@ -106,15 +106,6 @@ describe("receipt importer audit classifier", () => {
     }
   });
 
-  it("marks canonical harness receipt references as migrated evidence", () => {
-    expect(scanFile("packages/contracts/src/schemas/spine.ts", `schema: "runx.harness_receipt.v1",\n`)).toEqual([
-      expect.objectContaining({
-        kind: "harness_receipt_shape",
-        classification: "migrated",
-      }),
-    ]);
-  });
-
   it("marks explicit runtime pseudo-signature policy code as dev-only", () => {
     expect(scanFile("crates/runx-runtime/src/receipts.rs", `        value: "sig:pending".to_owned(),\n`)).toEqual([
       expect.objectContaining({

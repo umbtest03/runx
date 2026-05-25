@@ -162,8 +162,8 @@ pub(crate) fn resolve_inputs(
 
 pub(crate) fn output_object(output: &SkillOutput) -> JsonObject {
     let mut object = JsonObject::new();
-    if let Ok(JsonValue::Object(parsed)) = serde_json::from_str::<JsonValue>(&output.stdout) {
-        object.extend(parsed);
+    if let Ok(parsed) = serde_json::from_str::<JsonValue>(&output.stdout) {
+        object.insert("skill_claim".to_owned(), parsed);
     }
     object.insert(
         "stdout".to_owned(),
@@ -182,6 +182,13 @@ pub(crate) fn output_object(output: &SkillOutput) -> JsonObject {
         }),
     );
     object
+}
+
+pub(crate) fn skill_claim_object(output: &SkillOutput) -> JsonObject {
+    match serde_json::from_str::<JsonValue>(&output.stdout) {
+        Ok(JsonValue::Object(object)) => object,
+        _ => JsonObject::new(),
+    }
 }
 
 fn context_from(step: &GraphStep) -> Option<Vec<String>> {

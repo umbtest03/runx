@@ -10,7 +10,7 @@ use runx_contracts::{
 use runx_core::state_machine::StepAdmissionWitness;
 use runx_parser::{GraphStep, SkillSource, SourceKind};
 
-use super::super::graph::{load_step_skill, output_object, resolve_inputs};
+use super::super::graph::{load_step_skill, output_object, resolve_inputs, skill_claim_object};
 use super::authority::{
     StepPaymentReplay, attach_payment_supervisor_evidence_before_gate, authority_denied,
     enforce_step_authority_admission, enforce_step_authority_receipt_before_success,
@@ -105,6 +105,14 @@ where
     let mut output = runtime.adapter.invoke(invocation)?;
     route_external_adapter_host_resolution(step, host, &mut output)?;
     let outputs = output_object(&output);
+    let skill_claim = skill_claim_object(&output);
+    attach_payment_supervisor_evidence_before_gate(
+        step,
+        authority.as_ref(),
+        &skill_claim,
+        &mut output,
+        &runtime.options.payment_supervisor,
+    )?;
     let receipt = step_receipt_with_signature_policy(
         graph_name,
         &step.id,
@@ -113,18 +121,11 @@ where
         &runtime.options.created_at,
         runtime.options.signature_policy(),
     )?;
-    attach_payment_supervisor_evidence_before_gate(
-        step,
-        authority.as_ref(),
-        &outputs,
-        &mut output,
-        &runtime.options.payment_supervisor,
-    )?;
     let supervisor_proof = enforce_step_authority_receipt_before_success(
         step,
         authority.as_ref(),
         &output,
-        &outputs,
+        &skill_claim,
         &receipt,
     )?;
     if let Some(proof) = supervisor_proof.as_ref() {
@@ -143,7 +144,7 @@ where
         graph_dir,
         step,
         authority.as_ref(),
-        &outputs,
+        &skill_claim,
         &receipt,
         supervisor_proof.as_ref(),
     )?;
@@ -269,7 +270,7 @@ fn run_replayed_payment_step(
 ) -> Result<StepRun, RuntimeError> {
     let skill = load_step_skill(graph_dir, step)?;
     let skill_name = skill.name.clone();
-    let output = replay_skill_output(step, &replay.outputs)?;
+    let mut output = replay_skill_output(step, &replay.outputs)?;
     if !output.succeeded() {
         return Err(authority_denied(
             step,
@@ -277,6 +278,14 @@ fn run_replayed_payment_step(
             "sealed payment replay requires a successful stored rail output".to_owned(),
         ));
     }
+    insert_payment_supervisor_proof_metadata(&mut output.metadata, &replay.supervisor_proof)
+        .map_err(|source| {
+            authority_denied(
+                step,
+                AuthorityVerb::Spend,
+                format!("recording replayed supervisor proof metadata failed: {source}"),
+            )
+        })?;
     let receipt = step_receipt_with_signature_policy(
         graph_name,
         &step.id,
@@ -316,15 +325,7 @@ fn run_replayed_payment_step(
         ));
     }
     validate_replayed_payment_supervisor_proof(step, &replay)?;
-    let mut output = output;
-    insert_payment_supervisor_proof_metadata(&mut output.metadata, &replay.supervisor_proof)
-        .map_err(|source| {
-            authority_denied(
-                step,
-                AuthorityVerb::Spend,
-                format!("recording replayed supervisor proof metadata failed: {source}"),
-            )
-        })?;
+    let outputs = output_object(&output);
     let admission_witness = StepAdmissionWitness::local_runtime(&step.id, &replay.receipt_ref);
     Ok(StepRun {
         step_id: step.id.clone(),
@@ -333,7 +334,7 @@ fn run_replayed_payment_step(
         runner: step.runner.clone(),
         fanout_group: step.fanout_group.clone(),
         output,
-        outputs: replay.outputs,
+        outputs,
         receipt,
         admission_witness,
     })
@@ -475,10 +476,10 @@ where
             reason: format!("agent act {request_id} requires resolution"),
         });
     };
+    let disposition = agent_answer_disposition_value(&response.payload);
     let mut output = agent_step_output(response)?;
     apply_graph_step_artifact_wrappers(&mut output, step)?;
     let outputs = output_object(&output);
-    let disposition = agent_answer_disposition(&outputs);
     let disposition_label = closure_disposition_label(&disposition);
     let receipt = step_receipt_with_disposition_and_policy(
         StepReceiptWithDisposition {
@@ -535,10 +536,10 @@ where
             reason: format!("agent act {request_id} requires resolution"),
         });
     };
+    let disposition = agent_answer_disposition_value(&response.payload);
     let mut output = agent_step_output(response)?;
     apply_graph_step_artifact_wrappers(&mut output, step)?;
     let outputs = output_object(&output);
-    let disposition = agent_answer_disposition(&outputs);
     let disposition_label = closure_disposition_label(&disposition);
     let receipt = step_receipt_with_disposition_and_policy(
         StepReceiptWithDisposition {
@@ -817,24 +818,6 @@ fn json_string(value: &JsonValue) -> Option<&str> {
     match value {
         JsonValue::String(value) => Some(value),
         _ => None,
-    }
-}
-
-fn agent_answer_disposition(outputs: &JsonObject) -> ClosureDisposition {
-    match outputs
-        .get("closure")
-        .and_then(json_object)
-        .and_then(|closure| closure.get("disposition"))
-        .and_then(json_string)
-    {
-        Some("deferred") => ClosureDisposition::Deferred,
-        Some("superseded") => ClosureDisposition::Superseded,
-        Some("declined") => ClosureDisposition::Declined,
-        Some("blocked") => ClosureDisposition::Blocked,
-        Some("failed") => ClosureDisposition::Failed,
-        Some("killed") => ClosureDisposition::Killed,
-        Some("timed_out") => ClosureDisposition::TimedOut,
-        _ => ClosureDisposition::Closed,
     }
 }
 

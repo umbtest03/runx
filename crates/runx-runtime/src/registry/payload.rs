@@ -4,8 +4,9 @@ use serde_json::{Map, Value};
 
 use super::http::RegistryClientError;
 use super::types::{
-    AcquiredRegistrySkill, ProfileMode, RegistryAttestation, RegistryPublisher,
-    RegistrySearchResult, RegistrySkillDetail, RegistrySourceMetadata, TrustTier,
+    AcquiredRegistrySkill, ProfileMode, RegistryAttestation, RegistryManifestSignature,
+    RegistryManifestSigner, RegistryPublisher, RegistrySearchResult, RegistrySignedManifest,
+    RegistrySkillDetail, RegistrySourceMetadata, TrustTier,
 };
 
 pub(crate) fn parse_search(
@@ -65,6 +66,7 @@ pub(crate) fn parse_read(
         description: optional_string_field(skill, "description", route, "$.skill")?,
         version: string_field(skill, "version", route, "$.skill")?,
         digest: string_field(skill, "digest", route, "$.skill")?,
+        signed_manifest: signed_manifest_field(skill, "signed_manifest", route, "$.skill")?,
         markdown: string_field(skill, "markdown", route, "$.skill")?,
         profile_digest: optional_string_field(skill, "profile_digest", route, "$.skill")?,
         runner_names: string_array_field(skill, "runner_names", route, "$.skill")?,
@@ -98,6 +100,12 @@ pub(crate) fn parse_acquire(
         name: string_field(acquisition, "name", route, "$.acquisition")?,
         version: string_field(acquisition, "version", route, "$.acquisition")?,
         digest: string_field(acquisition, "digest", route, "$.acquisition")?,
+        signed_manifest: signed_manifest_field(
+            acquisition,
+            "signed_manifest",
+            route,
+            "$.acquisition",
+        )?,
         markdown: string_field(acquisition, "markdown", route, "$.acquisition")?,
         profile_document: optional_string_field(
             acquisition,
@@ -333,6 +341,49 @@ fn publisher_field(
         handle: optional_string_field(publisher, "handle", route, &field_path)?,
         display_name: optional_string_field(publisher, "display_name", route, &field_path)?,
     })
+}
+
+fn signed_manifest_field(
+    record: &Map<String, Value>,
+    field: &str,
+    route: &str,
+    path: &str,
+) -> Result<Option<RegistrySignedManifest>, RegistryClientError> {
+    let Some(value) = record.get(field) else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Ok(None);
+    }
+    let field_path = format!("{path}.{field}");
+    let manifest = object(value, route, &field_path)?;
+    let signer_path = format!("{field_path}.signer");
+    let signer = object(
+        required(manifest, "signer", route, &field_path)?,
+        route,
+        &signer_path,
+    )?;
+    let signature_path = format!("{field_path}.signature");
+    let signature = object(
+        required(manifest, "signature", route, &field_path)?,
+        route,
+        &signature_path,
+    )?;
+    Ok(Some(RegistrySignedManifest {
+        schema: string_field(manifest, "schema", route, &field_path)?,
+        skill_id: string_field(manifest, "skill_id", route, &field_path)?,
+        version: string_field(manifest, "version", route, &field_path)?,
+        digest: string_field(manifest, "digest", route, &field_path)?,
+        profile_digest: optional_string_field(manifest, "profile_digest", route, &field_path)?,
+        signer: RegistryManifestSigner {
+            id: string_field(signer, "id", route, &signer_path)?,
+            key_id: string_field(signer, "key_id", route, &signer_path)?,
+        },
+        signature: RegistryManifestSignature {
+            alg: string_field(signature, "alg", route, &signature_path)?,
+            value: string_field(signature, "value", route, &signature_path)?,
+        },
+    }))
 }
 
 fn attestations_field(

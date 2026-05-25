@@ -393,7 +393,8 @@ fn x402_paid_echo_returns_echo_only_after_sealed_payment_proof()
     );
 
     let echo = step_run(&run.steps, "echo")?;
-    let paid_echo_result = object_field(&echo.outputs, "paid_echo_result")?;
+    let skill_claim = object_field(&echo.outputs, "skill_claim")?;
+    let paid_echo_result = object_field(skill_claim, "paid_echo_result")?;
     assert_eq!(
         paid_echo_result.get("message"),
         Some(&JsonValue::String("hello from paid echo".to_owned()))
@@ -479,7 +480,7 @@ fn x402_paid_echo_replays_sealed_idempotency_without_second_rail()
     );
     assert_eq!(
         object_field(
-            &step_run(&second.steps, "echo")?.outputs,
+            object_field(&step_run(&second.steps, "echo")?.outputs, "skill_claim")?,
             "paid_echo_result"
         )?
         .get("payment_proof_ref"),
@@ -1434,7 +1435,7 @@ fn paid_echo_graph_yaml() -> Result<String, serde_json::Error> {
                 "id": "reserve",
                 "skill": "./reserve",
                 "context": {
-                    "payment_quote_packet": "quote.payment_quote_packet.data"
+                    "payment_quote_packet": "quote.skill_claim.payment_quote_packet.data"
                 }
             },
             {
@@ -1456,9 +1457,9 @@ fn paid_echo_graph_yaml() -> Result<String, serde_json::Error> {
                 "mutation": true,
                 "idempotency_key": "paid-echo-fulfill",
                 "context": {
-                    "reserved_payment_authority": "reserve.payment_reservation_packet.data.reserved_payment_authority",
-                    "spend_capability_ref": "reserve.payment_reservation_packet.data.spend_capability_ref",
-                    "idempotency": "reserve.payment_reservation_packet.data.idempotency"
+                    "reserved_payment_authority": "reserve.skill_claim.payment_reservation_packet.data.reserved_payment_authority",
+                    "spend_capability_ref": "reserve.skill_claim.payment_reservation_packet.data.spend_capability_ref",
+                    "idempotency": "reserve.skill_claim.payment_reservation_packet.data.idempotency"
                 }
             },
             {
@@ -1468,8 +1469,8 @@ fn paid_echo_graph_yaml() -> Result<String, serde_json::Error> {
                     "message": "hello from paid echo"
                 },
                 "context": {
-                    "payment_credential_ref": "fulfill.payment_rail_packet.data.credential_envelope.credential_ref",
-                    "payment_proof_ref": "fulfill.payment_rail_packet.data.rail_proof.proof_ref"
+                    "payment_credential_ref": "fulfill.skill_claim.payment_rail_packet.data.credential_envelope.credential_ref",
+                    "payment_proof_ref": "fulfill.skill_claim.payment_rail_packet.data.rail_proof.proof_ref"
                 }
             }
         ],

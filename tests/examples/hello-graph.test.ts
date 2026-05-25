@@ -20,13 +20,12 @@ describe("hello-graph example", () => {
     expect(stderr).toBe("");
     const receipt = JSON.parse(stdout) as {
       readonly schema?: string;
-      readonly harness?: { readonly state?: string; readonly child_harness_receipt_refs?: readonly unknown[] };
+      readonly lineage?: { readonly children?: readonly unknown[] };
       readonly seal?: { readonly disposition?: string };
     };
-    expect(receipt.schema).toBe("runx.harness_receipt.v1");
-    expect(receipt.harness?.state).toBe("sealed");
+    expect(receipt.schema).toBe("runx.receipt.v1");
     expect(receipt.seal?.disposition).toBe("closed");
-    expect(receipt.harness?.child_harness_receipt_refs?.length).toBe(2);
+    expect(receipt.lineage?.children?.length).toBe(2);
   });
 });
 

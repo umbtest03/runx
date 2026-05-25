@@ -11,8 +11,9 @@ use std::process::ExitCode;
 use runx_runtime::registry::{
     AcquireOptions, FileRegistryStore, IngestSkillOptions, InstallCandidate,
     InstallLocalSkillOptions, LocalRegistryClient, PublishSkillMarkdownOptions, RegistryClient,
-    RegistryResolveOptions, RegistrySearchOptions, RegistrySkillResolution, install_local_skill,
-    publish_skill_markdown, read_registry_skill, resolve_registry_skill,
+    RegistryManifestSigningKey, RegistryResolveOptions, RegistrySearchOptions,
+    RegistrySkillResolution, TrustedRegistryManifestKey, default_trusted_registry_manifest_keys,
+    install_local_skill, publish_skill_markdown, read_registry_skill, resolve_registry_skill,
     search_registry_with_options,
 };
 
@@ -193,6 +194,7 @@ fn run_install(
         &InstallLocalSkillOptions {
             destination_root: destination_root(&plan, env, cwd),
             expected_digest: plan.expected_digest,
+            trusted_manifest_keys: trusted_manifest_keys_from_env(env)?,
         },
     )?;
     let receipt_metadata = runx_runtime::registry_install_receipt_metadata(
@@ -241,6 +243,7 @@ fn run_publish(
                 owner: plan.owner,
                 version: plan.version,
                 profile_document: package.profile_document,
+                manifest_signing_key: manifest_signing_key_from_env(env)?,
                 upsert: plan.upsert,
                 ..IngestSkillOptions::default()
             },
@@ -320,7 +323,7 @@ fn candidate_from_resolution(
         r#ref: registry_ref.to_owned(),
         skill_id: Some(resolution.skill_id),
         version: Some(resolution.version),
-        digest: Some(resolution.digest),
+        signed_manifest: resolution.signed_manifest,
         profile_digest: resolution.profile_digest,
         runner_names: resolution.runner_names,
         trust_tier: Some(resolution.trust_tier),
@@ -339,7 +342,7 @@ fn candidate_from_acquired(
         r#ref: registry_ref.to_owned(),
         skill_id: Some(acquired.skill_id.clone()),
         version: Some(acquired.version.clone()),
-        digest: Some(acquired.digest.clone()),
+        signed_manifest: acquired.signed_manifest.clone(),
         profile_digest: acquired.profile_digest.clone(),
         runner_names: acquired.runner_names.clone(),
         trust_tier: Some(acquired.trust_tier.clone()),
@@ -574,6 +577,46 @@ fn workspace_base(env: &BTreeMap<String, String>, cwd: &Path) -> PathBuf {
         .unwrap_or_else(|| cwd.to_path_buf())
 }
 
+fn manifest_signing_key_from_env(
+    env: &BTreeMap<String, String>,
+) -> Result<Option<RegistryManifestSigningKey>, RegistryCliError> {
+    let Some(seed) = env.get(runx_runtime::registry::RUNX_REGISTRY_MANIFEST_SIGNING_SEED_ENV)
+    else {
+        return Ok(None);
+    };
+    let key_id = env
+        .get(runx_runtime::registry::RUNX_REGISTRY_MANIFEST_SIGNING_KEY_ID_ENV)
+        .cloned()
+        .ok_or_else(|| usage_error("registry manifest signing key id is required"))?;
+    let signer_id = env
+        .get(runx_runtime::registry::RUNX_REGISTRY_MANIFEST_SIGNER_ID_ENV)
+        .cloned()
+        .unwrap_or_else(|| "runx-local-registry".to_owned());
+    RegistryManifestSigningKey::from_seed_base64(signer_id, key_id, seed)
+        .map(Some)
+        .map_err(|error| usage_error(error.to_string()))
+}
+
+fn trusted_manifest_keys_from_env(
+    env: &BTreeMap<String, String>,
+) -> Result<Vec<TrustedRegistryManifestKey>, RegistryCliError> {
+    let mut trusted_keys = default_trusted_registry_manifest_keys()
+        .map_err(|error| internal_error(error.to_string()))?;
+    let Some(public_key) = env.get(runx_runtime::registry::RUNX_REGISTRY_MANIFEST_TRUST_KEY_ENV)
+    else {
+        return Ok(trusted_keys);
+    };
+    let key_id = env
+        .get(runx_runtime::registry::RUNX_REGISTRY_MANIFEST_TRUST_KEY_ID_ENV)
+        .cloned()
+        .ok_or_else(|| usage_error("registry manifest trust key id is required"))?;
+    trusted_keys.push(
+        TrustedRegistryManifestKey::from_base64(key_id, public_key)
+            .map_err(|error| usage_error(error.to_string()))?,
+    );
+    Ok(trusted_keys)
+}
+
 fn find_workspace_root(start: &Path) -> Option<PathBuf> {
     let mut current = start.to_path_buf();
     loop {
@@ -651,6 +694,18 @@ impl From<runx_runtime::registry::LocalRegistryError> for RegistryCliError {
 
 impl From<runx_runtime::registry::InstallError> for RegistryCliError {
     fn from(error: runx_runtime::registry::InstallError) -> Self {
-        internal_error(error.to_string())
+        let error_kind = match &error {
+            runx_runtime::registry::InstallError::UnsignedManifest(_) => Some("unsigned_manifest"),
+            runx_runtime::registry::InstallError::UnknownManifestKey { .. } => Some("unknown_key"),
+            runx_runtime::registry::InstallError::InvalidManifestSignature { .. } => {
+                Some("invalid_signature")
+            }
+            runx_runtime::registry::InstallError::DigestMismatch { .. } => Some("digest_mismatch"),
+            _ => None,
+        };
+        match error_kind {
+            Some(kind) => internal_error(format!("registry install {kind}: {error}")),
+            None => internal_error(error.to_string()),
+        }
     }
 }

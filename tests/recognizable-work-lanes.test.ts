@@ -141,7 +141,7 @@ describe("recognizable work lanes", () => {
           stdout: expect.stringContaining("\"recommended_lane\":\"issue-to-pr\""),
         },
         receipt: {
-          schema: "runx.harness_receipt.v1",
+          schema: "runx.receipt.v1",
           seal: {
             disposition: "closed",
           },

@@ -215,7 +215,7 @@ describe("official skill catalog", () => {
           });
 
           expect(result.status, `${skillName}/${entry.name}\n${result.stderr || result.stdout}`).toBe(0);
-          expect(JSON.parse(result.stdout)).toMatchObject({ schema: "runx.harness_receipt.v1" });
+          expect(JSON.parse(result.stdout)).toMatchObject({ schema: "runx.receipt.v1" });
           executedCases += 1;
         }
       }

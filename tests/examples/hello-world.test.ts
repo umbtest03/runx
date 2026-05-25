@@ -44,7 +44,7 @@ describe("hello-world example", () => {
       };
       expect(result.status).toBe("sealed");
       expect(result.execution?.stdout).toBe("hello from docs\n");
-      expect(result.receipt?.schema).toBe("runx.harness_receipt.v1");
+      expect(result.receipt?.schema).toBe("runx.receipt.v1");
       expect(result.receipt?.seal?.disposition).toBe("closed");
     } finally {
       await rm(tempDir, { recursive: true, force: true });

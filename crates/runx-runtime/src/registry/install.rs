@@ -14,7 +14,11 @@ use runx_parser::{
 use serde_json::{Value, json};
 
 use super::refs::safe_skill_package_parts;
-use super::types::TrustTier;
+use super::trust_anchor::{
+    RegistryManifestVerificationFailure, TrustedRegistryManifestKey,
+    default_trusted_registry_manifest_keys, verify_registry_signed_manifest,
+};
+use super::types::{RegistrySignedManifest, TrustTier};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InstallCandidate {
@@ -25,7 +29,7 @@ pub struct InstallCandidate {
     pub r#ref: String,
     pub skill_id: Option<String>,
     pub version: Option<String>,
-    pub digest: Option<String>,
+    pub signed_manifest: Option<RegistrySignedManifest>,
     pub profile_digest: Option<String>,
     pub runner_names: Vec<String>,
     pub trust_tier: Option<TrustTier>,
@@ -35,6 +39,7 @@ pub struct InstallCandidate {
 pub struct InstallLocalSkillOptions {
     pub destination_root: PathBuf,
     pub expected_digest: Option<String>,
+    pub trusted_manifest_keys: Vec<TrustedRegistryManifestKey>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
@@ -70,6 +75,20 @@ pub enum InstallError {
     ManifestParse(#[from] runx_parser::ParseError),
     #[error("digest mismatch for {ref_name}: expected {expected}, received {actual}")]
     DigestMismatch {
+        ref_name: String,
+        expected: String,
+        actual: String,
+    },
+    #[error("registry signed manifest is required for {0}")]
+    UnsignedManifest(String),
+    #[error("registry signed manifest for {ref_name} was signed by unknown key id '{key_id}'")]
+    UnknownManifestKey { ref_name: String, key_id: String },
+    #[error("registry signed manifest signature is invalid for {ref_name}: {reason}")]
+    InvalidManifestSignature { ref_name: String, reason: String },
+    #[error(
+        "registry signed manifest identity mismatch for {ref_name}: expected {expected}, manifest declares {actual}"
+    )]
+    ManifestIdentityMismatch {
         ref_name: String,
         expected: String,
         actual: String,
@@ -158,10 +177,10 @@ fn validate_install_candidate(
     candidate: &InstallCandidate,
     options: &InstallLocalSkillOptions,
 ) -> Result<ValidatedLocalInstall, InstallError> {
-    let actual_digest = validate_candidate_digest(candidate, options)?;
-    let origin = install_origin(candidate, &actual_digest);
-    let install = validate_skill_install(&candidate.markdown, origin)?;
+    let actual_digest = verify_signed_manifest_anchor(candidate, options)?;
     let profile_digest = validate_candidate_profile_digest(candidate)?;
+    let origin = install_origin(candidate, &actual_digest, profile_digest.as_deref());
+    let install = validate_skill_install(&candidate.markdown, origin)?;
     let runner_names = validate_install_binding_manifest(
         &install.skill.name,
         candidate.profile_document.as_deref(),
@@ -183,23 +202,53 @@ fn validate_install_candidate(
     })
 }
 
-fn validate_candidate_digest(
+fn verify_signed_manifest_anchor(
     candidate: &InstallCandidate,
     options: &InstallLocalSkillOptions,
 ) -> Result<String, InstallError> {
+    let manifest = candidate
+        .signed_manifest
+        .as_ref()
+        .ok_or_else(|| InstallError::UnsignedManifest(candidate.r#ref.clone()))?;
+    let trusted_keys = trusted_manifest_keys(options)?;
+    verify_registry_signed_manifest(manifest, &trusted_keys).map_err(|failure| {
+        manifest_verification_error(candidate.r#ref.clone(), &manifest.signer.key_id, failure)
+    })?;
+    validate_manifest_identity(candidate, manifest)?;
     let actual_digest = sha256_prefixed(candidate.markdown.as_bytes());
+    if !digest_matches(&manifest.digest, &actual_digest) {
+        return Err(InstallError::DigestMismatch {
+            ref_name: candidate.r#ref.clone(),
+            expected: manifest.digest.clone(),
+            actual: actual_digest,
+        });
+    }
     if let Some(expected) = options
         .expected_digest
         .as_ref()
-        .filter(|expected| !digest_matches(expected, &actual_digest))
+        .filter(|expected| !digest_matches(expected, &manifest.digest))
     {
         return Err(InstallError::DigestMismatch {
             ref_name: candidate.r#ref.clone(),
             expected: expected.clone(),
-            actual: actual_digest,
+            actual: manifest.digest.clone(),
         });
     }
     Ok(actual_digest)
+}
+
+fn trusted_manifest_keys(
+    options: &InstallLocalSkillOptions,
+) -> Result<Vec<TrustedRegistryManifestKey>, InstallError> {
+    if options.trusted_manifest_keys.is_empty() {
+        return default_trusted_registry_manifest_keys().map_err(|_error| {
+            InstallError::InvalidManifestSignature {
+                ref_name: "default registry trust anchor".to_owned(),
+                reason: "malformed trusted key".to_owned(),
+            }
+        });
+    }
+    Ok(options.trusted_manifest_keys.clone())
 }
 
 fn validate_candidate_profile_digest(
@@ -209,7 +258,12 @@ fn validate_candidate_profile_digest(
         .profile_document
         .as_ref()
         .map(|document| sha256_prefixed(document.as_bytes()));
-    if let Some(expected) = &candidate.profile_digest {
+    let expected_profile_digest = candidate
+        .signed_manifest
+        .as_ref()
+        .and_then(|manifest| manifest.profile_digest.as_ref())
+        .or(candidate.profile_digest.as_ref());
+    if let Some(expected) = expected_profile_digest {
         let matches = profile_digest
             .as_ref()
             .is_some_and(|actual| digest_matches(expected, actual));
@@ -222,6 +276,74 @@ fn validate_candidate_profile_digest(
         }
     }
     Ok(profile_digest)
+}
+
+fn validate_manifest_identity(
+    candidate: &InstallCandidate,
+    manifest: &RegistrySignedManifest,
+) -> Result<(), InstallError> {
+    if let Some(skill_id) = &candidate.skill_id {
+        if &manifest.skill_id != skill_id {
+            return Err(InstallError::ManifestIdentityMismatch {
+                ref_name: candidate.r#ref.clone(),
+                expected: skill_id.clone(),
+                actual: manifest.skill_id.clone(),
+            });
+        }
+    }
+    if let Some(version) = &candidate.version {
+        if &manifest.version != version {
+            return Err(InstallError::ManifestIdentityMismatch {
+                ref_name: candidate.r#ref.clone(),
+                expected: version.clone(),
+                actual: manifest.version.clone(),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn manifest_verification_error(
+    ref_name: String,
+    key_id: &str,
+    failure: RegistryManifestVerificationFailure,
+) -> InstallError {
+    match failure {
+        RegistryManifestVerificationFailure::UnknownKey => InstallError::UnknownManifestKey {
+            ref_name,
+            key_id: key_id.to_owned(),
+        },
+        RegistryManifestVerificationFailure::UnsupportedSchema => {
+            InstallError::InvalidManifestSignature {
+                ref_name,
+                reason: "unsupported schema".to_owned(),
+            }
+        }
+        RegistryManifestVerificationFailure::UnsupportedAlgorithm => {
+            InstallError::InvalidManifestSignature {
+                ref_name,
+                reason: "unsupported algorithm".to_owned(),
+            }
+        }
+        RegistryManifestVerificationFailure::MalformedKey => {
+            InstallError::InvalidManifestSignature {
+                ref_name,
+                reason: "malformed key".to_owned(),
+            }
+        }
+        RegistryManifestVerificationFailure::MalformedSignature => {
+            InstallError::InvalidManifestSignature {
+                ref_name,
+                reason: "malformed signature".to_owned(),
+            }
+        }
+        RegistryManifestVerificationFailure::SignatureMismatch => {
+            InstallError::InvalidManifestSignature {
+                ref_name,
+                reason: "signature mismatch".to_owned(),
+            }
+        }
+    }
 }
 
 fn next_profile_state(
@@ -244,7 +366,11 @@ fn next_profile_state(
     )?))
 }
 
-fn install_origin(candidate: &InstallCandidate, actual_digest: &str) -> SkillInstallOrigin {
+fn install_origin(
+    candidate: &InstallCandidate,
+    actual_digest: &str,
+    profile_digest: Option<&str>,
+) -> SkillInstallOrigin {
     SkillInstallOrigin {
         source: candidate.source.clone(),
         source_label: candidate.source_label.clone(),
@@ -252,7 +378,7 @@ fn install_origin(candidate: &InstallCandidate, actual_digest: &str) -> SkillIns
         skill_id: candidate.skill_id.clone(),
         version: candidate.version.clone(),
         digest: Some(actual_digest.to_owned()),
-        profile_digest: candidate.profile_digest.clone(),
+        profile_digest: profile_digest.map(ToOwned::to_owned),
         runner_names: Some(candidate.runner_names.clone()),
         trust_tier: candidate.trust_tier.as_ref().map(trust_tier_string),
     }

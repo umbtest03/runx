@@ -57,7 +57,7 @@ async function generateSkillFixtures(skillName: typeof skillNames[number]): Prom
     },
     skill_name: skillName,
     manifest_hash: `sha256:${sha256(`${skillMarkdown}\n${JSON.stringify(profile)}`)}`,
-    harness_schema: "runx.harness_receipt.v1",
+    harness_schema: "runx.receipt.v1",
     case_names: cases.map((entry) => String(entry.name)),
   }, null, 2)}\n`);
 
@@ -116,7 +116,7 @@ function issueToPrFixture(
     disposition: "deferred",
     reasonCode: `${entry.name}_deferred`,
     decisionIds: ["dec_graph"],
-    childReceiptRefs: childSteps.map((step) => `runx:harness_receipt:hrn_rcpt_${entry.name}_${step.step_id}`),
+    childReceiptRefs: childSteps.map((step) => `runx:receipt:hrn_rcpt_${entry.name}_${step.step_id}`),
   });
   expect.steps = childSteps.map((step) => step.step_id);
   return {
@@ -219,7 +219,7 @@ function canonicalExpectation(
 ): Record<string, unknown> {
   const status = record(entry.expect, "expect")?.status ?? receipt.status;
   const receiptExpectation: Record<string, unknown> = {
-    schema: "runx.harness_receipt.v1",
+    schema: "runx.receipt.v1",
     receipt_id: receipt.receiptId,
     harness_id: receipt.harnessId,
     state: "sealed",

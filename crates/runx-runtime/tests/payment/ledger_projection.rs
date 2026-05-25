@@ -12,8 +12,9 @@ use runx_runtime::payment::ledger::{
     write_payment_ledger_projection_artifact,
 };
 use runx_runtime::payment::supervisor::{
-    PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID, PaymentSupervisorProof,
-    insert_payment_supervisor_proof_metadata,
+    PAYMENT_RAIL_SUPERVISOR_EVIDENCE_METADATA, PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID,
+    PaymentSupervisorProof, PaymentSupervisorSettlementEvidence,
+    insert_payment_supervisor_proof_metadata, payment_supervisor_evidence_metadata_value,
 };
 use runx_runtime::receipts::{graph_receipt, step_receipt};
 use runx_runtime::{InvocationStatus, SkillOutput, StepRun};
@@ -346,7 +347,7 @@ fn step_run(
     step_id: &str,
     stdout: &str,
 ) -> Result<StepRun, Box<dyn std::error::Error>> {
-    let output = SkillOutput {
+    let mut output = SkillOutput {
         status: InvocationStatus::Success,
         stdout: stdout.to_owned(),
         stderr: String::new(),
@@ -354,6 +355,12 @@ fn step_run(
         duration_ms: 1,
         metadata: JsonObject::new(),
     };
+    if step_id == "fulfill" {
+        output.metadata.insert(
+            PAYMENT_RAIL_SUPERVISOR_EVIDENCE_METADATA.to_owned(),
+            payment_supervisor_evidence_metadata_value(&paid_echo_supervisor_evidence())?,
+        );
+    }
     let receipt = step_receipt(graph_name, step_id, 1, &output, CREATED_AT)?;
     let admission_witness = StepAdmissionWitness::local_runtime(step_id, receipt.id.as_str());
     let outputs = serde_json::from_str::<runx_contracts::JsonValue>(&output.stdout)
@@ -374,6 +381,20 @@ fn step_run(
         receipt,
         admission_witness,
     })
+}
+
+fn paid_echo_supervisor_evidence() -> PaymentSupervisorSettlementEvidence {
+    PaymentSupervisorSettlementEvidence {
+        verifier_id: PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID.to_owned(),
+        proof_ref: "receipt-proof:mock:paid-echo-001".to_owned(),
+        rail: "mock".to_owned(),
+        counterparty: "merchant:paid-echo".to_owned(),
+        amount_minor: 125,
+        currency: "USD".to_owned(),
+        idempotency_key: "payment:paid-echo-001".to_owned(),
+        settlement_status: Some("fulfilled".to_owned()),
+        provider_event_ref: Some("provider:event:payment:paid-echo-001".to_owned()),
+    }
 }
 
 fn golden(path: &str) -> Result<Value, Box<dyn std::error::Error>> {

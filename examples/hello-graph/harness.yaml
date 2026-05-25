@@ -7,11 +7,11 @@ expect:
     - first
     - second
   receipt:
-    schema: runx.harness_receipt.v1
+    schema: runx.receipt.v1
     harness_id: hrn_hello-graph_graph
     state: sealed
     disposition: closed
     reason_code: graph_closed
     child_receipt_refs:
-      - runx:harness_receipt:hrn_rcpt_hello-graph_first
-      - runx:harness_receipt:hrn_rcpt_hello-graph_second
+      - runx:receipt:hrn_rcpt_hello-graph_first
+      - runx:receipt:hrn_rcpt_hello-graph_second
