@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::path::Path;
 
+use runx_contracts::sha256_prefixed;
 use runx_runtime::registry::{
     AcquireOptions, HostedHttpError, HttpMethod, HttpRequest, HttpResponse, InstallCandidate,
     InstallError, InstallLocalSkillOptions, InstallStatus, RegistryClient, RegistryClientError,
@@ -295,11 +296,10 @@ fn local_install_accepts_bare_registry_store_digests() -> Result<(), Box<dyn std
             ..runx_runtime::registry::IngestSkillOptions::default()
         },
     )?;
-    candidate.digest = Some(record.digest.clone());
     candidate.profile_digest = record.profile_digest.clone();
     let options = InstallLocalSkillOptions {
         destination_root: temp.path().join("skills"),
-        expected_digest: None,
+        expected_digest: Some(record.digest.clone()),
     };
 
     let install = install_local_skill(&candidate, &options)?;
@@ -307,6 +307,43 @@ fn local_install_accepts_bare_registry_store_digests() -> Result<(), Box<dyn std
     assert_eq!(install.status, InstallStatus::Installed);
     assert_eq!(install.skill_id.as_deref(), Some("acme/echo"));
     assert!(install.digest.starts_with("sha256:"));
+    Ok(())
+}
+
+#[test]
+fn local_install_ignores_candidate_supplied_digest() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let mut candidate = install_candidate();
+    candidate.digest = Some("sha256:not-trusted".to_owned());
+    let options = InstallLocalSkillOptions {
+        destination_root: temp.path().join("skills"),
+        expected_digest: None,
+    };
+
+    let install = install_local_skill(&candidate, &options)?;
+    let actual_digest = sha256_prefixed(candidate.markdown.as_bytes());
+
+    assert_eq!(install.digest, actual_digest);
+    Ok(())
+}
+
+#[test]
+fn local_install_rejects_bad_expected_digest() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let mut candidate = install_candidate();
+    candidate.digest = Some(sha256_prefixed(candidate.markdown.as_bytes()));
+    let options = InstallLocalSkillOptions {
+        destination_root: temp.path().join("skills"),
+        expected_digest: Some("sha256:wrong".to_owned()),
+    };
+
+    let error = match install_local_skill(&candidate, &options) {
+        Ok(_) => return Err("expected digest mismatch should fail".into()),
+        Err(error) => error,
+    };
+
+    assert!(error.to_string().contains("digest mismatch"));
+    assert!(!options.destination_root.exists());
     Ok(())
 }
 

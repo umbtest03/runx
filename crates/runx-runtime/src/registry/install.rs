@@ -188,12 +188,10 @@ fn validate_candidate_digest(
     options: &InstallLocalSkillOptions,
 ) -> Result<String, InstallError> {
     let actual_digest = sha256_prefixed(candidate.markdown.as_bytes());
-    let expected_digest = options
+    if let Some(expected) = options
         .expected_digest
         .as_ref()
-        .or(candidate.digest.as_ref());
-    if let Some(expected) =
-        expected_digest.filter(|expected| !digest_matches(expected, &actual_digest))
+        .filter(|expected| !digest_matches(expected, &actual_digest))
     {
         return Err(InstallError::DigestMismatch {
             ref_name: candidate.r#ref.clone(),
