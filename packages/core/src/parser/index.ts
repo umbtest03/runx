@@ -301,10 +301,10 @@ export function parseToolManifestJson(json: string): RawToolManifestIR {
 
 export function validateSkill(raw: RawSkillIR, options: ValidateSkillOptions = {}): ValidatedSkill {
   const mode = options.mode ?? "strict";
-  const name = requiredString(raw.frontmatter.name, "name");
-  const description = optionalString(raw.frontmatter.description, "description");
-  const sourceRecord = optionalRecord(raw.frontmatter.source, "source");
-  const inputs = validateInputs(optionalRecord(raw.frontmatter.inputs, "inputs") ?? {});
+  const name = requiredNullableString(raw.frontmatter.name, "name");
+  const description = optionalNullableString(raw.frontmatter.description, "description");
+  const sourceRecord = optionalNullableRecord(raw.frontmatter.source, "source");
+  const inputs = validateInputs(optionalNullableRecord(raw.frontmatter.inputs, "inputs") ?? {});
   const runxValue = raw.frontmatter.runx;
 
   if (mode === "strict" && runxValue !== undefined && !isRecord(runxValue)) {
@@ -350,20 +350,20 @@ export function extractSkillQualityProfile(body: string): SkillQualityProfile | 
 }
 
 export function validateRunnerManifest(raw: RawRunnerManifestIR): SkillRunnerManifest {
-  const runnersRecord = requiredRecord(raw.document.runners, "runners");
+  const runnersRecord = requiredNullableRecord(raw.document.runners, "runners");
   const runners: Record<string, SkillRunnerDefinition> = {};
 
   for (const [name, value] of Object.entries(runnersRecord)) {
-    const runner = requiredRecord(value, `runners.${name}`);
-    const runx = optionalRecord(runner.runx, `runners.${name}.runx`);
+    const runner = requiredNullableRecord(value, `runners.${name}`);
+    const runx = optionalNullableRecord(runner.runx, `runners.${name}.runx`);
     validatePostRunReflectPolicy(runx, `runners.${name}.runx`);
-    const sourceRecord = optionalRecord(runner.source, `runners.${name}.source`) ?? runner;
+    const sourceRecord = optionalNullableRecord(runner.source, `runners.${name}.source`) ?? runner;
     const risk = runner.risk;
     runners[name] = {
       name,
-      default: optionalBoolean(runner.default, `runners.${name}.default`) ?? false,
+      default: optionalNullableBoolean(runner.default, `runners.${name}.default`) ?? false,
       source: validateSource(sourceRecord, runx),
-      inputs: validateInputs(optionalRecord(runner.inputs, `runners.${name}.inputs`) ?? {}),
+      inputs: validateInputs(optionalNullableRecord(runner.inputs, `runners.${name}.inputs`) ?? {}),
       auth: runner.auth,
       risk,
       runtime: runner.runtime,
@@ -384,7 +384,7 @@ export function validateRunnerManifest(raw: RawRunnerManifestIR): SkillRunnerMan
     };
   }
 
-  const harness = validateHarnessManifest(optionalRecord(raw.document.harness, "harness"), "harness");
+  const harness = validateHarnessManifest(optionalNullableRecord(raw.document.harness, "harness"), "harness");
   for (const entry of harness?.cases ?? []) {
     if (entry.runner && !runners[entry.runner]) {
       throw new SkillValidationError(`harness.cases runner ${entry.runner} is not declared in runners.`);
@@ -392,8 +392,8 @@ export function validateRunnerManifest(raw: RawRunnerManifestIR): SkillRunnerMan
   }
 
   return {
-    skill: optionalString(raw.document.skill, "skill"),
-    catalog: validateCatalogMetadata(optionalRecord(raw.document.catalog, "catalog"), "catalog"),
+    skill: optionalNullableString(raw.document.skill, "skill"),
+    catalog: validateCatalogMetadata(optionalNullableRecord(raw.document.catalog, "catalog"), "catalog"),
     runners,
     harness,
     raw,
@@ -404,9 +404,9 @@ function validateCatalogMetadata(value: Record<string, unknown> | undefined, lab
   if (!value) {
     return undefined;
   }
-  const kind = requiredString(value.kind, `${label}.kind`);
-  const audience = requiredString(value.audience, `${label}.audience`);
-  const visibility = optionalString(value.visibility, `${label}.visibility`) ?? "public";
+  const kind = requiredNullableString(value.kind, `${label}.kind`);
+  const audience = requiredNullableString(value.audience, `${label}.audience`);
+  const visibility = optionalNullableString(value.visibility, `${label}.visibility`) ?? "public";
 
   if (kind !== "skill" && kind !== "graph") {
     throw new SkillValidationError(`${label}.kind must be skill or graph.`);
@@ -463,18 +463,18 @@ function escapeRegExp(value: string): string {
 }
 
 export function validateToolManifest(raw: RawToolManifestIR): ValidatedTool {
-  const name = requiredString(raw.document.name, "name");
-  const description = optionalString(raw.document.description, "description");
-  const runx = optionalRecord(raw.document.runx, "runx");
+  const name = requiredNullableString(raw.document.name, "name");
+  const description = optionalNullableString(raw.document.description, "description");
+  const runx = optionalNullableRecord(raw.document.runx, "runx");
   const risk = raw.document.risk;
-  const source = validateToolSource(validateSource(requiredRecord(raw.document.source, "source"), runx), "source.type");
+  const source = validateToolSource(validateSource(requiredNullableRecord(raw.document.source, "source"), runx), "source.type");
 
   return {
     name,
     description,
     source,
-    inputs: validateInputs(optionalRecord(raw.document.inputs, "inputs") ?? {}),
-    scopes: optionalStringArray(raw.document.scopes, "scopes") ?? [],
+    inputs: validateInputs(optionalNullableRecord(raw.document.inputs, "inputs") ?? {}),
+    scopes: optionalNullableStringArray(raw.document.scopes, "scopes") ?? [],
     risk,
     runtime: raw.document.runtime,
     retry: validateSkillRetry(raw.document.retry ?? runx?.retry, "retry"),
@@ -507,8 +507,8 @@ export function resolvePostRunReflectPolicy(
   runx: Record<string, unknown> | undefined,
   field = "runx",
 ): PostRunReflectPolicy {
-  const postRun = optionalRecord(readField(runx, "post_run"), `${field}.post_run`);
-  const reflect = optionalString(readField(postRun, "reflect"), `${field}.post_run.reflect`) ?? "never";
+  const postRun = optionalNullableRecord(readField(runx, "post_run"), `${field}.post_run`);
+  const reflect = optionalNullableString(readField(postRun, "reflect"), `${field}.post_run.reflect`) ?? "never";
   if (reflect !== "auto" && reflect !== "always" && reflect !== "never") {
     throw new SkillValidationError(`${field}.post_run.reflect must be auto, always, or never.`);
   }
@@ -516,35 +516,35 @@ export function resolvePostRunReflectPolicy(
 }
 
 function validateSource(source: Record<string, unknown>, runx: Record<string, unknown> | undefined): SkillSource {
-  const type = requiredString(source.type, "source.type");
-  const args = optionalStringArray(source.args, "source.args") ?? [];
+  const type = requiredNullableString(source.type, "source.type");
+  const args = optionalNullableStringArray(source.args, "source.args") ?? [];
   const inputMode = optionalInputMode(source.input_mode);
-  const timeoutSeconds = optionalNumber(source.timeout_seconds, "source.timeout_seconds");
-  const cwd = optionalString(source.cwd, "source.cwd");
+  const timeoutSeconds = optionalNullableNumber(source.timeout_seconds, "source.timeout_seconds");
+  const cwd = optionalNullableString(source.cwd, "source.cwd");
 
   if (type === "cli-tool") {
-    requiredString(source.command, "source.command");
+    requiredNullableString(source.command, "source.command");
   }
 
   const mcpServer = type === "mcp" ? validateMcpServer(source.server) : undefined;
-  const mcpTool = type === "mcp" ? requiredString(source.tool, "source.tool") : optionalString(source.tool, "source.tool");
-  const mcpArguments = optionalRecord(source.arguments, "source.arguments");
+  const mcpTool = type === "mcp" ? requiredNullableString(source.tool, "source.tool") : optionalNullableString(source.tool, "source.tool");
+  const mcpArguments = optionalNullableRecord(source.arguments, "source.arguments");
   const catalogRef = type === "catalog"
-    ? requiredString(source.catalog_ref, "source.catalog_ref")
-    : optionalString(source.catalog_ref, "source.catalog_ref");
+    ? requiredNullableString(source.catalog_ref, "source.catalog_ref")
+    : optionalNullableString(source.catalog_ref, "source.catalog_ref");
   const a2aAgentCardUrl =
     type === "a2a"
-      ? requiredString(source.agent_card_url, "source.agent_card_url")
-      : optionalString(source.agent_card_url, "source.agent_card_url");
-  const a2aAgentIdentity = optionalString(source.agent_identity, "source.agent_identity");
-  const agent = type === "agent-step" ? requiredString(source.agent, "source.agent") : optionalString(source.agent, "source.agent");
+      ? requiredNullableString(source.agent_card_url, "source.agent_card_url")
+      : optionalNullableString(source.agent_card_url, "source.agent_card_url");
+  const a2aAgentIdentity = optionalNullableString(source.agent_identity, "source.agent_identity");
+  const agent = type === "agent-step" ? requiredNullableString(source.agent, "source.agent") : optionalNullableString(source.agent, "source.agent");
   const task =
     type === "agent-step" || type === "a2a"
-      ? requiredString(source.task, "source.task")
-      : optionalString(source.task, "source.task");
+      ? requiredNullableString(source.task, "source.task")
+      : optionalNullableString(source.task, "source.task");
   const hook =
-    type === "harness-hook" ? requiredString(source.hook, "source.hook") : optionalString(source.hook, "source.hook");
-  const outputs = optionalRecord(source.outputs, "source.outputs");
+    type === "harness-hook" ? requiredNullableString(source.hook, "source.hook") : optionalNullableString(source.hook, "source.hook");
+  const outputs = optionalNullableRecord(source.outputs, "source.outputs");
   const graph = type === "graph" ? validateGraphSource(source.graph) : undefined;
   const sandbox = validateSandbox(source.sandbox ?? runx?.sandbox);
 
@@ -554,7 +554,7 @@ function validateSource(source: Record<string, unknown>, runx: Record<string, un
 
   return {
     type,
-    command: optionalString(source.command, "source.command"),
+    command: optionalNullableString(source.command, "source.command"),
     args,
     cwd,
     timeoutSeconds,
@@ -576,7 +576,7 @@ function validateSource(source: Record<string, unknown>, runx: Record<string, un
 }
 
 function validateGraphSource(value: unknown): ExecutionGraph {
-  const graph = requiredRecord(value, "source.graph");
+  const graph = requiredNullableRecord(value, "source.graph");
   return validateGraphDocument(graph);
 }
 
@@ -591,15 +591,15 @@ function validateSandbox(value: unknown): SkillSandbox | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
-  const record = requiredRecord(value, "sandbox");
+  const record = requiredNullableRecord(value, "sandbox");
   const profile = requiredSandboxProfile(record.profile, "sandbox.profile");
   const declaration = normalizeSandboxDeclaration({
     profile,
     cwdPolicy: optionalCwdPolicy(record.cwd_policy),
-    envAllowlist: optionalStringArray(record.env_allowlist, "sandbox.env_allowlist"),
-    network: optionalBoolean(record.network, "sandbox.network"),
-    writablePaths: optionalStringArray(record.writable_paths, "sandbox.writable_paths"),
-    requireEnforcement: optionalBoolean(record.require_enforcement, "sandbox.require_enforcement"),
+    envAllowlist: optionalNullableStringArray(record.env_allowlist, "sandbox.env_allowlist"),
+    network: optionalNullableBoolean(record.network, "sandbox.network"),
+    writablePaths: optionalNullableStringArray(record.writable_paths, "sandbox.writable_paths"),
+    requireEnforcement: optionalNullableBoolean(record.require_enforcement, "sandbox.require_enforcement"),
   });
   return {
     profile: declaration.profile,
@@ -613,11 +613,11 @@ function validateSandbox(value: unknown): SkillSandbox | undefined {
 }
 
 function validateMcpServer(value: unknown): SkillSource["server"] {
-  const server = requiredRecord(value, "source.server");
+  const server = requiredNullableRecord(value, "source.server");
   return {
-    command: requiredString(server.command, "source.server.command"),
-    args: optionalStringArray(server.args, "source.server.args") ?? [],
-    cwd: optionalString(server.cwd, "source.server.cwd"),
+    command: requiredNullableString(server.command, "source.server.command"),
+    args: optionalNullableStringArray(server.args, "source.server.args") ?? [],
+    cwd: optionalNullableString(server.cwd, "source.server.cwd"),
   };
 }
 
@@ -630,9 +630,9 @@ function validateInputs(inputs: Record<string, unknown>): Readonly<Record<string
     }
 
     validated[name] = {
-      type: optionalString(input.type, `inputs.${name}.type`) ?? "string",
-      required: optionalBoolean(input.required, `inputs.${name}.required`) ?? false,
-      description: optionalString(input.description, `inputs.${name}.description`),
+      type: optionalNullableString(input.type, `inputs.${name}.type`) ?? "string",
+      required: optionalNullableBoolean(input.required, `inputs.${name}.required`) ?? false,
+      description: optionalNullableString(input.description, `inputs.${name}.description`),
       default: input.default,
     };
   }
@@ -641,7 +641,7 @@ function validateInputs(inputs: Record<string, unknown>): Readonly<Record<string
 }
 
 function validateExecutionSemantics(value: unknown, field: string): ExecutionSemantics | undefined {
-  const record = optionalRecord(value, field);
+  const record = optionalNullableRecord(value, field);
   if (!record) {
     return undefined;
   }
@@ -657,30 +657,30 @@ function validateExecutionSemantics(value: unknown, field: string): ExecutionSem
 }
 
 function validateOutcome(value: unknown, field: string): ExecutionSemantics["outcome"] {
-  const record = optionalRecord(value, field);
+  const record = optionalNullableRecord(value, field);
   if (!record) {
     return undefined;
   }
   return {
-    code: optionalString(record.code, `${field}.code`),
-    summary: optionalString(record.summary, `${field}.summary`),
-    observed_at: optionalString(record.observed_at, `${field}.observed_at`),
-    data: optionalRecord(record.data, `${field}.data`),
+    code: optionalNullableString(record.code, `${field}.code`),
+    summary: optionalNullableString(record.summary, `${field}.summary`),
+    observed_at: optionalNullableString(record.observed_at, `${field}.observed_at`),
+    data: optionalNullableRecord(record.data, `${field}.data`),
   };
 }
 
 function validateInputContext(value: unknown, field: string): ExecutionSemantics["input_context"] {
-  const record = optionalRecord(value, field);
+  const record = optionalNullableRecord(value, field);
   if (!record) {
     return undefined;
   }
-  const maxBytes = optionalNumber(record.max_bytes, `${field}.max_bytes`);
+  const maxBytes = optionalNullableNumber(record.max_bytes, `${field}.max_bytes`);
   if (maxBytes !== undefined && (!Number.isInteger(maxBytes) || maxBytes < 1)) {
     throw new SkillValidationError(`${field}.max_bytes must be a positive integer.`);
   }
   return {
-    capture: optionalBoolean(record.capture, `${field}.capture`),
-    source: optionalString(record.source, `${field}.source`),
+    capture: optionalNullableBoolean(record.capture, `${field}.capture`),
+    source: optionalNullableString(record.source, `${field}.source`),
     max_bytes: maxBytes,
     snapshot: record.snapshot,
   };
@@ -695,17 +695,17 @@ function validateSurfaceRefs(value: unknown, field: string): ExecutionSemantics[
   }
 
   return value.map((entry, index) => {
-    const record = requiredRecord(entry, `${field}[${index}]`);
+    const record = requiredNullableRecord(entry, `${field}[${index}]`);
     return {
-      type: requiredString(record.type, `${field}[${index}].type`),
-      uri: requiredString(record.uri, `${field}[${index}].uri`),
-      label: optionalString(record.label, `${field}[${index}].label`),
+      type: requiredNullableString(record.type, `${field}[${index}].type`),
+      uri: requiredNullableString(record.uri, `${field}[${index}].uri`),
+      label: optionalNullableString(record.label, `${field}[${index}].label`),
     };
   });
 }
 
 function optionalDisposition(value: unknown, field: string): ExecutionSemantics["disposition"] {
-  const disposition = optionalString(value, field);
+  const disposition = optionalNullableString(value, field);
   if (disposition === undefined) {
     return undefined;
   }
@@ -718,7 +718,7 @@ function optionalDisposition(value: unknown, field: string): ExecutionSemantics[
 }
 
 function optionalOutcomeState(value: unknown, field: string): ExecutionSemantics["outcome_state"] {
-  const outcomeState = optionalString(value, field);
+  const outcomeState = optionalNullableString(value, field);
   if (outcomeState === undefined) {
     return undefined;
   }
@@ -729,11 +729,11 @@ function optionalOutcomeState(value: unknown, field: string): ExecutionSemantics
 }
 
 function validateSkillRetry(value: unknown, field: string): SkillRetryPolicy | undefined {
-  const retry = optionalRecord(value, field);
+  const retry = optionalNullableRecord(value, field);
   if (!retry) {
     return undefined;
   }
-  const maxAttempts = optionalNumber(retry.max_attempts, `${field}.max_attempts`) ?? 1;
+  const maxAttempts = optionalNullableNumber(retry.max_attempts, `${field}.max_attempts`) ?? 1;
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
     throw new SkillValidationError(`${field}.max_attempts must be a positive integer.`);
   }
@@ -750,7 +750,7 @@ function validateSkillIdempotency(value: unknown, field: string): SkillIdempoten
     }
     return { key: value };
   }
-  const record = requiredRecord(value, field);
+  const record = requiredNullableRecord(value, field);
   const key = optionalNonEmptyString(record.key, `${field}.key`);
   return { key };
 }
@@ -766,7 +766,7 @@ function validateSkillMutation(value: unknown, field: string): boolean | undefin
 }
 
 function validateArtifactContract(value: unknown, field: string): SkillArtifactContract | undefined {
-  const record = optionalRecord(value, field);
+  const record = optionalNullableRecord(value, field);
   if (!record) {
     return undefined;
   }
@@ -774,7 +774,7 @@ function validateArtifactContract(value: unknown, field: string): SkillArtifactC
   const emits =
     typeof emitsValue === "string"
       ? [emitsValue]
-      : optionalStringArray(emitsValue, `${field}.emits`);
+      : optionalNullableStringArray(emitsValue, `${field}.emits`);
   const namedEmits = validateNamedEmits(record.named_emits ?? record.namedEmits, `${field}.named_emits`);
   const wrapAs = optionalNonEmptyString(record.wrap_as ?? record.wrapAs, `${field}.wrap_as`);
   if (!emits && !namedEmits && !wrapAs) {
@@ -788,7 +788,7 @@ function validateArtifactContract(value: unknown, field: string): SkillArtifactC
 }
 
 function validateAllowedTools(value: unknown, field: string): readonly string[] | undefined {
-  const allowedTools = optionalStringArray(value, field);
+  const allowedTools = optionalNullableStringArray(value, field);
   if (!allowedTools) {
     return undefined;
   }
@@ -808,7 +808,7 @@ function validatePostRunReflectPolicy(
 }
 
 function validateNamedEmits(value: unknown, field: string): Readonly<Record<string, string>> | undefined {
-  const record = optionalRecord(value, field);
+  const record = optionalNullableRecord(value, field);
   if (!record) {
     return undefined;
   }
@@ -830,34 +830,34 @@ function validateHarnessManifest(value: Record<string, unknown> | undefined, fie
   }
   return {
     cases: casesValue.map((entry, index) =>
-      validateHarnessCase(requiredRecord(entry, `${field}.cases[${index}]`), `${field}.cases[${index}]`),
+      validateHarnessCase(requiredNullableRecord(entry, `${field}.cases[${index}]`), `${field}.cases[${index}]`),
     ),
   };
 }
 
 function validateHarnessCase(value: Record<string, unknown>, field: string): RunnerHarnessCase {
   return {
-    name: requiredString(value.name, `${field}.name`),
+    name: requiredNullableString(value.name, `${field}.name`),
     runner: optionalNonEmptyString(value.runner, `${field}.runner`),
-    inputs: optionalRecord(value.inputs, `${field}.inputs`) ?? {},
-    env: validateHarnessEnv(optionalRecord(value.env, `${field}.env`) ?? {}, `${field}.env`),
-    caller: validateHarnessCaller(optionalRecord(value.caller, `${field}.caller`) ?? {}, `${field}.caller`),
-    expect: validateHarnessExpectation(requiredRecord(value.expect, `${field}.expect`), `${field}.expect`),
+    inputs: optionalNullableRecord(value.inputs, `${field}.inputs`) ?? {},
+    env: validateHarnessEnv(optionalNullableRecord(value.env, `${field}.env`) ?? {}, `${field}.env`),
+    caller: validateHarnessCaller(optionalNullableRecord(value.caller, `${field}.caller`) ?? {}, `${field}.caller`),
+    expect: validateHarnessExpectation(requiredNullableRecord(value.expect, `${field}.expect`), `${field}.expect`),
   };
 }
 
 function validateHarnessCaller(value: Record<string, unknown>, field: string): HarnessCallerFixture {
   return {
-    answers: optionalRecord(value.answers, `${field}.answers`),
-    approvals: validateHarnessApprovals(optionalRecord(value.approvals, `${field}.approvals`) ?? {}, `${field}.approvals`),
+    answers: optionalNullableRecord(value.answers, `${field}.answers`),
+    approvals: validateHarnessApprovals(optionalNullableRecord(value.approvals, `${field}.approvals`) ?? {}, `${field}.approvals`),
   };
 }
 
 function validateHarnessExpectation(value: Record<string, unknown>, field: string): HarnessExpectation {
   return {
     status: optionalHarnessStatus(value.status, `${field}.status`),
-    receipt: validateReceiptExpectation(optionalRecord(value.receipt, `${field}.receipt`), `${field}.receipt`),
-    steps: optionalStringArray(value.steps, `${field}.steps`),
+    receipt: validateReceiptExpectation(optionalNullableRecord(value.receipt, `${field}.receipt`), `${field}.receipt`),
+    steps: optionalNullableStringArray(value.steps, `${field}.steps`),
   };
 }
 
@@ -871,16 +871,16 @@ function validateReceiptExpectation(
   return {
     schema: optionalReceiptSchema(value.schema, `${field}.schema`),
     status: optionalReceiptStatus(value.status, `${field}.status`),
-    source_type: optionalString(value.source_type, `${field}.source_type`),
-    body_digest: optionalString(value.body_digest, `${field}.body_digest`),
-    receipt_digest: optionalString(value.receipt_digest, `${field}.receipt_digest`),
-    harness_id: optionalString(value.harness_id, `${field}.harness_id`),
-    state: optionalString(value.state, `${field}.state`),
-    disposition: optionalString(value.disposition, `${field}.disposition`),
-    reason_code: optionalString(value.reason_code, `${field}.reason_code`),
-    child_receipt_refs: optionalStringArray(value.child_receipt_refs, `${field}.child_receipt_refs`),
-    act_ids: optionalStringArray(value.act_ids, `${field}.act_ids`),
-    owner: optionalString(value.owner, `${field}.owner`),
+    source_type: optionalNullableString(value.source_type, `${field}.source_type`),
+    body_digest: optionalNullableString(value.body_digest, `${field}.body_digest`),
+    receipt_digest: optionalNullableString(value.receipt_digest, `${field}.receipt_digest`),
+    harness_id: optionalNullableString(value.harness_id, `${field}.harness_id`),
+    state: optionalNullableString(value.state, `${field}.state`),
+    disposition: optionalNullableString(value.disposition, `${field}.disposition`),
+    reason_code: optionalNullableString(value.reason_code, `${field}.reason_code`),
+    child_receipt_refs: optionalNullableStringArray(value.child_receipt_refs, `${field}.child_receipt_refs`),
+    act_ids: optionalNullableStringArray(value.act_ids, `${field}.act_ids`),
+    owner: optionalNullableString(value.owner, `${field}.owner`),
   };
 }
 
@@ -942,15 +942,15 @@ function optionalReceiptSchema(value: unknown, field: string): ReceiptExpectatio
   throw new SkillValidationError(`${field} must be runx.receipt.v1.`);
 }
 
-function requiredString(value: unknown, field: string): string {
-  const stringValue = optionalString(value, field);
+function requiredNullableString(value: unknown, field: string): string {
+  const stringValue = optionalNullableString(value, field);
   if (!stringValue) {
     throw new SkillValidationError(`${field} is required.`);
   }
   return stringValue;
 }
 
-function optionalString(value: unknown, field: string): string | undefined {
+function optionalNullableString(value: unknown, field: string): string | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -961,7 +961,7 @@ function optionalString(value: unknown, field: string): string | undefined {
 }
 
 function optionalNonEmptyString(value: unknown, field: string): string | undefined {
-  const stringValue = optionalString(value, field);
+  const stringValue = optionalNullableString(value, field);
   if (stringValue !== undefined && stringValue.trim() === "") {
     throw new SkillValidationError(`${field} must not be empty.`);
   }
@@ -972,15 +972,15 @@ function readField(value: unknown, field: string): unknown {
   return isRecord(value) ? value[field] : undefined;
 }
 
-function requiredRecord(value: unknown, field: string): Record<string, unknown> {
-  const record = optionalRecord(value, field);
+function requiredNullableRecord(value: unknown, field: string): Record<string, unknown> {
+  const record = optionalNullableRecord(value, field);
   if (!record) {
     throw new SkillValidationError(`${field} is required.`);
   }
   return record;
 }
 
-function optionalRecord(value: unknown, field: string): Record<string, unknown> | undefined {
+function optionalNullableRecord(value: unknown, field: string): Record<string, unknown> | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -990,7 +990,7 @@ function optionalRecord(value: unknown, field: string): Record<string, unknown> 
   return value;
 }
 
-function optionalStringArray(value: unknown, field: string): readonly string[] | undefined {
+function optionalNullableStringArray(value: unknown, field: string): readonly string[] | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -1000,7 +1000,7 @@ function optionalStringArray(value: unknown, field: string): readonly string[] |
   return value;
 }
 
-function optionalNumber(value: unknown, field: string): number | undefined {
+function optionalNullableNumber(value: unknown, field: string): number | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -1010,7 +1010,7 @@ function optionalNumber(value: unknown, field: string): number | undefined {
   return value;
 }
 
-function optionalBoolean(value: unknown, field: string): boolean | undefined {
+function optionalNullableBoolean(value: unknown, field: string): boolean | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -1031,7 +1031,7 @@ function optionalInputMode(value: unknown): SkillSource["inputMode"] {
 }
 
 function requiredSandboxProfile(value: unknown, field: string): SkillSandboxProfile {
-  const profile = requiredString(value, field);
+  const profile = requiredNullableString(value, field);
   if (profile === "readonly" || profile === "workspace-write" || profile === "network" || profile === "unrestricted-local-dev") {
     return profile;
   }

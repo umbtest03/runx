@@ -169,20 +169,20 @@ export function parseHarnessFixture(contents: string): HarnessFixture {
     throw new Error("Harness fixture must be a YAML object.");
   }
 
-  const kind = requiredString(parsed.kind, "kind");
+  const kind = requiredNullableString(parsed.kind, "kind");
   if (kind !== "skill" && kind !== "graph") {
     throw new Error("Harness fixture kind must be skill or graph.");
   }
 
   return {
-    name: requiredString(parsed.name, "name"),
+    name: requiredNullableString(parsed.name, "name"),
     kind,
-    target: requiredString(parsed.target, "target"),
-    runner: optionalString(parsed.runner, "runner"),
-    inputs: optionalRecord(parsed.inputs, "inputs") ?? {},
-    env: validateEnv(optionalRecord(parsed.env, "env") ?? {}),
-    caller: validateCaller(optionalRecord(parsed.caller, "caller") ?? {}),
-    expect: validateExpectation(optionalRecord(parsed.expect, "expect") ?? {}),
+    target: requiredNullableString(parsed.target, "target"),
+    runner: optionalNullableString(parsed.runner, "runner"),
+    inputs: optionalNullableRecord(parsed.inputs, "inputs") ?? {},
+    env: validateEnv(optionalNullableRecord(parsed.env, "env") ?? {}),
+    caller: validateCaller(optionalNullableRecord(parsed.caller, "caller") ?? {}),
+    expect: validateExpectation(optionalNullableRecord(parsed.expect, "expect") ?? {}),
   };
 }
 
@@ -393,7 +393,7 @@ async function resolveInlineHarnessTarget(targetPath: string): Promise<ResolvedI
 
   const markdown = await readFile(skillPath, "utf8");
   const raw = parseSkillFrontmatter(markdown);
-  const skillName = requiredString(raw.frontmatter.name, "frontmatter.name");
+  const skillName = requiredNullableString(raw.frontmatter.name, "frontmatter.name");
   const profile = await resolveLocalSkillProfile(skillPath, skillName);
   if (!profile.profileDocument || !profile.profileSourcePath) {
     throw new Error(`Inline harness target does not have a execution profile: ${resolvedTargetPath}`);
@@ -587,8 +587,8 @@ function graphReceipt(result: RunLocalSkillResult | RunLocalGraphResult): Extrac
 
 function validateCaller(value: Record<string, unknown>): HarnessCallerFixture {
   return {
-    answers: optionalRecord(value.answers, "caller.answers"),
-    approvals: validateApprovals(optionalRecord(value.approvals, "caller.approvals") ?? {}),
+    answers: optionalNullableRecord(value.answers, "caller.answers"),
+    approvals: validateApprovals(optionalNullableRecord(value.approvals, "caller.approvals") ?? {}),
   };
 }
 
@@ -606,8 +606,8 @@ function validateApprovals(value: Record<string, unknown>): Readonly<Record<stri
 function validateExpectation(value: Record<string, unknown>): HarnessResultExpectation {
   return {
     status: optionalStatus(value.status, "expect.status"),
-    receipt: validateReceiptExpectation(optionalRecord(value.receipt, "expect.receipt")),
-    steps: optionalStringArray(value.steps, "expect.steps"),
+    receipt: validateReceiptExpectation(optionalNullableRecord(value.receipt, "expect.receipt")),
+    steps: optionalNullableStringArray(value.steps, "expect.steps"),
   };
 }
 
@@ -618,17 +618,17 @@ function validateReceiptExpectation(value: Record<string, unknown> | undefined):
   const expectation: Record<string, unknown> = {
     kind: optionalReceiptKind(value.kind, "expect.receipt.kind"),
     status: optionalSuccessFailure(value.status, "expect.receipt.status"),
-    source_type: optionalString(value.source_type, "expect.receipt.source_type"),
-    owner: optionalString(value.owner, "expect.receipt.owner"),
+    source_type: optionalNullableString(value.source_type, "expect.receipt.source_type"),
+    owner: optionalNullableString(value.owner, "expect.receipt.owner"),
     schema: optionalReceiptSchema(value.schema, "expect.receipt.schema") ?? receiptSchemaName,
-    body_digest: optionalString(value.body_digest, "expect.receipt.body_digest"),
-    receipt_digest: optionalString(value.receipt_digest, "expect.receipt.receipt_digest"),
-    harness_id: optionalString(value.harness_id, "expect.receipt.harness_id"),
-    state: optionalString(value.state, "expect.receipt.state"),
-    disposition: optionalString(value.disposition, "expect.receipt.disposition"),
-    reason_code: optionalString(value.reason_code, "expect.receipt.reason_code"),
-    act_ids: optionalStringArray(value.act_ids, "expect.receipt.act_ids"),
-    child_receipt_refs: optionalStringArray(value.child_receipt_refs, "expect.receipt.child_receipt_refs"),
+    body_digest: optionalNullableString(value.body_digest, "expect.receipt.body_digest"),
+    receipt_digest: optionalNullableString(value.receipt_digest, "expect.receipt.receipt_digest"),
+    harness_id: optionalNullableString(value.harness_id, "expect.receipt.harness_id"),
+    state: optionalNullableString(value.state, "expect.receipt.state"),
+    disposition: optionalNullableString(value.disposition, "expect.receipt.disposition"),
+    reason_code: optionalNullableString(value.reason_code, "expect.receipt.reason_code"),
+    act_ids: optionalNullableStringArray(value.act_ids, "expect.receipt.act_ids"),
+    child_receipt_refs: optionalNullableStringArray(value.child_receipt_refs, "expect.receipt.child_receipt_refs"),
   };
   return expectation as ReceiptShapeExpectation;
 }
@@ -644,14 +644,14 @@ function validateEnv(value: Record<string, unknown>): Readonly<Record<string, st
   );
 }
 
-function requiredString(value: unknown, field: string): string {
+function requiredNullableString(value: unknown, field: string): string {
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`${field} is required.`);
   }
   return value;
 }
 
-function optionalString(value: unknown, field: string): string | undefined {
+function optionalNullableString(value: unknown, field: string): string | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -661,7 +661,7 @@ function optionalString(value: unknown, field: string): string | undefined {
   return value;
 }
 
-function optionalRecord(value: unknown, field: string): Record<string, unknown> | undefined {
+function optionalNullableRecord(value: unknown, field: string): Record<string, unknown> | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -671,7 +671,7 @@ function optionalRecord(value: unknown, field: string): Record<string, unknown> 
   return value;
 }
 
-function optionalStringArray(value: unknown, field: string): readonly string[] | undefined {
+function optionalNullableStringArray(value: unknown, field: string): readonly string[] | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
