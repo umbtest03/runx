@@ -399,6 +399,63 @@ fn cli_tool_timeout_kills_descendant_processes() -> Result<(), Box<dyn std::erro
     Ok(())
 }
 
+#[test]
+#[cfg(all(feature = "cli-tool", any(target_os = "linux", target_os = "macos")))]
+fn enforced_readonly_sandbox_denies_workspace_write_when_backend_available()
+-> Result<(), Box<dyn std::error::Error>> {
+    if !platform_sandbox_backend_available() {
+        return Ok(());
+    }
+
+    let temp = tempfile::tempdir()?;
+    let skill_dir = temp.path().join("skill");
+    fs::create_dir_all(&skill_dir)?;
+    let denied_path = skill_dir.join("denied.txt");
+    let script = format!(
+        "echo denied > {}; echo after-write",
+        shell_quote(&path_string(&denied_path)?)
+    );
+    let mut sandbox = sandbox(CwdPolicy::SkillDirectory, SandboxProfile::Readonly);
+    sandbox.require_enforcement = Some(true);
+
+    let _output = CliToolAdapter.invoke(SkillInvocation {
+        skill_name: "enforced-readonly".to_owned(),
+        source: SkillSource {
+            source_type: runx_parser::SourceKind::CliTool,
+            command: Some("/bin/sh".to_owned()),
+            args: vec!["-c".to_owned(), script],
+            cwd: None,
+            timeout_seconds: Some(5),
+            input_mode: None,
+            sandbox: Some(sandbox),
+            server: None,
+            catalog_ref: None,
+            tool: None,
+            arguments: None,
+            agent_card_url: None,
+            agent_identity: None,
+            agent: None,
+            task: None,
+            hook: None,
+            outputs: None,
+            graph: None,
+            raw: JsonObject::new(),
+        },
+        inputs: JsonObject::new(),
+        resolved_inputs: JsonObject::new(),
+        skill_directory: skill_dir,
+        env: std::env::vars().collect(),
+        credential_delivery: CredentialDelivery::none(),
+    })?;
+
+    assert!(
+        !denied_path.exists(),
+        "readonly sandbox allowed a write to {}",
+        denied_path.display()
+    );
+    Ok(())
+}
+
 fn source(cwd: Option<&str>, sandbox: Option<SkillSandbox>) -> SkillSource {
     source_with_args(cwd, sandbox, Vec::new(), None)
 }
@@ -476,4 +533,23 @@ fn path_string(path: &Path) -> Result<String, Box<dyn std::error::Error>> {
         .to_str()
         .ok_or_else(|| format!("path is not utf-8: {}", path.display()))?
         .to_owned())
+}
+
+#[cfg(all(feature = "cli-tool", any(target_os = "linux", target_os = "macos")))]
+fn platform_sandbox_backend_available() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        Path::new("/usr/bin/sandbox-exec").exists()
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::env::var_os("PATH").is_some_and(|paths| {
+            std::env::split_paths(&paths).any(|path| path.join("bwrap").exists())
+        })
+    }
+}
+
+#[cfg(all(feature = "cli-tool", any(target_os = "linux", target_os = "macos")))]
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\\''"))
 }

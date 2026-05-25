@@ -11,8 +11,8 @@
 use std::path::PathBuf;
 
 use runx_contracts::act::Act;
-use runx_contracts::act_assignment::ActAssignment;
-use runx_contracts::act_receipt::ActReceiptEnvelope;
+use runx_contracts::act::assignment::ActAssignment;
+use runx_contracts::act::receipt::ActReceiptEnvelope;
 use runx_contracts::agent_context::AgentContextEnvelope;
 use runx_contracts::artifact::Artifact;
 use runx_contracts::aster::{
@@ -42,7 +42,9 @@ use runx_contracts::list::RunxListReport;
 use runx_contracts::operational_policy::OperationalPolicy;
 use runx_contracts::output::Output;
 use runx_contracts::packet_index::PacketIndex;
-use runx_contracts::policy_proof::{AuthorityProof, CredentialEnvelope, ScopeAdmission};
+use runx_contracts::policy_proof::{
+    AuthorityProof, AuthorityProofCredentialMaterial, CredentialEnvelope, ScopeAdmission,
+};
 use runx_contracts::receipt::Receipt;
 use runx_contracts::redaction::Redaction;
 use runx_contracts::reference::Reference;
@@ -575,6 +577,85 @@ fn fixture_corpus() -> Vec<(&'static str, Value)> {
     ]
 }
 
+fn tool_manifest_corpus() -> Vec<(&'static str, Value)> {
+    let valid = json!({
+        "schema": "runx.tool.manifest.v1",
+        "name": "fs.read",
+        "description": "Read a file",
+        "source": {
+            "type": "cli-tool",
+            "command": "node",
+            "args": ["tool.mjs"],
+            "input_mode": "stdin",
+            "sandbox": {
+                "profile": "readonly",
+                "cwd_policy": "skill-directory",
+                "env_allowlist": ["HOME"],
+                "network": false,
+                "writable_paths": [],
+                "require_enforcement": true
+            }
+        },
+        "inputs": {
+            "path": { "type": "string", "required": true }
+        },
+        "scopes": ["fs.read"],
+        "risk": { "level": "low" },
+        "runx": { "owner": "runx" },
+        "runtime": {
+            "command": "node",
+            "args": ["tool.mjs"],
+            "env": {}
+        },
+        "output": {
+            "packet": "file",
+            "description": "Read file contents"
+        },
+        "retry": { "max_attempts": 2 },
+        "idempotency": { "key": "path" },
+        "mutating": false,
+        "source_hash": "sha256:source",
+        "schema_hash": "sha256:schema"
+    });
+    vec![
+        ("valid tool manifest", valid.clone()),
+        (
+            "valid with version",
+            set_field(valid.clone(), "version", json!("1.2.3")),
+        ),
+        ("missing schema", drop_field(valid.clone(), "schema")),
+        ("missing source", drop_field(valid.clone(), "source")),
+        (
+            "unknown source type",
+            set_field(
+                valid.clone(),
+                "source",
+                set_field(valid["source"].clone(), "type", json!("unknown")),
+            ),
+        ),
+        (
+            "bad input mode",
+            set_field(
+                valid.clone(),
+                "source",
+                set_field(valid["source"].clone(), "input_mode", json!("stream")),
+            ),
+        ),
+        (
+            "missing runtime command",
+            set_field(
+                valid.clone(),
+                "runtime",
+                drop_field(valid["runtime"].clone(), "command"),
+            ),
+        ),
+        (
+            "additional property",
+            set_field(valid.clone(), "bogus", json!(true)),
+        ),
+    ]
+}
+
 fn list_corpus() -> Vec<(&'static str, Value)> {
     let valid = json!({
         "schema": "runx.list.v1",
@@ -818,7 +899,7 @@ fn credential_envelope_corpus() -> Vec<(&'static str, Value)> {
         "provider": "github",
         "auth_mode": "oauth",
         "material_kind": "token",
-        "connection_id": "conn_1",
+        "provider_reference": "conn_1",
         "scopes": ["issues:write"],
         "material_ref": "ref:abc",
     });
@@ -838,8 +919,8 @@ fn credential_envelope_corpus() -> Vec<(&'static str, Value)> {
         ("missing grant_id", drop_field(valid.clone(), "grant_id")),
         ("missing provider", drop_field(valid.clone(), "provider")),
         (
-            "missing connection_id",
-            drop_field(valid.clone(), "connection_id"),
+            "missing provider_reference",
+            drop_field(valid.clone(), "provider_reference"),
         ),
         (
             "missing material_ref",
@@ -956,7 +1037,7 @@ fn authority_proof_corpus() -> Vec<(&'static str, Value)> {
                 "status": "resolved",
                 "grant_id": "grant_1",
                 "provider": "github",
-                "connection_id": "conn_1",
+                "provider_reference": "conn_1",
                 "scopes": ["issues:write"],
                 "authority_kind": "constructive",
                 "grant_reference": {
@@ -4076,6 +4157,56 @@ fn reference_corpus() -> Vec<(&'static str, Value)> {
 
 fn committed_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../schemas")
+}
+
+#[test]
+fn credential_envelope_rejects_legacy_provider_shaped_wire_key() {
+    let valid = json!({
+        "kind": "runx.credential-envelope.v1",
+        "grant_id": "grant_1",
+        "provider": "github",
+        "auth_mode": "oauth",
+        "material_kind": "token",
+        "provider_reference": "conn_1",
+        "scopes": ["issues:write"],
+        "material_ref": "ref:abc",
+    });
+    assert!(serde_json::from_value::<CredentialEnvelope>(valid).is_ok());
+
+    let legacy = set_field(
+        json!({
+            "kind": "runx.credential-envelope.v1",
+            "grant_id": "grant_1",
+            "provider": "github",
+            "auth_mode": "oauth",
+            "material_kind": "token",
+            "scopes": ["issues:write"],
+            "material_ref": "ref:abc",
+        }),
+        &legacy_provider_reference_key(),
+        json!("conn_1"),
+    );
+    assert!(serde_json::from_value::<CredentialEnvelope>(legacy).is_err());
+}
+
+#[test]
+fn authority_proof_credential_material_rejects_legacy_provider_shaped_wire_key() {
+    assert!(
+        serde_json::from_value::<AuthorityProofCredentialMaterial>(
+            json!({ "status": "resolved", "provider_reference": "conn_1" }),
+        )
+        .is_ok()
+    );
+    let legacy = set_field(
+        json!({ "status": "resolved" }),
+        &legacy_provider_reference_key(),
+        json!("conn_1"),
+    );
+    assert!(serde_json::from_value::<AuthorityProofCredentialMaterial>(legacy).is_err());
+}
+
+fn legacy_provider_reference_key() -> String {
+    ["connection", "id"].join("_")
 }
 
 #[test]

@@ -57,7 +57,7 @@ describe("local governed graph runner", () => {
           receiptId: result.steps[0].receiptId,
         },
       ]);
-      expect(result.receipt).toMatchObject({ schema: "runx.harness_receipt.v1" });
+      expect(result.receipt).toMatchObject({ schema: "runx.receipt.v1" });
       expect(harnessChildReceiptRefs(result.receipt).map((ref) => ref.uri)).toEqual(
         result.steps.map((step) => expect.stringContaining(String(step.receiptId))),
       );
@@ -165,16 +165,22 @@ describe("local governed graph runner", () => {
       }
 
       const inspectExit = await runCli(
-        ["skill", "inspect", result.receipt.id, "--receipt-dir", receiptDir],
+        ["history", result.receipt.id, "--receipt-dir", receiptDir, "--json"],
         { stdin: process.stdin, stdout, stderr },
         { ...process.env, RUNX_CWD: tempDir, INIT_CWD: tempDir, RUNX_HOME: path.join(tempDir, "home") },
       );
 
       expect(inspectExit).toBe(0);
-      expect(stdout.contents()).toContain("sequential-echo");
-      expect(stdout.contents()).toContain("runx.harness_receipt.v1");
-      expect(stdout.contents()).toContain(result.receipt.id);
-      expect(stdout.contents()).toContain("verified");
+      expect(JSON.parse(stdout.contents())).toMatchObject({
+        receipts: [
+          {
+            id: result.receipt.id,
+            name: "sequential-echo",
+            status: "sealed",
+            verification: { status: "invalid" },
+          },
+        ],
+      });
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -433,6 +439,11 @@ runners:
 }
 
 function harnessChildReceiptRefs(receipt: unknown): Array<{ uri?: string }> {
+  const lineage = typeof receipt === "object" && receipt !== null ? (receipt as { lineage?: unknown }).lineage : undefined;
+  if (lineage && typeof lineage === "object") {
+    const refs = (lineage as { children?: unknown }).children;
+    return Array.isArray(refs) ? refs as Array<{ uri?: string }> : [];
+  }
   const harness = typeof receipt === "object" && receipt !== null ? (receipt as { harness?: unknown }).harness : undefined;
   if (!harness || typeof harness !== "object") {
     return [];

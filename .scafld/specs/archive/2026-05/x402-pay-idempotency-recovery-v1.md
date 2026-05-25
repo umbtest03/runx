@@ -77,10 +77,10 @@ Related docs:
 The current implementation now has durable payment state, runtime
 replay/recovery behavior, and promoted fixture-backed coverage:
 
-- `crates/runx-runtime/src/payment_state.rs:287` exposes persisted consumed
-  spend-capability lookup, and `crates/runx-runtime/src/payment_state.rs:301`
+- `crates/runx-runtime/src/payment/state.rs:287` exposes persisted consumed
+  spend-capability lookup, and `crates/runx-runtime/src/payment/state.rs:301`
   exposes persisted idempotency lookup.
-- `crates/runx-runtime/src/payment_state.rs:315` persists payment step state,
+- `crates/runx-runtime/src/payment/state.rs:315` persists payment step state,
   including consumed spend capability records, sealed idempotency entries, and
   mock rail mutation records.
 - `crates/runx-runtime/src/execution/runner/steps.rs:96` calls
@@ -88,7 +88,7 @@ replay/recovery behavior, and promoted fixture-backed coverage:
 - `crates/runx-runtime/src/execution/runner/authority.rs:97` injects persisted
   consumed capability refs into core admission, so P1.9 no longer depends only
   on fixture-seeded `consumed_spend_capability_refs`.
-- `crates/runx-runtime/src/payment_state.rs` stores replay-safe sealed outputs
+- `crates/runx-runtime/src/payment/state.rs` stores replay-safe sealed outputs
   plus the original receipt timestamp and digest for idempotency replay. The
   stored outputs remove rail session material before persistence.
 - `crates/runx-runtime/src/execution/runner/authority.rs` now detects sealed
@@ -99,7 +99,7 @@ replay/recovery behavior, and promoted fixture-backed coverage:
   idempotency replay before adapter invocation, rebuilds the original payment
   step receipt from stored material, and fails closed if receipt id, digest, or
   typed rail proof do not match the persisted entry.
-- `crates/runx-runtime/tests/payment_execution.rs` proves both P1.7 runtime
+- `crates/runx-runtime/tests/payment/execution.rs` proves both P1.7 runtime
   replay with no second `pay-fulfill-rail` call and P1.9 persisted consumed
   capability denial when the second run uses a new idempotency key.
 - Partial rail state can be persisted as `in_flight`, and the runner now
@@ -145,8 +145,8 @@ replay/recovery behavior, and promoted fixture-backed coverage:
 ## Touchpoints
 
 - `.scafld/specs/active/x402-pay-idempotency-recovery-v1.md`
-- `crates/runx-runtime/tests/payment_execution.rs`
-- `crates/runx-runtime/tests/payment_state.rs`
+- `crates/runx-runtime/tests/payment/execution.rs`
+- `crates/runx-runtime/tests/payment/state.rs`
 - `fixtures/harness/x402-pay-idempotency-replay.yaml`
 - `fixtures/harness/x402-pay-idempotency-capability-reuse.yaml`
 - `fixtures/harness/x402-pay-idempotency-crash-recovery.yaml`
@@ -168,7 +168,7 @@ Profile: strict
 
 Validation:
 - [x] `v1` spec - This scafld spec validates.
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_state`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
@@ -192,31 +192,31 @@ Validation:
   - Evidence: exit code was 0
   - Source event: entry-37
 - [x] `v6` runtime P1.9 - Reusing the same single-use spend capability is
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_execution x402_paid_echo_reused_spend_capability_with_new_idempotency_denied_from_persisted_state_before_second_rail -- --nocapture`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment x402_paid_echo_reused_spend_capability_with_new_idempotency_denied_from_persisted_state_before_second_rail -- --nocapture`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
   - Source event: entry-38
 - [x] `v7` runtime P1.7 - Replaying the same sealed idempotency key returns the
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_execution x402_paid_echo_replays_sealed_idempotency_without_second_rail -- --nocapture`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment x402_paid_echo_replays_sealed_idempotency_without_second_rail -- --nocapture`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
   - Source event: entry-39
 - [x] `v8` runtime regression - Payment execution suite still passes with replay
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_execution -- --nocapture`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment -- --nocapture`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
   - Source event: entry-40
 - [x] `v9` runtime P1.11 - In-flight rail mutation recovery escalates without
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_execution x402_paid_echo_partial_mutation_escalates_without_second_rail -- --nocapture`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment x402_paid_echo_partial_mutation_escalates_without_second_rail -- --nocapture`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
   - Source event: entry-41
 - [x] `v10` compatibility - v2 payment state opens fail-closed after v3 replay
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_state -- --nocapture`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment -- --nocapture`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
@@ -230,30 +230,30 @@ Dependencies: none
 Objective: Complete this phase.
 
 Changes:
-- `crates/runx-runtime/src/payment_state.rs` - persists idempotency entries, spend capability consumption, and mock rail mutation state.
-- `crates/runx-runtime/tests/payment_state.rs` - covers the durable state semantics available before fixture-level replay/recovery.
+- `crates/runx-runtime/src/payment/state.rs` - persists idempotency entries, spend capability consumption, and mock rail mutation state.
+- `crates/runx-runtime/tests/payment/state.rs` - covers the durable state semantics available before fixture-level replay/recovery.
 
 Acceptance:
 - [x] `ac1_1` state - A sealed payment receipt can be looked up by
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_state persists_sealed_payment_step_state_for_replay_and_reuse_lookups`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment persists_sealed_payment_step_state_for_replay_and_reuse_lookups`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
   - Source event: entry-10
 - [x] `ac1_2` state - A consumed spend capability ref is rejected when reused
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_execution x402_paid_echo_reused_spend_capability_with_new_idempotency_denied_from_persisted_state_before_second_rail -- --nocapture`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment x402_paid_echo_reused_spend_capability_with_new_idempotency_denied_from_persisted_state_before_second_rail -- --nocapture`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
   - Source event: entry-11
 - [x] `ac1_4` state - A sealed idempotency entry can be replayed from stored
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_execution x402_paid_echo_replays_sealed_idempotency_without_second_rail -- --nocapture`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment x402_paid_echo_replays_sealed_idempotency_without_second_rail -- --nocapture`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
   - Source event: entry-12
 - [x] `ac1_3` state - A partial mock rail mutation is recoverable by
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_execution x402_paid_echo_partial_mutation_escalates_without_second_rail -- --nocapture`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment x402_paid_echo_partial_mutation_escalates_without_second_rail -- --nocapture`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0

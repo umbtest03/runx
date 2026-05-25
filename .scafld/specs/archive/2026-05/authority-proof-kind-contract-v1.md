@@ -56,13 +56,13 @@ Profile: strict
 
 Validation:
 - [x] `v1` test - Payment execution tests pass.
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_execution -- --nocapture`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment -- --nocapture`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0 on 2026-05-21T04:30Z; 15 tests passed
   - Source event: local-verify-2026-05-21T04:30Z
 - [x] `v2` test - Receipt tests pass.
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_receipts -- --nocapture`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment -- --nocapture`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0 on 2026-05-21T04:30Z; 1 test passed

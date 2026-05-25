@@ -14,15 +14,17 @@ risk_level: medium
 ## Current State
 
 Status: draft
-Current phase: planning
-Next: harden
-Reason: A+ roadmap step 2. `scripts/generate-rust-harness-fixtures.ts` recomputes
-`body_digest`/`receipt_digest` in TypeScript via `canonicalJsonStringify` from
-`@runxhq/contracts` (lines 5/111/116). That TS canonicalizer diverges from the
-Rust binary's canonicalizer, so `pnpm fixtures:harness:check` is red-by-design and
-is deliberately excluded from the CI gate. The digests committed in the `.yaml`
-fixtures are the Rust-correct ones; the TS check reports them stale forever.
-Blockers: none. The Rust binary already emits authoritative receipts.
+Current phase: implemented and fixture-check validated
+Next: keep `fixtures:harness:check` in the fast/CI gate while the broader
+runtime cutover lands.
+Reason: `scripts/generate-rust-harness-fixtures.ts` now delegates to the Rust
+`runx-harness-fixture-oracles` binary (or builds/runs it through Cargo) instead
+of importing `canonicalJsonStringify` / `sha256Prefixed` and recomputing receipt
+digests in TypeScript. `fixtures:harness:check` is included in `verify:fast`,
+and the fast gate prebuilds/passes `RUNX_HARNESS_FIXTURE_ORACLE_BIN`. The
+fixture check passed, and this pass found no `fixtures/harness` digest/oracle
+diff.
+Blockers: none for this fixture single-source slice.
 
 ## Summary
 
@@ -60,13 +62,39 @@ Out of scope: the contract-shape pipeline inversion (owned by
 
 ## Acceptance
 
-- [ ] `dod1` Harness/receipt fixture digests are produced by Rust, not by a TS
+- [x] `dod1` Harness/receipt fixture digests are produced by Rust, not by a TS
   reimplementation; the TS generators no longer compute digests via
   `canonicalJsonStringify`.
-- [ ] `dod2` `fixtures:harness:check` passes and is part of the CI gate (no
+  - Command: `rg -n "canonicalJsonStringify|sha256Prefixed|runx-harness-fixture-oracles|RUNX_HARNESS_FIXTURE_ORACLE_BIN|fixtures:harness:check" scripts/generate-rust-harness-fixtures.ts scripts/verify-fast.mjs package.json`
+  - Expected kind: `reviewed_output`
+  - Status: reviewed
+  - Evidence: generator delegates to the Rust oracle binary; `verify:fast`
+    exports `RUNX_HARNESS_FIXTURE_ORACLE_BIN` and runs
+    `fixtures:harness:check`.
+- [x] `dod2` `fixtures:harness:check` passes and is part of the CI gate (no
   longer red-by-design).
-- [ ] `dod3` No committed digest value changes (the fixtures already carry the
+  - Command: `pnpm fixtures:harness:check`
+  - Expected kind: `exit_code_zero`
+  - Status: passed
+  - Evidence: 2026-05-25 harness fixture check passed using the Rust oracle.
+- [x] `dod3` No committed digest value changes (the fixtures already carry the
   Rust-true digests); only the generator's source of truth changes.
+  - Command: `git diff --name-only -- fixtures/harness`
+  - Expected kind: `reviewed_output`
+  - Status: reviewed
+  - Evidence: no `fixtures/harness` fixture/oracle digest files changed in this
+    pass.
+
+Evidence (static, 2026-05-25):
+- `scripts/generate-rust-harness-fixtures.ts` delegates to
+  `runx-harness-fixture-oracles`; it no longer imports contract canonicalization
+  helpers.
+- `scripts/verify-fast.mjs` builds the Rust oracle and exports
+  `RUNX_HARNESS_FIXTURE_ORACLE_BIN`; `package.json` keeps
+  `fixtures:harness:check` on that generator.
+- `pnpm fixtures:harness:check` passed on 2026-05-25.
+- `git diff --name-only -- fixtures/harness` returned no changed harness
+  fixture/oracle files.
 
 ## Origin
 

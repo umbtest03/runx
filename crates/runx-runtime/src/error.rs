@@ -5,7 +5,7 @@ use runx_core::state_machine::FanoutSyncDecision;
 use thiserror::Error;
 
 use crate::credentials::CredentialDeliveryError;
-use crate::payment_state::PaymentStateError;
+use crate::payment::state::PaymentStateError;
 
 #[derive(Debug, Error)]
 pub enum RuntimeError {

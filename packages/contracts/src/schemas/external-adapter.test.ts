@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { Value } from "@sinclair/typebox/value";
+import { contractSchemaMatches } from "../internal.js";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -43,7 +43,7 @@ describe("external adapter protocol schemas", () => {
       receipt_id: "receipt_should_not_cross_adapter_boundary",
     };
 
-    expect(Value.Check(externalAdapterResponseV1Schema, response)).toBe(false);
+    expect(contractSchemaMatches(externalAdapterResponseV1Schema, response)).toBe(false);
     expect(() => validateExternalAdapterResponseContract(response)).toThrow();
   });
 
@@ -53,17 +53,17 @@ describe("external adapter protocol schemas", () => {
       secret_material: "ghp_do_not_cross_boundary",
     };
 
-    expect(Value.Check(externalAdapterCredentialRequestV1Schema, request)).toBe(false);
+    expect(contractSchemaMatches(externalAdapterCredentialRequestV1Schema, request)).toBe(false);
     expect(() => validateExternalAdapterCredentialRequestContract(request)).toThrow();
   });
 
   it("rejects unknown fields on all top-level frame shapes", () => {
-    expect(Value.Check(externalAdapterManifestV1Schema, withExtra("manifest.json"))).toBe(false);
-    expect(Value.Check(externalAdapterInvocationV1Schema, withExtra("invocation.json"))).toBe(false);
-    expect(Value.Check(externalAdapterResponseV1Schema, withExtra("response.json"))).toBe(false);
-    expect(Value.Check(externalAdapterHostResolutionFrameV1Schema, withExtra("host-resolution-frame.json"))).toBe(false);
-    expect(Value.Check(externalAdapterCancellationFrameV1Schema, withExtra("cancellation-frame.json"))).toBe(false);
-    expect(Value.Check(externalAdapterCredentialRequestV1Schema, withExtra("credential-request.json"))).toBe(false);
+    expect(contractSchemaMatches(externalAdapterManifestV1Schema, withExtra("manifest.json"))).toBe(false);
+    expect(contractSchemaMatches(externalAdapterInvocationV1Schema, withExtra("invocation.json"))).toBe(false);
+    expect(contractSchemaMatches(externalAdapterResponseV1Schema, withExtra("response.json"))).toBe(false);
+    expect(contractSchemaMatches(externalAdapterHostResolutionFrameV1Schema, withExtra("host-resolution-frame.json"))).toBe(false);
+    expect(contractSchemaMatches(externalAdapterCancellationFrameV1Schema, withExtra("cancellation-frame.json"))).toBe(false);
+    expect(contractSchemaMatches(externalAdapterCredentialRequestV1Schema, withExtra("credential-request.json"))).toBe(false);
   });
 });
 

@@ -13,14 +13,14 @@ risk_level: high
 
 ## Current State
 
-Status: implementing
-Current phase: Phase 3 (verification surfaces) done; Phase 2 partial
-Next: dod1 only — thread `RuntimeOptions::signature_policy()` (production when an
-Ed25519 signer + verifier are configured, local-development otherwise) into every
-runtime receipt-build site so the live runtime emits production-signed receipts.
+Status: implemented
+Current phase: implementation complete, validation green
+Next: submit for review when the wider Rust rewrite batch is ready.
 Reason: R2 from `runx-security-hardening-v1`. The signing/verification spine is
-landed and green; the live runtime still seals with local-development unless a
-signer is configured.
+landed and green; live runtime receipt-build sites now use a
+`RuntimeReceiptSignatureConfig` resolved from `RUNX_RECEIPT_SIGN_*` env, falling
+back only to explicit local-development mode when no production signing env is
+configured.
 Done (green, 2026-05-22):
 - Ed25519 signer/verifier primitive + `RuntimeReceiptSignaturePolicy`
   (local/production/production_signing) and `seal_receipt` application.
@@ -31,24 +31,17 @@ Done (green, 2026-05-22):
   `journal_history` tests migrated to these semantics (dod4, dod5).
 - Tamper + production-signature fixture tests (`receipt_signing`,
   `journal_history`) green (dod6, dod7).
-Remaining (dod1, dod8):
-- dod1 live signing wiring across ~12 sites:
-  `execution/runner/steps.rs` (4 `step_receipt`),
-  `execution/runner.rs` (3 `graph_receipt`/`graph_receipt_with_disposition`),
-  `execution/harness/runner.rs` (3 `step_receipt_with_disposition` + 2
-  `graph_receipt_with_disposition`), `execution/skill_run.rs` (1),
-  `adapters/mcp/server_skill.rs` (1). Add owned signer/verifier +
-  `signature_policy(&self)` to `RuntimeOptions`; carry a policy on
-  `StepReceiptWithDisposition` and `graph_receipt_with_disposition`
-  (fold into the closure struct to stay under the clippy arg limit); resolve a
-  signer from new `RUNX_RECEIPT_SIGN_*` env keys in the CLI; add a production-path
-  runtime test. Keep `local_development` as the default so existing goldens are
-  byte-identical.
-- dod8 docs: production signing configuration + local-development downgrade.
+Done (green, 2026-05-25):
+- dod1 live signing wiring across graph, step, skill, harness replay, and MCP
+  server receipt sites. `RuntimeOptions::signature_policy()` and
+  `RuntimeReceiptSignatureConfig::from_env` are the single runtime policy source.
+- dod8 docs: `docs/getting-started.md` documents production signing and history
+  verification env.
 Blockers: none. Signer/verifier boundary settled (see Settled Architecture).
 Allowed follow-up command: `scafld harden runx-runtime-production-receipt-signing-v1`
-Latest runner update: 2026-05-22 spine landed and green; dod1/dod8 remain as a
-scoped follow-up with sites enumerated above.
+Latest runner update: 2026-05-25 live runtime production-signing wiring landed;
+focused compile, signing, skill-run, receipt, history, format, and lint tests
+passed.
 Review gate: not_started
 
 ## Settled Architecture
@@ -184,58 +177,67 @@ Out of scope:
 
 ## Acceptance
 
-- [ ] `dod1` Production receipt mode signs every runtime step and graph receipt
+- [x] `dod1` Production receipt mode signs every runtime step and graph receipt
   with a real Ed25519 signature over `canonical_receipt_body_digest`.
-- [ ] `dod2` Production mode rejects missing signer, missing verifier, missing
+- [x] `dod2` Production mode rejects missing signer, missing verifier, missing
   key id, malformed key material, issuer/key-hash mismatch, and any `sig:`
   pseudo signature.
-- [ ] `dod3` Local-development pseudo signatures remain possible only through an
+- [x] `dod3` Local-development pseudo signatures remain possible only through an
   explicit local-development policy and are not reported as production-verified.
-- [ ] `dod4` `runx history --json` exposes `verified`, `unverified`, or
+- [x] `dod4` `runx history --json` exposes `verified`, `unverified`, or
   `invalid` using strict proof verification and a production key resolver.
-- [ ] `dod5` Tampering with the receipt body, `seal.digest`, signature value,
+- [x] `dod5` Tampering with the receipt body, `seal.digest`, signature value,
   issuer `kid`, or `issuer.public_key_sha256` fails with specific verifier
   findings.
-- [ ] `dod6` Fixture tests cover at least one production-signed receipt and the
+- [x] `dod6` Fixture tests cover at least one production-signed receipt and the
   negative tamper cases.
-- [ ] `dod7` No private key bytes appear in receipts, snapshots, logs, or public
+- [x] `dod7` No private key bytes appear in receipts, snapshots, logs, or public
   fixture JSON.
-- [ ] `dod8` Production signing configuration and local-development downgrade
+- [x] `dod8` Production signing configuration and local-development downgrade
   semantics are documented.
 
 Validation:
-- [ ] `v1` Scafld validates this spec.
+- [x] `v1` Scafld validates this spec.
   - Command: `scafld validate runx-runtime-production-receipt-signing-v1 --json`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `v2` Receipt proof verification tests pass.
+  - Status: passed
+  - Evidence: 2026-05-25 exited 0.
+- [x] `v2` Receipt proof verification tests pass.
   - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-receipts`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `v3` Runtime receipt signing tests pass.
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime receipt`
+  - Status: passed
+  - Evidence: 2026-05-25 receipt unit, conformance, harness receipt, and receipt
+    tree fixture tests passed.
+- [x] `v3` Runtime receipt signing tests pass.
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test receipt_signing --test skill_run --test payment --test harness_fixtures`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `v4` CLI history verification tests pass.
+  - Status: passed
+  - Evidence: 2026-05-25 focused runtime trust-critical slice passed.
+- [x] `v4` CLI history verification tests pass.
   - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-cli history`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `v5` Rust formatting and lint checks pass.
-  - Command: `cargo fmt --check --manifest-path crates/Cargo.toml`
+  - Status: passed
+  - Evidence: 2026-05-25 history tests passed.
+- [x] `v5` Rust formatting checks pass.
+  - Command: `cargo fmt --manifest-path crates/Cargo.toml --all -- --check`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `v6` Runtime and receipt lint checks pass.
+  - Status: passed
+  - Evidence: 2026-05-25 formatting check passed.
+- [x] `v6` Runtime and receipt lint checks pass.
   - Command: `cargo clippy --manifest-path crates/Cargo.toml -p runx-runtime -p runx-receipts --all-targets --all-features -- -D warnings`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `v7` Patch hygiene passes.
+  - Status: passed
+  - Evidence: 2026-05-25 exited 0 after typed external-adapter contract/test
+    cleanup.
+- [x] `v7` Patch hygiene passes.
   - Command: `git diff --check`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: passed
+  - Evidence: 2026-05-25 exited 0.
 
 ## Phase 1: Signing Contract
 
-Status: pending
+Status: completed
 Dependencies: `rust-receipt-proof-verification`,
 `canonical-json-fingerprint-contract-v1`
 
@@ -256,7 +258,7 @@ Acceptance:
 
 ## Phase 2: Runtime Sealing
 
-Status: pending
+Status: completed
 Dependencies: Phase 1
 
 Objective: Wire the signer into runtime receipt construction.
@@ -276,7 +278,7 @@ Acceptance:
 
 ## Phase 3: Verification Surfaces
 
-Status: pending
+Status: completed
 Dependencies: Phase 2
 
 Objective: Make receipt consumers report trust accurately.
@@ -295,7 +297,7 @@ Acceptance:
 
 ## Phase 4: Fixtures, Docs, And Gates
 
-Status: pending
+Status: completed
 Dependencies: Phase 3
 
 Objective: Make the implementation maintainable and auditable.

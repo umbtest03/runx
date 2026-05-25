@@ -72,10 +72,10 @@ Files impacted:
 - `crates/runx-sdk/src/error.rs`
 - `crates/runx-sdk/src/command.rs`
 - `crates/runx-sdk/src/host.rs`
-- `crates/runx-sdk/src/act_assignment.rs`
+- `crates/runx-sdk/src/act/assignment.rs`
 - `crates/runx-sdk/tests/client_cli.rs`
 - `crates/runx-sdk/tests/host_protocol.rs`
-- `crates/runx-sdk/tests/act_assignment.rs`
+- `crates/runx-sdk/tests/act/assignment.rs`
 - `fixtures/sdk-rust/**`
 - `scripts/check-rust-core-style.mjs`
 - `docs/api-surface.md`
@@ -308,13 +308,13 @@ Dependencies: Phase 2
 Objective: Complete this phase.
 
 Changes:
-- `crates/runx-sdk/src/act_assignment.rs` (all, exclusive) - Typed SDK constructors and re-exports around `runx-contracts` act assignment types. No independent hash implementation.
+- `crates/runx-sdk/src/act/assignment.rs` (all, exclusive) - Typed SDK constructors and re-exports around `runx-contracts` act assignment types. No independent hash implementation.
 - `fixtures/sdk-rust/act-assignment/*.json` (all, exclusive) - Golden cases generated from TypeScript and shared with `runx-contracts`.
-- `crates/runx-sdk/tests/act_assignment.rs` (all, exclusive) - Fixture tests proving SDK wrappers produce the same contract values and hashes.
+- `crates/runx-sdk/tests/act/assignment.rs` (all, exclusive) - Fixture tests proving SDK wrappers produce the same contract values and hashes.
 
 Acceptance:
 - [x] `ac3_1` command - act assignment tests pass.
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-sdk --test act_assignment`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-sdk --test act`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0

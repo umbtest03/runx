@@ -1,25 +1,10 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.runx.dev/runx/external-adapter/cancellation/v1.json",
-  "x-runx-schema": "runx.external_adapter.cancellation.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "schema",
-    "protocol_version",
-    "frame_id",
-    "invocation_id",
-    "adapter_id",
-    "reason",
-    "requested_at"
-  ],
   "properties": {
-    "schema": {
-      "const": "runx.external_adapter.cancellation.v1",
-      "type": "string"
-    },
-    "protocol_version": {
-      "const": "runx.external_adapter.v1",
+    "adapter_id": {
+      "minLength": 1,
       "type": "string"
     },
     "frame_id": {
@@ -30,9 +15,13 @@
       "minLength": 1,
       "type": "string"
     },
-    "adapter_id": {
-      "minLength": 1,
-      "type": "string"
+    "protocol_version": {
+      "anyOf": [
+        {
+          "const": "runx.external_adapter.v1",
+          "type": "string"
+        }
+      ]
     },
     "reason": {
       "minLength": 1,
@@ -42,6 +31,25 @@
       "minLength": 1,
       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
       "type": "string"
+    },
+    "schema": {
+      "anyOf": [
+        {
+          "const": "runx.external_adapter.cancellation.v1",
+          "type": "string"
+        }
+      ]
     }
-  }
+  },
+  "required": [
+    "schema",
+    "protocol_version",
+    "frame_id",
+    "invocation_id",
+    "adapter_id",
+    "reason",
+    "requested_at"
+  ],
+  "type": "object",
+  "x-runx-schema": "runx.external_adapter.cancellation.v1"
 }

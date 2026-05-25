@@ -1,9 +1,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { authorityTermSchema } from "@runxhq/contracts";
+import { authorityTermSchema, contractSchemaMatches, validateContractSchemaForDiagnostics } from "@runxhq/contracts";
 import { describe, expect, it } from "vitest";
-import { Value } from "@sinclair/typebox/value";
 
 import {
   parseRunnerManifestYaml,
@@ -261,8 +260,8 @@ function findInvalidPaymentAuthorityTerms(value: unknown, pathParts: readonly st
     currentKey?.endsWith("payment_authority") === true
     && !pathParts.includes("runx")
     && !("authority_ref" in value);
-  const current = isFixtureAuthority && hasInlinePaymentAuthorityShape(value) && !Value.Check(authorityTermSchema, value)
-    ? [`${pathParts.join(".")}: ${[...Value.Errors(authorityTermSchema, value)].map((error) => error.path || error.message).join(", ")}`]
+  const current = isFixtureAuthority && hasInlinePaymentAuthorityShape(value) && !contractSchemaMatches(authorityTermSchema, value)
+    ? [`${pathParts.join(".")}: ${validateContractSchemaForDiagnostics(authorityTermSchema, value).join(", ")}`]
     : [];
   return [
     ...current,

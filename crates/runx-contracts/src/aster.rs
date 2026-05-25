@@ -1,7 +1,7 @@
 //! Aster operator contracts: targets, opportunities, selections, feed entries, reflections.
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{IsoDateTime, NonEmptyString, RunxSchema};
+use crate::schema::{IsoDateTime, NonEmptyString, NonEmptyVec, RunxSchema};
 use crate::{ActForm, ActRef, AuthorityResourceFamily, Closure, Fingerprint, Links, Reference};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
@@ -299,16 +299,11 @@ pub struct FeedEntry {
     pub target_ref: Option<Reference>,
     pub opportunity_ref: Option<Reference>,
     pub selection_ref: Option<Reference>,
-    #[serde(default)]
-    pub decision_refs: Vec<Reference>,
-    #[serde(default)]
-    pub receipt_refs: Vec<Reference>,
-    #[serde(default)]
-    pub act_refs: Vec<ActRef>,
-    #[serde(default)]
-    pub verification_refs: Vec<Reference>,
-    #[serde(default)]
-    pub evidence_refs: Vec<Reference>,
+    pub decision_refs: NonEmptyVec<Reference>,
+    pub receipt_refs: NonEmptyVec<Reference>,
+    pub act_refs: NonEmptyVec<ActRef>,
+    pub verification_refs: NonEmptyVec<Reference>,
+    pub evidence_refs: NonEmptyVec<Reference>,
     #[serde(default)]
     pub artifact_refs: Vec<Reference>,
     pub redaction_policy_ref: Reference,

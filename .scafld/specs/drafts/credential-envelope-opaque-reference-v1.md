@@ -13,14 +13,16 @@ risk_level: high
 
 ## Current State
 
-Status: draft
-Current phase: planning
-Next: harden
-Reason: `connect-auth-mit-boundary-v1` removed OSS brokerage, but retained
-legacy public `connection_id` wire fields as passive compatibility metadata.
-This spec owns the separate contract migration to provider-opaque naming.
-Blockers: none. Greenfields clean cutover; no external wire consumers to keep
-compatible.
+Status: implemented
+Current phase: contract migration and boundary cleanup validated
+Next: keep the boundary guard in the normal validation profile.
+Reason: Credential envelope and authority-proof contracts now use
+`provider_reference`, generated schemas require it, Rust and TypeScript contract
+tests reject the legacy `connection_id` wire key, and fixtures use
+`provider_reference`. The license-boundary manifest lists `connection_id` only
+as a banned/guarded identifier and inventory term, not as an allowlist entry for
+retained MIT source.
+Blockers: none for this clean contract cutover.
 Allowed follow-up command: `scafld harden credential-envelope-opaque-reference-v1`
 Latest runner update: 2026-05-22T03:18:00+10:00
 Review gate: not_started
@@ -76,15 +78,55 @@ Out of scope:
 
 ## Acceptance
 
-- [ ] `dod1` Public Rust contract types no longer expose a provider-shaped
+- [x] `dod1` Public Rust contract types no longer expose a provider-shaped
   `connection_id` API as the preferred field name.
-- [ ] `dod2` The old `connection_id` wire key is gone (no alias, no fallback); a
+  - Command: `rg -n "connection_id|ConnectionId|connectionId" crates/runx-contracts crates/runx-core packages/contracts packages/cli schemas docs/license-boundary.manifest.json`
+  - Expected kind: `reviewed_output`
+  - Status: reviewed
+  - Evidence: active credential contracts, generated schemas, OpenAPI runtime
+    schemas, and CLI connect surfaces use `provider_reference`; remaining
+    `connection_id` mentions are the negative contract test, this spec, docs
+    inventory, and the boundary manifest's banned identifier.
+- [x] `dod2` The old `connection_id` wire key is gone (no alias, no fallback); a
   test asserts the renamed provider-opaque field is the only accepted shape.
-- [ ] `dod3` Authority-proof fixtures and schema validation match the chosen
+  - Command: `pnpm contracts:schemas:check`
+  - Expected kind: `exit_code_zero`
+  - Status: passed
+  - Evidence: 2026-05-25 schema generation/check passed after the
+    `provider_reference` cutover.
+- [x] `dod3` Authority-proof fixtures and schema validation match the chosen
   contract shape.
-- [ ] `dod4` `docs/license-boundary.manifest.json` no longer needs allowlist
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-core policy && cargo test --manifest-path crates/Cargo.toml -p runx-contracts --test schema_wire_compat emitted_schemas_are_wire_compatible_with_committed`
+  - Expected kind: `exit_code_zero`
+  - Status: passed
+  - Evidence: 2026-05-25 runx-core policy fixtures and schema wire-compat test
+    passed.
+- [x] `dod4` `docs/license-boundary.manifest.json` no longer needs allowlist
   entries for `connection_id` in retained MIT source files.
-- [ ] `dod5` The license-boundary guard and runx-core policy tests pass.
+  - Command: `node .scafld/scripts/check-license-edges.mjs --check manifest-complete && node .scafld/scripts/check-license-edges.mjs --check identifiers`
+  - Expected kind: `exit_code_zero`
+  - Status: passed
+  - Evidence: 2026-05-25 license-boundary manifest completeness and identifier
+    guards passed; `connection_id` remains only as a banned identifier.
+- [x] `dod5` The license-boundary guard and runx-core policy tests pass.
+  - Command: `node .scafld/scripts/check-license-edges.mjs --check manifest-complete && node .scafld/scripts/check-license-edges.mjs --check identifiers && cargo test --manifest-path crates/Cargo.toml -p runx-core policy`
+  - Expected kind: `exit_code_zero`
+  - Status: passed
+  - Evidence: 2026-05-25 license-boundary guard and core policy tests passed.
+
+Evidence (static, 2026-05-25):
+- `crates/runx-contracts/src/policy_proof.rs` exposes
+  `provider_reference` on `CredentialEnvelope` and authority-proof credential
+  material.
+- `schemas/credential-envelope.schema.json`,
+  `schemas/authority-proof.schema.json`, and
+  `packages/contracts/src/schemas/credentials.ts` use `provider_reference`.
+- `packages/contracts/src/schemas/credentials.test.ts` and
+  `crates/runx-contracts/tests/schema_wire_compat.rs` reject the legacy
+  `connection_id` key.
+- `docs/license-boundary.manifest.json` still contains `connection_id` only as a
+  banned identifier and inventory search term; it is no longer an allowlisted
+  retained MIT source field.
 
 ## Phase 1: Compatibility Design
 

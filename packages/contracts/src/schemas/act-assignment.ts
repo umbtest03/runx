@@ -1,4 +1,4 @@
-import { Type, type Static } from "@sinclair/typebox";
+import { Type, type Static } from "../internal.js";
 import {
   JSON_SCHEMA_DRAFT_2020_12,
   RUNX_CONTRACT_IDS,
@@ -14,10 +14,10 @@ const actAssignmentHostKinds = ["cli", "api", "github_issue_comment", "system"] 
 
 export const actAssignmentActorSchema = Type.Object(
   {
-    actor_id: Type.Optional(Type.String({ minLength: 1 })),
-    display_name: Type.Optional(Type.String({ minLength: 1 })),
-    role: Type.Optional(Type.String({ minLength: 1 })),
-    provider_identity: Type.Optional(Type.String({ minLength: 1 })),
+    actor_id: Type.Optional(Type.String()),
+    display_name: Type.Optional(Type.String()),
+    role: Type.Optional(Type.String()),
+    provider_identity: Type.Optional(Type.String()),
   },
   {
     additionalProperties: false,
@@ -29,8 +29,8 @@ export type ActAssignmentActorContract = DeepReadonly<Static<typeof actAssignmen
 export const actAssignmentHostSchema = Type.Object(
   {
     kind: stringEnum(actAssignmentHostKinds),
-    trigger_ref: Type.Optional(Type.String({ minLength: 1 })),
-    scope_set: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+    trigger_ref: Type.Optional(Type.String()),
+    scope_set: Type.Optional(Type.Array(Type.String())),
     actor: Type.Optional(actAssignmentActorSchema),
   },
   {

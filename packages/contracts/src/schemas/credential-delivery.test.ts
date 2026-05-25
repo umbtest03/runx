@@ -1,4 +1,4 @@
-import { Value } from "@sinclair/typebox/value";
+import { contractSchemaMatches } from "../internal.js";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -87,10 +87,10 @@ const observation: CredentialDeliveryObservationContract = {
 
 describe("credential-delivery schemas", () => {
   it("accepts public credential delivery frames without raw material", () => {
-    expect(Value.Check(credentialDeliveryProfileV1Schema, profile)).toBe(true);
-    expect(Value.Check(credentialDeliveryRequestV1Schema, request)).toBe(true);
-    expect(Value.Check(credentialDeliveryBrokerResponseV1Schema, response)).toBe(true);
-    expect(Value.Check(credentialDeliveryObservationV1Schema, observation)).toBe(true);
+    expect(contractSchemaMatches(credentialDeliveryProfileV1Schema, profile)).toBe(true);
+    expect(contractSchemaMatches(credentialDeliveryRequestV1Schema, request)).toBe(true);
+    expect(contractSchemaMatches(credentialDeliveryBrokerResponseV1Schema, response)).toBe(true);
+    expect(contractSchemaMatches(credentialDeliveryObservationV1Schema, observation)).toBe(true);
 
     const serialized = JSON.stringify({ profile, request, response, observation });
     expect(serialized).not.toContain("sk-contract-test");
@@ -98,22 +98,22 @@ describe("credential-delivery schemas", () => {
   });
 
   it("rejects raw secret-like fields on public frames", () => {
-    expect(Value.Check(credentialDeliveryBrokerResponseV1Schema, {
+    expect(contractSchemaMatches(credentialDeliveryBrokerResponseV1Schema, {
       ...response,
       access_token: "super-secret-token",
     })).toBe(false);
-    expect(Value.Check(credentialDeliveryObservationV1Schema, {
+    expect(contractSchemaMatches(credentialDeliveryObservationV1Schema, {
       ...observation,
       api_key: "sk-contract-test",
     })).toBe(false);
-    expect(Value.Check(credentialDeliveryRequestV1Schema, {
+    expect(contractSchemaMatches(credentialDeliveryRequestV1Schema, {
       ...request,
       password: "hunter2",
     })).toBe(false);
   });
 
   it("rejects non-env delivery modes until a future contract explicitly adds them", () => {
-    expect(Value.Check(credentialDeliveryProfileV1Schema, {
+    expect(contractSchemaMatches(credentialDeliveryProfileV1Schema, {
       ...profile,
       delivery_mode: "file",
     })).toBe(false);

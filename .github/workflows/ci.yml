@@ -68,6 +68,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Heavy graph Vitest
+        run: pnpm test:heavy:graph
+
       - name: Rust checks
         working-directory: crates
         run: |

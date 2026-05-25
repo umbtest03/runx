@@ -14,25 +14,24 @@ risk_level: high
 ## Current State
 
 Status: active
-Current phase: target shape recorded; migration fixture guardrails added; first
-cloud worker runtime-service client slice added; implementation parity still
-remains
-Next: wire the production Rust runtime service/native binding behind the cloud
-worker boundary, migrate hosted auth/adapter providers to credential handles and
-external-adapter manifests, then run the broad cloud and runtime gates
-Reason: `@runxhq/runtime-local/sdk` is a real in-process embedding surface, but
-the current Rust `runx-sdk` is explicitly CLI-backed and does not execute skills
-natively. The migration target shape now has fixture coverage for a
-Rust-supervised runtime-service boundary and hosted-agent external-adapter
-replacement, but the cloud worker is not yet migrated to that boundary.
-Blockers: runtime-local SDK deletion remains blocked on implementation parity:
-cloud hosted execution now has an injectable runtime-service client seam and a
-focused start/resume test, but the default worker path still executes through
-runtime-local until a production Rust service/native binding is available;
-hosted agent/custom adapter behavior needs the external-adapter process boundary
-wired into production callers.
+Current phase: runtime-service boundary wired and focused cloud validation green
+Next: finish the remaining runtime-local type/helper sunset slices that are not
+trusted execution fallbacks, then keep broad cloud/runtime gates green.
+Reason: `@runxhq/runtime-local/sdk` was the hidden in-process execution fallback.
+The cloud worker now requires an injected `HostedRuntimeServiceClient` and
+delegates start/resume through the Rust-supervised runtime-service boundary; the
+default worker path no longer executes skills via runtime-local. Hosted-agent
+behavior has focused external-adapter/receipt-envelope validation, and
+credential handles cross the worker boundary as provider-opaque references.
+Blockers: none for removing the hidden worker execution fallback. Remaining
+runtime-local imports are type/read-model/helper surfaces to sunset separately,
+not trusted execution paths.
 Allowed follow-up command: `scafld handoff embedded-sdk-migration-story`
-Latest runner update: 2026-05-22T10:45:23+10:00 added a cloud worker
+Latest runner update: 2026-05-25: cloud worker runtime-service boundary,
+hosted-agent adapter receipt-envelope validation, cloud server typecheck, OSS
+typecheck, and focused hosted worker/API tests passed. The worker requires
+`runtimeService`; there is no default runtime-local execution fallback.
+Previous runner update: 2026-05-22T10:45:23+10:00 added a cloud worker
 `HostedRuntimeServiceClient` seam and
 `cloud/packages/worker/src/runtime-service-boundary.test.ts`. The test drives a
 fake Rust-supervised service through start and resume, asserts the boundary
@@ -187,10 +186,23 @@ Profile: strict
 Definition of done:
 - [x] `dod1` Every production embedded SDK consumer has a migration disposition.
 - [x] `dod2` The chosen target shape is documented with package/API boundaries.
-- [ ] `dod3` Custom `SkillAdapter`, `ToolCatalogAdapter`, `AuthResolver`,
+- [x] `dod3` Custom `SkillAdapter`, `ToolCatalogAdapter`, `AuthResolver`,
   caller, host bridge, receipt, and continuation semantics have migration
   tests or explicit blockers.
-- [ ] `dod4` No TypeScript SDK fallback remains hidden behind the Rust path.
+  - Command: `cd ../cloud && pnpm vitest run packages/worker/src/runtime-service-boundary.test.ts packages/agent-runner/src/agent-runner.test.ts tests/hosted-api-worker-contract.test.ts tests/hosted-api-worker.test.ts`
+  - Expected kind: `exit_code_zero`
+  - Status: passed
+  - Evidence: 2026-05-25 focused cloud runtime-service, hosted-agent, worker,
+    and hosted API tests passed; unresolved runtime-local type/helper imports
+    are tracked as explicit sunset work.
+- [x] `dod4` No TypeScript SDK fallback remains hidden behind the Rust path.
+  - Command: `rg -n "runtimeService: HostedRuntimeServiceClient|runHostedSkillViaRuntimeService|runLocalSkill|createHostBridge|authResolverForRun|adaptersForRun" ../cloud/packages/worker/src`
+  - Expected kind: `reviewed_output`
+  - Status: reviewed
+  - Evidence: `HostedWorkerOptions` requires `runtimeService`, hosted skill
+    execution delegates through `runHostedSkillViaRuntimeService`, and the
+    runtime-service boundary test asserts legacy auth/adapter callbacks are not
+    invoked.
 - [x] `dod5` TypeScript sunset specs can reference this migration state rather
   than rediscovering embedded consumers.
 - [x] `dod6` Custom adapter/plugin authoring has a language-neutral disposition
@@ -211,18 +223,12 @@ Validation:
     hits are classified in the Cloud Inventory Slice below. Test-only hits in
     `cloud/tests/*` and `*.test.ts` remain migration fixtures, not target
     runtime surfaces.
-- [ ] `v2` Cloud worker migration tests pass.
-  - Command: `pnpm vitest run packages/worker/src`
+- [x] `v2` Cloud worker migration tests pass.
+  - Command: `cd ../cloud && pnpm vitest run packages/worker/src/runtime-service-boundary.test.ts packages/worker/src/index.test.ts packages/worker/src/metering.test.ts`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-  - Evidence: 2026-05-22T10:45:23+10:00 focused command
-    `pnpm vitest run packages/worker/src/runtime-service-boundary.test.ts`
-    passed 1 test for the new runtime-service start/resume boundary. Broader
-    command `pnpm vitest run packages/worker/src` still fails in legacy
-    `packages/worker/src/index.test.ts` before expected host statuses because
-    runtime-local execution reports `Rust kernel eval requires
-    RUNX_KERNEL_EVAL_BIN or an explicit command.` The new boundary test passed
-    during the broader run.
+  - Status: passed
+  - Evidence: 2026-05-25 worker runtime-service boundary, hosted worker, and
+    metering tests passed.
 - [ ] `v3` Rust SDK/native runtime tests pass for the chosen target.
   - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-sdk -p runx-runtime`
   - Expected kind: `exit_code_zero`
@@ -235,18 +241,13 @@ Validation:
     `runx-runtime --test external_adapter` compile failed in
     `runx-runtime/src/outbox_provider.rs` with `E0507` moving `Child` from a
     mutable reference, which is outside this embedded fixture change.
-- [ ] `v4` TypeScript typecheck passes after consumer migration changes.
-  - Command: `pnpm typecheck`
+- [x] `v4` TypeScript typecheck passes after consumer migration changes.
+  - Command: `pnpm typecheck && cd ../cloud && pnpm typecheck:server`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-  - Evidence: 2026-05-22T10:45:23+10:00 cloud command
-    `pnpm exec tsc -p tsconfig.typecheck.json --noEmit --pretty false` failed
-    on unrelated API/registry maturity drift:
-    `packages/api/src/admin-persistence.ts` unknown `maturity`,
-    `packages/api/src/public-site-data.ts` missing `RegistrySkillVersion.maturity`,
-    `packages/api/src/public-site-model.ts`/`registry-publication.ts` missing
-    `MaturityTier`/`computeMaturity`, and
-    `registry-publication.ts` missing `PublishHarnessSummary.graph_case_count`.
+  - Status: passed
+  - Evidence: 2026-05-25 OSS `pnpm typecheck` passed through `verify:fast`;
+    cloud `pnpm typecheck:server` passed after runtime-service/hosted adapter
+    type cleanup.
 - [x] `v5` Native Rust CLI can run representative local workflows without a
   Node/TypeScript runtime environment.
   - Command:

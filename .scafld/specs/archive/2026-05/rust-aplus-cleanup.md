@@ -457,21 +457,21 @@ L5-L8 are tidiness.
 ## Explicitly NOT findings (examined, kept)
 
 - `Option<Vec<T>>` in `contracts/execution.rs` (`surface_refs`, `evidence_refs`)
-  and `act_assignment.rs` (`scope_set`): mirror TypeScript
+  and `act/assignment.rs` (`scope_set`): mirror TypeScript
   `Type.Optional(Type.Array(...))` wire contracts where absent ≠ empty.
   Collapsing breaks cross-language parity. Verified against the TS schema.
 - `ReferenceType::` / `AuthorityVerb` comparisons: already typed + exhaustive —
   the *correct* pattern the stringly ones should converge to.
 - `serde_json::Value` in public APIs outside the active payment recovery lane:
   zero instances after the external-adapter/MCP cleanup. The remaining style
-  finding is `payment_state.rs` and belongs to the concurrent
+  finding is `payment/state.rs` and belongs to the concurrent
   payment→authority workstream.
 
 ## Sequencing
 
 0. Active payment→authority lane must clear the remaining Rust style findings:
    `execution/runner/authority.rs` file/function size,
-   `execution/runner/steps.rs` replay helper size, and `payment_state.rs`
+   `execution/runner/steps.rs` replay helper size, and `payment/state.rs`
    public `serde_json::Value`.
 1. After payment→authority lands: confirm Class B(payment), K resolved.
 2. After source_type→SourceKind lands: A(source_type/input_mode), then A

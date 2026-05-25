@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 
 use runx_contracts::JsonValue;
 use runx_runtime::{
-    LocalOrchestrator, LocalReceiptStore, RUNX_RECEIPT_DIR_ENV, RunResult, SkillRunRequest,
+    LocalOrchestrator, LocalReceiptStore, RUNX_RECEIPT_DIR_ENV,
+    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_KID_ENV, RunResult,
+    RuntimeReceiptSignatureConfig, SkillRunRequest,
 };
 use tempfile::tempdir;
 
@@ -210,6 +212,62 @@ fn native_skill_run_uses_runtime_receipt_path_resolution() -> Result<(), Box<dyn
     let output = object(&result.output, "skill run result")?;
     let receipt_id = string_field(output, "receipt_id").ok_or("missing receipt_id")?;
     assert!(env_receipt_dir.join(format!("{receipt_id}.json")).exists());
+
+    Ok(())
+}
+
+#[test]
+fn native_skill_run_uses_production_receipt_signing_env() -> Result<(), Box<dyn std::error::Error>>
+{
+    let temp = tempdir()?;
+    let skill_dir = write_agent_step_skill(temp.path())?;
+    let receipt_dir = temp.path().join("receipts");
+    let answers_path = temp.path().join("answers.json");
+    fs::write(
+        &answers_path,
+        serde_json::json!({
+            "answers": {
+                "agent_step.issue-intake.output": {
+                    "intake_report": {
+                        "summary": "Docs bug is bounded."
+                    }
+                }
+            }
+        })
+        .to_string(),
+    )?;
+    let env = [
+        (
+            RUNX_RECEIPT_SIGN_KID_ENV.to_owned(),
+            "runx-runtime-prod-fixture-key".to_owned(),
+        ),
+        (
+            RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV.to_owned(),
+            "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=".to_owned(),
+        ),
+    ]
+    .into_iter()
+    .collect::<BTreeMap<_, _>>();
+
+    let result = run_skill(SkillRunRequest {
+        skill_path: skill_dir,
+        receipt_dir: Some(receipt_dir.clone()),
+        run_id: Some("production-signed-run".to_owned()),
+        answers_path: Some(answers_path),
+        inputs: BTreeMap::new(),
+        env: env.clone(),
+        cwd: temp.path().to_path_buf(),
+        local_credential: None,
+    })?;
+
+    let output = object(&result.output, "skill run result")?;
+    let receipt_id = string_field(output, "receipt_id").ok_or("missing receipt_id")?;
+    let signature_config = RuntimeReceiptSignatureConfig::from_env(&env)?;
+    let receipt = LocalReceiptStore::new(&receipt_dir)
+        .read_exact_with_policy(receipt_id, signature_config.signature_policy())?;
+    assert_eq!(receipt.issuer.kid, "runx-runtime-prod-fixture-key");
+    assert!(receipt.signature.value.starts_with("base64:"));
+    assert!(!receipt.signature.value.starts_with("sig:"));
 
     Ok(())
 }

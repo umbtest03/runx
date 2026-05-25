@@ -12,8 +12,8 @@ use runx_contracts::{JsonObject, JsonValue};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::payment_packets::{PaymentPacketError, PaymentRailPacket, read_payment_rail_packet};
-use crate::payment_supervisor::{
+use crate::payment::packets::{PaymentPacketError, PaymentRailPacket, read_payment_rail_packet};
+use crate::payment::supervisor::{
     PaymentSupervisorProof, PaymentSupervisorProofMatch, validate_payment_supervisor_proof,
 };
 

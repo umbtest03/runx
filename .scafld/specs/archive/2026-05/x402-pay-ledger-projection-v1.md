@@ -48,7 +48,7 @@ contract that folds x402 payment packets into an accrual/refusal view.
 
 Boundary status:
 
-- Rust API: `runx_runtime::payment_ledger::build_payment_ledger_projection`,
+- Rust API: `runx_runtime::payment::ledger::build_payment_ledger_projection`,
   accepting sealed graph/harness receipts plus typed child receipt evidence.
 - Native file output: `write_payment_ledger_projection_artifact` writes a
   deterministic projection artifact under
@@ -69,8 +69,8 @@ The implementation should live beside the existing Rust journal/history
 projection boundary, not in core policy and not in `packages/runtime-local`.
 Suggested target paths:
 
-- `crates/runx-runtime/src/payment_ledger.rs`
-- `crates/runx-runtime/tests/payment_ledger_projection.rs`
+- `crates/runx-runtime/src/payment/ledger.rs`
+- `crates/runx-runtime/tests/payment/ledger_projection.rs`
 - `crates/runx-cli/src/history.rs` or the native harness completion path for
   projection artifact discovery, whichever is the narrower integration point
 - `crates/runx-cli/tests/x402_native_dogfood.rs` for TS-free dogfood assertions
@@ -164,7 +164,7 @@ Validation:
   - Evidence: exit code was 0
   - Source event: entry-4
 - [x] `v3` projection tests - Rust runtime projection distinguishes settlement from
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_ledger_projection`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
@@ -176,7 +176,7 @@ Validation:
   - Evidence: exit code was 0
   - Source event: entry-6
 - [x] `v5` projection persistence writer - Runtime writer persists the
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_ledger_projection x402_projection_artifact_writer_persists_under_receipt_dir_and_returns_event_payload`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment x402_projection_artifact_writer_persists_under_receipt_dir_and_returns_event_payload`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
@@ -215,7 +215,7 @@ projection spec rather than coupling it back into this payment projector.
 
 Validation commands:
 
-- `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_ledger_projection`
+- `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment`
 - `cargo test --manifest-path crates/Cargo.toml -p runx-cli --test x402_native_dogfood native_x402_negative_fixtures_refuse_without_settlement`
 - `cargo test --manifest-path crates/Cargo.toml -p runx-cli --test x402_native_dogfood native_x402_ledger_projection`
 - `cargo test --manifest-path crates/Cargo.toml -p runx-cli --test x402_native_dogfood native_x402_refusal_ledger_projection`
@@ -230,7 +230,7 @@ Commands:
 - `rm -f .scafld/specs/active/x402-pay-ledger-projection-v1.md`
 - `rm -rf fixtures/ledger-projections`
 - Future implementation rollback:
-  `git checkout HEAD -- crates/runx-runtime/src/payment_ledger.rs crates/runx-runtime/tests/payment_ledger_projection.rs crates/runx-cli/src/history.rs crates/runx-cli/tests/x402_native_dogfood.rs schemas/payment-ledger-projection.schema.json`
+  `git checkout HEAD -- crates/runx-runtime/src/payment/ledger.rs crates/runx-runtime/tests/payment/ledger_projection.rs crates/runx-cli/src/history.rs crates/runx-cli/tests/x402_native_dogfood.rs schemas/payment-ledger-projection.schema.json`
 - Refusal dogfood fixture rollback:
   `rm -f fixtures/harness/x402-pay-ledger-governed-refusal.yaml fixtures/graphs/payment/x402-pay-ledger-governed-refusal.yaml`
 
@@ -270,8 +270,8 @@ Output: claude.mcp_submit_review
 Summary: Reviewed the x402 payment ledger projection lane within declared scope. The projection module cleanly distinguishes settled accrual (rail proof + reservation match) from governed refusal (zero accrual, refusal record), the artifact writer derives a deterministic per-receipt path under `artifacts/payment-ledger/x402-pay/`, and the JSONL ledger event append checks semantic identity (`source_receipt_id` + `projection_artifact_id`) before either no-op-ing or returning `LedgerEventConflict`. The persistence trigger in `harness/runner.rs` is double-gated on the `RUNX_RECEIPT_DIR` env var and the `payment_ledger_profile=x402-pay` metadata, so it cannot bleed into unrelated harnesses. Golden fixtures match the Rust serialization for both happy P1.5 and refused P1.3 cases; refusal evidence is correctly read from the nested `payment_reservation_packet.data.payment_refusal_packet` path, and `ledger_spend_recorded` defaults to false when absent from skill output. Receipt-id and run-id path segments are validated for alphanumeric/-/_ chars, preventing path traversal via fixture names. No completion blockers, no scope drift beyond the metadata field additions implied by the spec contract.
 
 Attack log:
-- `crates/runx-runtime/src/payment_ledger.rs build_payment_ledger_projection`: Differentiate settled vs refused dispositions; verify zero-accrual on refusal and rail-proof matching on settlement -> clean (Refusal path forces amount_minor=0 and empty rail_proof_refs via refused_accrual(); settlement path validates reservation/settlement parity, child receipt linkage, and verification ref ProofKind::PaymentRail + locator==idempotency_key.)
-- `crates/runx-runtime/src/payment_ledger.rs append_payment_ledger_projected_event`: Idempotency and conflict semantics under repeated persist calls; path traversal via run_id -> clean (validate_run_ledger_id rejects empty/non-[A-Za-z0-9_-]; same payload identity returns existing path; divergent payload with matching source_receipt_id+projection_artifact_id returns LedgerEventConflict. No file lock, but acceptable for dogfood/evidence boundary.)
+- `crates/runx-runtime/src/payment/ledger.rs build_payment_ledger_projection`: Differentiate settled vs refused dispositions; verify zero-accrual on refusal and rail-proof matching on settlement -> clean (Refusal path forces amount_minor=0 and empty rail_proof_refs via refused_accrual(); settlement path validates reservation/settlement parity, child receipt linkage, and verification ref ProofKind::PaymentRail + locator==idempotency_key.)
+- `crates/runx-runtime/src/payment/ledger.rs append_payment_ledger_projected_event`: Idempotency and conflict semantics under repeated persist calls; path traversal via run_id -> clean (validate_run_ledger_id rejects empty/non-[A-Za-z0-9_-]; same payload identity returns existing path; divergent payload with matching source_receipt_id+projection_artifact_id returns LedgerEventConflict. No file lock, but acceptable for dogfood/evidence boundary.)
 - `crates/runx-runtime/src/execution/harness/runner.rs persist_payment_ledger_projection_if_configured`: Trace caller gating; verify projection is opt-in via env+metadata and does not leak into non-x402 fixtures -> clean (Returns early when RUNX_RECEIPT_DIR is unset or payment_ledger_profile metadata != x402-pay. scenario_id is required via required_string_metadata, propagating a clean RuntimeError on misconfiguration.)
 - `fixtures/harness/x402-pay-paid-echo.yaml metadata addition`: Ambient regression on existing consumers of the fixture -> clean (Only consumers are harness_fixtures schema check (metadata is unconstrained) and existing x402 dogfood tests that don't assert metadata; new fields are additive.)
 - `fixtures/ledger-projections/*.json golden fixtures`: Field-order / serde alignment between Rust struct order and golden JSON -> clean (Both golden files serialize fields in declaration order (schema_version, payment_profile, scenario_id, source_receipt_id, disposition, accrual, refusal, evidence_refs) matching #[derive(Serialize)] on PaymentLedgerProjection; refusal is null for settled, populated for refused.)

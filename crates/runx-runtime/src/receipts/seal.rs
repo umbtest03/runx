@@ -16,7 +16,7 @@ use runx_receipts::{
 };
 
 use crate::adapter::SkillOutput;
-use crate::payment_supervisor::rebind_supervisor_proof_to_receipt;
+use crate::payment::supervisor::rebind_supervisor_proof_to_receipt;
 use crate::{RuntimeError, StepRun};
 
 use super::signing::{
@@ -217,13 +217,13 @@ pub(crate) fn graph_receipt_with_disposition(
     )
 }
 
-struct GraphClosure {
-    disposition: ClosureDisposition,
-    reason_code: String,
-    summary: String,
+pub(crate) struct GraphClosure {
+    pub(crate) disposition: ClosureDisposition,
+    pub(crate) reason_code: String,
+    pub(crate) summary: String,
 }
 
-fn graph_receipt_with_disposition_and_policy(
+pub(crate) fn graph_receipt_with_disposition_and_policy(
     graph_name: &str,
     steps: &mut [StepRun],
     sync_points: Vec<FanoutReceiptSyncPoint>,
@@ -397,7 +397,7 @@ fn decisions(
             constraints: Vec::new(),
             derived_from: Vec::new(),
         },
-        selected_act_id: Some(act.id.clone().into()),
+        selected_act_id: Some(act.id.clone()),
         selected_harness_ref: None,
         justification: DecisionJustification {
             summary: "runtime graph planner selected this node".into(),
@@ -727,7 +727,7 @@ fn output_summary(output: &SkillOutput) -> String {
 
 fn child_receipt_reference(receipt: &Receipt) -> Reference {
     Reference {
-        locator: Some(receipt.digest.clone().into()),
+        locator: Some(receipt.digest.clone()),
         ..Reference::runx(ReferenceType::Receipt, &receipt.id)
     }
 }

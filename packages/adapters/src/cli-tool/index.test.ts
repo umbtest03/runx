@@ -14,7 +14,7 @@ describe("invokeCliTool", () => {
       source: {
         command: "node",
         args: ["-e", "process.stdout.write(process.env.RUNX_INPUT_MESSAGE ?? '')"],
-        timeoutSeconds: 5,
+        timeoutSeconds: 1,
       },
       inputs: { message: "hi", output_path: "out.txt" },
       skillDirectory: process.cwd(),
@@ -29,7 +29,7 @@ describe("invokeCliTool", () => {
       source: {
         command: "node",
         args: ["-e", "process.stdout.write(process.argv[1] ?? '')", "{{message}}"],
-        timeoutSeconds: 5,
+        timeoutSeconds: 1,
       },
       inputs: { message: "hello" },
       skillDirectory: process.cwd(),
@@ -63,7 +63,7 @@ describe("invokeCliTool", () => {
       source: {
         command: "node",
         args: ["-e", "setInterval(() => {}, 1000)"],
-        timeoutSeconds: 5,
+        timeoutSeconds: 1,
       },
       inputs: {},
       skillDirectory: process.cwd(),
@@ -84,7 +84,7 @@ describe("invokeCliTool", () => {
           "process.stdout.write('a'.repeat(Number(process.argv[1])) + '€')",
           String(outputLimitBytes - 1),
         ],
-        timeoutSeconds: 5,
+        timeoutSeconds: 1,
       },
       inputs: {},
       skillDirectory: process.cwd(),
@@ -106,7 +106,7 @@ describe("invokeCliTool", () => {
             "-e",
             "process.stdout.write(`${process.env.ALLOWED_VALUE ?? ''}:${process.env.BLOCKED_VALUE ?? ''}:${process.env.RUNX_INPUT_MESSAGE ?? ''}`)",
           ],
-          timeoutSeconds: 5,
+          timeoutSeconds: 1,
           sandbox: {
             profile: "workspace-write",
             envAllowlist: ["ALLOWED_VALUE", "PATH"],
@@ -147,7 +147,7 @@ describe("invokeCliTool", () => {
         source: {
           command: "node",
           args: ["-e", "require('node:fs').writeFileSync('out.txt', 'should-not-write')"],
-          timeoutSeconds: 5,
+          timeoutSeconds: 1,
           sandbox: {
             profile: "readonly",
           },
@@ -191,7 +191,7 @@ describe("invokeCliTool", () => {
           "-e",
           "process.stdout.write(`${process.env.RUNX_SECRET_VALUE ?? ''}:${Boolean(process.env.PATH)}:${process.env.RUNX_INPUT_MESSAGE ?? ''}`)",
         ],
-        timeoutSeconds: 5,
+        timeoutSeconds: 1,
       },
       inputs: { message: "hi" },
       env: {
@@ -221,7 +221,7 @@ describe("invokeCliTool", () => {
           command: "node",
           args: ["-e", "process.stdout.write('should-not-run')"],
           cwd: outside,
-          timeoutSeconds: 5,
+          timeoutSeconds: 1,
           sandbox: {
             profile: "readonly",
             cwdPolicy: "skill-directory",
@@ -244,7 +244,7 @@ describe("invokeCliTool", () => {
       source: {
         command: "node",
         args: ["-e", "process.stdout.write('direct')"],
-        timeoutSeconds: 5,
+        timeoutSeconds: 1,
         sandbox: {
           profile: "unrestricted-local-dev",
         },
@@ -279,7 +279,7 @@ describe("invokeCliTool", () => {
             "process.stdout.write(`${Boolean(process.env.RUNX_INPUTS_PATH)}:${parsed.message.length}:${process.env.RUNX_INPUT_MESSAGE ?? ''}`);",
           ].join(" "),
         ],
-        timeoutSeconds: 5,
+        timeoutSeconds: 1,
       },
       inputs: { message: largePayload },
       skillDirectory: process.cwd(),
@@ -311,10 +311,10 @@ describe("invokeCliTool", () => {
               "  process.exit(0);",
               "});",
               "socket.on('error', () => { process.stdout.write('blocked'); process.exit(0); });",
-              "setTimeout(() => { process.stdout.write('blocked-timeout'); socket.destroy(); process.exit(0); }, 500);",
+              "setTimeout(() => { process.stdout.write('blocked-timeout'); socket.destroy(); process.exit(0); }, 150);",
             ].join(" "),
           ],
-          timeoutSeconds: 5,
+          timeoutSeconds: 1,
           sandbox: {
             profile: "readonly",
           },
@@ -357,7 +357,7 @@ describe("invokeCliTool", () => {
       const readonlyResult = await invokeCliTool({
         source: {
           command: "ambient-command",
-          timeoutSeconds: 5,
+          timeoutSeconds: 1,
           sandbox: {
             profile: "readonly",
           },
@@ -387,7 +387,7 @@ describe("invokeCliTool", () => {
       const result = await invokeCliTool({
         source: {
           command: "ambient-command",
-          timeoutSeconds: 5,
+          timeoutSeconds: 1,
           sandbox: {
             profile: "unrestricted-local-dev",
             approvedEscalation: true,

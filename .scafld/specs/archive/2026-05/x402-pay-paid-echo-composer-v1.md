@@ -40,7 +40,7 @@ runtime skill names in this dogfood.
 In scope:
 
 - `crates/runx-runtime/src/execution/graph.rs`
-- `crates/runx-runtime/tests/payment_execution.rs`
+- `crates/runx-runtime/tests/payment/execution.rs`
 - `scripts/dogfood-core-skills.mjs`
 - Native Rust graph context forwarding for structured payment packets.
 - Rust payment authority admission and typed rail proof before paid action
@@ -77,13 +77,13 @@ Profile: strict
 
 Validation:
 - [x] `v1` test - Rust payment execution test passes.
-  - Command: `cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --test payment_execution`
+  - Command: `cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --test payment`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
   - Source event: entry-11
 - [x] `v1b` feature parity - Rust payment execution test passes with
-  - Command: `cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool --test payment_execution`
+  - Command: `cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool --test payment`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
@@ -106,7 +106,7 @@ Validation:
 Strategy: per_phase
 
 Commands:
-- `git checkout HEAD -- crates/runx-runtime/src/execution/graph.rs crates/runx-runtime/tests/payment_execution.rs scripts/dogfood-core-skills.mjs`
+- `git checkout HEAD -- crates/runx-runtime/src/execution/graph.rs crates/runx-runtime/tests/payment/execution.rs scripts/dogfood-core-skills.mjs`
 
 ## Harden Rounds
 

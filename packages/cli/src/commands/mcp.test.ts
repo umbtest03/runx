@@ -1,39 +1,17 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { handleMcpServeCommand } from "./mcp.js";
+import { resolveRunxBinary } from "../../../../tests/runx-binary.js";
 
 const workspaceRoot = process.cwd();
-const cargo = process.platform === "win32" ? "cargo.exe" : "cargo";
-const runxBinary = path.join(
-  workspaceRoot,
-  "crates",
-  "target",
-  "debug",
-  process.platform === "win32" ? "runx.exe" : "runx",
-);
+const runxBinary = resolveRunxBinary();
 
 describe("runx mcp serve", () => {
-  beforeAll(() => {
-    const result = spawnSync(
-      cargo,
-      ["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"],
-      {
-        cwd: workspaceRoot,
-        encoding: "utf8",
-        env: process.env,
-      },
-    );
-    if (result.status !== 0) {
-      throw new Error(`failed to build runx binary for MCP test: ${result.stderr || result.stdout}`);
-    }
-  }, 120_000);
-
   it("lists served skills and executes through the local kernel", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-mcp-serve-"));
     const stdin = new PassThrough();

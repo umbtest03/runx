@@ -1,7 +1,6 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://runx.ai/spec/output.schema.json",
-  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "patternProperties": {
     "^(.*)$": {
       "anyOf": [
@@ -39,9 +38,19 @@
         },
         {
           "additionalProperties": false,
-          "minProperties": 1,
-          "type": "object",
           "properties": {
+            "description": {
+              "type": "string"
+            },
+            "enum": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "required": {
+              "type": "boolean"
+            },
             "type": {
               "anyOf": [
                 {
@@ -74,25 +83,15 @@
                 }
               ]
             },
-            "description": {
-              "type": "string"
-            },
-            "required": {
-              "type": "boolean"
-            },
             "wrap_as": {
               "minLength": 1,
               "type": "string"
-            },
-            "enum": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
             }
-          }
+          },
+          "type": "object"
         }
       ]
     }
-  }
+  },
+  "type": "object"
 }

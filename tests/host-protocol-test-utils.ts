@@ -1,8 +1,8 @@
-import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 import type { ResolutionRequestContract } from "@runxhq/contracts";
 import type { HostBridge, HostRunOptions, HostRunState } from "@runxhq/host-adapters";
+import { resolveRunxBinary } from "./runx-binary.js";
 
 export interface HostHarness {
   readonly bridge: HostBridge;
@@ -10,21 +10,15 @@ export interface HostHarness {
 }
 
 export const workspaceRoot = process.cwd();
-const cargo = process.platform === "win32" ? "cargo.exe" : "cargo";
-export const runxBinary = path.join(
-  workspaceRoot,
-  "crates",
-  "target",
-  "debug",
-  process.platform === "win32" ? "runx.exe" : "runx",
-);
-let runxBinaryBuilt = false;
+export const runxBinary = resolveRunxBinary();
 
 export function kernelTestEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
     ...process.env,
     RUNX_CWD: process.cwd(),
     RUNX_KERNEL_EVAL_BIN: runxBinary,
+    RUNX_PARSER_EVAL_BIN: runxBinary,
+    RUNX_RUST_CLI_BIN: runxBinary,
     ...extra,
   };
 }
@@ -39,22 +33,7 @@ export async function createHostHarness(): Promise<HostHarness> {
 }
 
 export function ensureRunxBinary(): void {
-  if (runxBinaryBuilt) {
-    return;
-  }
-  const result = spawnSync(
-    cargo,
-    ["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"],
-    {
-      cwd: workspaceRoot,
-      encoding: "utf8",
-      env: process.env,
-    },
-  );
-  if (result.status !== 0) {
-    throw new Error(`failed to build runx binary for host protocol tests: ${result.stderr || result.stdout}`);
-  }
-  runxBinaryBuilt = true;
+  resolveRunxBinary();
 }
 
 function createFixtureHostBridge(runs: Map<string, HostRunOptions>): HostBridge {

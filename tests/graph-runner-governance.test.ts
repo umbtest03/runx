@@ -1,5 +1,4 @@
-import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -9,21 +8,12 @@ import { createA2aAdapter } from "../packages/adapters/src/a2a/index.js";
 import { createDefaultLocalSkillRuntime } from "@runxhq/adapters/runtime";
 import { createA2aFixtureTransport } from "@runxhq/runtime-local/harness";
 import { runLocalGraph, type Caller, type SkillAdapter } from "@runxhq/runtime-local";
+import { kernelEnv, resolveRunxBinary } from "./runx-binary.js";
 
 const caller: Caller = {
   resolve: async () => undefined,
   report: () => undefined,
 };
-const workspaceRoot = process.cwd();
-const cargo = process.platform === "win32" ? "cargo.exe" : "cargo";
-const runxBinary = path.join(
-  workspaceRoot,
-  "crates",
-  "target",
-  "debug",
-  process.platform === "win32" ? "runx.exe" : "runx",
-);
-let rustRunxBuilt = false;
 
 describe("governed graph runner governance", () => {
   it("selects a named cli-tool binding runner from a graph step", async () => {
@@ -37,7 +27,7 @@ describe("governed graph runner governance", () => {
         root: tempDir,
         receiptDir: path.join(tempDir, "receipts"),
         runxHome: path.join(tempDir, "home"),
-        env: process.env,
+        env: kernelEnv(),
       });
       await writeFile(
         graphPath,
@@ -95,7 +85,7 @@ steps:
         root: tempDir,
         receiptDir: path.join(tempDir, "receipts"),
         runxHome: path.join(tempDir, "home"),
-        env: process.env,
+        env: kernelEnv(),
         adapters: [createA2aAdapter({ transport: createA2aFixtureTransport() })],
       });
       await writeFile(
@@ -155,8 +145,6 @@ steps:
       message: should not run
 `,
       );
-      ensureRustRunxBinary();
-
       const result = await runLocalGraph({
         graphPath,
         caller,
@@ -208,6 +196,7 @@ steps:
     const adapter = createCountingAdapter();
 
     try {
+      const kernelWrapper = await writeScopeAdmissionOutageKernel(tempDir);
       const skillDir = path.join(tempDir, "skills", "package-echo");
       await writePackageEchoSkill(skillDir);
       const graphPath = path.join(tempDir, "graph.yaml");
@@ -230,7 +219,7 @@ steps:
         caller,
         receiptDir: path.join(tempDir, "receipts"),
         runxHome: path.join(tempDir, "home"),
-        env: { ...process.env, RUNX_KERNEL_EVAL_BIN: "" },
+        env: { ...kernelEnv(), RUNX_KERNEL_EVAL_BIN: kernelWrapper },
         adapters: [adapter],
         graphGrant: {
           grant_id: "grant_repo",
@@ -243,7 +232,7 @@ steps:
         return;
       }
       expect(result.reasons).toEqual([
-        "graph step scope admission failed closed: Rust kernel eval requires RUNX_KERNEL_EVAL_BIN or an explicit command.",
+        "graph step scope admission failed closed: Rust kernel eval failed with exit 1: simulated graph scope admission outage",
       ]);
       expect(adapter.callCount()).toBe(0);
       expect(result.receipt?.schema).toBe("runx.receipt.v1");
@@ -305,6 +294,36 @@ runners:
   );
 }
 
+async function writeScopeAdmissionOutageKernel(directory: string): Promise<string> {
+  const wrapperPath = path.join(directory, "scope-admission-outage-kernel.mjs");
+  const realKernel = resolveRunxBinary();
+  await writeFile(
+    wrapperPath,
+    `#!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+
+const input = readFileSync(0, "utf8");
+const document = JSON.parse(input);
+if (document.kind === "policy.admitGraphStepScopes") {
+  process.stderr.write("simulated graph scope admission outage");
+  process.exit(1);
+}
+
+const result = spawnSync(${JSON.stringify(realKernel)}, process.argv.slice(2), {
+  input,
+  encoding: "utf8",
+  env: process.env,
+});
+if (result.stdout) process.stdout.write(result.stdout);
+if (result.stderr) process.stderr.write(result.stderr);
+process.exit(result.status ?? 1);
+`,
+  );
+  await chmod(wrapperPath, 0o755);
+  return wrapperPath;
+}
+
 interface RuntimeGraphStep {
   readonly runner?: string;
   readonly receipt_id?: string;
@@ -340,30 +359,4 @@ function createCountingAdapter(): SkillAdapter & { callCount: () => number } {
       };
     },
   };
-}
-
-function kernelEnv(): NodeJS.ProcessEnv {
-  return {
-    ...process.env,
-    RUNX_KERNEL_EVAL_BIN: runxBinary,
-  };
-}
-
-function ensureRustRunxBinary(): void {
-  if (rustRunxBuilt) {
-    return;
-  }
-  const result = spawnSync(
-    cargo,
-    ["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"],
-    {
-      cwd: workspaceRoot,
-      encoding: "utf8",
-      env: process.env,
-      maxBuffer: 8 * 1024 * 1024,
-    },
-  );
-
-  expect(result.status, result.stderr || result.stdout).toBe(0);
-  rustRunxBuilt = true;
 }

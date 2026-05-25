@@ -12,11 +12,11 @@ use serde_json::{self, Value as JsonWireValue, json};
 use thiserror::Error;
 
 use crate::execution::runner::StepRun;
-use crate::payment_packets::{
+use crate::payment::packets::{
     PaymentPacketError, read_paid_tool_packet, read_payment_rail_packet,
     read_payment_refusal_packet, read_payment_reservation_packet,
 };
-use crate::payment_supervisor::{
+use crate::payment::supervisor::{
     PaymentSupervisorProof, PaymentSupervisorProofMatch, is_payment_rail_proof_ref,
     payment_supervisor_proof_from_metadata, validate_payment_supervisor_proof,
 };

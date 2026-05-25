@@ -4,14 +4,14 @@
 
 use runx_contracts::{ClosureDisposition, JsonObject, Receipt};
 use runx_core::state_machine::StepAdmissionWitness;
-use runx_runtime::payment_ledger::{
+use runx_runtime::payment::ledger::{
     PaidToolEvidence, PaymentLedgerEvidence, PaymentLedgerEvidencePacket,
     PaymentLedgerProjectedEventPayload, PaymentLedgerProjection, PaymentLedgerProjectionInput,
     PaymentRailSettlementEvidence, PaymentRefusalEvidence, PaymentReservationEvidence,
     build_payment_ledger_projection, persist_x402_payment_ledger_projection_event,
     write_payment_ledger_projection_artifact,
 };
-use runx_runtime::payment_supervisor::{
+use runx_runtime::payment::supervisor::{
     PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID, PaymentSupervisorProof,
     insert_payment_supervisor_proof_metadata,
 };

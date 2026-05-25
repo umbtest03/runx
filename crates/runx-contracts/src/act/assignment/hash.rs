@@ -89,7 +89,7 @@ pub(super) fn sha256_prefixed(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::stable_hash_json;
-    use crate::act_assignment::derive_content_hash;
+    use crate::act::assignment::derive_content_hash;
     use crate::{JsonNumber, JsonValue};
 
     #[test]

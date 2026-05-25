@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -9,6 +9,11 @@ use runx_contracts::{
     ResolutionResponseActor,
 };
 use runx_core::state_machine::GraphStatus;
+use runx_runtime::payment::supervisor::{
+    PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID, PaymentRailSupervisor, PaymentSupervisorError,
+    PaymentSupervisorSettlementEvidence, PaymentSupervisorSettlementRequest,
+    RuntimePaymentSupervisor,
+};
 use runx_runtime::{
     Host, InvocationStatus, Runtime, RuntimeError, RuntimeOptions, SkillAdapter, SkillInvocation,
     SkillOutput,
@@ -27,7 +32,10 @@ fn stripe_spt_payment_seals_happy_path_with_scoped_proof() -> Result<(), Box<dyn
     let fixture = StripeSptFixture::new()?;
     let adapter = StripeSptAdapter::new(StripeSptScenario::Fulfilled);
     let invocations = adapter.invocations();
-    let runtime = Runtime::new(adapter, RuntimeOptions::default());
+    let runtime = Runtime::new(
+        adapter,
+        runtime_options_with_payment_supervisor(vec![stripe_spt_supervisor_evidence()]),
+    );
     let mut host = ApprovalHost::approved(true);
 
     let run = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host)?;
@@ -186,6 +194,107 @@ enum StripeSptScenario {
     Fulfilled,
     Declined,
     Timeout,
+}
+
+fn runtime_options_with_payment_supervisor(
+    evidence: Vec<PaymentSupervisorSettlementEvidence>,
+) -> RuntimeOptions {
+    RuntimeOptions {
+        payment_supervisor: RuntimePaymentSupervisor::from_supervisor(
+            ExpectedPaymentSupervisor::new(evidence),
+        ),
+        ..RuntimeOptions::default()
+    }
+}
+
+#[derive(Clone, Debug)]
+struct ExpectedPaymentSupervisor {
+    evidence_by_proof_ref: BTreeMap<String, PaymentSupervisorSettlementEvidence>,
+}
+
+impl ExpectedPaymentSupervisor {
+    fn new(evidence: Vec<PaymentSupervisorSettlementEvidence>) -> Self {
+        Self {
+            evidence_by_proof_ref: evidence
+                .into_iter()
+                .map(|evidence| (evidence.proof_ref.clone(), evidence))
+                .collect(),
+        }
+    }
+}
+
+impl PaymentRailSupervisor for ExpectedPaymentSupervisor {
+    fn settlement_evidence(
+        &self,
+        request: PaymentSupervisorSettlementRequest<'_>,
+    ) -> Result<PaymentSupervisorSettlementEvidence, PaymentSupervisorError> {
+        let evidence = self
+            .evidence_by_proof_ref
+            .get(request.proof_ref)
+            .cloned()
+            .ok_or_else(|| PaymentSupervisorError::InvalidSupervisorEvidence {
+                message: format!(
+                    "no supervisor settlement for proof ref {}",
+                    request.proof_ref
+                ),
+            })?;
+        expect_supervisor_field("rail", request.rail, &evidence.rail)?;
+        expect_supervisor_field("counterparty", request.counterparty, &evidence.counterparty)?;
+        expect_supervisor_u64("amount_minor", request.amount_minor, evidence.amount_minor)?;
+        expect_supervisor_field("currency", request.currency, &evidence.currency)?;
+        expect_supervisor_field(
+            "idempotency_key",
+            request.idempotency_key,
+            &evidence.idempotency_key,
+        )?;
+        Ok(evidence)
+    }
+}
+
+fn expect_supervisor_field(
+    field: &'static str,
+    expected: &str,
+    actual: &str,
+) -> Result<(), PaymentSupervisorError> {
+    if expected == actual {
+        Ok(())
+    } else {
+        Err(PaymentSupervisorError::FieldMismatch {
+            field,
+            expected: expected.to_owned(),
+            actual: actual.to_owned(),
+        })
+    }
+}
+
+fn expect_supervisor_u64(
+    field: &'static str,
+    expected: u64,
+    actual: u64,
+) -> Result<(), PaymentSupervisorError> {
+    if expected == actual {
+        Ok(())
+    } else {
+        Err(PaymentSupervisorError::FieldMismatch {
+            field,
+            expected: expected.to_string(),
+            actual: actual.to_string(),
+        })
+    }
+}
+
+fn stripe_spt_supervisor_evidence() -> PaymentSupervisorSettlementEvidence {
+    PaymentSupervisorSettlementEvidence {
+        verifier_id: PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID.to_owned(),
+        proof_ref: STRIPE_SPT_PROOF_REF.to_owned(),
+        rail: "stripe-spt".to_owned(),
+        counterparty: "merchant:stripe-demo".to_owned(),
+        amount_minor: 125,
+        currency: "USD".to_owned(),
+        idempotency_key: STRIPE_SPT_IDEMPOTENCY_KEY.to_owned(),
+        settlement_status: Some("fulfilled".to_owned()),
+        provider_event_ref: Some("stripe:event:evt_test_succeeded_001".to_owned()),
+    }
 }
 
 #[derive(Clone, Debug)]

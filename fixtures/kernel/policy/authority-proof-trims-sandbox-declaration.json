@@ -5,7 +5,6 @@
     "value": {
       "authority_proof": {
         "credential_material": {
-          "connection_id": "conn_1",
           "grant_id": "grant_expected",
           "grant_reference": {
             "authority_kind": "read_only",
@@ -16,6 +15,7 @@
           },
           "material_ref_hash": "bb21189cc7d0dec571b333e26f2f5b70a63637ae142f464a5f0bb1e5c0316ce4",
           "provider": "github",
+          "provider_reference": "conn_1",
           "scopes": [
             "repo:read"
           ],
@@ -92,7 +92,6 @@
       "connectedAuthCheckedAt": "2026-05-22T00:00:00Z",
       "credential": {
         "auth_mode": "oauth",
-        "connection_id": "conn_1",
         "grant_id": "grant_expected",
         "grant_reference": {
           "authority_kind": "read_only",
@@ -105,6 +104,7 @@
         "material_kind": "nango_connection",
         "material_ref": "nango:github:conn_1",
         "provider": "github",
+        "provider_reference": "conn_1",
         "scopes": [
           "repo:read"
         ]

@@ -461,6 +461,7 @@ fn fixture_sandbox_plan() -> Result<SandboxPlan, RuntimeError> {
         cwd: repo_root()?,
         env: process_env(),
         metadata: JsonObject::new(),
+        cleanup_paths: Vec::new(),
     })
 }
 

@@ -1,3 +1,7 @@
+// rust-style-allow: large-file - the cli-tool adapter keeps process spawning,
+// sandbox wrapping, output draining, redaction, and timeout cleanup in one
+// auditable subprocess boundary.
+use std::fs;
 use std::io::{Read, Write};
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
@@ -33,7 +37,13 @@ impl SkillAdapter for CliToolAdapter {
             &request.inputs,
             &request.env,
         )?;
-        let mut child = spawn_cli_tool_process(&sandbox, &credential_delivery)?;
+        let mut child = match spawn_cli_tool_process(&sandbox, &credential_delivery) {
+            Ok(child) => child,
+            Err(error) => {
+                cleanup_sandbox(&sandbox);
+                return Err(error);
+            }
+        };
         let stdout = capture_pipe(child.stdout.take(), "opening cli-tool stdout pipe")?;
         let stderr = capture_pipe(child.stderr.take(), "opening cli-tool stderr pipe")?;
         write_stdin(&mut child, &request)?;
@@ -45,9 +55,15 @@ impl SkillAdapter for CliToolAdapter {
             collect_redacted_output(stdout, &credential_delivery, "collecting cli-tool stdout")?;
         let stderr =
             collect_redacted_output(stderr, &credential_delivery, "collecting cli-tool stderr")?;
-        Ok(cli_tool_output(
-            started, status, timed_out, stdout, stderr, sandbox,
-        ))
+        let cleanup_errors = cleanup_sandbox(&sandbox);
+        let mut output = cli_tool_output(started, status, timed_out, stdout, stderr, sandbox);
+        if !cleanup_errors.is_empty() {
+            output.metadata.insert(
+                "cleanup_errors".to_owned(),
+                JsonValue::Array(cleanup_errors.into_iter().map(JsonValue::String).collect()),
+            );
+        }
+        Ok(output)
     }
 }
 
@@ -129,7 +145,7 @@ fn cli_tool_output(
         stderr,
         exit_code: status.code(),
         duration_ms: duration_ms(started),
-        metadata: sandbox.metadata,
+        metadata: sandbox.metadata.clone(),
     }
 }
 
@@ -303,6 +319,16 @@ fn duration_ms(started: Instant) -> u64 {
 
 fn io_error(context: &'static str) -> RuntimeError {
     RuntimeError::io(context, std::io::Error::other(context))
+}
+
+fn cleanup_sandbox(sandbox: &SandboxPlan) -> Vec<String> {
+    let mut errors = Vec::new();
+    for path in &sandbox.cleanup_paths {
+        if let Err(error) = fs::remove_dir_all(path) {
+            errors.push(format!("{}: {error}", path.display()));
+        }
+    }
+    errors
 }
 
 pub fn output_object(output: &SkillOutput) -> runx_contracts::JsonObject {

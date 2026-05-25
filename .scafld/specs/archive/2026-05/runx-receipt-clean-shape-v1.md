@@ -276,7 +276,7 @@ and suspended runs (`deferred` + `resume_ref` instead of a `seal: null` carve-ou
   governance receipt can own `runx.receipt.v1`.
 - Move the durable identity: `ReferenceType::HarnessReceipt` -> `ReferenceType::Receipt`
   and `HARNESS_RECEIPT_REF_PREFIX = "runx:harness_receipt:"` -> `"runx:receipt:"`
-  (`crates/runx-runtime/src/journal.rs`, `payment_ledger.rs`, the tree prefix strips).
+  (`crates/runx-runtime/src/journal.rs`, `payment/ledger.rs`, the tree prefix strips).
 - Delete the old shape entirely across all OSS files plus cloud: no
   `harness_receipt`/`HarnessReceipt`/`harness-receipt`/`harness.seal`/
   `runx.harness_receipt.v1`/`runx:harness_receipt:` token, and no journal vestige
@@ -289,7 +289,7 @@ In scope (OSS repo, run from `oss/`):
 - `crates/runx-contracts/src/*` receipt/act/authority/seal/idempotency types.
 - `crates/runx-receipts/src/{canonical,verify,tree}.rs` and the digest body.
 - `crates/runx-runtime/src/receipts/{seal,signing}.rs`, the runtime emitter, the
-  planner journal (`crates/runx-runtime/src/journal.rs`), and `payment_ledger.rs`
+  planner journal (`crates/runx-runtime/src/journal.rs`), and `payment/ledger.rs`
   (re-seeded against the new URI prefix).
 - The receipt + run-summary contracts in `packages/contracts/src/schemas/` and
   `schemas/*.json` regeneration; `ReferenceType` in the reference contract.
@@ -322,7 +322,7 @@ Out of scope (and explicitly forbidden):
 - `crates/runx-contracts/src/` (receipt, act, authority, seal, idempotency, reference)
 - `crates/runx-receipts/src/{canonical,verify,tree}.rs`
 - `crates/runx-runtime/src/receipts/{seal,signing}.rs`, `crates/runx-runtime/src/journal.rs`,
-  `crates/runx-runtime/src/payment_ledger.rs`
+  `crates/runx-runtime/src/payment/ledger.rs`
 - `packages/contracts/src/schemas/receipt.ts` (run-summary, renamed) + new governance
   receipt; `RUNX_LOGICAL_SCHEMAS`/`RUNX_CONTRACT_IDS`
 - `schemas/harness-receipt.schema.json` (deleted); `schemas/receipt.schema.json`
@@ -378,7 +378,7 @@ Definition of done:
   `schemas/run-summary.schema.json` emitted.
 - [ ] `dod9` Durable identity moved: `ReferenceType::Receipt` replaces
   `ReferenceType::HarnessReceipt`, the prefix is `runx:receipt:`, and
-  `payment_ledger.rs` projects over the new prefix.
+  `payment/ledger.rs` projects over the new prefix.
 - [ ] `dod10` Verification is computed, not stored: `verify` recomputes the digest,
   checks the signature, binds `seal.criteria` to `acts[].criterion_bindings`, checks
   `decision.selected_act_id` against inline `acts[]`, and validates attenuation, and
@@ -529,10 +529,10 @@ Attack log:
 - `ReceiptJournal digest determinism`: Compare ReceiptJournal::digest() against canonical_receipt_body_digest path -> finding (F-005: digest uses plain serde_json::to_string with unwrap_or_default; not under runx.receipt.c14n.v1.)
 - `Acceptance command set (v4/v6)`: Recompute the regex coverage against dod2's forbidden-token list -> finding (F-006: v6 omits harness-receipt and harness.seal. v4 covers dod2 tokens but its negation pattern still trusts that all four paths exist (they do here, but the harden-round critique still holds).)
 - `Verify removes seal-equality check`: Read crates/runx-receipts/src/verify.rs for any residual receipt.seal == receipt.harness.seal check -> clean (The nested harness wrapper is gone; no seal-equality assertion remains. dod3 holds.)
-- `Reference URI prefix migration`: Grep journal.rs / payment_ledger.rs / reference.rs for the new runx:receipt: prefix and absence of old prefix -> clean (RECEIPT_REF_PREFIX = "runx:receipt:" (journal.rs:26); payment_ledger.rs uses it (lines 661/665); ReferenceType::Receipt is the variant. dod9 holds in code.)
+- `Reference URI prefix migration`: Grep journal.rs / payment/ledger.rs / reference.rs for the new runx:receipt: prefix and absence of old prefix -> clean (RECEIPT_REF_PREFIX = "runx:receipt:" (journal.rs:26); payment/ledger.rs uses it (lines 661/665); ReferenceType::Receipt is the variant. dod9 holds in code.)
 - `Schema fixtures validate against new schema`: Confirm schema_validation.rs maps receipt-success/receipt-abnormal/post-merge-observer to receipt.schema.json -> clean (Mappings present at tests/schema_validation.rs:165-178; fixtures show flat shape; old harness-receipt fixtures are deleted per task_changes.)
 - `Run-summary rename`: Confirm runx.run-summary.v1 owns the CLI run-summary and runx.receipt.v1 is reclaimed -> clean (packages/contracts/src/internal.ts:62-63 and schemas/run-summary.schema.json:18 confirm; dod8 holds.)
-- `Scope drift inside in-scope files`: Diff observed changes against declared task scope/touchpoints -> clean (Touchpoints align with task_changes (contracts/, receipts/canonical+verify+tree, journal.rs, payment_ledger.rs, schemas/{receipt,run-summary}.schema.json, fixtures/contracts/harness-spine/*). No undeclared in-scope rewrites observed.)
+- `Scope drift inside in-scope files`: Diff observed changes against declared task scope/touchpoints -> clean (Touchpoints align with task_changes (contracts/, receipts/canonical+verify+tree, journal.rs, payment/ledger.rs, schemas/{receipt,run-summary}.schema.json, fixtures/contracts/harness-spine/*). No undeclared in-scope rewrites observed.)
 - `Ambient drift classification`: Cross-check the 154 ambient-drift entries against task scope so I don't mis-attribute their state to this task -> clean (Ambient drift in crates/runx-cli/tests, crates/runx-runtime/src/{execution,doctor,dev}, runx-parser, etc. is large but outside this task's declared touchpoints; not scored as findings.)
 
 Findings:

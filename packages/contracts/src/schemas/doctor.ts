@@ -1,4 +1,4 @@
-import { Type, type Static } from "@sinclair/typebox";
+import { Type, type Static } from "../internal.js";
 import {
   JSON_SCHEMA_DRAFT_2020_12,
   RUNX_CONTRACT_IDS,

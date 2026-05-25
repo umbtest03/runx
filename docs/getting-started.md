@@ -46,6 +46,28 @@ The history projection should show a verified `runx.harness_receipt.v1` receipt.
 That receipt is the durable evidence that runx executed the skill, recorded the
 input shape, and captured the output without relying on prose claims.
 
+## Production Receipt Signing
+
+Local development uses deterministic pseudo signatures so fixtures stay stable.
+For production-trusted receipts, configure an Ed25519 signing key before running
+skills, graphs, harness replay, or MCP server calls:
+
+```bash
+export RUNX_RECEIPT_SIGN_KID="local-prod-key"
+export RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64="<32-byte-ed25519-seed-base64>"
+```
+
+Both variables must be set together. When configured, the runtime signs each
+receipt body digest with Ed25519 and writes the matching public key hash in the
+issuer metadata. To inspect those receipts as production-verified, provide the
+public verification key to `runx history`:
+
+```bash
+export RUNX_RECEIPT_VERIFY_KID="local-prod-key"
+export RUNX_RECEIPT_VERIFY_ED25519_PUBLIC_KEY_BASE64="<32-byte-ed25519-public-key-base64>"
+crates/target/debug/runx history <receipt-id> --json
+```
+
 ## Next
 
 - Use `crates/target/debug/runx new docs-demo` for local standalone skill

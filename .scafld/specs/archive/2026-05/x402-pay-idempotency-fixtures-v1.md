@@ -79,7 +79,7 @@ Out of scope:
     `harness_fixtures` suite also passed with 12 tests on
     2026-05-22T00:55:00+10:00.
 - [x] `v3` focused payment runtime tests still pass.
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_execution -- --nocapture`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment -- --nocapture`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: 18 payment execution tests passed on

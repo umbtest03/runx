@@ -1,7 +1,4 @@
-import { spawnSync } from "node:child_process";
-import path from "node:path";
-
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { ArtifactEnvelope } from "@runxhq/core/artifacts";
 
@@ -10,15 +7,10 @@ import {
   type KernelBridgeOptions,
   type SequentialGraphState,
 } from "../packages/runtime-local/src/runner-local/kernel-bridge.js";
+import { resolveRunxBinary } from "./runx-binary.js";
 
 const workspaceRoot = process.cwd();
-const runxBinary = path.join(
-  workspaceRoot,
-  "crates",
-  "target",
-  "debug",
-  process.platform === "win32" ? "runx.exe" : "runx",
-);
+const runxBinary = resolveRunxBinary();
 const kernel: KernelBridgeOptions = { command: runxBinary, cwd: workspaceRoot, timeoutMs: 30_000 };
 
 const STEP_A = {
@@ -99,20 +91,6 @@ function newRefs(state: SequentialGraphState) {
 }
 
 describe("hydrateGraphFromLedger orphan step_started", () => {
-  beforeAll(() => {
-    const result = spawnSync(
-      process.platform === "win32" ? "cargo.exe" : "cargo",
-      ["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"],
-      {
-        cwd: workspaceRoot,
-        encoding: "utf8",
-        env: process.env,
-        maxBuffer: 8 * 1024 * 1024,
-      },
-    );
-    expect(result.status, result.stderr || result.stdout).toBe(0);
-  }, 120_000);
-
   it("orphan step_started (no terminal event) leaves the step in pending state", async () => {
     const runId = "gx_orphan_test";
     const entries: ArtifactEnvelope[] = [

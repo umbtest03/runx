@@ -189,7 +189,7 @@ divergence; it does NOT undertake the full source inversion:
 In scope (OSS, from `oss/`): `crates/runx-contracts/src/*` (the flat `Receipt` type,
 content-addressed id); `crates/runx-receipts/src/{canonical,verify,tree}.rs`
 (digest over the canonical body, computed verification, no journal); `crates/runx-runtime/src/receipts/*`,
-the emitter, `payment_ledger.rs`; the `projections` layer (verification, trainable,
+the emitter, `payment/ledger.rs`; the `projections` layer (verification, trainable,
 history, metering); `packages/contracts/src/schemas/*` + `schemas/*.json`; fixtures +
 the conformance oracle. In scope (cloud, from `cloud/`): `cloud/packages/{db,api,worker}`
 reads of `idempotency`/`seal` and the route surface. Out of scope / forbidden: any
@@ -235,7 +235,7 @@ Definition of done:
 - [ ] `dod8` Run-summary renamed to `runx.run-summary.v1` (with `receipt_ref`); the
   governance receipt owns `runx.receipt.v1`.
 - [ ] `dod9` Durable identity: `ReferenceType::Receipt` + `runx:receipt:` prefix;
-  `payment_ledger.rs` projects over it; `authority.terms[].bounds.payment` inspectable.
+  `payment/ledger.rs` projects over it; `authority.terms[].bounds.payment` inspectable.
 - [ ] `dod10` Hard cutover: no `harness_receipt`/`HarnessReceipt`/`harness-receipt`/
   `harness.seal`/`runx.harness_receipt.v1`/`runx:harness_receipt:`/`ReceiptJournal`/
   `journal_ref`/`verify_with_journal` token anywhere in OSS or cloud. No alias, no shim.
@@ -447,7 +447,7 @@ Attack log:
 - `schemas/, crates/runx-contracts/, packages/contracts/`: Verify that the new receipt.schema.json and harness.schema.json match the implemented Rust and TypeScript structs. -> clean
 - `crates/runx-receipts/src/canonical.rs`: Verify canonicalization logic in crates/runx-receipts/src/canonical.rs ensures deterministic hashing and excludes non-committing fields. -> clean
 - `crates/runx-runtime/src/receipts/seal.rs, crates/runx-runtime/src/execution/skill_run.rs`: Trace receipt generation and sealing in crates/runx-runtime to ensure content-addressed IDs and pseudo-signatures are correctly applied. -> clean
-- `crates/runx-runtime/src/execution/target_runner.rs, crates/runx-runtime/src/payment_ledger.rs`: Check for regressions in target_runner.rs and payment_ledger.rs during the transition to the A+ receipt shape. -> clean
+- `crates/runx-runtime/src/execution/target_runner.rs, crates/runx-runtime/src/payment/ledger.rs`: Check for regressions in target_runner.rs and payment/ledger.rs during the transition to the A+ receipt shape. -> clean
 - `crates/runx-runtime/src/time.rs, crates/runx-runtime/src/receipts/seal.rs`: Audit for 'Dark Patterns' like hardcoded timestamps or weak idempotency keys. (Found intentional local determinism helpers). -> clean
 - `crates/runx-receipts/src/verify.rs, crates/runx-receipts/src/verify/proof.rs`: Verify that the new runx-receipts crate correctly implements structural and cryptographic verification. -> clean
 

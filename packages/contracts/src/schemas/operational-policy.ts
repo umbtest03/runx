@@ -1,4 +1,4 @@
-import { Type, type Static } from "@sinclair/typebox";
+import { Type, type Static } from "../internal.js";
 import {
   JSON_SCHEMA_DRAFT_2020_12,
   RUNX_CONTRACT_IDS,
@@ -192,14 +192,10 @@ export const operationalPolicySchema = Type.Object(
   },
 );
 
-export type OperationalPolicySourceProviderContract =
-  typeof operationalPolicySourceProviders[number];
-export type OperationalPolicyActionContract =
-  typeof operationalPolicyActions[number];
-export type OperationalPolicyRunnerKindContract =
-  typeof operationalPolicyRunnerKinds[number];
-export type OperationalPolicyRunnerStateContract =
-  typeof operationalPolicyRunnerStates[number];
+export type OperationalPolicySourceProviderContract = string;
+export type OperationalPolicyActionContract = string;
+export type OperationalPolicyRunnerKindContract = string;
+export type OperationalPolicyRunnerStateContract = string;
 export type OperationalPolicyContract = DeepReadonly<Static<typeof operationalPolicySchema>>;
 
 export interface OperationalPolicyValidationFinding {
@@ -225,16 +221,16 @@ export interface OperationalPolicyAdmission {
   readonly runner_id?: string;
   readonly owner_route_id?: string;
   readonly owners?: readonly string[];
-  readonly dedupe_strategy: typeof operationalPolicyDedupeStrategies[number];
-  readonly outcome_close_mode: typeof operationalPolicyOutcomeCloseModes[number];
+  readonly dedupe_strategy: string;
+  readonly outcome_close_mode: string;
   readonly source_thread_required: boolean;
   readonly mutate_target_repo: boolean;
-  readonly require_human_merge_gate: true;
+  readonly require_human_merge_gate: boolean;
 }
 
 export interface OperationalPolicyReadback {
   readonly policy_id: string;
-  readonly schema_version: typeof operationalPolicySchemaVersion;
+  readonly schema_version: string;
   readonly valid: boolean;
   readonly findings: readonly OperationalPolicyValidationFinding[];
   readonly sources: readonly {
@@ -269,9 +265,9 @@ export interface OperationalPolicyReadback {
     readonly publish_final_source_thread_update: boolean;
   };
   readonly permissions: {
-    readonly auto_merge: false;
+    readonly auto_merge: boolean;
     readonly mutate_target_repo: boolean;
-    readonly require_human_merge_gate: true;
+    readonly require_human_merge_gate: boolean;
   };
 }
 

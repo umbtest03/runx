@@ -1,3 +1,6 @@
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
 use base64::Engine;
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use ring::signature::{ED25519, Ed25519KeyPair, KeyPair, UnparsedPublicKey};
@@ -7,7 +10,11 @@ use runx_contracts::{
 use runx_receipts::{SignatureVerificationFailure, SignatureVerifier};
 use thiserror::Error;
 
+use super::seal::RuntimeReceiptSignaturePolicy;
+
 pub const RECEIPT_SIGNATURE_BASE64_PREFIX: &str = "base64:";
+pub const RUNX_RECEIPT_SIGN_KID_ENV: &str = "RUNX_RECEIPT_SIGN_KID";
+pub const RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV: &str = "RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64";
 
 pub trait RuntimeReceiptSigner {
     fn issuer(&self) -> ReceiptIssuer;
@@ -37,8 +44,76 @@ pub enum RuntimeReceiptSigningError {
     MalformedSignerKey,
     #[error("production receipt verifier key material is malformed")]
     MalformedVerifierKey,
+    #[error(
+        "production receipt signing requires {RUNX_RECEIPT_SIGN_KID_ENV} and {RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV} to be set together"
+    )]
+    IncompleteSigningEnv,
     #[error("production receipt signature did not verify: {0:?}")]
     SignatureVerification(SignatureVerificationFailure),
+}
+
+#[derive(Clone, Default)]
+pub struct RuntimeReceiptSignatureConfig {
+    production: Option<Arc<ProductionReceiptSignatureMaterial>>,
+}
+
+struct ProductionReceiptSignatureMaterial {
+    signer: Ed25519ReceiptSigner,
+    verifier: Ed25519ReceiptVerifier,
+}
+
+impl std::fmt::Debug for RuntimeReceiptSignatureConfig {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("RuntimeReceiptSignatureConfig")
+            .field("production_configured", &self.production.is_some())
+            .finish()
+    }
+}
+
+impl RuntimeReceiptSignatureConfig {
+    #[must_use]
+    pub fn local_development() -> Self {
+        Self { production: None }
+    }
+
+    pub fn production_signing(
+        signer: Ed25519ReceiptSigner,
+        verifier: Ed25519ReceiptVerifier,
+    ) -> Self {
+        Self {
+            production: Some(Arc::new(ProductionReceiptSignatureMaterial {
+                signer,
+                verifier,
+            })),
+        }
+    }
+
+    pub fn from_env(env: &BTreeMap<String, String>) -> Result<Self, RuntimeReceiptSigningError> {
+        let kid = non_empty_env(env, RUNX_RECEIPT_SIGN_KID_ENV);
+        let seed = non_empty_env(env, RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV);
+        match (kid, seed) {
+            (None, None) => Ok(Self::local_development()),
+            (Some(kid), Some(seed)) => {
+                let signer =
+                    Ed25519ReceiptSigner::from_seed_base64(kid, ReceiptIssuerType::Local, seed)?;
+                let verifier = Ed25519ReceiptVerifier::new([signer.production_key()]);
+                Ok(Self::production_signing(signer, verifier))
+            }
+            _ => Err(RuntimeReceiptSigningError::IncompleteSigningEnv),
+        }
+    }
+
+    #[must_use]
+    pub fn signature_policy(&self) -> RuntimeReceiptSignaturePolicy<'_> {
+        match self.production.as_ref() {
+            Some(production) => RuntimeReceiptSignaturePolicy::production_signing(
+                &production.signer,
+                &production.verifier,
+            ),
+            None => RuntimeReceiptSignaturePolicy::local_development(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -244,6 +319,13 @@ fn decode_key_material(value: &str) -> Result<Vec<u8>, ()> {
         .decode(value)
         .or_else(|_| STANDARD.decode(value))
         .map_err(|_| ())
+}
+
+fn non_empty_env<'a>(env: &'a BTreeMap<String, String>, key: &str) -> Option<&'a str> {
+    env.get(key)
+        .map(String::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
 }
 
 fn is_well_formed_sha256(value: &str) -> bool {

@@ -1,4 +1,4 @@
-import { Type, type Static } from "@sinclair/typebox";
+import { Type, type Static } from "../internal.js";
 import {
   RUNX_CONTROL_SCHEMA_REFS,
   type DeepReadonly,
@@ -32,7 +32,7 @@ export const credentialEnvelopeSchema = Type.Object(
     provider: Type.String({ minLength: 1 }),
     auth_mode: Type.String({ minLength: 1 }),
     material_kind: Type.String({ minLength: 1 }),
-    connection_id: Type.String({ minLength: 1 }),
+    provider_reference: Type.String({ minLength: 1 }),
     scopes: Type.Array(Type.String({ minLength: 1 })),
     grant_reference: Type.Optional(credentialGrantReferenceSchema),
     material_ref: Type.String({ minLength: 1 }),
@@ -81,7 +81,7 @@ const authorityProofCredentialMaterialSchema = Type.Object(
     status: stringEnum(credentialMaterialStatuses),
     grant_id: Type.Optional(Type.String({ minLength: 1 })),
     provider: Type.Optional(Type.String({ minLength: 1 })),
-    connection_id: Type.Optional(Type.String({ minLength: 1 })),
+    provider_reference: Type.Optional(Type.String({ minLength: 1 })),
     scopes: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
     grant_reference: Type.Optional(credentialGrantReferenceSchema),
     material_ref_hash: Type.Optional(Type.String({ minLength: 1 })),

@@ -258,7 +258,7 @@ impl CredentialDelivery {
             provider: provider.into(),
             auth_mode: auth_mode.into(),
             material_kind: "access_token".into(),
-            connection_id: "local_per_run".into(),
+            provider_reference: "local_per_run".into(),
             scopes: scopes.into_iter().map(Into::into).collect(),
             grant_reference: None,
             material_ref: material_ref.clone().into(),

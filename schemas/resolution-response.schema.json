@@ -1,12 +1,7 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://runx.ai/spec/resolution-response.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "actor",
-    "payload"
-  ],
   "properties": {
     "actor": {
       "anyOf": [
@@ -21,5 +16,10 @@
       ]
     },
     "payload": {}
-  }
+  },
+  "required": [
+    "actor",
+    "payload"
+  ],
+  "type": "object"
 }

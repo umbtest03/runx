@@ -1,5 +1,5 @@
-import { Type, type Static, type TSchema } from "@sinclair/typebox";
-import { Value } from "@sinclair/typebox/value";
+import { Ajv2020, type ErrorObject } from "ajv/dist/2020.js";
+import { runxSchemaArtifacts } from "./schema-artifacts.js";
 
 export const JSON_SCHEMA_DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema" as const;
 
@@ -130,13 +130,150 @@ export type DeepReadonly<T> =
         : T extends object ? { readonly [TKey in keyof T]: DeepReadonly<T[TKey]> }
           : T;
 
+const optionalSchema = Symbol("runx.optional_schema");
+
+export type JsonSchema<TStatic = unknown> = Record<string, unknown> & { readonly __runxStatic?: TStatic };
+export type Static<TSchemaValue> = TSchemaValue extends JsonSchema<infer TValue> ? TValue : unknown;
+
+type AnySchema = JsonSchema<any>;
+type SchemaWithOptional<TStatic = unknown> = JsonSchema<TStatic> & { readonly [optionalSchema]: true };
+type OptionalKeys<TProperties extends Record<string, AnySchema>> = {
+  [TKey in keyof TProperties]: TProperties[TKey] extends { readonly [optionalSchema]: true } ? TKey : never;
+}[keyof TProperties];
+type RequiredKeys<TProperties extends Record<string, AnySchema>> = Exclude<keyof TProperties, OptionalKeys<TProperties>>;
+type ObjectStatic<TProperties extends Record<string, AnySchema>> = {
+  [TKey in RequiredKeys<TProperties>]: Static<TProperties[TKey]>;
+} & {
+  [TKey in OptionalKeys<TProperties>]?: Static<TProperties[TKey]>;
+};
+type UnionStatic<TSchemas extends readonly AnySchema[]> = Static<TSchemas[number]>;
+function schemaWith<TStatic>(options: Record<string, unknown>, base: JsonSchema): JsonSchema<TStatic> {
+  return (Object.keys(options).length > 0 ? { ...base, ...options } : base) as JsonSchema<TStatic>;
+}
+
+function cloneSchema<TStatic>(schema: JsonSchema<TStatic>): JsonSchema<TStatic> {
+  return { ...schema };
+}
+
+function jsonTypeForLiteral(value: unknown): string | undefined {
+  switch (typeof value) {
+    case "string":
+      return "string";
+    case "number":
+      return Number.isInteger(value) ? "integer" : "number";
+    case "boolean":
+      return "boolean";
+    default:
+      return value === null ? "null" : undefined;
+  }
+}
+
+export const Type = {
+  Array<TItems extends AnySchema>(items: TItems, options: Record<string, unknown> = {}): JsonSchema<Static<TItems>[]> {
+    return schemaWith<Static<TItems>[]>(options, { type: "array", items });
+  },
+
+  Boolean(options: Record<string, unknown> = {}): JsonSchema<boolean> {
+    return schemaWith<boolean>(options, { type: "boolean" });
+  },
+
+  Integer(options: Record<string, unknown> = {}): JsonSchema<number> {
+    return schemaWith<number>(options, { type: "integer" });
+  },
+
+  Literal<const TValue>(value: TValue, options: Record<string, unknown> = {}): JsonSchema<TValue> {
+    const literalType = jsonTypeForLiteral(value);
+    const schema = literalType ? { const: value, type: literalType } : { const: value };
+    return schemaWith<TValue>(options, schema);
+  },
+
+  Null(options: Record<string, unknown> = {}): JsonSchema<null> {
+    return schemaWith<null>(options, { type: "null" });
+  },
+
+  Number(options: Record<string, unknown> = {}): JsonSchema<number> {
+    return schemaWith<number>(options, { type: "number" });
+  },
+
+  Object<TProperties extends Record<string, AnySchema>>(
+    properties: TProperties,
+    options: Record<string, unknown> = {},
+  ): JsonSchema<ObjectStatic<TProperties>> {
+    const normalizedProperties: Record<string, JsonSchema> = {};
+    const required: string[] = [];
+    for (const [key, propertySchema] of Object.entries(properties)) {
+      normalizedProperties[key] = cloneSchema(propertySchema);
+      if (!(propertySchema as SchemaWithOptional)[optionalSchema]) {
+        required.push(key);
+      }
+    }
+
+    return schemaWith<ObjectStatic<TProperties>>(options, {
+      type: "object",
+      properties: normalizedProperties,
+      ...(required.length > 0 ? { required } : {}),
+    });
+  },
+
+  Optional<TSchema extends AnySchema>(schema: TSchema): SchemaWithOptional<Static<TSchema>> {
+    return { ...schema, [optionalSchema]: true } as SchemaWithOptional<Static<TSchema>>;
+  },
+
+  Record<TValues extends AnySchema>(
+    _keys: JsonSchema,
+    values: TValues,
+    options: Record<string, unknown> = {},
+  ): JsonSchema<Record<string, Static<TValues>>> {
+    return schemaWith<Record<string, Static<TValues>>>(options, {
+      type: "object",
+      additionalProperties: values,
+    });
+  },
+
+  Ref<TSchema extends AnySchema>(schema: TSchema, options: Record<string, unknown> = {}): JsonSchema<Static<TSchema>> {
+    const id = schema.$id;
+    if (typeof id !== "string" || id.length === 0) {
+      throw new Error("Referenced schema must have a non-empty $id.");
+    }
+    return schemaWith<Static<TSchema>>(options, { $ref: id });
+  },
+
+  String(options: Record<string, unknown> = {}): JsonSchema<string> {
+    return schemaWith<string>(options, { type: "string" });
+  },
+
+  Union<TSchemas extends readonly AnySchema[]>(
+    schemas: TSchemas,
+    options: Record<string, unknown> = {},
+  ): JsonSchema<UnionStatic<TSchemas>> {
+    return schemaWith<UnionStatic<TSchemas>>(options, { anyOf: [...schemas] });
+  },
+
+  Unknown(options: Record<string, unknown> = {}): JsonSchema<unknown> {
+    return schemaWith<unknown>(options, {});
+  },
+
+  KeyOf<const TSchema extends JsonSchema>(
+    schema: TSchema,
+    options: Record<string, unknown> = {},
+  ): JsonSchema<string> {
+    const properties = schema.properties;
+    if (!properties || typeof properties !== "object" || Array.isArray(properties)) {
+      throw new Error("KeyOf requires an object schema with properties.");
+    }
+    return schemaWith(options, {
+      anyOf: Object.keys(properties).map((value) => ({ const: value, type: "string" })),
+    });
+  },
+} as const;
+
 export function stringEnum<const TValue extends readonly string[]>(
   values: TValue,
   options: Record<string, unknown> = {},
 ) {
   const properties = Object.fromEntries(
     values.map((value) => [value, Type.Null()]),
-  ) as Record<TValue[number], ReturnType<typeof Type.Null>>;
+  ) as Record<TValue[number], JsonSchema>;
   return Type.KeyOf(
     Type.Object(properties, { additionalProperties: false }),
     options,
@@ -155,25 +292,120 @@ export function dateTimeStringSchema(options: Record<string, unknown> = {}) {
   });
 }
 
-export function validateContractSchema<TSchemaValue extends TSchema>(
+export function validateContractSchema<TSchemaValue extends JsonSchema>(
   schema: TSchemaValue,
   value: unknown,
   label: string,
-  references: readonly TSchema[] = [],
+  references: readonly JsonSchema[] = [],
 ): Static<TSchemaValue> {
-  const normalizedReferences = [...references];
-  const matches = normalizedReferences.length > 0
-    ? Value.Check(schema, normalizedReferences, value)
-    : Value.Check(schema, value);
-  if (matches) {
+  const ajv = new Ajv2020({
+    allErrors: false,
+    strict: false,
+    validateSchema: false,
+  });
+  const canonicalSchema = schemaWithGeneratedArtifact(schema);
+  for (const reference of references.map(schemaWithGeneratedArtifact)) {
+    const id = reference.$id;
+    if (typeof id === "string" && id.length > 0 && !ajv.getSchema(id)) {
+      ajv.addSchema(normalizeSchemaForAjv(reference), id);
+    }
+  }
+
+  const validate = ajv.compile(normalizeSchemaForAjv(canonicalSchema));
+  if (validate(value)) {
     return value as Static<TSchemaValue>;
   }
-  const firstError = normalizedReferences.length > 0
-    ? [...Value.Errors(schema, normalizedReferences, value)][0]
-    : [...Value.Errors(schema, value)][0];
-  const schemaRef = typeof schema.$id === "string" ? schema.$id : "contract schema";
-  const path = firstError?.path ? `${label}${formatSchemaErrorPath(firstError.path)}` : label;
+  const firstError = validate.errors?.[0];
+  const schemaRef = typeof canonicalSchema.$id === "string" ? canonicalSchema.$id : "contract schema";
+  const path = firstError ? formatAjvErrorPath(label, firstError) : label;
   throw new Error(`${path} must match ${schemaRef}.`);
+}
+
+export function contractSchemaMatches(
+  schema: JsonSchema,
+  value: unknown,
+  references: readonly JsonSchema[] = [],
+): boolean {
+  const ajv = createContractAjv(references);
+  return ajv.compile(normalizeSchemaForAjv(schemaWithGeneratedArtifact(schema)))(value) === true;
+}
+
+export function validateContractSchemaForDiagnostics(
+  schema: JsonSchema,
+  value: unknown,
+  references: readonly JsonSchema[] = [],
+): readonly string[] {
+  const ajv = createContractAjv(references);
+  const validate = ajv.compile(normalizeSchemaForAjv(schemaWithGeneratedArtifact(schema)));
+  if (validate(value)) {
+    return [];
+  }
+  return (validate.errors ?? []).map((error) => error.instancePath || error.message || error.keyword);
+}
+
+function createContractAjv(references: readonly JsonSchema[] = []) {
+  const ajv = new Ajv2020({
+    allErrors: false,
+    strict: false,
+    validateSchema: false,
+  });
+  for (const reference of references.map(schemaWithGeneratedArtifact)) {
+    const id = reference.$id;
+    if (typeof id === "string" && id.length > 0 && !ajv.getSchema(id)) {
+      ajv.addSchema(normalizeSchemaForAjv(reference), id);
+    }
+  }
+  return ajv;
+}
+
+const generatedSchemaById = new Map(
+  Object.values(runxSchemaArtifacts).flatMap((schema) => {
+    const id = schema.$id;
+    return typeof id === "string" && id.length > 0 ? [[id, schema as JsonSchema]] : [];
+  }),
+);
+
+function schemaWithGeneratedArtifact<TSchemaValue extends JsonSchema>(schema: TSchemaValue): TSchemaValue {
+  const id = schema.$id;
+  if (typeof id !== "string" || id.length === 0) {
+    return schema;
+  }
+  return (generatedSchemaById.get(id) ?? schema) as TSchemaValue;
+}
+
+function normalizeSchemaForAjv(schema: JsonSchema): JsonSchema {
+  return stripNestedSchemaIdentities(schema, true) as JsonSchema;
+}
+
+function stripNestedSchemaIdentities(value: unknown, isRoot: boolean): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => stripNestedSchemaIdentities(entry, false));
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  const output: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (!isRoot && (key === "$id" || key === "$schema")) {
+      continue;
+    }
+    output[key] = stripNestedSchemaIdentities(entry, false);
+  }
+  return output;
+}
+
+function formatAjvErrorPath(label: string, error: ErrorObject): string {
+  const path = error.instancePath ? `${label}${formatSchemaErrorPath(error.instancePath)}` : label;
+  if (
+    error.keyword === "required"
+    && typeof error.params === "object"
+    && error.params
+    && "missingProperty" in error.params
+    && typeof error.params.missingProperty === "string"
+  ) {
+    return `${path}.${error.params.missingProperty}`;
+  }
+  return path;
 }
 
 export function formatSchemaErrorPath(path: string): string {

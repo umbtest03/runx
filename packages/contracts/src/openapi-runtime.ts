@@ -821,11 +821,11 @@ export function buildHostedOpenApiRuntimeSchemas(): Readonly<Record<string, unkn
         authority_kind: { type: "string", enum: ["read_only", "constructive", "destructive"] },
         target_repo: { type: "string", pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
         target_locator: { type: "string" },
-        connection_id: { type: "string" },
+        provider_reference: { type: "string" },
         status: { type: "string", enum: ["active", "revoked"] },
         created_at: { type: "string", format: "date-time" },
       },
-      required: ["grant_id", "principal_id", "provider", "scopes", "connection_id", "status", "created_at"],
+      required: ["grant_id", "principal_id", "provider", "scopes", "provider_reference", "status", "created_at"],
       additionalProperties: false,
     },
     GrantListEnvelope: {

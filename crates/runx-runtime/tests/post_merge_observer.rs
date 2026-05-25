@@ -747,7 +747,7 @@ fn dedupe_plan(
             reference_type: ReferenceType::Receipt,
             uri: format!("runx:receipt:{}", receipt.id).into(),
             provider: None,
-            locator: Some(receipt.digest.clone().into()),
+            locator: Some(receipt.digest.clone()),
             label: Some("post-merge observer harness receipt".to_owned().into()),
             observed_at: None,
             proof_kind: None,

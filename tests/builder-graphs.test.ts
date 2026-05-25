@@ -68,7 +68,7 @@ describe("builder skill design-skill", () => {
       if (result.status !== "sealed") {
         return;
       }
-      expect(result.receipt).toMatchObject({ schema: "runx.harness_receipt.v1" });
+      expect(result.receipt).toMatchObject({ schema: "runx.receipt.v1" });
       await expect(graphStepIds(path.join(tempDir, "receipts"), result.receipt.id)).resolves.toEqual([
         "decompose",
         "research",
@@ -131,7 +131,7 @@ describe("builder skill improve-skill", () => {
       if (result.status !== "sealed") {
         return;
       }
-      expect(result.receipt).toMatchObject({ schema: "runx.harness_receipt.v1" });
+      expect(result.receipt).toMatchObject({ schema: "runx.receipt.v1" });
       await expect(graphStepIds(path.join(tempDir, "receipts"), result.receipt.id)).resolves.toEqual([
         "review-receipt",
         "author-update-harness",
@@ -166,6 +166,11 @@ async function graphStepIds(receiptDir: string, runId: string): Promise<string[]
 }
 
 function harnessChildReceiptRefs(receipt: unknown): unknown[] {
+  const lineage = typeof receipt === "object" && receipt !== null ? (receipt as { lineage?: unknown }).lineage : undefined;
+  if (lineage && typeof lineage === "object") {
+    const refs = (lineage as { children?: unknown }).children;
+    return Array.isArray(refs) ? refs : [];
+  }
   const harness = typeof receipt === "object" && receipt !== null ? (receipt as { harness?: unknown }).harness : undefined;
   if (!harness || typeof harness !== "object") {
     return [];

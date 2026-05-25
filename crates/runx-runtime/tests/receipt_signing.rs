@@ -78,7 +78,7 @@ fn production_graph_receipt_resigns_children_and_verifies_tree() -> Result<(), B
         Some(format!("runx:receipt:{}", graph.id).into())
     );
     assert!(
-        runx_runtime::receipt_tree::validate_runtime_receipt_tree_with_policy(
+        runx_runtime::receipts::tree::validate_runtime_receipt_tree_with_policy(
             &graph,
             children,
             runx_receipts::ReceiptTreeConfig::default(),
@@ -127,7 +127,7 @@ fn production_sealing_rejects_missing_issuer_metadata() -> Result<(), Box<dyn Er
     let missing_kid = FixedSigner {
         issuer: ReceiptIssuer {
             issuer_type: ReceiptIssuerType::Local,
-            kid: String::new().into(),
+            kid: " ".into(),
             public_key_sha256: signer.production_key().public_key_sha256().into(),
         },
     };
@@ -135,7 +135,7 @@ fn production_sealing_rejects_missing_issuer_metadata() -> Result<(), Box<dyn Er
         issuer: ReceiptIssuer {
             issuer_type: ReceiptIssuerType::Local,
             kid: FIXTURE_KID.into(),
-            public_key_sha256: String::new().into(),
+            public_key_sha256: " ".into(),
         },
     };
 

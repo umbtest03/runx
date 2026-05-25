@@ -14,13 +14,18 @@ risk_level: high
 ## Current State
 
 Status: active
-Current phase: follow-up mechanisms
-Next: execute R1/R2/R3 implementation specs
-Reason: C1/C2/C4/C5/C6/C7/R7 are implemented and validated. The remaining
-critical controls require dedicated mechanism specs rather than paper completion:
-R1 sandbox enforcement, R2 production receipt signing, and R3 supervisor-verified
-payment rail proof.
-Blockers: R1/R2/R3 mechanism specs
+Current phase: mechanism implementation validated; review pending
+Next: review the R1/R2/R3 mechanism changes with platform-specific sandbox
+coverage where available.
+Reason: C1/C2/C4/C5/C6/C7/R7 are implemented and validated. R1 now has
+backend-gated local OS sandbox enforcement through bubblewrap on Linux and
+sandbox-exec on macOS, fails closed when enforcement is required but unavailable,
+and records declared-policy-only/non-enforcing metadata otherwise. R2 production
+receipt signing is wired through runtime receipt creation paths. R3 payment rail
+proof now requires a configured runtime supervisor and rejects skill claims
+alone. Focused R1/R2/R3 validation and the heavy graph gate are green.
+Blockers: formal review remains; platform-specific sandbox backends should stay
+covered where the host provides bubblewrap or sandbox-exec.
 Allowed follow-up command: `scafld exec runx-security-hardening-v1`
 Latest runner update: 2026-05-22T12:05:00+10:00
 Review gate: not_started
@@ -104,25 +109,29 @@ exploitable bypass or secret exposure; **Medium** = hardening / defense-in-depth
 
 ## Runtime findings (`runx-runtime`)
 
-- **R1 [Critical] — sandbox is advisory, not enforced.** No seccomp / landlock /
-  namespaces / setrlimit / cgroups anywhere; `sandbox.rs::validate_sandbox`
-  rejects `require_enforcement: true` ("isolation helpers are not available").
-  `readonly`/`network:false`/`writable_paths` are validated then ignored — a
-  `cli-tool` skill runs with full user authority. → real OS enforcement
-  (Landlock/seccomp on Linux, sandbox-exec on macOS) before any untrusted-skill
-  story. Overlaps `skill-author-runtime-contract-v1` (which owns the ABI, not
-  enforcement).
-- **R2 [Critical] — receipts are placeholder-signed.** `receipts/seal.rs` uses
-  `placeholder_signature()`, `RuntimeReceiptSignaturePolicy::local_development()`
-  as the wired mode, and hardcoded `signature_valid: true`. A `SignatureVerifier`
-  trait exists but production signing is not the active path → sealed receipts
-  are forgeable. → real asymmetric signing + verification as default, key custody
-  outside the producing process.
-- **R3 [Critical] — payment proof is skill-asserted.** `is_payment_rail_proof_ref`
-  accepts any ref typed `Verification`+`PaymentRail`; the producing skill controls
-  receipt acts/refs. With R2, the receipt-before-success invariant is forgeable.
-  → bind proofs to an out-of-band rail settlement verified by the supervisor
-  (pairs with C2).
+- **R1 [Critical] — DONE (backend-gated sandbox enforcement, harden pending).**
+  `sandbox.rs` resolves a local enforcement runtime, wraps process execution
+  with bubblewrap on Linux or sandbox-exec on macOS when available, fails closed
+  when `require_enforcement` or `RUNX_SANDBOX_REQUIRE_ENFORCEMENT` is set and no
+  backend can enforce, and emits runtime/filesystem/network metadata such as
+  `bubblewrap-mount-namespace`, `sandbox-exec-seatbelt`, or
+  `not-enforced-local`. `cli_tool_contract.rs` includes a backend-gated readonly
+  write-denial regression. Full harden/review and platform validation remain
+  pending.
+- **R2 [Critical] — DONE (production signing path wired, harden pending).**
+  Runtime receipt creation now resolves `RuntimeReceiptSignatureConfig` from
+  `RUNX_RECEIPT_SIGN_*` env, uses Ed25519 production signing when configured,
+  rejects incomplete production signing env, verifies production signatures with
+  configured public keys, and routes step/graph/single-skill/MCP receipt writes
+  through the active policy. Local development pseudo-signing remains explicit.
+- **R3 [Critical] — DONE (runtime supervisor boundary, harden pending).**
+  Payment spend success now requires `RuntimePaymentSupervisor` settlement
+  evidence before a success receipt can stand. The default supervisor rejects,
+  so a skill-produced `Verification`+`PaymentRail` reference is denied unless a
+  configured supervisor returns matching settlement evidence bound to admitted
+  rail, counterparty, amount, currency, idempotency key, spend capability, act,
+  receipt ref, and receipt digest. Focused payment tests cover the no-supervisor
+  and proofless-rail failures.
 - **R4 [High] — secrets via env + post-hoc redaction.** `secret_env` injected
   into child env (`adapters/cli_tool.rs`); leaks via `/proc/<pid>/environ`,
   grandchildren, dumps. `redact_text` is substring replacement (encoding-bypass),
@@ -232,10 +241,26 @@ Acceptance:
 - [x] `dod2` grant expiry/not_before added and enforced in core OSS.
 - [x] `dod3` spend verbs require at least one aggregate cap (C4).
 - [x] `dod4` `*` scope not acceptable from untrusted grants (C5).
-- [ ] `dod5` receipts signed + verified by default in non-local modes (R2).
-- [ ] `dod6` sandbox profiles OS-enforced or documented as non-enforcing (R1).
-- [ ] `dod7` payment rail settlement proofs are supervisor-verified, not
+- [x] `dod5` receipts signed + verified by default in non-local modes (R2).
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-receipts && cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test receipt_signing --test skill_run --test harness_fixtures`
+  - Expected kind: `exit_code_zero`
+  - Status: passed
+  - Evidence: 2026-05-25 receipt proof and runtime signing/skill/harness tests
+    passed.
+- [x] `dod6` sandbox profiles OS-enforced or documented as non-enforcing (R1).
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool,mcp --test cli_tool_contract --test mcp_adapter`
+  - Expected kind: `exit_code_zero`
+  - Status: passed
+  - Evidence: 2026-05-25 CLI-tool contract tests passed, including the
+    backend-gated readonly sandbox write-denial regression; MCP adapter tests
+    also passed.
+- [x] `dod7` payment rail settlement proofs are supervisor-verified, not
   skill-asserted (R3).
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment`
+  - Expected kind: `exit_code_zero`
+  - Status: passed
+  - Evidence: 2026-05-25 payment execution, state, ledger projection, and SPT
+    rail tests passed.
 - [x] `dod8` state-machine success transition requires an admission witness (C6).
 - [x] `dod9` payment-state writes are atomic/locked (R7).
 
@@ -281,12 +306,11 @@ work.
 - 2026-05-22T12:05:00+10:00: `pnpm exec tsc -p tsconfig.typecheck.json
   --noEmit --pretty false` passed.
 - 2026-05-22T11:05:00+10:00: `cargo test --manifest-path crates/Cargo.toml -p
-  runx-runtime --test payment_execution -- --nocapture` passed.
+  runx-runtime --test payment -- --nocapture` passed.
 - 2026-05-22T11:08:00+10:00: `cargo test --manifest-path crates/Cargo.toml -p
   runx-core policy -- --nocapture` passed.
 - 2026-05-22T11:08:00+10:00: `cargo test --manifest-path crates/Cargo.toml -p
-  runx-runtime --test payment_execution --test stripe_spt_payment --test
-  payment_ledger_projection --test payment_state -- --nocapture` passed.
+  runx-runtime --test payment -- --nocapture` passed.
 - 2026-05-22T11:38:00+10:00: `cargo test --manifest-path crates/Cargo.toml -p
   runx-core --test kernel_eval -- --nocapture` passed.
 - 2026-05-22T11:38:00+10:00: `cargo test --manifest-path crates/Cargo.toml -p

@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -7,21 +6,12 @@ import { describe, expect, it } from "vitest";
 
 import { createDefaultSkillAdapters } from "@runxhq/adapters";
 import { runLocalGraph, type Caller } from "@runxhq/runtime-local";
+import { kernelEnv } from "./runx-binary.js";
 
 const caller: Caller = {
   resolve: async () => undefined,
   report: () => undefined,
 };
-const workspaceRoot = process.cwd();
-const cargo = process.platform === "win32" ? "cargo.exe" : "cargo";
-const runxBinary = path.join(
-  workspaceRoot,
-  "crates",
-  "target",
-  "debug",
-  process.platform === "win32" ? "runx.exe" : "runx",
-);
-let rustRunxBuilt = false;
 
 describe("graph receipt governance metadata", () => {
   it("records runner and allowed scope admission in graph and step receipts", async () => {
@@ -45,8 +35,6 @@ steps:
       message: scoped ok
 `,
       );
-      ensureRustRunxBinary();
-
       const result = await runLocalGraph({
         graphPath,
         caller,
@@ -130,8 +118,6 @@ steps:
       message: denied
 `,
       );
-      ensureRustRunxBinary();
-
       const result = await runLocalGraph({
         graphPath,
         caller,
@@ -215,7 +201,7 @@ steps:
         caller,
         receiptDir,
         runxHome: path.join(tempDir, "home"),
-        env: process.env,
+        env: kernelEnv(),
         adapters: createDefaultSkillAdapters(),
       });
 
@@ -304,30 +290,4 @@ function runtimeGraphSteps(receipt: { readonly metadata?: Readonly<Record<string
   const steps = (runx as { readonly steps?: unknown } | undefined)?.steps;
   expect(Array.isArray(steps)).toBe(true);
   return steps as readonly RuntimeGraphStep[];
-}
-
-function kernelEnv(): NodeJS.ProcessEnv {
-  return {
-    ...process.env,
-    RUNX_KERNEL_EVAL_BIN: runxBinary,
-  };
-}
-
-function ensureRustRunxBinary(): void {
-  if (rustRunxBuilt) {
-    return;
-  }
-  const result = spawnSync(
-    cargo,
-    ["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"],
-    {
-      cwd: workspaceRoot,
-      encoding: "utf8",
-      env: process.env,
-      maxBuffer: 8 * 1024 * 1024,
-    },
-  );
-
-  expect(result.status, result.stderr || result.stdout).toBe(0);
-  rustRunxBuilt = true;
 }

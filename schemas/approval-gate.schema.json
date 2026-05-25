@@ -1,12 +1,7 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://runx.ai/spec/approval-gate.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "id",
-    "reason"
-  ],
   "properties": {
     "id": {
       "minLength": 1,
@@ -16,14 +11,17 @@
       "minLength": 1,
       "type": "string"
     },
+    "summary": {
+      "additionalProperties": {},
+      "type": "object"
+    },
     "type": {
       "type": "string"
-    },
-    "summary": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
     }
-  }
+  },
+  "required": [
+    "id",
+    "reason"
+  ],
+  "type": "object"
 }

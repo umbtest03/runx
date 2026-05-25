@@ -14,10 +14,31 @@ pub runx_core::kernel_eval::KernelEvalOutput::Output
 pub runx_core::kernel_eval::KernelEvalOutput::Output::value: runx_contracts::json::JsonValue
 pub fn runx_core::kernel_eval::evaluate_kernel_document_str(source: &str) -> core::result::Result<runx_core::kernel_eval::KernelEvalOutput, runx_core::kernel_eval::KernelEvalError>
 pub mod runx_core::policy
+pub use runx_core::policy::AuthorityKind
+pub use runx_core::policy::AuthorityProof
+pub use runx_core::policy::AuthorityProofApprovalDecision
+pub use runx_core::policy::AuthorityProofApprovalDecisionValue
+pub use runx_core::policy::AuthorityProofCredentialMaterial
+pub use runx_core::policy::AuthorityProofCredentialMaterialStatus
+pub use runx_core::policy::AuthorityProofRedaction
+pub use runx_core::policy::AuthorityProofRedactionSecretMaterial
+pub use runx_core::policy::AuthorityProofRedactionStatus
+pub use runx_core::policy::AuthorityProofRedactionStream
+pub use runx_core::policy::AuthorityProofRequested
+pub use runx_core::policy::AuthorityProofSandbox
+pub use runx_core::policy::AuthorityProofSandboxFilesystem
+pub use runx_core::policy::AuthorityProofSandboxNetwork
+pub use runx_core::policy::AuthorityProofSandboxRuntime
+pub use runx_core::policy::AuthorityProofSchemaVersion
+pub use runx_core::policy::CredentialEnvelope
+pub use runx_core::policy::CredentialEnvelopeKind
+pub use runx_core::policy::CredentialGrantReference
+pub use runx_core::policy::ScopeAdmission
+pub use runx_core::policy::ScopeAdmissionStatus
 pub mod runx_core::policy::authority_proof
-pub fn runx_core::policy::authority_proof::build_authority_proof(options: &runx_core::policy::BuildAuthorityProofOptions) -> runx_core::policy::AuthorityProof
+pub fn runx_core::policy::authority_proof::build_authority_proof(options: &runx_core::policy::BuildAuthorityProofOptions) -> runx_contracts::policy_proof::AuthorityProof
 pub fn runx_core::policy::authority_proof::build_authority_proof_metadata(options: &runx_core::policy::BuildAuthorityProofOptions) -> runx_core::policy::AuthorityProofMetadata
-pub fn runx_core::policy::authority_proof::build_local_scope_admission(auth: core::option::Option<&runx_contracts::json::JsonValue>, grants: &[runx_core::policy::LocalAdmissionGrant], options: &runx_core::policy::LocalScopeAdmissionOptions) -> runx_core::policy::ScopeAdmission
+pub fn runx_core::policy::authority_proof::build_local_scope_admission(auth: core::option::Option<&runx_contracts::json::JsonValue>, grants: &[runx_core::policy::LocalAdmissionGrant], options: &runx_core::policy::LocalScopeAdmissionOptions) -> runx_contracts::policy_proof::ScopeAdmission
 pub fn runx_core::policy::authority_proof::validate_credential_binding(request: &runx_core::policy::CredentialBindingRequest) -> runx_core::policy::CredentialBindingDecision
 pub mod runx_core::policy::public_work
 pub fn runx_core::policy::public_work::default_public_work_policy() -> runx_core::policy::RequiredPublicWorkPolicy
@@ -34,10 +55,6 @@ pub runx_core::policy::AdmissionDecision::Allow
 pub runx_core::policy::AdmissionDecision::Allow::reasons: alloc::vec::Vec<alloc::string::String>
 pub runx_core::policy::AdmissionDecision::Deny
 pub runx_core::policy::AdmissionDecision::Deny::reasons: alloc::vec::Vec<alloc::string::String>
-pub enum runx_core::policy::AuthorityKind
-pub runx_core::policy::AuthorityKind::Constructive
-pub runx_core::policy::AuthorityKind::Destructive
-pub runx_core::policy::AuthorityKind::ReadOnly
 pub enum runx_core::policy::CredentialBindingDecision
 pub runx_core::policy::CredentialBindingDecision::Allow
 pub runx_core::policy::CredentialBindingDecision::Allow::reasons: alloc::vec::Vec<alloc::string::String>
@@ -47,6 +64,8 @@ pub enum runx_core::policy::CwdPolicy
 pub runx_core::policy::CwdPolicy::Custom
 pub runx_core::policy::CwdPolicy::SkillDirectory
 pub runx_core::policy::CwdPolicy::Workspace
+impl runx_core::policy::CwdPolicy
+pub fn runx_core::policy::CwdPolicy::as_str(&self) -> &'static str
 pub enum runx_core::policy::GraphScopeAdmissionDecision
 pub runx_core::policy::GraphScopeAdmissionDecision::Allow
 pub runx_core::policy::GraphScopeAdmissionDecision::Allow::grant_id: core::option::Option<alloc::string::String>
@@ -86,120 +105,40 @@ pub runx_core::policy::SandboxProfile::Network
 pub runx_core::policy::SandboxProfile::Readonly
 pub runx_core::policy::SandboxProfile::UnrestrictedLocalDev
 pub runx_core::policy::SandboxProfile::WorkspaceWrite
-pub enum runx_core::policy::ScopeAdmissionStatus
-pub runx_core::policy::ScopeAdmissionStatus::Allow
-pub runx_core::policy::ScopeAdmissionStatus::Deny
-pub struct runx_core::policy::AuthorityProof
-pub runx_core::policy::AuthorityProof::approval_gate: core::option::Option<runx_core::policy::AuthorityProofApprovalDecision>
-pub runx_core::policy::AuthorityProof::credential_material: runx_core::policy::AuthorityProofCredentialMaterial
-pub runx_core::policy::AuthorityProof::redaction: runx_core::policy::AuthorityProofRedaction
-pub runx_core::policy::AuthorityProof::requested: runx_core::policy::AuthorityProofRequested
-pub runx_core::policy::AuthorityProof::run_id: core::option::Option<alloc::string::String>
-pub runx_core::policy::AuthorityProof::sandbox: core::option::Option<runx_core::policy::AuthorityProofSandbox>
-pub runx_core::policy::AuthorityProof::schema_version: alloc::string::String
-pub runx_core::policy::AuthorityProof::scope_admission: runx_core::policy::ScopeAdmission
-pub runx_core::policy::AuthorityProof::skill_name: alloc::string::String
-pub runx_core::policy::AuthorityProof::source_type: alloc::string::String
+impl runx_core::policy::SandboxProfile
+pub fn runx_core::policy::SandboxProfile::as_str(&self) -> &'static str
 pub struct runx_core::policy::AuthorityProofApproval
 pub runx_core::policy::AuthorityProofApproval::approved: bool
 pub runx_core::policy::AuthorityProofApproval::gate: runx_core::policy::AuthorityProofApprovalGate
-pub struct runx_core::policy::AuthorityProofApprovalDecision
-pub runx_core::policy::AuthorityProofApprovalDecision::decision: alloc::string::String
-pub runx_core::policy::AuthorityProofApprovalDecision::gate_id: alloc::string::String
-pub runx_core::policy::AuthorityProofApprovalDecision::gate_type: alloc::string::String
-pub runx_core::policy::AuthorityProofApprovalDecision::reason: core::option::Option<alloc::string::String>
 pub struct runx_core::policy::AuthorityProofApprovalGate
 pub runx_core::policy::AuthorityProofApprovalGate::gate_type: core::option::Option<alloc::string::String>
 pub runx_core::policy::AuthorityProofApprovalGate::id: alloc::string::String
 pub runx_core::policy::AuthorityProofApprovalGate::reason: core::option::Option<alloc::string::String>
-pub struct runx_core::policy::AuthorityProofCredentialMaterial
-pub runx_core::policy::AuthorityProofCredentialMaterial::authority_kind: core::option::Option<runx_core::policy::AuthorityKind>
-pub runx_core::policy::AuthorityProofCredentialMaterial::connection_id: core::option::Option<alloc::string::String>
-pub runx_core::policy::AuthorityProofCredentialMaterial::grant_id: core::option::Option<alloc::string::String>
-pub runx_core::policy::AuthorityProofCredentialMaterial::grant_reference: core::option::Option<runx_core::policy::CredentialGrantReference>
-pub runx_core::policy::AuthorityProofCredentialMaterial::material_ref_hash: core::option::Option<alloc::string::String>
-pub runx_core::policy::AuthorityProofCredentialMaterial::provider: core::option::Option<alloc::string::String>
-pub runx_core::policy::AuthorityProofCredentialMaterial::scope_family: core::option::Option<alloc::string::String>
-pub runx_core::policy::AuthorityProofCredentialMaterial::scopes: core::option::Option<alloc::vec::Vec<alloc::string::String>>
-pub runx_core::policy::AuthorityProofCredentialMaterial::status: alloc::string::String
-pub runx_core::policy::AuthorityProofCredentialMaterial::target_locator: core::option::Option<alloc::string::String>
-pub runx_core::policy::AuthorityProofCredentialMaterial::target_repo: core::option::Option<alloc::string::String>
 pub struct runx_core::policy::AuthorityProofMetadata
-pub runx_core::policy::AuthorityProofMetadata::authority_proof: runx_core::policy::AuthorityProof
-pub struct runx_core::policy::AuthorityProofRedaction
-pub runx_core::policy::AuthorityProofRedaction::metadata_secret_keys: alloc::vec::Vec<alloc::string::String>
-pub runx_core::policy::AuthorityProofRedaction::secret_material: alloc::string::String
-pub runx_core::policy::AuthorityProofRedaction::status: alloc::string::String
-pub runx_core::policy::AuthorityProofRedaction::stderr: alloc::string::String
-pub runx_core::policy::AuthorityProofRedaction::stdout: alloc::string::String
-pub struct runx_core::policy::AuthorityProofRequested
-pub runx_core::policy::AuthorityProofRequested::authority_kind: core::option::Option<runx_core::policy::AuthorityKind>
-pub runx_core::policy::AuthorityProofRequested::connected_auth: bool
-pub runx_core::policy::AuthorityProofRequested::mutating: bool
-pub runx_core::policy::AuthorityProofRequested::sandbox_profile: core::option::Option<alloc::string::String>
-pub runx_core::policy::AuthorityProofRequested::scope_family: core::option::Option<alloc::string::String>
-pub runx_core::policy::AuthorityProofRequested::scopes: alloc::vec::Vec<alloc::string::String>
-pub runx_core::policy::AuthorityProofRequested::target_locator: core::option::Option<alloc::string::String>
-pub runx_core::policy::AuthorityProofRequested::target_repo: core::option::Option<alloc::string::String>
-pub struct runx_core::policy::AuthorityProofSandbox
-pub runx_core::policy::AuthorityProofSandbox::approval_approved: core::option::Option<bool>
-pub runx_core::policy::AuthorityProofSandbox::approval_required: core::option::Option<bool>
-pub runx_core::policy::AuthorityProofSandbox::cwd_policy: core::option::Option<alloc::string::String>
-pub runx_core::policy::AuthorityProofSandbox::filesystem: core::option::Option<runx_core::policy::AuthorityProofSandboxFilesystem>
-pub runx_core::policy::AuthorityProofSandbox::network: core::option::Option<runx_core::policy::AuthorityProofSandboxNetwork>
-pub runx_core::policy::AuthorityProofSandbox::profile: alloc::string::String
-pub runx_core::policy::AuthorityProofSandbox::require_enforcement: core::option::Option<bool>
-pub runx_core::policy::AuthorityProofSandbox::runtime: core::option::Option<runx_core::policy::AuthorityProofSandboxRuntime>
+pub runx_core::policy::AuthorityProofMetadata::authority_proof: runx_contracts::policy_proof::AuthorityProof
 pub struct runx_core::policy::AuthorityProofSandboxDeclaration
 pub runx_core::policy::AuthorityProofSandboxDeclaration::cwd_policy: core::option::Option<alloc::string::String>
 pub runx_core::policy::AuthorityProofSandboxDeclaration::network: core::option::Option<bool>
 pub runx_core::policy::AuthorityProofSandboxDeclaration::profile: core::option::Option<alloc::string::String>
 pub runx_core::policy::AuthorityProofSandboxDeclaration::require_enforcement: core::option::Option<bool>
-pub struct runx_core::policy::AuthorityProofSandboxFilesystem
-pub runx_core::policy::AuthorityProofSandboxFilesystem::enforcement: core::option::Option<alloc::string::String>
-pub runx_core::policy::AuthorityProofSandboxFilesystem::private_tmp: core::option::Option<bool>
-pub runx_core::policy::AuthorityProofSandboxFilesystem::readonly_paths: core::option::Option<bool>
-pub runx_core::policy::AuthorityProofSandboxFilesystem::writable_paths_enforced: core::option::Option<bool>
-pub struct runx_core::policy::AuthorityProofSandboxNetwork
-pub runx_core::policy::AuthorityProofSandboxNetwork::declared: core::option::Option<bool>
-pub runx_core::policy::AuthorityProofSandboxNetwork::enforcement: core::option::Option<alloc::string::String>
-pub struct runx_core::policy::AuthorityProofSandboxRuntime
-pub runx_core::policy::AuthorityProofSandboxRuntime::enforcer: core::option::Option<alloc::string::String>
-pub runx_core::policy::AuthorityProofSandboxRuntime::reason: core::option::Option<alloc::string::String>
 pub struct runx_core::policy::BuildAuthorityProofOptions
 pub runx_core::policy::BuildAuthorityProofOptions::approval: core::option::Option<runx_core::policy::AuthorityProofApproval>
 pub runx_core::policy::BuildAuthorityProofOptions::auth: core::option::Option<runx_contracts::json::JsonValue>
 pub runx_core::policy::BuildAuthorityProofOptions::connected_auth_checked_at: core::option::Option<alloc::string::String>
-pub runx_core::policy::BuildAuthorityProofOptions::credential: core::option::Option<runx_core::policy::CredentialEnvelope>
+pub runx_core::policy::BuildAuthorityProofOptions::credential: core::option::Option<runx_contracts::policy_proof::CredentialEnvelope>
 pub runx_core::policy::BuildAuthorityProofOptions::grants: alloc::vec::Vec<runx_core::policy::LocalAdmissionGrant>
 pub runx_core::policy::BuildAuthorityProofOptions::mutating: core::option::Option<bool>
 pub runx_core::policy::BuildAuthorityProofOptions::run_id: core::option::Option<alloc::string::String>
 pub runx_core::policy::BuildAuthorityProofOptions::sandbox_declaration: core::option::Option<runx_core::policy::AuthorityProofSandboxDeclaration>
 pub runx_core::policy::BuildAuthorityProofOptions::sandbox_metadata: core::option::Option<runx_contracts::json::JsonValue>
-pub runx_core::policy::BuildAuthorityProofOptions::scope_admission: core::option::Option<runx_core::policy::ScopeAdmission>
+pub runx_core::policy::BuildAuthorityProofOptions::scope_admission: core::option::Option<runx_contracts::policy_proof::ScopeAdmission>
 pub runx_core::policy::BuildAuthorityProofOptions::skill_name: alloc::string::String
 pub runx_core::policy::BuildAuthorityProofOptions::source_type: alloc::string::String
 pub struct runx_core::policy::CredentialBindingRequest
 pub runx_core::policy::CredentialBindingRequest::auth: core::option::Option<runx_contracts::json::JsonValue>
-pub runx_core::policy::CredentialBindingRequest::credential: core::option::Option<runx_core::policy::CredentialEnvelope>
+pub runx_core::policy::CredentialBindingRequest::credential: core::option::Option<runx_contracts::policy_proof::CredentialEnvelope>
 pub runx_core::policy::CredentialBindingRequest::grants: alloc::vec::Vec<runx_core::policy::LocalAdmissionGrant>
-pub runx_core::policy::CredentialBindingRequest::scope_admission: runx_core::policy::ScopeAdmission
-pub struct runx_core::policy::CredentialEnvelope
-pub runx_core::policy::CredentialEnvelope::auth_mode: alloc::string::String
-pub runx_core::policy::CredentialEnvelope::connection_id: core::option::Option<alloc::string::String>
-pub runx_core::policy::CredentialEnvelope::grant_id: alloc::string::String
-pub runx_core::policy::CredentialEnvelope::grant_reference: core::option::Option<runx_core::policy::CredentialGrantReference>
-pub runx_core::policy::CredentialEnvelope::kind: alloc::string::String
-pub runx_core::policy::CredentialEnvelope::material_kind: alloc::string::String
-pub runx_core::policy::CredentialEnvelope::material_ref: alloc::string::String
-pub runx_core::policy::CredentialEnvelope::provider: alloc::string::String
-pub runx_core::policy::CredentialEnvelope::scopes: alloc::vec::Vec<alloc::string::String>
-pub struct runx_core::policy::CredentialGrantReference
-pub runx_core::policy::CredentialGrantReference::authority_kind: core::option::Option<runx_core::policy::AuthorityKind>
-pub runx_core::policy::CredentialGrantReference::grant_id: alloc::string::String
-pub runx_core::policy::CredentialGrantReference::scope_family: core::option::Option<alloc::string::String>
-pub runx_core::policy::CredentialGrantReference::target_locator: core::option::Option<alloc::string::String>
-pub runx_core::policy::CredentialGrantReference::target_repo: core::option::Option<alloc::string::String>
+pub runx_core::policy::CredentialBindingRequest::scope_admission: runx_contracts::policy_proof::ScopeAdmission
 pub struct runx_core::policy::GraphScopeAdmissionRequest
 pub runx_core::policy::GraphScopeAdmissionRequest::grant: runx_core::policy::GraphScopeGrant
 pub runx_core::policy::GraphScopeAdmissionRequest::requested_scopes: alloc::vec::Vec<alloc::string::String>
@@ -208,7 +147,7 @@ pub struct runx_core::policy::GraphScopeGrant
 pub runx_core::policy::GraphScopeGrant::grant_id: core::option::Option<alloc::string::String>
 pub runx_core::policy::GraphScopeGrant::scopes: alloc::vec::Vec<alloc::string::String>
 pub struct runx_core::policy::LocalAdmissionGrant
-pub runx_core::policy::LocalAdmissionGrant::authority_kind: core::option::Option<runx_core::policy::AuthorityKind>
+pub runx_core::policy::LocalAdmissionGrant::authority_kind: core::option::Option<runx_contracts::policy_proof::AuthorityKind>
 pub runx_core::policy::LocalAdmissionGrant::expires_at: core::option::Option<alloc::string::String>
 pub runx_core::policy::LocalAdmissionGrant::grant_id: alloc::string::String
 pub runx_core::policy::LocalAdmissionGrant::not_before: core::option::Option<alloc::string::String>
@@ -313,13 +252,6 @@ pub runx_core::policy::SandboxDeclaration::network: core::option::Option<bool>
 pub runx_core::policy::SandboxDeclaration::profile: runx_core::policy::SandboxProfile
 pub runx_core::policy::SandboxDeclaration::require_enforcement: core::option::Option<bool>
 pub runx_core::policy::SandboxDeclaration::writable_paths: core::option::Option<alloc::vec::Vec<alloc::string::String>>
-pub struct runx_core::policy::ScopeAdmission
-pub runx_core::policy::ScopeAdmission::decision_summary: alloc::string::String
-pub runx_core::policy::ScopeAdmission::grant_id: core::option::Option<alloc::string::String>
-pub runx_core::policy::ScopeAdmission::granted_scopes: alloc::vec::Vec<alloc::string::String>
-pub runx_core::policy::ScopeAdmission::reasons: core::option::Option<alloc::vec::Vec<alloc::string::String>>
-pub runx_core::policy::ScopeAdmission::requested_scopes: alloc::vec::Vec<alloc::string::String>
-pub runx_core::policy::ScopeAdmission::status: runx_core::policy::ScopeAdmissionStatus
 pub struct runx_core::policy::StepAuthorityAdmission<'a>
 pub runx_core::policy::StepAuthorityAdmission::act_id: &'a str
 pub runx_core::policy::StepAuthorityAdmission::child_authority: &'a runx_contracts::authority::AuthorityTerm
@@ -343,9 +275,9 @@ pub fn runx_core::policy::admit_retry_policy(request: &runx_core::policy::RetryA
 pub fn runx_core::policy::admit_sandbox(sandbox: core::option::Option<&runx_core::policy::SandboxDeclaration>, options: &runx_core::policy::SandboxAdmissionOptions) -> runx_core::policy::SandboxAdmissionDecision
 pub fn runx_core::policy::admit_step_authority(input: runx_core::policy::StepAuthorityAdmission<'_>) -> core::result::Result<runx_core::policy::StepAuthorityAdmissionDecision<'_>, runx_core::policy::PaymentAuthorityError>
 pub fn runx_core::policy::authority_term_has_verb(term: &runx_contracts::authority::AuthorityTerm, verb: runx_contracts::authority::AuthorityVerb) -> bool
-pub fn runx_core::policy::build_authority_proof(options: &runx_core::policy::BuildAuthorityProofOptions) -> runx_core::policy::AuthorityProof
+pub fn runx_core::policy::build_authority_proof(options: &runx_core::policy::BuildAuthorityProofOptions) -> runx_contracts::policy_proof::AuthorityProof
 pub fn runx_core::policy::build_authority_proof_metadata(options: &runx_core::policy::BuildAuthorityProofOptions) -> runx_core::policy::AuthorityProofMetadata
-pub fn runx_core::policy::build_local_scope_admission(auth: core::option::Option<&runx_contracts::json::JsonValue>, grants: &[runx_core::policy::LocalAdmissionGrant], options: &runx_core::policy::LocalScopeAdmissionOptions) -> runx_core::policy::ScopeAdmission
+pub fn runx_core::policy::build_local_scope_admission(auth: core::option::Option<&runx_contracts::json::JsonValue>, grants: &[runx_core::policy::LocalAdmissionGrant], options: &runx_core::policy::LocalScopeAdmissionOptions) -> runx_contracts::policy_proof::ScopeAdmission
 pub fn runx_core::policy::compute_maturity(signals: &runx_contracts::maturity::MaturitySignals) -> runx_contracts::maturity::MaturityTier
 pub fn runx_core::policy::default_public_work_policy() -> runx_core::policy::RequiredPublicWorkPolicy
 pub fn runx_core::policy::evaluate_public_comment_opportunity(request: &runx_core::policy::PublicCommentOpportunityRequest, policy: &runx_core::policy::PublicWorkPolicy) -> runx_core::policy::PublicCommentPolicyDecision

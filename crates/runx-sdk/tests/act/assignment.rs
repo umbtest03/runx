@@ -1,11 +1,11 @@
 use serde::Deserialize;
 
 use runx_contracts::{ActAssignment, BuildActAssignment};
-use runx_sdk::act_assignment::build_act_assignment;
+use runx_sdk::act::assignment::build_act_assignment;
 
 const FIXTURES: &[&str] = &[
-    include_str!("../../../fixtures/sdk-rust/act-assignment/cli-no-trigger.json"),
-    include_str!("../../../fixtures/sdk-rust/act-assignment/github-trigger.json"),
+    include_str!("../../../../fixtures/sdk-rust/act-assignment/cli-no-trigger.json"),
+    include_str!("../../../../fixtures/sdk-rust/act-assignment/github-trigger.json"),
 ];
 
 #[derive(Debug, Deserialize)]

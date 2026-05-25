@@ -3,7 +3,7 @@
 //! SDK v0 calls the authoritative `runx --json` CLI. It does not execute
 //! skills natively and does not replace the TypeScript runtime.
 
-pub mod act_assignment;
+pub mod act;
 pub mod client;
 pub mod command;
 pub mod error;

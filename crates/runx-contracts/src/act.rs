@@ -1,4 +1,7 @@
 //! Act algebra: intents, governed acts, success criteria, and verification details.
+pub mod assignment;
+pub mod receipt;
+
 use serde::{Deserialize, Serialize};
 
 use crate::schema::{IsoDateTime, NonEmptyString, RunxSchema};

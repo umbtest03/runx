@@ -12,14 +12,15 @@ pub mod store;
 pub mod tree;
 
 pub(crate) use seal::{
-    RuntimeReceiptProofContextProvider, StepReceiptWithDisposition, graph_receipt_with_disposition,
-    step_receipt_with_disposition,
+    GraphClosure, RuntimeReceiptProofContextProvider, StepReceiptWithDisposition,
+    graph_receipt_with_disposition_and_policy, step_receipt_with_disposition_and_policy,
 };
 pub use seal::{
     RuntimeReceiptSignaturePolicy, graph_receipt, graph_receipt_with_signature_policy,
     step_receipt, step_receipt_with_signature_policy,
 };
 pub use signing::{
-    Ed25519ReceiptSigner, Ed25519ReceiptVerifier, ProductionReceiptKey, RuntimeReceiptSigner,
-    RuntimeReceiptSigningError,
+    Ed25519ReceiptSigner, Ed25519ReceiptVerifier, ProductionReceiptKey,
+    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_KID_ENV,
+    RuntimeReceiptSignatureConfig, RuntimeReceiptSigner, RuntimeReceiptSigningError,
 };

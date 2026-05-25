@@ -1,42 +1,18 @@
-import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { runLocalGraph, type Caller, type SkillAdapter } from "@runxhq/runtime-local";
+import { kernelEnv, resolveRunxBinary } from "./runx-binary.js";
 
 const nonInteractiveCaller: Caller = {
   resolve: async () => undefined,
   report: () => undefined,
 };
-const workspaceRoot = process.cwd();
-const cargo = process.platform === "win32" ? "cargo.exe" : "cargo";
-const runxBinary = path.join(
-  workspaceRoot,
-  "crates",
-  "target",
-  "debug",
-  process.platform === "win32" ? "runx.exe" : "runx",
-);
 
 describe("graph retry and idempotency", () => {
-  beforeAll(() => {
-    const result = spawnSync(
-      cargo,
-      ["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"],
-      {
-        cwd: workspaceRoot,
-        encoding: "utf8",
-        env: process.env,
-        maxBuffer: 8 * 1024 * 1024,
-      },
-    );
-
-    expect(result.status, result.stderr || result.stdout).toBe(0);
-  }, 120_000);
-
   it("retries a read-only step and records attempt receipts", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-retry-read-"));
     const adapter = createFlakyAdapter();
@@ -57,9 +33,9 @@ describe("graph retry and idempotency", () => {
       }
       expect(result.steps.map((step) => [step.stepId, step.attempt, step.status])).toEqual([
         ["flaky-read", 1, "failure"],
-        ["flaky-read", 2, "success"],
+        ["flaky-read", 2, "sealed"],
       ]);
-      expect(result.receipt.schema).toBe("runx.harness_receipt.v1");
+      expect(result.receipt.schema).toBe("runx.receipt.v1");
       expect(result.steps.map((step) => step.retry)).toEqual([
         {
           attempt: 1,
@@ -97,7 +73,7 @@ describe("graph retry and idempotency", () => {
       }
       expect(result.reasons).toEqual(["step 'deploy' declares mutating retry without an idempotency key"]);
       expect(adapter.callCount()).toBe(0);
-      expect(result.receipt?.schema).toBe("runx.harness_receipt.v1");
+      expect(result.receipt?.schema).toBe("runx.receipt.v1");
       expect(result.receipt?.seal.disposition).toBe("declined");
       expect(runtimeGraphSteps(result.receipt)).toMatchObject([
           {
@@ -117,12 +93,13 @@ describe("graph retry and idempotency", () => {
     const adapter = createFlakyAdapter();
 
     try {
+      const kernelWrapper = await writeRetryAdmissionOutageKernel(tempDir);
       const result = await runLocalGraph({
         graphPath: path.resolve("fixtures/graphs/retry/read-only.yaml"),
         caller: nonInteractiveCaller,
         receiptDir: path.join(tempDir, "receipts"),
         runxHome: path.join(tempDir, "home"),
-        env: { ...process.env, RUNX_KERNEL_EVAL_BIN: "" },
+        env: { ...kernelEnv(), RUNX_KERNEL_EVAL_BIN: kernelWrapper },
         adapters: [adapter],
       });
 
@@ -131,10 +108,10 @@ describe("graph retry and idempotency", () => {
         return;
       }
       expect(result.reasons).toEqual([
-        "retry admission failed closed: Rust kernel eval requires RUNX_KERNEL_EVAL_BIN or an explicit command.",
+        "retry admission failed closed: Rust kernel eval failed with exit 1: simulated retry admission outage",
       ]);
       expect(adapter.callCount()).toBe(0);
-      expect(result.receipt?.schema).toBe("runx.harness_receipt.v1");
+      expect(result.receipt?.schema).toBe("runx.receipt.v1");
       expect(result.receipt?.seal.disposition).toBe("declined");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
@@ -161,7 +138,7 @@ describe("graph retry and idempotency", () => {
       }
       expect(result.steps.map((step) => [step.stepId, step.attempt, step.status])).toEqual([
         ["skill-retry", 1, "failure"],
-        ["skill-retry", 2, "success"],
+        ["skill-retry", 2, "sealed"],
       ]);
     } finally {
       await rm(tempDir, { recursive: true, force: true });
@@ -188,7 +165,7 @@ describe("graph retry and idempotency", () => {
       }
       expect(result.reasons).toEqual(["step 'deploy' declares mutating retry without an idempotency key"]);
       expect(adapter.callCount()).toBe(0);
-      expect(result.receipt?.schema).toBe("runx.harness_receipt.v1");
+      expect(result.receipt?.schema).toBe("runx.receipt.v1");
       expect(result.receipt?.seal.disposition).toBe("declined");
       expect(runtimeGraphSteps(result.receipt)).toMatchObject([
           {
@@ -238,11 +215,34 @@ describe("graph retry and idempotency", () => {
   });
 });
 
-function kernelEnv(): NodeJS.ProcessEnv {
-  return {
-    ...process.env,
-    RUNX_KERNEL_EVAL_BIN: runxBinary,
-  };
+async function writeRetryAdmissionOutageKernel(directory: string): Promise<string> {
+  const wrapperPath = path.join(directory, "retry-admission-outage-kernel.mjs");
+  const realKernel = resolveRunxBinary();
+  await writeFile(
+    wrapperPath,
+    `#!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+
+const input = readFileSync(0, "utf8");
+const document = JSON.parse(input);
+if (document.kind === "policy.admitRetryPolicy") {
+  process.stderr.write("simulated retry admission outage");
+  process.exit(1);
+}
+
+const result = spawnSync(${JSON.stringify(realKernel)}, process.argv.slice(2), {
+  input,
+  encoding: "utf8",
+  env: process.env,
+});
+if (result.stdout) process.stdout.write(result.stdout);
+if (result.stderr) process.stderr.write(result.stderr);
+process.exit(result.status ?? 1);
+`,
+  );
+  await chmod(wrapperPath, 0o755);
+  return wrapperPath;
 }
 
 function createFlakyAdapter(): SkillAdapter & { callCount: () => number } {

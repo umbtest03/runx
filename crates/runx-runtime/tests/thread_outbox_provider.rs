@@ -199,11 +199,12 @@ fn fixture_script() -> Result<PathBuf, std::io::Error> {
 fn credential_delivery() -> Result<CredentialDelivery, Box<dyn std::error::Error>> {
     let profile = CredentialDeliveryProfile::env_token("github", "oauth_bearer", "GITHUB_TOKEN")?;
     let credential: CredentialEnvelope = serde_json::from_value(serde_json::json!({
-        "kind": "credential_envelope.v1",
+        "kind": "runx.credential-envelope.v1",
         "grant_id": "grant-github",
         "provider": "github",
         "auth_mode": "oauth_bearer",
         "material_kind": "access_token",
+        "provider_reference": "github-main",
         "scopes": ["issues:write"],
         "material_ref": "secret://github/main"
     }))?;

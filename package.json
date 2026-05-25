@@ -33,6 +33,7 @@
     "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
     "test": "node scripts/test-workspace.mjs",
     "test:fast": "vitest run --config vitest.fast.config.ts",
+    "test:heavy:graph": "node scripts/test-workspace.mjs --testTimeout 30000 --hookTimeout 30000 tests/graph-fanout.test.ts tests/graph-receipt-governance.test.ts tests/graph-retry-idempotency.test.ts tests/graph-runner-governance.test.ts tests/graph-runner.test.ts tests/graph-registry-refs.test.ts tests/graph-registry-refs-rust-boundary.test.ts tests/graph-hydration-orphan-start.test.ts tests/payment-graph-harness.test.ts tests/issue-to-pr-graph.test.ts tests/builder-graphs.test.ts tests/sourcey-preflight.test.ts tests/replay-run.test.ts",
     "boundary:check": "node scripts/check-boundaries.mjs",
     "fixtures:kernel:check": "tsx scripts/generate-kernel-parity-fixtures.ts --check",
     "fixtures:kernel:generate": "tsx scripts/generate-kernel-parity-fixtures.ts",

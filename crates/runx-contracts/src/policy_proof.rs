@@ -118,7 +118,7 @@ pub struct CredentialEnvelope {
     pub provider: NonEmptyString,
     pub auth_mode: NonEmptyString,
     pub material_kind: NonEmptyString,
-    pub connection_id: NonEmptyString,
+    pub provider_reference: NonEmptyString,
     pub scopes: Vec<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub grant_reference: Option<CredentialGrantReference>,
@@ -154,7 +154,7 @@ pub struct AuthorityProofCredentialMaterial {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub connection_id: Option<NonEmptyString>,
+    pub provider_reference: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scopes: Option<Vec<NonEmptyString>>,
     #[serde(skip_serializing_if = "Option::is_none")]

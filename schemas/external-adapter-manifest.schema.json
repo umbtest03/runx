@@ -1,113 +1,20 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.runx.dev/runx/external-adapter/manifest/v1.json",
-  "x-runx-schema": "runx.external_adapter.manifest.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "schema",
-    "protocol_version",
-    "adapter_id",
-    "name",
-    "version",
-    "supported_source_types",
-    "transport",
-    "timeouts",
-    "sandbox_intent"
-  ],
   "properties": {
-    "schema": {
-      "const": "runx.external_adapter.manifest.v1",
-      "type": "string"
-    },
-    "protocol_version": {
-      "const": "runx.external_adapter.v1",
-      "type": "string"
-    },
     "adapter_id": {
       "minLength": 1,
       "type": "string"
     },
-    "name": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "version": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "supported_source_types": {
-      "minItems": 1,
-      "type": "array",
-      "items": {
-        "minLength": 1,
-        "type": "string"
-      }
-    },
-    "transport": {
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "kind"
-      ],
-      "properties": {
-        "kind": {
-          "anyOf": [
-            {
-              "const": "process",
-              "type": "string"
-            },
-            {
-              "const": "http",
-              "type": "string"
-            }
-          ]
-        },
-        "command": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "args": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "endpoint": {
-          "minLength": 1,
-          "type": "string"
-        }
-      }
-    },
-    "timeouts": {
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "startup_ms",
-        "invocation_ms"
-      ],
-      "properties": {
-        "startup_ms": {
-          "minimum": 1,
-          "type": "integer"
-        },
-        "invocation_ms": {
-          "minimum": 1,
-          "type": "integer"
-        }
-      }
-    },
     "credential_needs": {
-      "type": "array",
       "items": {
         "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "purpose",
-          "provider",
-          "required"
-        ],
         "properties": {
+          "provider": {
+            "minLength": 1,
+            "type": "string"
+          },
           "purpose": {
             "anyOf": [
               {
@@ -128,23 +35,40 @@
               }
             ]
           },
-          "provider": {
-            "minLength": 1,
-            "type": "string"
+          "required": {
+            "type": "boolean"
           },
           "scope_refs": {
-            "type": "array",
             "items": {
-              "$schema": "https://json-schema.org/draft/2020-12/schema",
               "$id": "https://schemas.runx.dev/runx/reference/v1.json",
-              "x-runx-schema": "runx.reference.v1",
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
               "additionalProperties": false,
-              "type": "object",
-              "required": [
-                "type",
-                "uri"
-              ],
               "properties": {
+                "label": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "locator": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "observed_at": {
+                  "minLength": 1,
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+                  "type": "string"
+                },
+                "proof_kind": {
+                  "anyOf": [
+                    {
+                      "const": "payment_rail",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "provider": {
+                  "minLength": 1,
+                  "type": "string"
+                },
                 "schema": {
                   "const": "runx.reference.v1",
                   "type": "string"
@@ -292,71 +216,154 @@
                 "uri": {
                   "minLength": 1,
                   "type": "string"
-                },
-                "provider": {
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "locator": {
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "label": {
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "observed_at": {
-                  "minLength": 1,
-                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
-                  "type": "string"
-                },
-                "proof_kind": {
-                  "const": "payment_rail",
-                  "type": "string"
                 }
-              }
-            }
-          },
-          "required": {
-            "type": "boolean"
+              },
+              "required": [
+                "type",
+                "uri"
+              ],
+              "type": "object",
+              "x-runx-schema": "runx.reference.v1"
+            },
+            "type": "array"
           }
+        },
+        "required": [
+          "purpose",
+          "provider",
+          "required"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "metadata": {
+      "additionalProperties": {},
+      "type": "object"
+    },
+    "name": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "protocol_version": {
+      "anyOf": [
+        {
+          "const": "runx.external_adapter.v1",
+          "type": "string"
         }
-      }
+      ]
     },
     "sandbox_intent": {
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "profile",
-        "network",
-        "cwd_policy"
-      ],
       "properties": {
-        "profile": {
+        "cwd_policy": {
           "minLength": 1,
           "type": "string"
         },
         "network": {
           "type": "boolean"
         },
-        "cwd_policy": {
+        "profile": {
           "minLength": 1,
           "type": "string"
         },
         "writable_paths": {
-          "type": "array",
           "items": {
             "minLength": 1,
             "type": "string"
-          }
+          },
+          "type": "array"
         }
-      }
+      },
+      "required": [
+        "profile",
+        "network",
+        "cwd_policy"
+      ],
+      "type": "object"
     },
-    "metadata": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
+    "schema": {
+      "anyOf": [
+        {
+          "const": "runx.external_adapter.manifest.v1",
+          "type": "string"
+        }
+      ]
+    },
+    "supported_source_types": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "timeouts": {
+      "additionalProperties": false,
+      "properties": {
+        "invocation_ms": {
+          "type": "integer"
+        },
+        "startup_ms": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "startup_ms",
+        "invocation_ms"
+      ],
+      "type": "object"
+    },
+    "transport": {
+      "additionalProperties": false,
+      "properties": {
+        "args": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "command": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "endpoint": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "const": "process",
+              "type": "string"
+            },
+            {
+              "const": "http",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "version": {
+      "minLength": 1,
+      "type": "string"
     }
-  }
+  },
+  "required": [
+    "schema",
+    "protocol_version",
+    "adapter_id",
+    "name",
+    "version",
+    "supported_source_types",
+    "transport",
+    "timeouts",
+    "sandbox_intent"
+  ],
+  "type": "object",
+  "x-runx-schema": "runx.external_adapter.manifest.v1"
 }

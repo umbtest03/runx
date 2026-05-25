@@ -174,7 +174,7 @@ Current landed surfaces:
   authorization on reservation decision, subset proof, idempotency,
   single-use spend capability, bounded counterparty, and rail proof.
 - `crates/runx-runtime/tests/payment_authority.rs` and
-  `crates/runx-runtime/tests/payment_execution.rs` cover the runtime guard
+  `crates/runx-runtime/tests/payment/execution.rs` cover the runtime guard
   surface.
 
 Remaining executable slices:

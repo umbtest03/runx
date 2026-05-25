@@ -19,10 +19,7 @@ pub mod journal;
 pub mod list;
 pub mod outbox_provider;
 pub mod parser_eval;
-pub mod payment_ledger;
-pub mod payment_packets;
-pub mod payment_state;
-pub mod payment_supervisor;
+pub mod payment;
 pub mod post_merge_observer;
 pub mod receipts;
 pub mod registry;
@@ -37,9 +34,6 @@ pub use execution::orchestrator;
 pub use execution::runner;
 pub use execution::skill_run;
 pub use execution::target_runner;
-pub use receipts::paths as receipt_paths;
-pub use receipts::store as receipt_store;
-pub use receipts::tree as receipt_tree;
 
 #[cfg(any(
     feature = "cli-tool",
@@ -107,7 +101,9 @@ pub use receipts::tree::{
 };
 pub use receipts::{
     Ed25519ReceiptSigner, Ed25519ReceiptVerifier, ProductionReceiptKey,
-    RuntimeReceiptSignaturePolicy, RuntimeReceiptSigner, RuntimeReceiptSigningError,
+    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_KID_ENV,
+    RuntimeReceiptSignatureConfig, RuntimeReceiptSignaturePolicy, RuntimeReceiptSigner,
+    RuntimeReceiptSigningError,
 };
 pub use registry::{RegistryInstallMetadataInput, registry_install_receipt_metadata};
 #[cfg(feature = "cli-tool")]

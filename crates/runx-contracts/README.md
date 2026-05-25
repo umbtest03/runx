@@ -12,7 +12,7 @@ The current surface is intentionally small:
 
 - `json`: contract-owned JSON values backed by deterministic `BTreeMap`
   objects.
-- `act_assignment`: typed act assignment envelopes and
+- `act::assignment`: typed act assignment envelopes and
   fixture-backed idempotency hashes.
 - `host_protocol`: the serializable host result/state/event subset consumed by
   SDK v0. `AgentActInvocation` is typed, but its `envelope` remains an opaque

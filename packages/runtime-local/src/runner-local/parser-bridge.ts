@@ -431,7 +431,7 @@ async function runParserEval(
 ): Promise<ParserSuccessEnvelope> {
   const command = resolveParserCommand(options);
   const args = [...(options.argsPrefix ?? []), "parser", "eval", "--input", "-", "--json"];
-  const env = {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     ...(options.env ?? {}),
     NO_COLOR: "1",
@@ -444,7 +444,7 @@ async function runParserEval(
     cwd: options.cwd ?? process.cwd(),
     env,
     stdin: JSON.stringify(input),
-    timeoutMs: options.timeoutMs ?? 10_000,
+    timeoutMs: options.timeoutMs ?? evalTimeoutMs(env.RUNX_PARSER_EVAL_TIMEOUT_MS),
   });
 
   if (result.status !== 0) {
@@ -551,6 +551,14 @@ function spawnParserProcess(options: SpawnParserProcessOptions): Promise<SpawnPa
     });
     child.stdin.end(options.stdin);
   });
+}
+
+function evalTimeoutMs(value: string | undefined): number {
+  if (value === undefined || value.trim().length === 0) {
+    return 10_000;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 10_000;
 }
 
 function resolveParserCommand(options: ParserBridgeOptions): string {
@@ -665,4 +673,3 @@ function requireArray(value: unknown, label: string): readonly unknown[] {
   }
   return value;
 }
-

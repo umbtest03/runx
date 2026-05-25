@@ -312,12 +312,19 @@ export async function inspectLocalGraph(options: InspectLocalGraphOptions): Prom
       })),
       syncPoints: (receipt.lineage?.sync ?? []).map((syncPoint) => ({
         groupId: syncPoint.group_id,
-        decision: syncPoint.decision,
+        decision: graphSyncPointDecision(syncPoint.decision),
         ruleFired: syncPoint.rule_fired,
         reason: syncPoint.reason,
       })),
     },
   };
+}
+
+function graphSyncPointDecision(value: string): "proceed" | "halt" | "pause" | "escalate" {
+  if (value === "proceed" || value === "halt" || value === "pause" || value === "escalate") {
+    return value;
+  }
+  throw new Error(`Unknown graph sync decision: ${value}`);
 }
 
 export async function inspectLocalReceipt(options: InspectLocalReceiptOptions): Promise<InspectLocalReceiptResult> {

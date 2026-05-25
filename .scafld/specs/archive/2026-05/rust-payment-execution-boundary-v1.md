@@ -48,11 +48,11 @@ Current weak points:
 - `crates/runx-runtime/src/execution/runner/steps.rs` performs generic step
   execution, then directly parses `payment_rail_packet.data.*` paths and writes
   payment state.
-- `crates/runx-runtime/src/payment_ledger.rs` independently parses
+- `crates/runx-runtime/src/payment/ledger.rs` independently parses
   reservation, settlement, refusal, and paid-tool packet JSON paths, and gates
   x402 projection on `receipt.id.contains("x402-pay")` or
   `harness_ref.uri.contains("x402-pay")`.
-- `crates/runx-runtime/src/payment_state.rs` exposes `MockRailMutation` and
+- `crates/runx-runtime/src/payment/state.rs` exposes `MockRailMutation` and
   `mock_rail_mutations` as production state terminology. Because
   `mock_rail_mutations` is a persisted `deny_unknown_fields` state-document
   field, this is schema contamination, not a naming nit.
@@ -80,11 +80,11 @@ Current weak points:
 ## Scope
 
 In scope:
-- `crates/runx-runtime/src/payment_packets.rs` or equivalent typed packet
+- `crates/runx-runtime/src/payment/packets.rs` or equivalent typed packet
   reader module.
-- `crates/runx-runtime/src/payment_state.rs` payment state type rename and
+- `crates/runx-runtime/src/payment/state.rs` payment state type rename and
   domain persistence function.
-- `crates/runx-runtime/src/payment_ledger.rs` reuse of typed packet readers
+- `crates/runx-runtime/src/payment/ledger.rs` reuse of typed packet readers
   where it extracts evidence from step outputs/stdout, plus removal of the
   `x402-pay` receipt substring predicate.
 - `crates/runx-runtime/src/execution/runner/steps.rs` removal of payment
@@ -125,17 +125,17 @@ Out of scope:
 ## Touchpoints
 
 - `crates/runx-runtime/src/lib.rs`
-- `crates/runx-runtime/src/payment_packets.rs`
-- `crates/runx-runtime/src/payment_state.rs`
-- `crates/runx-runtime/src/payment_ledger.rs`
+- `crates/runx-runtime/src/payment/packets.rs`
+- `crates/runx-runtime/src/payment/state.rs`
+- `crates/runx-runtime/src/payment/ledger.rs`
 - `crates/runx-runtime/src/execution/runner/steps.rs`
 - `crates/runx-runtime/src/execution/runner/authority.rs`
 - `crates/runx-runtime/src/execution/harness/runner.rs`
 - `fixtures/harness/x402-pay-paid-echo.yaml`
-- `crates/runx-runtime/tests/payment_state.rs`
-- `crates/runx-runtime/tests/payment_ledger_projection.rs`
-- `crates/runx-runtime/tests/payment_execution.rs`
-- `crates/runx-runtime/tests/stripe_spt_payment.rs`
+- `crates/runx-runtime/tests/payment/state.rs`
+- `crates/runx-runtime/tests/payment/ledger_projection.rs`
+- `crates/runx-runtime/tests/payment/execution.rs`
+- `crates/runx-runtime/tests/payment/stripe_spt.rs`
 - `crates/runx-cli/tests/x402_native_dogfood.rs`
 
 ## Risks
@@ -176,7 +176,7 @@ Validation:
   - Evidence: output was empty
   - Source event: entry-18
 - [x] `v3b` x402 projection gate grep - Runtime ledger projection has no
-  - Command: `! rg -n "contains\\(\"x402-pay\"\\)|is_x402_payment_receipt" crates/runx-runtime/src/payment_ledger.rs`
+  - Command: `! rg -n "contains\\(\"x402-pay\"\\)|is_x402_payment_receipt" crates/runx-runtime/src/payment/ledger.rs`
   - Expected kind: `no_matches`
   - Status: pass
   - Evidence: output was empty
@@ -188,7 +188,7 @@ Validation:
   - Evidence: exit code was 0
   - Source event: entry-20
 - [x] `v4` focused runtime tests - Payment state/projection/execution and
-  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment_state --test payment_ledger_projection --test payment_execution --test stripe_spt_payment`
+  - Command: `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --test payment`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
@@ -214,9 +214,9 @@ Dependencies: none
 Objective: Complete this phase.
 
 Changes:
-- `crates/runx-runtime/src/payment_packets.rs` (all, exclusive) - New typed packet reader module.
+- `crates/runx-runtime/src/payment/packets.rs` (all, exclusive) - New typed packet reader module.
 - `crates/runx-runtime/src/lib.rs` (line-level) - Expose the module at the runtime crate boundary if tests need it.
-- `crates/runx-runtime/src/payment_ledger.rs` (line-level) - Replace local packet readers with typed payment packet readers.
+- `crates/runx-runtime/src/payment/ledger.rs` (line-level) - Replace local packet readers with typed payment packet readers.
 - `crates/runx-runtime/src/execution/harness/runner.rs` (line-level) - Gate payment-ledger projection on explicit fixture metadata.
 - `fixtures/harness/x402-pay-paid-echo.yaml` (line-level) - Declare the x402 payment-ledger profile and scenario id.
 
@@ -231,10 +231,10 @@ Dependencies: Phase 1
 Objective: Complete this phase.
 
 Changes:
-- `crates/runx-runtime/src/payment_state.rs` (line-level) - Add domain persistence input/function, add admission query helpers, bump local state schema version, and rename rail mutation state types, JSON field, duplicate error variant, and error-context strings.
+- `crates/runx-runtime/src/payment/state.rs` (line-level) - Add domain persistence input/function, add admission query helpers, bump local state schema version, and rename rail mutation state types, JSON field, duplicate error variant, and error-context strings.
 - `crates/runx-runtime/src/execution/runner/steps.rs` (line-level) - Replace direct packet parsing and state writes with a small payment-domain hook.
 - `crates/runx-runtime/src/execution/runner/authority.rs` (line-level) - Replace direct payment state store access with payment-domain query helpers.
-- `crates/runx-runtime/tests/payment_state.rs` (line-level) - Update state terminology and assertions.
+- `crates/runx-runtime/tests/payment/state.rs` (line-level) - Update state terminology and assertions.
 
 Acceptance:
 - none
@@ -247,8 +247,8 @@ Dependencies: Phase 2
 Objective: Complete this phase.
 
 Changes:
-- `crates/runx-runtime/tests/payment_execution.rs` (line-level) - Adjust only if names changed.
-- `crates/runx-runtime/tests/stripe_spt_payment.rs` (line-level) - Adjust only if names changed.
+- `crates/runx-runtime/tests/payment/execution.rs` (line-level) - Adjust only if names changed.
+- `crates/runx-runtime/tests/payment/stripe_spt.rs` (line-level) - Adjust only if names changed.
 - `crates/runx-cli/tests/x402_native_dogfood.rs` (line-level) - Adjust only if names changed.
 
 Acceptance:
@@ -259,8 +259,8 @@ Acceptance:
 Strategy: per_phase
 
 Commands:
-- `git checkout HEAD -- crates/runx-runtime/src/lib.rs crates/runx-runtime/src/payment_state.rs crates/runx-runtime/src/payment_ledger.rs crates/runx-runtime/src/execution/runner/steps.rs crates/runx-runtime/src/execution/runner/authority.rs crates/runx-runtime/src/execution/harness/runner.rs fixtures/harness/x402-pay-paid-echo.yaml crates/runx-runtime/tests/payment_state.rs crates/runx-runtime/tests/payment_ledger_projection.rs crates/runx-runtime/tests/payment_execution.rs crates/runx-runtime/tests/stripe_spt_payment.rs crates/runx-cli/tests/x402_native_dogfood.rs`
-- `rm -f crates/runx-runtime/src/payment_packets.rs`
+- `git checkout HEAD -- crates/runx-runtime/src/lib.rs crates/runx-runtime/src/payment/state.rs crates/runx-runtime/src/payment/ledger.rs crates/runx-runtime/src/execution/runner/steps.rs crates/runx-runtime/src/execution/runner/authority.rs crates/runx-runtime/src/execution/harness/runner.rs fixtures/harness/x402-pay-paid-echo.yaml crates/runx-runtime/tests/payment/state.rs crates/runx-runtime/tests/payment/ledger_projection.rs crates/runx-runtime/tests/payment/execution.rs crates/runx-runtime/tests/payment/stripe_spt.rs crates/runx-cli/tests/x402_native_dogfood.rs`
+- `rm -f crates/runx-runtime/src/payment/packets.rs`
 
 ## Review
 
@@ -269,17 +269,17 @@ Verdict: pass
 Mode: verify
 Provider: claude:claude-opus-4-7
 Output: claude.mcp_submit_review
-Summary: Verify-mode re-review of rust-payment-execution-boundary-v1. The previous review's only substantive finding (F1: residual `scenario_id_from_graph_name` substring fallback in `crates/runx-runtime/src/execution/harness/runner.rs`) is fully resolved: the substring matcher is gone, the projection gate uses `string_metadata(fixture, "payment_ledger_profile") == X402_PAY_PAYMENT_PROFILE`, and the scenario id is now read via `required_string_metadata(&fixture.metadata, "metadata.payment_ledger_scenario_id", "payment_ledger_scenario_id")`. The shipped fixture `fixtures/harness/x402-pay-paid-echo.yaml` declares both `payment_ledger_profile: x402-pay` and `payment_ledger_scenario_id: P1.5`, so the eligibility gate and scenario label are now purely typed metadata. The previous critical workspace_mutation blocker was a review-time meta-check on the prior provider and does not recur here — this pass performed read-only inspection only and the task workspace is unchanged. All six recorded acceptance commands (v1, v2, v3, v3b, v3c, v4, v5, v6) still align with current source: `steps.rs` only references payment via the typed hook `persist_payment_state_for_step` (no `payment_rail_packet`/`paid_echo_result`/`MockRail` substrings); `MockRail|mock_rail` is absent from `crates/runx-runtime/src` (all historical strings now appear only inside the spec markdown); `crates/runx-core`, `crates/runx-runtime/src`, and `crates/runx-cli/src` contain no `stripe|STRIPE|PaymentIntent|payment_intent`; `payment_ledger.rs` has no `contains("x402-pay")` or `is_x402_payment_receipt` predicates; admission reads in `authority.rs` route through `consumed_spend_capability_recorded` and `lookup_payment_idempotency_entry`; and `payment_state.rs` schema is bumped to `runx.payment_state.v2` with `UnsupportedSchemaVersion` returned for any mismatch. Receipt-before-success enforcement keys strictly on `AuthorityVerb::Spend` + typed `ProofKind::PaymentRail` via `is_payment_rail_proof_ref`. No new regressions, no Stripe SDK/API surface in Rust production code, no scope drift. Ambient workspace drift (canonical-json, maturity, sandbox.rs, registry edits) is unrelated to this task and is treated as context per the provider contract.
+Summary: Verify-mode re-review of rust-payment-execution-boundary-v1. The previous review's only substantive finding (F1: residual `scenario_id_from_graph_name` substring fallback in `crates/runx-runtime/src/execution/harness/runner.rs`) is fully resolved: the substring matcher is gone, the projection gate uses `string_metadata(fixture, "payment_ledger_profile") == X402_PAY_PAYMENT_PROFILE`, and the scenario id is now read via `required_string_metadata(&fixture.metadata, "metadata.payment_ledger_scenario_id", "payment_ledger_scenario_id")`. The shipped fixture `fixtures/harness/x402-pay-paid-echo.yaml` declares both `payment_ledger_profile: x402-pay` and `payment_ledger_scenario_id: P1.5`, so the eligibility gate and scenario label are now purely typed metadata. The previous critical workspace_mutation blocker was a review-time meta-check on the prior provider and does not recur here — this pass performed read-only inspection only and the task workspace is unchanged. All six recorded acceptance commands (v1, v2, v3, v3b, v3c, v4, v5, v6) still align with current source: `steps.rs` only references payment via the typed hook `persist_payment_state_for_step` (no `payment_rail_packet`/`paid_echo_result`/`MockRail` substrings); `MockRail|mock_rail` is absent from `crates/runx-runtime/src` (all historical strings now appear only inside the spec markdown); `crates/runx-core`, `crates/runx-runtime/src`, and `crates/runx-cli/src` contain no `stripe|STRIPE|PaymentIntent|payment_intent`; `payment/ledger.rs` has no `contains("x402-pay")` or `is_x402_payment_receipt` predicates; admission reads in `authority.rs` route through `consumed_spend_capability_recorded` and `lookup_payment_idempotency_entry`; and `payment/state.rs` schema is bumped to `runx.payment_state.v2` with `UnsupportedSchemaVersion` returned for any mismatch. Receipt-before-success enforcement keys strictly on `AuthorityVerb::Spend` + typed `ProofKind::PaymentRail` via `is_payment_rail_proof_ref`. No new regressions, no Stripe SDK/API surface in Rust production code, no scope drift. Ambient workspace drift (canonical-json, maturity, sandbox.rs, registry edits) is unrelated to this task and is treated as context per the provider contract.
 
 Attack log:
 - `crates/runx-runtime/src/execution/harness/runner.rs#persist_payment_ledger_projection_if_configured`: verify_open_blocker_F1: confirm scenario_id_from_graph_name substring fallback has been removed and scenario_id is sourced from fixture metadata only -> clean (harness/runner.rs:684-727 — eligibility gate is `string_metadata(fixture, "payment_ledger_profile") == Some(X402_PAY_PAYMENT_PROFILE)` and scenario id is `required_string_metadata(&fixture.metadata, "metadata.payment_ledger_scenario_id", "payment_ledger_scenario_id")`. `scenario_id_from_graph_name` no longer exists anywhere under crates/ (rg returns no matches). The fixture `fixtures/harness/x402-pay-paid-echo.yaml` declares `payment_ledger_profile: x402-pay` (line 8) and `payment_ledger_scenario_id: P1.5` (line 9). Missing scenario_id now surfaces as `HarnessReplayError::InvalidReplayMetadata` rather than silently defaulting.)
 - `verify_open_blocker_workspace_mutation`: confirm the previous review's workspace_mutation blocker does not recur — review is read-only this pass -> clean (This review performed only Read/Grep operations against in-scope files. Task-scope file hashes in the contract's task_changes section are unchanged from baseline. The prior workspace_mutation finding was a meta-check on the previous provider's behavior and is not a property of the work product.)
-- `acceptance v1–v6 (recorded evidence)`: spec_compliance: re-read each acceptance command against current source/fixture and confirm the recorded pass result still holds -> clean (v1: rg of payment_rail_packet|payment_reservation_packet|payment_refusal_packet|paid_echo_result|MockRail in steps.rs → 0 matches. v2: rg of MockRail|mock_rail in crates/runx-runtime/src → 0 matches. v3: rg of stripe|STRIPE|PaymentIntent|payment_intent across crates/runx-core, crates/runx-runtime/src, crates/runx-cli/src → 0 matches. v3b: rg of contains("x402-pay")|is_x402_payment_receipt in payment_ledger.rs → 0 matches. v3c: `payment_ledger_profile: x402-pay` present at fixtures/harness/x402-pay-paid-echo.yaml:8. v4/v5/v6: recorded as exit 0 in the session ledger and not contradicted by source inspection.)
+- `acceptance v1–v6 (recorded evidence)`: spec_compliance: re-read each acceptance command against current source/fixture and confirm the recorded pass result still holds -> clean (v1: rg of payment_rail_packet|payment_reservation_packet|payment_refusal_packet|paid_echo_result|MockRail in steps.rs → 0 matches. v2: rg of MockRail|mock_rail in crates/runx-runtime/src → 0 matches. v3: rg of stripe|STRIPE|PaymentIntent|payment_intent across crates/runx-core, crates/runx-runtime/src, crates/runx-cli/src → 0 matches. v3b: rg of contains("x402-pay")|is_x402_payment_receipt in payment/ledger.rs → 0 matches. v3c: `payment_ledger_profile: x402-pay` present at fixtures/harness/x402-pay-paid-echo.yaml:8. v4/v5/v6: recorded as exit 0 in the session ledger and not contradicted by source inspection.)
 - `crates/runx-runtime/src/execution/runner/steps.rs`: regression_hunt: confirm the generic runner only calls a typed payment-domain hook and does not re-introduce packet JSON parsing or direct store access -> clean (steps.rs:19 imports only `PaymentStepStateInput, persist_payment_step_state`. The hook `persist_payment_state_for_step` (lines 83-111) consumes typed `StepAuthorityContext.payment` (rail, counterparty, amount_minor, currency, idempotency_key, spend_capability_ref) and forwards to the domain function. No JSON path strings, no FileBackedPaymentStateStore usage, no payment_rail_packet keys.)
 - `crates/runx-runtime/src/execution/runner/authority.rs`: boundary_check: confirm admission no longer opens FileBackedPaymentStateStore directly and only consumes payment-domain query helpers -> clean (authority.rs:18-20 imports only `PaymentIdempotencyKey, consumed_spend_capability_recorded, lookup_payment_idempotency_entry`. `consumed_spend_capability_refs_for_admission` (line 91) and `block_unavailable_idempotency_replay` (line 108) both go through the domain helpers; no `FileBackedPaymentStateStore::open` calls remain in this file. Error context strings are generic ("reading payment state for admission", "reading payment state for replay lookup").)
-- `crates/runx-runtime/src/payment_state.rs`: schema_migration_check: verify v2 bump and that v1 files fail clearly via UnsupportedSchemaVersion plus duplicate-error rename hygiene -> clean (PAYMENT_STATE_SCHEMA_VERSION = "runx.payment_state.v2" (line 16). `FileBackedPaymentStateStore::open` (line 187) returns `PaymentStateError::UnsupportedSchemaVersion { schema_version }` on mismatch. Persisted field is `rail_mutations` (line 117); error variant is `RailMutationAlreadyRecorded` (line 170); status enum is `RailMutationStatus { Partial, Fulfilled, Escalated }` (line 89). harden-1/2/3 advisories all landed.)
-- `crates/runx-runtime/src/payment_ledger.rs`: convention_check: typed readers replace local JSON path parsing and x402 substring predicates are gone -> clean (Imports from `crate::payment_packets::{read_paid_tool_packet, read_payment_rail_packet, read_payment_refusal_packet, read_payment_reservation_packet}` (line 18). Eligibility gate inside `persist_x402_payment_ledger_projection_event` (line 362) is `graph_receipt.seal.disposition == ClosureDisposition::Closed && any(steps).has_payment_reservation_packet`. No receipt-id substring matching, no harness URI inference.)
-- `crates/runx-runtime/src/payment_packets.rs`: dark_patterns: typed readers must fail loud on missing/invalid fields and handle nested refusal placement without silently defaulting -> clean (PaymentPacketError differentiates `MissingField{field}` vs `InvalidField{field}` with `&'static str` field paths. `required_u64` distinguishes "present but invalid" (returns InvalidField) from "absent" (returns MissingField). `read_payment_refusal_packet` falls back to nested `payment_reservation_packet.data.payment_refusal_packet` for the cap-exceeded fixture shape. Empty strings are treated as missing via `string_field` (line 237).)
+- `crates/runx-runtime/src/payment/state.rs`: schema_migration_check: verify v2 bump and that v1 files fail clearly via UnsupportedSchemaVersion plus duplicate-error rename hygiene -> clean (PAYMENT_STATE_SCHEMA_VERSION = "runx.payment_state.v2" (line 16). `FileBackedPaymentStateStore::open` (line 187) returns `PaymentStateError::UnsupportedSchemaVersion { schema_version }` on mismatch. Persisted field is `rail_mutations` (line 117); error variant is `RailMutationAlreadyRecorded` (line 170); status enum is `RailMutationStatus { Partial, Fulfilled, Escalated }` (line 89). harden-1/2/3 advisories all landed.)
+- `crates/runx-runtime/src/payment/ledger.rs`: convention_check: typed readers replace local JSON path parsing and x402 substring predicates are gone -> clean (Imports from `crate::payment::packets::{read_paid_tool_packet, read_payment_rail_packet, read_payment_refusal_packet, read_payment_reservation_packet}` (line 18). Eligibility gate inside `persist_x402_payment_ledger_projection_event` (line 362) is `graph_receipt.seal.disposition == ClosureDisposition::Closed && any(steps).has_payment_reservation_packet`. No receipt-id substring matching, no harness URI inference.)
+- `crates/runx-runtime/src/payment/packets.rs`: dark_patterns: typed readers must fail loud on missing/invalid fields and handle nested refusal placement without silently defaulting -> clean (PaymentPacketError differentiates `MissingField{field}` vs `InvalidField{field}` with `&'static str` field paths. `required_u64` distinguishes "present but invalid" (returns InvalidField) from "absent" (returns MissingField). `read_payment_refusal_packet` falls back to nested `payment_reservation_packet.data.payment_refusal_packet` for the cap-exceeded fixture shape. Empty strings are treated as missing via `string_field` (line 237).)
 - `fixtures/harness/x402-pay-paid-echo.yaml + sibling x402 fixtures`: ambient_check: confirm no other fixture silently relies on the removed eligibility inference -> clean (Only x402-pay-paid-echo.yaml declares `payment_ledger_profile: x402-pay`. Other x402-pay-* fixtures terminate with non-closed dispositions and would be skipped by the `ClosureDisposition::Closed + has_payment_reservation_packet` gate inside `persist_x402_payment_ledger_projection_event`. The Stripe SPT fixture has no projection metadata and its test does not assert a projection event.)
 - `task vs ambient classification`: scope_drift: separate this task's changes from canonical-json / contracts maturity / sandbox / registry edits -> clean (Ambient drift listed in the dossier (canonical-json fixtures, packages/contracts, registry, sandbox.rs, runx-core/policy maturity, runx-contracts maturity) is unrelated to the payment-execution boundary slice and is not attributed to this task.)
 
@@ -350,21 +350,21 @@ Verdict: pass
 Provider: claude
 Model: claude-opus-4-7
 Output format: claude.mcp_submit_harden
-Summary: Boundary cleanup is well-scoped and executable. All declared paths exist (the only "missing" file, `payment_packets.rs`, is intentional Phase 1 output). Acceptance greps and `cargo test --test` filters resolve against real targets; the named CLI test exists at `crates/runx-cli/tests/x402_native_dogfood.rs:144`. Stripe production-source grep is already clean today. Architectural direction is sound: extracting typed packet readers and moving payment-state writes out of the generic runner is the right slice. Surfaced advisory issues: the write-boundary cleanup is asymmetric because `execution/runner/authority.rs` still opens `FileBackedPaymentStateStore` directly for admission lookups; the `MockRailMutationAlreadyRecorded` error variant and `mock_rail_mutations` JSON key require explicit handling during the rename; v3's grep pattern has minor redundancy. None block approval.
+Summary: Boundary cleanup is well-scoped and executable. All declared paths exist (the only "missing" file, `payment/packets.rs`, is intentional Phase 1 output). Acceptance greps and `cargo test --test` filters resolve against real targets; the named CLI test exists at `crates/runx-cli/tests/x402_native_dogfood.rs:144`. Stripe production-source grep is already clean today. Architectural direction is sound: extracting typed packet readers and moving payment-state writes out of the generic runner is the right slice. Surfaced advisory issues: the write-boundary cleanup is asymmetric because `execution/runner/authority.rs` still opens `FileBackedPaymentStateStore` directly for admission lookups; the `MockRailMutationAlreadyRecorded` error variant and `mock_rail_mutations` JSON key require explicit handling during the rename; v3's grep pattern has minor redundancy. None block approval.
 
 Checks:
 - path audit
-  - Grounded in: code:crates/runx-runtime/src/payment_state.rs:1, code:crates/runx-runtime/src/payment_ledger.rs:1, code:crates/runx-runtime/src/execution/runner/steps.rs:1, code:crates/runx-runtime/tests/payment_state.rs:1, code:crates/runx-cli/tests/x402_native_dogfood.rs:144
+  - Grounded in: code:crates/runx-runtime/src/payment/state.rs:1, code:crates/runx-runtime/src/payment/ledger.rs:1, code:crates/runx-runtime/src/execution/runner/steps.rs:1, code:crates/runx-runtime/tests/payment/state.rs:1, code:crates/runx-cli/tests/x402_native_dogfood.rs:144
   - Result: passed
-  - Evidence: All touchpoint files exist except `crates/runx-runtime/src/payment_packets.rs`, which is intentionally produced in Phase 1 (declared as `all, exclusive` new module). The named CLI test function `native_x402_stripe_spt_happy_path_runs_without_typescript` is defined at line 144 of `x402_native_dogfood.rs`. `crates/Cargo.toml` exists and is the workspace manifest referenced by the acceptance commands.
+  - Evidence: All touchpoint files exist except `crates/runx-runtime/src/payment/packets.rs`, which is intentionally produced in Phase 1 (declared as `all, exclusive` new module). The named CLI test function `native_x402_stripe_spt_happy_path_runs_without_typescript` is defined at line 144 of `x402_native_dogfood.rs`. `crates/Cargo.toml` exists and is the workspace manifest referenced by the acceptance commands.
 - command audit
   - Grounded in: code:crates/Cargo.toml:1, code:crates/runx-runtime/Cargo.toml:18, code:crates/runx-cli/tests/x402_native_dogfood.rs:144
   - Result: passed
-  - Evidence: Acceptance v4 uses `--test payment_state --test payment_ledger_projection --test payment_execution --test stripe_spt_payment` and all four files exist under `crates/runx-runtime/tests/`. The runtime Cargo.toml has no explicit `[[test]]` entries, so Cargo's default file-based test discovery applies. Acceptance v5 names a real test function. Greps in v1/v2 target real source paths. v3 grep paths (`crates/runx-core`, `crates/runx-runtime/src`, `crates/runx-cli/src`) all return zero matches today, confirming the assertion is achievable.
+  - Evidence: Acceptance v4 uses the consolidated `--test payment` target and the payment modules exist under `crates/runx-runtime/tests/payment/`. Acceptance v5 names a real test function. Greps in v1/v2 target real source paths. v3 grep paths (`crates/runx-core`, `crates/runx-runtime/src`, `crates/runx-cli/src`) all return zero matches today, confirming the assertion is achievable.
 - scope/migration audit
-  - Grounded in: code:crates/runx-runtime/src/execution/runner/authority.rs:18, code:crates/runx-runtime/src/payment_state.rs:70, code:crates/runx-runtime/src/error.rs:8
+  - Grounded in: code:crates/runx-runtime/src/execution/runner/authority.rs:18, code:crates/runx-runtime/src/payment/state.rs:70, code:crates/runx-runtime/src/error.rs:8
   - Result: passed
-  - Evidence: Production `MockRail` references are confined to `payment_state.rs`, `execution/runner/steps.rs`, and `tests/payment_state.rs`. `error.rs` only imports `PaymentStateError` (no `MockRail` strings), so the rename does not silently expand scope. CLI sources contain zero `MockRail`/`mock_rail` matches. However, scope omits `execution/runner/authority.rs`, which also directly opens `FileBackedPaymentStateStore` for admission lookups — this is intentional per the spec's `runner may still call one small domain hook` framing but creates an asymmetric cleanup (writes leave, reads stay). Flagged as advisory issue.
+  - Evidence: Production `MockRail` references are confined to `payment/state.rs`, `execution/runner/steps.rs`, and `tests/payment/state.rs`. `error.rs` only imports `PaymentStateError` (no `MockRail` strings), so the rename does not silently expand scope. CLI sources contain zero `MockRail`/`mock_rail` matches. However, scope omits `execution/runner/authority.rs`, which also directly opens `FileBackedPaymentStateStore` for admission lookups — this is intentional per the spec's `runner may still call one small domain hook` framing but creates an asymmetric cleanup (writes leave, reads stay). Flagged as advisory issue.
 - acceptance timing audit
   - Grounded in: spec_gap:phases
   - Result: passed
@@ -372,11 +372,11 @@ Checks:
 - rollback/repair audit
   - Grounded in: spec_gap:rollback
   - Result: passed
-  - Evidence: Per-phase rollback is `git checkout HEAD -- <listed files>` plus `rm -f crates/runx-runtime/src/payment_packets.rs`. The file list covers every touchpoint that gets modified, and the new module is the only fresh artifact. Local payment-state.json files written under the renamed schema would fail to load against an older binary after rollback (deny_unknown_fields), but the spec explicitly accepts this as a clean cutover for local-only state.
+  - Evidence: Per-phase rollback is `git checkout HEAD -- <listed files>` plus `rm -f crates/runx-runtime/src/payment/packets.rs`. The file list covers every touchpoint that gets modified, and the new module is the only fresh artifact. Local payment-state.json files written under the renamed schema would fail to load against an older binary after rollback (deny_unknown_fields), but the spec explicitly accepts this as a clean cutover for local-only state.
 - design challenge
   - Grounded in: code:crates/runx-runtime/src/execution/runner/steps.rs:88, code:crates/runx-runtime/src/execution/runner/authority.rs:97
   - Result: passed
-  - Evidence: This is the right architectural move, not a bandaid: typed packet readers eliminate stringly-typed JSON path duplication between `steps.rs` and `payment_ledger.rs`, removing `MockRail` from production names removes a long-standing leak, and keeping receipt-before-success keyed on `AuthorityVerb::Spend` + `ProofKind::PaymentRail` preserves the invariant. The spec correctly defers a generic event bus as out-of-scope; payment is currently the only domain leaking into the runner, so a small typed hook is pragmatic. The remaining authority.rs read coupling is acknowledged but worth surfacing as a follow-up.
+  - Evidence: This is the right architectural move, not a bandaid: typed packet readers eliminate stringly-typed JSON path duplication between `steps.rs` and `payment/ledger.rs`, removing `MockRail` from production names removes a long-standing leak, and keeping receipt-before-success keyed on `AuthorityVerb::Spend` + `ProofKind::PaymentRail` preserves the invariant. The spec correctly defers a generic event bus as out-of-scope; payment is currently the only domain leaking into the runner, so a small typed hook is pragmatic. The remaining authority.rs read coupling is acknowledged but worth surfacing as a follow-up.
 
 Issues:
 - [medium/advisory] `harden-1` scope_gap - Authority admission still opens `FileBackedPaymentStateStore` directly; only the write path moves to the payment domain.
@@ -389,12 +389,12 @@ Issues:
   - If unanswered: Treat the admission read as intentionally out of scope and add one line to Risks noting the asymmetric cleanup.
 - [low/advisory] `harden-2` scope_completeness - Rename surface is broader than the listed types: it must also cover the `MockRailMutationAlreadyRecorded` error variant, the `mock_rail_mutations` JSON field, and the `recording mock payment rail mutation` error-context string.
   - Status: open
-  - Grounded in: code:crates/runx-runtime/src/payment_state.rs:154, code:crates/runx-runtime/src/payment_state.rs:101, code:crates/runx-runtime/src/execution/runner/steps.rs:197
-  - Evidence: `PaymentStateError::MockRailMutationAlreadyRecorded` (line 154) and the `PaymentStateDocument.mock_rail_mutations` field (line 101) both contain `MockRail|mock_rail` substrings and will fail v2 grep if not renamed. `steps.rs:197` passes the literal string `"recording mock payment rail mutation"` to `RuntimeError::payment_state` — also caught by v2. Phase 2's change line for `payment_state.rs` says only `rename rail mutation state types`, which under-specifies these adjacent surfaces.
-  - Recommendation: Expand the Phase 2 description for `payment_state.rs` to enumerate: (a) struct/enum rename (`MockRailMutation` → `RailMutation`, `MockRailMutationStatus` → `RailMutationStatus`), (b) error variant rename (`MockRailMutationAlreadyRecorded` → `RailMutationAlreadyRecorded`), (c) JSON document field rename (`mock_rail_mutations` → `rail_mutations`), and (d) update the error-context string in `steps.rs`. v2 grep will already enforce these, but listing them avoids a mid-build surprise.
+  - Grounded in: code:crates/runx-runtime/src/payment/state.rs:154, code:crates/runx-runtime/src/payment/state.rs:101, code:crates/runx-runtime/src/execution/runner/steps.rs:197
+  - Evidence: `PaymentStateError::MockRailMutationAlreadyRecorded` (line 154) and the `PaymentStateDocument.mock_rail_mutations` field (line 101) both contain `MockRail|mock_rail` substrings and will fail v2 grep if not renamed. `steps.rs:197` passes the literal string `"recording mock payment rail mutation"` to `RuntimeError::payment_state` — also caught by v2. Phase 2's change line for `payment/state.rs` says only `rename rail mutation state types`, which under-specifies these adjacent surfaces.
+  - Recommendation: Expand the Phase 2 description for `payment/state.rs` to enumerate: (a) struct/enum rename (`MockRailMutation` → `RailMutation`, `MockRailMutationStatus` → `RailMutationStatus`), (b) error variant rename (`MockRailMutationAlreadyRecorded` → `RailMutationAlreadyRecorded`), (c) JSON document field rename (`mock_rail_mutations` → `rail_mutations`), and (d) update the error-context string in `steps.rs`. v2 grep will already enforce these, but listing them avoids a mid-build surprise.
 - [medium/advisory] `harden-3` migration_risk - Renaming the `mock_rail_mutations` document field without bumping `PAYMENT_STATE_SCHEMA_VERSION` leaves stale on-disk files unreadable with the existing v1 version tag.
   - Status: open
-  - Grounded in: code:crates/runx-runtime/src/payment_state.rs:10, code:crates/runx-runtime/src/payment_state.rs:96
+  - Grounded in: code:crates/runx-runtime/src/payment/state.rs:10, code:crates/runx-runtime/src/payment/state.rs:96
   - Evidence: `PAYMENT_STATE_SCHEMA_VERSION = "runx.payment_state.v1"` is paired with `#[serde(deny_unknown_fields)]` on `PaymentStateDocument`. After the rename, any pre-existing `payment-state.json` with the old key will deserialize as a parse error tagged as schema v1, which conflates a field rename with a corruption signal. The spec acknowledges this as a clean-cutover risk but does not direct whether to bump to `runx.payment_state.v2` or keep v1.
   - Recommendation: Decide and record one of: (1) bump to `runx.payment_state.v2` so the failure mode is `UnsupportedSchemaVersion` (a clear, recoverable signal), or (2) explicitly keep v1 and accept that stale files must be deleted (document the recovery step in the Rollback or Risks section). Bumping the version is the lower-friction option since this is local-only state.
   - Question: Should the schema version bump to `runx.payment_state.v2` so existing on-disk files surface as `UnsupportedSchemaVersion` rather than a parse error?

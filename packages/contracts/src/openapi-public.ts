@@ -702,7 +702,7 @@ export function buildHostedOpenApiPublicSchemas(): Readonly<Record<string, unkno
         tombstoned_at: { type: "string", format: "date-time" },
         error: { type: "string" },
         claim_session_id: { type: "string" },
-        connection_id: { type: "string" },
+        provider_reference: { type: "string" },
         github_user: { type: "string" },
         github_permission: { type: "string" },
         github_app_claim_session_id: { type: "string" },

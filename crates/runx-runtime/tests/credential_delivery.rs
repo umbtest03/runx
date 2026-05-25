@@ -301,7 +301,7 @@ fn credential() -> CredentialEnvelope {
         provider: "github".into(),
         auth_mode: "oauth_bearer".into(),
         material_kind: "access_token".into(),
-        connection_id: "conn_github_main".into(),
+        provider_reference: "conn_github_main".into(),
         scopes: vec!["repo".into()],
         grant_reference: None,
         material_ref: "secret://github/main".into(),

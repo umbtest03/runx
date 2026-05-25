@@ -125,5 +125,5 @@ pub struct ActReceiptNeedsAgentEnvelope {
 #[runx_schema(spec_id = "https://runx.ai/spec/act-receipt.schema.json")]
 pub enum ActReceiptEnvelope {
     Terminal(ActReceiptTerminalEnvelope),
-    NeedsAgent(ActReceiptNeedsAgentEnvelope),
+    NeedsAgent(Box<ActReceiptNeedsAgentEnvelope>),
 }

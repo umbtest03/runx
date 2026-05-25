@@ -11,6 +11,13 @@ const rustKernelBin = path.join(
   "debug",
   process.platform === "win32" ? "runx.exe" : "runx",
 );
+const rustHarnessFixtureOracleBin = path.join(
+  workspaceRoot,
+  "crates",
+  "target",
+  "debug",
+  process.platform === "win32" ? "runx-harness-fixture-oracles.exe" : "runx-harness-fixture-oracles",
+);
 
 const commands = [
   ["pnpm", ["boundary:check"]],
@@ -36,14 +43,19 @@ const commands = [
   ["pnpm", ["test:fast"]],
 ];
 
-const cargoBuild = spawnSync(cargo, ["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"], {
-  cwd: workspaceRoot,
-  env: process.env,
-  stdio: "inherit",
-});
-if (cargoBuild.status !== 0) {
-  process.exit(cargoBuild.status ?? 1);
-}
+buildRustBin(["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"]);
+buildRustBin([
+  "build",
+  "--quiet",
+  "--manifest-path",
+  "crates/Cargo.toml",
+  "-p",
+  "runx-runtime",
+  "--features",
+  "cli-tool",
+  "--bin",
+  "runx-harness-fixture-oracles",
+]);
 
 // The binary is built once above; point the kernel / parser / CLI eval paths at
 // that single prebuilt binary so subprocess-backed suites never cold-start a
@@ -52,12 +64,24 @@ const evalBinEnv = {
   RUNX_KERNEL_EVAL_BIN: rustKernelBin,
   RUNX_PARSER_EVAL_BIN: rustKernelBin,
   RUNX_RUST_CLI_BIN: rustKernelBin,
+  RUNX_HARNESS_FIXTURE_ORACLE_BIN: rustHarnessFixtureOracleBin,
 };
 
 for (const [command, args] of commands) {
   const result = spawnSync(command, args, {
     cwd: workspaceRoot,
     env: { ...process.env, ...evalBinEnv },
+    stdio: "inherit",
+  });
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
+
+function buildRustBin(args) {
+  const result = spawnSync(cargo, args, {
+    cwd: workspaceRoot,
+    env: process.env,
     stdio: "inherit",
   });
   if (result.status !== 0) {

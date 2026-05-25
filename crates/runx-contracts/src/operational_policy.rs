@@ -7,8 +7,9 @@
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 
-use crate::schema::{IsoDateTime, NonEmptyString, RunxSchema};
+use crate::schema::{Identity, IsoDateTime, NonEmptyString, Property, RunxSchema, object_schema};
 
 mod evaluate;
 
@@ -161,9 +162,8 @@ pub enum OperationalPolicyDuplicateBehavior {
     Block,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-#[runx_schema(id = "runx.operational_policy.v1")]
 pub struct OperationalPolicy {
     pub schema: OperationalPolicySchema,
     pub schema_version: OperationalPolicySchema,
@@ -179,7 +179,7 @@ pub struct OperationalPolicy {
     pub permissions: OperationalPolicyAutomationPermissions,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicySourceRule {
     pub source_id: NonEmptyString,
@@ -210,7 +210,7 @@ pub struct OperationalPolicySentryPolicy {
     pub regressed_only: Option<bool>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicyRunnerRule {
     pub runner_id: NonEmptyString,
@@ -221,7 +221,7 @@ pub struct OperationalPolicyRunnerRule {
     pub scafld_required: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicyOwnerRoute {
     pub route_id: NonEmptyString,
@@ -233,7 +233,7 @@ pub struct OperationalPolicyOwnerRoute {
     pub project: Option<NonEmptyString>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicyTargetRule {
     pub repo: String,
@@ -245,7 +245,7 @@ pub struct OperationalPolicyTargetRule {
     pub base_branch: Option<NonEmptyString>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicyDedupePolicy {
     pub strategy: OperationalPolicyDedupeStrategy,
@@ -262,12 +262,233 @@ pub struct OperationalPolicyOutcomePolicy {
     pub publish_final_source_thread_update: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicyAutomationPermissions {
     pub auto_merge: bool,
     pub mutate_target_repo: bool,
     pub require_human_merge_gate: bool,
+}
+
+impl RunxSchema for OperationalPolicy {
+    fn json_schema() -> Value {
+        object_schema(
+            vec![
+                Property::new("schema", OperationalPolicySchema::json_schema(), true),
+                Property::new(
+                    "schema_version",
+                    OperationalPolicySchema::json_schema(),
+                    true,
+                ),
+                Property::new("policy_id", id_schema(), true),
+                Property::new("created_at", IsoDateTime::json_schema(), false),
+                Property::new(
+                    "sources",
+                    non_empty_array(OperationalPolicySourceRule::json_schema()),
+                    true,
+                ),
+                Property::new(
+                    "runners",
+                    non_empty_array(OperationalPolicyRunnerRule::json_schema()),
+                    true,
+                ),
+                Property::new(
+                    "owner_routes",
+                    non_empty_array(OperationalPolicyOwnerRoute::json_schema()),
+                    true,
+                ),
+                Property::new(
+                    "targets",
+                    non_empty_array(OperationalPolicyTargetRule::json_schema()),
+                    true,
+                ),
+                Property::new("dedupe", OperationalPolicyDedupePolicy::json_schema(), true),
+                Property::new(
+                    "outcomes",
+                    OperationalPolicyOutcomePolicy::json_schema(),
+                    true,
+                ),
+                Property::new(
+                    "permissions",
+                    OperationalPolicyAutomationPermissions::json_schema(),
+                    true,
+                ),
+            ],
+            true,
+            Some(Identity::Runx {
+                logical: "runx.operational_policy.v1",
+                url: None,
+            }),
+        )
+    }
+}
+
+impl RunxSchema for OperationalPolicySourceRule {
+    fn json_schema() -> Value {
+        object_schema(
+            vec![
+                Property::new("source_id", id_schema(), true),
+                Property::new(
+                    "provider",
+                    OperationalPolicySourceProvider::json_schema(),
+                    true,
+                ),
+                Property::new(
+                    "allowed_locators",
+                    non_empty_array(NonEmptyString::json_schema()),
+                    true,
+                ),
+                Property::new(
+                    "allowed_actions",
+                    non_empty_array(OperationalPolicyAction::json_schema()),
+                    true,
+                ),
+                Property::new(
+                    "source_thread",
+                    OperationalPolicySourceThreadPolicy::json_schema(),
+                    true,
+                ),
+                Property::new("minimum_confidence", confidence_schema(), false),
+                Property::new(
+                    "sentry",
+                    OperationalPolicySentryPolicy::json_schema(),
+                    false,
+                ),
+            ],
+            true,
+            None,
+        )
+    }
+}
+
+impl RunxSchema for OperationalPolicyRunnerRule {
+    fn json_schema() -> Value {
+        object_schema(
+            vec![
+                Property::new("runner_id", id_schema(), true),
+                Property::new("kind", OperationalPolicyRunnerKind::json_schema(), true),
+                Property::new("state", OperationalPolicyRunnerState::json_schema(), true),
+                Property::new(
+                    "allowed_actions",
+                    non_empty_array(OperationalPolicyAction::json_schema()),
+                    true,
+                ),
+                Property::new("target_repos", non_empty_array(repo_slug_schema()), true),
+                Property::new("scafld_required", bool::json_schema(), true),
+            ],
+            true,
+            None,
+        )
+    }
+}
+
+impl RunxSchema for OperationalPolicyOwnerRoute {
+    fn json_schema() -> Value {
+        object_schema(
+            vec![
+                Property::new("route_id", id_schema(), true),
+                Property::new(
+                    "owners",
+                    non_empty_array(NonEmptyString::json_schema()),
+                    true,
+                ),
+                Property::new("target_repos", non_empty_array(repo_slug_schema()), true),
+                Property::new("labels", Vec::<NonEmptyString>::json_schema(), false),
+                Property::new("project", NonEmptyString::json_schema(), false),
+            ],
+            true,
+            None,
+        )
+    }
+}
+
+impl RunxSchema for OperationalPolicyTargetRule {
+    fn json_schema() -> Value {
+        object_schema(
+            vec![
+                Property::new("repo", repo_slug_schema(), true),
+                Property::new("runner_ids", non_empty_array(id_schema()), true),
+                Property::new(
+                    "allowed_actions",
+                    non_empty_array(OperationalPolicyAction::json_schema()),
+                    true,
+                ),
+                Property::new("default_owner_route", id_schema(), true),
+                Property::new("scafld_required", bool::json_schema(), true),
+                Property::new("base_branch", NonEmptyString::json_schema(), false),
+            ],
+            true,
+            None,
+        )
+    }
+}
+
+impl RunxSchema for OperationalPolicyDedupePolicy {
+    fn json_schema() -> Value {
+        object_schema(
+            vec![
+                Property::new(
+                    "strategy",
+                    OperationalPolicyDedupeStrategy::json_schema(),
+                    true,
+                ),
+                Property::new(
+                    "key_fields",
+                    non_empty_array(NonEmptyString::json_schema()),
+                    true,
+                ),
+                Property::new(
+                    "on_duplicate",
+                    OperationalPolicyDuplicateBehavior::json_schema(),
+                    true,
+                ),
+            ],
+            true,
+            None,
+        )
+    }
+}
+
+impl RunxSchema for OperationalPolicyAutomationPermissions {
+    fn json_schema() -> Value {
+        object_schema(
+            vec![
+                Property::new("auto_merge", const_bool(false), true),
+                Property::new("mutate_target_repo", bool::json_schema(), true),
+                Property::new("require_human_merge_gate", const_bool(true), true),
+            ],
+            true,
+            None,
+        )
+    }
+}
+
+fn repo_slug_schema() -> Value {
+    json!({
+        "minLength": 3,
+        "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+        "type": "string"
+    })
+}
+
+fn id_schema() -> Value {
+    json!({
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_.:-]+$",
+        "type": "string"
+    })
+}
+
+fn confidence_schema() -> Value {
+    json!({ "minimum": 0, "maximum": 1, "type": "number" })
+}
+
+fn non_empty_array(item_schema: Value) -> Value {
+    json!({ "items": item_schema, "minItems": 1, "type": "array" })
+}
+
+fn const_bool(value: bool) -> Value {
+    json!({ "const": value, "type": "boolean" })
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

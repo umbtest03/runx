@@ -61,7 +61,7 @@ describe("graph registry refs through the Rust registry boundary", () => {
       run_command: "runx run testorg/echo",
     };
     const envelope = {
-      status: "sealed",
+      status: "success",
       registry: {
         action: "resolve",
         source: "local",

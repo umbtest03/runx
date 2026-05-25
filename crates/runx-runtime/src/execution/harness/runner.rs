@@ -28,17 +28,18 @@ use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutpu
 use crate::agent_invocation::{AgentActInvocationSourceType, agent_act_invocation_id};
 use crate::execution::runner::{GraphRun, Runtime, RuntimeOptions, StepRun};
 use crate::host::Host;
-use crate::payment_ledger::{
+use crate::payment::ledger::{
     X402_PAY_PAYMENT_PROFILE, persist_x402_payment_ledger_projection_event,
 };
 #[cfg(feature = "cli-tool")]
-use crate::payment_state::{
+use crate::payment::state::{
     FileBackedPaymentStateStore, PaymentIdempotencyKey, PaymentRecoveryState,
     RUNX_PAYMENT_STATE_PATH_ENV, RailMutationStatus,
 };
 use crate::receipts::paths::{RUNX_RECEIPT_DIR_ENV, ReceiptPathInputs, resolve_receipt_path};
 use crate::receipts::{
-    StepReceiptWithDisposition, graph_receipt_with_disposition, step_receipt_with_disposition,
+    GraphClosure, StepReceiptWithDisposition, graph_receipt_with_disposition_and_policy,
+    step_receipt_with_disposition_and_policy,
 };
 
 #[derive(Clone, Debug)]
@@ -163,16 +164,19 @@ fn run_agent_step_fixture(
                 ClosureDisposition::Failed
             }
         });
-    let receipt = step_receipt_with_disposition(StepReceiptWithDisposition {
-        graph_name: &fixture.name,
-        step_id: &fixture.name,
-        attempt: 1,
-        output: &output,
-        created_at: &options.created_at,
-        disposition: disposition.clone(),
-        reason_code: process_reason_code(&disposition),
-        summary: format!("agent-step {} completed", fixture.name),
-    })?;
+    let receipt = step_receipt_with_disposition_and_policy(
+        StepReceiptWithDisposition {
+            graph_name: &fixture.name,
+            step_id: &fixture.name,
+            attempt: 1,
+            output: &output,
+            created_at: &options.created_at,
+            disposition: disposition.clone(),
+            reason_code: process_reason_code(&disposition),
+            summary: format!("agent-step {} completed", fixture.name),
+        },
+        options.signature_policy(),
+    )?;
     Ok(HarnessReplayOutput {
         fixture: fixture.clone(),
         status: status_from_disposition(&receipt.seal.disposition),
@@ -330,20 +334,23 @@ fn run_graph_replay_fixture(
         } else {
             ClosureDisposition::Deferred
         };
-        let receipt = step_receipt_with_disposition(StepReceiptWithDisposition {
-            graph_name: &fixture.name,
-            step_id: &replay_step.step_id,
-            attempt: 1,
-            output: &output,
-            created_at: &options.created_at,
-            disposition: disposition.clone(),
-            reason_code: process_reason_code(&disposition),
-            summary: if output.succeeded() {
-                format!("agent-step {} replayed", replay_step.task)
-            } else {
-                output.stderr.clone()
+        let receipt = step_receipt_with_disposition_and_policy(
+            StepReceiptWithDisposition {
+                graph_name: &fixture.name,
+                step_id: &replay_step.step_id,
+                attempt: 1,
+                output: &output,
+                created_at: &options.created_at,
+                disposition: disposition.clone(),
+                reason_code: process_reason_code(&disposition),
+                summary: if output.succeeded() {
+                    format!("agent-step {} replayed", replay_step.task)
+                } else {
+                    output.stderr.clone()
+                },
             },
-        })?;
+            options.signature_policy(),
+        )?;
         let outputs = skill_output_object(&output);
         let succeeded = output.succeeded();
         let admission_witness =
@@ -381,14 +388,17 @@ fn run_graph_replay_fixture(
                 ClosureDisposition::Deferred
             }
         });
-    let receipt = graph_receipt_with_disposition(
+    let receipt = graph_receipt_with_disposition_and_policy(
         &fixture.name,
         &mut runs,
         Vec::new(),
         &options.created_at,
-        disposition.clone(),
-        named_reason_code(&fixture.name, &disposition),
-        format!("graph {} replayed through fixture harness", fixture.name),
+        GraphClosure {
+            disposition: disposition.clone(),
+            reason_code: named_reason_code(&fixture.name, &disposition),
+            summary: format!("graph {} replayed through fixture harness", fixture.name),
+        },
+        options.signature_policy(),
     )?;
     let step_receipts = runs
         .iter()
@@ -487,6 +497,8 @@ fn x402_idempotency_run_env(
     Ok(RuntimeOptions {
         created_at: options.created_at.clone(),
         env,
+        receipt_signature: options.receipt_signature.clone(),
+        payment_supervisor: options.payment_supervisor.clone(),
     })
 }
 
@@ -554,14 +566,17 @@ fn sequence_output_from_steps(
     reason_code: &str,
     summary: &str,
 ) -> Result<HarnessReplayOutput, HarnessReplayError> {
-    let receipt = graph_receipt_with_disposition(
+    let receipt = graph_receipt_with_disposition_and_policy(
         &fixture.name,
         steps,
         Vec::new(),
         created_at,
-        disposition,
-        reason_code.to_owned(),
-        summary.to_owned(),
+        GraphClosure {
+            disposition,
+            reason_code: reason_code.to_owned(),
+            summary: summary.to_owned(),
+        },
+        crate::receipts::RuntimeReceiptSignaturePolicy::local_development(),
     )?;
     let step_receipts = steps
         .iter()
@@ -868,16 +883,19 @@ where
     let (skill_name, invocation) = skill_fixture_invocation(fixture, skill_dir, &options)?;
     let (skill_output, disposition, reason_code, summary) =
         run_skill_invocation(fixture, invocation, adapter)?;
-    let receipt = step_receipt_with_disposition(StepReceiptWithDisposition {
-        graph_name: &fixture.name,
-        step_id: &skill_name,
-        attempt: 1,
-        output: &skill_output,
-        created_at: &options.created_at,
-        disposition: disposition.clone(),
-        reason_code,
-        summary,
-    })?;
+    let receipt = step_receipt_with_disposition_and_policy(
+        StepReceiptWithDisposition {
+            graph_name: &fixture.name,
+            step_id: &skill_name,
+            attempt: 1,
+            output: &skill_output,
+            created_at: &options.created_at,
+            disposition: disposition.clone(),
+            reason_code,
+            summary,
+        },
+        options.signature_policy(),
+    )?;
     Ok(HarnessReplayOutput {
         fixture: fixture.clone(),
         status: status_from_disposition(&receipt.seal.disposition),

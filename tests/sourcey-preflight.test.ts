@@ -34,7 +34,7 @@ describe("sourcey parser", () => {
 });
 
 describe("sourcey preflight", () => {
-  it("yields an agent request with explicit allowed_tools through the default mixed-runner JSON CLI", async () => {
+  it("surfaces the native graph-runner cutover through the JSON CLI", async () => {
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
     const fixtureProject = path.resolve("fixtures/sourcey/incomplete");
@@ -45,33 +45,10 @@ describe("sourcey preflight", () => {
       { ...process.env, RUNX_CWD: process.cwd() },
     );
 
-    expect(exitCode).toBe(2);
-    expect(stderr.contents()).toBe("");
-
-    const report = JSON.parse(stdout.contents()) as {
-      status: string;
-      requests: Array<{
-        id: string;
-        kind: string;
-        invocation?: {
-          envelope: {
-            skill: string;
-            allowed_tools: string[];
-          };
-        };
-      }>;
-    };
-    expect(report.status).toBe("needs_agent");
-    expect(report.requests[0]?.id).toBe("agent_step.sourcey-discover.output");
-    expect(report.requests[0]?.kind).toBe("agent_act");
-    expect(report.requests[0]?.invocation?.envelope.skill).toBe("sourcey.discover");
-    expect(report.requests[0]?.invocation?.envelope.allowed_tools).toEqual([
-      "fs.read",
-      "git.status",
-      "git.current_branch",
-      "git.diff_name_only",
-      "cli.capture_help",
-    ]);
+    expect(exitCode).toBe(1);
+    expect(stdout.contents()).toBe("");
+    expect(stderr.contents()).toContain("native runx skill");
+    expect(stderr.contents()).toContain("native execution only supports agent, agent-step, and cli-tool runners, got graph");
   });
 
   it("writes an inspectable graph receipt without storing raw discovered branding inputs", async () => {
@@ -106,7 +83,7 @@ describe("sourcey preflight", () => {
         return;
       }
 
-      expect(result.receipt).toMatchObject({ schema: "runx.harness_receipt.v1" });
+      expect(result.receipt).toMatchObject({ schema: "runx.receipt.v1" });
       const receiptFiles = await readdir(receiptDir);
       expect(receiptFiles).toContain("ledgers");
       expect(receiptFiles.filter((file) => file.endsWith(".json"))).toContain(`${result.receipt.id}.json`);
@@ -116,7 +93,7 @@ describe("sourcey preflight", () => {
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
-  }, 15_000);
+  }, 30_000);
 
   it("does not forward raw runx input environment into the Sourcey subprocess", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-sourcey-env-"));

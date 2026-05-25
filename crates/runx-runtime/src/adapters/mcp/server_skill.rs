@@ -13,8 +13,8 @@ use runx_parser::{SkillInput, ValidatedSkill};
 
 use crate::adapter::{SkillAdapter, SkillInvocation, SkillOutput};
 use crate::host::Host;
-use crate::receipts::step_receipt;
 use crate::receipts::store::LocalReceiptStore;
+use crate::receipts::{RuntimeReceiptSignatureConfig, step_receipt_with_signature_policy};
 use crate::{GraphRun, Runtime, RuntimeError, RuntimeOptions};
 
 use super::adapter::McpAdapter;
@@ -206,6 +206,12 @@ fn execute_mcp_server_graph(
         RuntimeOptions {
             created_at: crate::time::DEFAULT_CREATED_AT.to_owned(),
             env: execution.env.clone(),
+            receipt_signature: RuntimeReceiptSignatureConfig::from_env(&execution.env).map_err(
+                |error| RuntimeError::ReceiptInvalid {
+                    message: error.to_string(),
+                },
+            )?,
+            payment_supervisor: Default::default(),
         },
     );
     let mut host = McpServerHost::default();
@@ -257,17 +263,24 @@ fn complete_mcp_server_skill(
     execution: McpServerSkillExecution,
     inputs: JsonObject,
 ) -> Result<McpToolResult, RuntimeError> {
+    let signature_config =
+        RuntimeReceiptSignatureConfig::from_env(&execution.env).map_err(|error| {
+            RuntimeError::ReceiptInvalid {
+                message: error.to_string(),
+            }
+        })?;
     let output = invoke_mcp_server_skill(&execution, inputs)?;
-    let receipt = step_receipt(
+    let receipt = step_receipt_with_signature_policy(
         run_id,
         &execution.skill.name,
         1,
         &output,
         crate::time::DEFAULT_CREATED_AT,
+        signature_config.signature_policy(),
     )?;
     if let Some(receipt_dir) = &execution.receipt_dir {
         LocalReceiptStore::new(receipt_dir)
-            .write_receipt(&receipt)
+            .write_receipt_with_policy(&receipt, signature_config.signature_policy())
             .map_err(|source| RuntimeError::ReceiptInvalid {
                 message: source.to_string(),
             })?;
@@ -327,7 +340,7 @@ fn invoke_cli_tool_server_skill(invocation: SkillInvocation) -> Result<SkillOutp
 #[cfg(not(feature = "cli-tool"))]
 fn invoke_cli_tool_server_skill(invocation: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
     Err(RuntimeError::UnsupportedAdapter {
-        adapter_type: invocation.source.source_type,
+        adapter_type: invocation.source.source_type.as_str().to_owned(),
     })
 }
 

@@ -521,7 +521,7 @@ async function runKernelEval(
 ): Promise<KernelSuccessEnvelope> {
   const command = resolveKernelCommand(options);
   const args = [...(options.argsPrefix ?? []), "kernel", "eval", "--input", "-", "--json"];
-  const env = {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     ...(options.env ?? {}),
     NO_COLOR: "1",
@@ -534,7 +534,7 @@ async function runKernelEval(
     cwd: options.cwd ?? process.cwd(),
     env,
     stdin: JSON.stringify(input),
-    timeoutMs: options.timeoutMs ?? 10_000,
+    timeoutMs: options.timeoutMs ?? evalTimeoutMs(env.RUNX_KERNEL_EVAL_TIMEOUT_MS),
   });
 
   if (result.status !== 0) {
@@ -554,6 +554,14 @@ async function runKernelEval(
     throw new Error("Rust kernel eval returned an invalid success envelope.");
   }
   return parsed;
+}
+
+function evalTimeoutMs(value: string | undefined): number {
+  if (value === undefined || value.trim().length === 0) {
+    return 10_000;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 10_000;
 }
 
 interface SpawnKernelProcessOptions {

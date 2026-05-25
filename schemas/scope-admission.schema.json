@@ -1,13 +1,36 @@
 {
   "$id": "https://runx.ai/spec/scope-admission.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "status",
-    "requested_scopes",
-    "granted_scopes"
-  ],
   "properties": {
+    "decision_summary": {
+      "type": "string"
+    },
+    "grant_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "granted_scopes": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "reasons": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "requested_scopes": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
     "status": {
       "anyOf": [
         {
@@ -19,34 +42,12 @@
           "type": "string"
         }
       ]
-    },
-    "requested_scopes": {
-      "type": "array",
-      "items": {
-        "minLength": 1,
-        "type": "string"
-      }
-    },
-    "granted_scopes": {
-      "type": "array",
-      "items": {
-        "minLength": 1,
-        "type": "string"
-      }
-    },
-    "grant_id": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "reasons": {
-      "type": "array",
-      "items": {
-        "minLength": 1,
-        "type": "string"
-      }
-    },
-    "decision_summary": {
-      "type": "string"
     }
-  }
+  },
+  "required": [
+    "status",
+    "requested_scopes",
+    "granted_scopes"
+  ],
+  "type": "object"
 }

@@ -150,8 +150,8 @@ secrets.
 - `crates/runx-runtime/src/execution/skill_run.rs`
 - `crates/runx-runtime/src/execution/target_runner.rs`
 - `crates/runx-runtime/src/list.rs`
-- `crates/runx-runtime/src/payment_packets.rs`
-- `crates/runx-runtime/src/payment_state.rs`
+- `crates/runx-runtime/src/payment/packets.rs`
+- `crates/runx-runtime/src/payment/state.rs`
 - `crates/runx-runtime/src/post_merge_observer.rs`
 - `crates/runx-runtime/src/receipts/seal.rs`
 - `crates/runx-runtime/src/registry/local/build.rs`
@@ -167,14 +167,14 @@ secrets.
 - `crates/runx-runtime/tests/external_adapter.rs`
 - `crates/runx-runtime/tests/harness_fixtures.rs`
 - `crates/runx-runtime/tests/mcp_adapter.rs`
-- `crates/runx-runtime/tests/payment_execution.rs`
-- `crates/runx-runtime/tests/payment_ledger_projection.rs`
-- `crates/runx-runtime/tests/payment_receipts.rs`
-- `crates/runx-runtime/tests/payment_state.rs`
+- `crates/runx-runtime/tests/payment/execution.rs`
+- `crates/runx-runtime/tests/payment/ledger_projection.rs`
+- `crates/runx-runtime/tests/payment/receipts.rs`
+- `crates/runx-runtime/tests/payment/state.rs`
 - `crates/runx-runtime/tests/scaffold.rs`
 - `crates/runx-runtime/tests/skill_author_runtime_fixtures.rs`
 - `crates/runx-runtime/tests/skill_issue_to_pr.rs`
-- `crates/runx-runtime/tests/stripe_spt_payment.rs`
+- `crates/runx-runtime/tests/payment/stripe_spt.rs`
 - `crates/runx-runtime/tests/target_runner.rs`
 - `crates/runx-sdk/src/lib.rs`
 
@@ -182,6 +182,8 @@ secrets.
 
 - `runx-contracts` - keep MIT. It owns provider-neutral wire contracts, including
   the credential-delivery envelope.
+- `runx-contracts-derive` - keep MIT. It owns provider-neutral schema
+  derivation and has no brokerage or provider calls.
 - `runx-core` - keep MIT. It enforces authority and policy requirements; it must
   not issue grants or call providers.
 - `runx-parser` - keep MIT. Skill parsing is unrelated to brokerage.
@@ -194,15 +196,13 @@ secrets.
 - `runx-sdk` - keep MIT after Phase 2 abstracts or removes the hosted
   connect-list / `connection_id` API surface.
 
-## Deferred Contract Cleanup
+## Credential Envelope References
 
-`CredentialEnvelope.connection_id` and the matching authority-proof projection
-remain as legacy public wire fields for compatibility with the existing
-credential envelope. They are allowlisted only as passive metadata fields: MIT
-code must not broker OAuth, call Nango, or construct provider-specific
-`nango:<provider>:<connection_id>` locators from them. Renaming or removing the
-wire fields is a contract migration deferred to
-`credential-envelope-opaque-reference-v1`.
+`CredentialEnvelope` and the matching authority-proof credential material use
+`provider_reference` for provider-opaque metadata. The legacy `connection_id`
+wire key is not accepted by the credential envelope contract; remaining
+`connection_id` mentions are hosted connect-list surfaces or boundary guard
+terms, not credential envelope authority proof material.
 
 ## Private Home
 

@@ -19,8 +19,12 @@ use crate::RuntimeError;
 use crate::adapter::{SkillAdapter, SkillOutput};
 use crate::host::{Host, NoopHost};
 use crate::journal::ExecutionJournal;
+use crate::payment::supervisor::RuntimePaymentSupervisor;
 use crate::receipts::paths::{RUNX_CWD_ENV, RUNX_PROJECT_DIR_ENV, RUNX_RECEIPT_DIR_ENV};
-use crate::receipts::{graph_receipt, graph_receipt_with_disposition};
+use crate::receipts::{
+    RuntimeReceiptSignatureConfig, RuntimeReceiptSignaturePolicy,
+    graph_receipt_with_disposition_and_policy, graph_receipt_with_signature_policy,
+};
 
 mod authority;
 mod execution;
@@ -30,18 +34,32 @@ mod sync;
 
 use execution::GraphExecution;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct RuntimeOptions {
     pub created_at: String,
     pub env: BTreeMap<String, String>,
+    pub receipt_signature: RuntimeReceiptSignatureConfig,
+    pub payment_supervisor: RuntimePaymentSupervisor,
 }
 
 impl Default for RuntimeOptions {
     fn default() -> Self {
+        let env = safe_default_env();
+        let receipt_signature = RuntimeReceiptSignatureConfig::from_env(&env)
+            .unwrap_or_else(|_| RuntimeReceiptSignatureConfig::local_development());
         Self {
             created_at: crate::time::DEFAULT_CREATED_AT.to_owned(),
-            env: safe_default_env(),
+            env,
+            receipt_signature,
+            payment_supervisor: RuntimePaymentSupervisor::default(),
         }
+    }
+}
+
+impl RuntimeOptions {
+    #[must_use]
+    pub fn signature_policy(&self) -> RuntimeReceiptSignaturePolicy<'_> {
+        self.receipt_signature.signature_policy()
     }
 }
 
@@ -159,11 +177,12 @@ where
         let mut execution = GraphExecution::new(&graph);
         match execution.run(self, graph_dir, &graph, host, None) {
             Ok(()) => {
-                let receipt = graph_receipt(
+                let receipt = graph_receipt_with_signature_policy(
                     &graph.name,
                     &mut execution.runs,
                     execution.sync_points.clone(),
                     &self.options.created_at,
+                    self.options.signature_policy(),
                 )?;
                 execution.record(
                     host,
@@ -177,14 +196,17 @@ where
             Err(RuntimeError::GraphBlocked { step_id, reason })
                 if blocked_outcome == BlockedGraphOutcome::Receipt =>
             {
-                let receipt = graph_receipt_with_disposition(
+                let receipt = graph_receipt_with_disposition_and_policy(
                     &graph.name,
                     &mut execution.runs,
                     execution.sync_points.clone(),
                     &self.options.created_at,
-                    ClosureDisposition::Blocked,
-                    "graph_blocked".to_owned(),
-                    format!("graph {} blocked at {step_id}: {reason}", graph.name),
+                    crate::receipts::GraphClosure {
+                        disposition: ClosureDisposition::Blocked,
+                        reason_code: "graph_blocked".to_owned(),
+                        summary: format!("graph {} blocked at {step_id}: {reason}", graph.name),
+                    },
+                    self.options.signature_policy(),
                 )?;
                 execution.record(
                     host,
@@ -260,11 +282,12 @@ where
     ) -> Result<GraphRun, RuntimeError> {
         let mut execution = GraphExecution::from_checkpoint(&graph, checkpoint)?;
         execution.run(self, graph_dir, &graph, host, None)?;
-        let receipt = graph_receipt(
+        let receipt = graph_receipt_with_signature_policy(
             &graph.name,
             &mut execution.runs,
             execution.sync_points.clone(),
             &self.options.created_at,
+            self.options.signature_policy(),
         )?;
         execution.record(
             host,

@@ -289,9 +289,9 @@ fn receipt_ref(receipt: &Receipt) -> Reference {
         reference_type: ReferenceType::Receipt,
         uri: format!("runx:receipt:{}", receipt.id).into(),
         provider: None,
-        locator: Some(receipt.digest.clone().into()),
+        locator: Some(receipt.digest.clone()),
         label: Some("sealed post-merge observer receipt".to_owned().into()),
-        observed_at: Some(receipt.seal.closed_at.clone().into()),
+        observed_at: Some(receipt.seal.closed_at.clone()),
         proof_kind: None,
     }
 }

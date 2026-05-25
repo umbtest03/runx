@@ -5,8 +5,6 @@
 extern crate self as runx_contracts;
 
 pub mod act;
-pub mod act_assignment;
-pub mod act_receipt;
 pub mod agent_context;
 pub mod artifact;
 pub mod aster;
@@ -49,18 +47,18 @@ pub mod thread_outbox_provider;
 pub mod tools;
 pub mod verification;
 
-pub use act::{
-    Act, ActForm, ActSchema, ChangePlan, ChangeRequest, CriterionBinding, CriterionStatus,
-    GovernedActRef, Intent, RevisionDetails, SuccessCriterion, TargetSurface, VerificationDetails,
-};
-pub use act_assignment::{
+pub use act::assignment::{
     ActAssignment, ActAssignmentActor, ActAssignmentHost, ActAssignmentHostKind,
     ActAssignmentIdempotency, ActAssignmentSchema, BuildActAssignment, IntentKeyInput,
     derive_content_hash, derive_intent_key, derive_trigger_key,
 };
-pub use act_receipt::{
+pub use act::receipt::{
     ActReceiptEnvelope, ActReceiptNeedsAgentEnvelope, ActReceiptNeedsAgentStatus, ActReceiptNull,
     ActReceiptSignal, ActReceiptTerminalEnvelope, ActReceiptTerminalStatus,
+};
+pub use act::{
+    Act, ActForm, ActSchema, ChangePlan, ChangeRequest, CriterionBinding, CriterionStatus,
+    GovernedActRef, Intent, RevisionDetails, SuccessCriterion, TargetSurface, VerificationDetails,
 };
 pub use agent_context::{
     AgentContextEnvelope, AgentContextProfiles, ContextArtifactMeta, ContextArtifactProducer,
@@ -161,7 +159,7 @@ pub use operational_policy::{
     project_operational_policy_readback, validate_operational_policy_contract,
     validate_operational_policy_semantics,
 };
-pub use output::{OutputField, OutputFieldSpec, OutputType};
+pub use output::{Output, OutputField, OutputFieldSpec, OutputType};
 pub use packet_index::{PacketIndex, PacketIndexEntry, PacketIndexSchema};
 pub use policy_proof::{
     AuthorityKind, AuthorityProof, AuthorityProofApprovalDecision,

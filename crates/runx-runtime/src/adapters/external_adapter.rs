@@ -12,11 +12,12 @@ use std::time::{Duration, Instant};
 
 use runx_contracts::{
     CredentialDeliveryPurpose, EXTERNAL_ADAPTER_PROTOCOL_VERSION, ExternalAdapterCancellationFrame,
-    ExternalAdapterCredentialPurpose, ExternalAdapterCredentialReference,
-    ExternalAdapterCredentialRequest, ExternalAdapterHostResolutionFrame,
-    ExternalAdapterInvocation, ExternalAdapterManifest, ExternalAdapterResponse,
-    ExternalAdapterStatus, ExternalAdapterTelemetryValue, ExternalAdapterTransportKind, JsonNumber,
-    JsonObject, JsonValue, Reference, ReferenceType,
+    ExternalAdapterCancellationSchema, ExternalAdapterCredentialPurpose,
+    ExternalAdapterCredentialReference, ExternalAdapterCredentialRequest,
+    ExternalAdapterHostResolutionFrame, ExternalAdapterInvocation, ExternalAdapterInvocationSchema,
+    ExternalAdapterManifest, ExternalAdapterManifestSchema, ExternalAdapterProtocolVersion,
+    ExternalAdapterResponse, ExternalAdapterStatus, ExternalAdapterTelemetryValue,
+    ExternalAdapterTransportKind, JsonNumber, JsonObject, JsonValue, Reference, ReferenceType,
 };
 use thiserror::Error;
 
@@ -36,7 +37,6 @@ const MANIFEST_SCHEMA: &str = "runx.external_adapter.manifest.v1";
 const RESPONSE_SCHEMA: &str = "runx.external_adapter.response.v1";
 const CREDENTIAL_REQUEST_SCHEMA: &str = "runx.external_adapter.credential_request.v1";
 const HOST_RESOLUTION_SCHEMA: &str = "runx.external_adapter.host_resolution.v1";
-const CANCELLATION_SCHEMA: &str = "runx.external_adapter.cancellation.v1";
 const CREDENTIAL_DELIVERY_OBSERVATIONS_METADATA: &str = "credential_delivery_observations";
 const HOST_RESOLUTION_FRAME_ID_METADATA: &str = "external_adapter_host_resolution_frame_id";
 const HOST_RESOLUTION_REQUEST_METADATA: &str = "external_adapter_host_resolution_request";
@@ -478,21 +478,25 @@ fn skill_invocation_contract(
     let skill_ref = optional_source_string(&request.source.raw, "skill_ref")?
         .unwrap_or_else(|| request.skill_name.clone());
     Ok(ExternalAdapterInvocation {
-        schema: INVOCATION_SCHEMA.to_owned(),
-        protocol_version: EXTERNAL_ADAPTER_PROTOCOL_VERSION.to_owned(),
-        invocation_id,
+        schema: ExternalAdapterInvocationSchema::V1,
+        protocol_version: ExternalAdapterProtocolVersion::V1,
+        invocation_id: invocation_id.into(),
         adapter_id: manifest.adapter_id.clone(),
-        run_id: run_id.clone(),
-        step_id,
-        source_type: request.source.source_type.as_str().to_owned(),
-        skill_ref,
+        run_id: run_id.clone().into(),
+        step_id: step_id.into(),
+        source_type: request.source.source_type.as_str().into(),
+        skill_ref: skill_ref.into(),
         harness_ref: Reference::with_uri(ReferenceType::Harness, format!("runx:harness:{run_id}")),
         host_ref: Reference::with_uri(ReferenceType::Host, "runx:host:runtime"),
         inputs: request.inputs.clone(),
         resolved_inputs: (!request.resolved_inputs.is_empty())
             .then(|| request.resolved_inputs.clone()),
-        cwd: Some(invocation_cwd(request)),
-        receipt_dir: request.env.get(RUNX_RECEIPT_DIR_ENV).cloned(),
+        cwd: Some(invocation_cwd(request).into()),
+        receipt_dir: request
+            .env
+            .get(RUNX_RECEIPT_DIR_ENV)
+            .cloned()
+            .map(Into::into),
         env: invocation_env(&request.env),
         credential_refs: external_adapter_credential_refs(&request.credential_delivery),
         metadata: None,
@@ -689,36 +693,36 @@ fn validate_invocation_contract(
     manifest: &ExternalAdapterManifest,
     invocation: &ExternalAdapterInvocation,
 ) -> Result<(), ExternalAdapterSupervisorError> {
-    if manifest.schema != MANIFEST_SCHEMA {
+    if manifest.schema != ExternalAdapterManifestSchema::V1 {
         return Err(ExternalAdapterSupervisorError::UnsupportedManifestSchema {
-            actual: manifest.schema.clone(),
+            actual: manifest_schema_label(&manifest.schema).to_owned(),
         });
     }
-    if invocation.schema != INVOCATION_SCHEMA {
+    if invocation.schema != ExternalAdapterInvocationSchema::V1 {
         return Err(
             ExternalAdapterSupervisorError::UnsupportedInvocationSchema {
-                actual: invocation.schema.clone(),
+                actual: invocation_schema_label(&invocation.schema).to_owned(),
             },
         );
     }
-    if manifest.protocol_version != EXTERNAL_ADAPTER_PROTOCOL_VERSION {
+    if manifest.protocol_version != ExternalAdapterProtocolVersion::V1 {
         return Err(
             ExternalAdapterSupervisorError::UnsupportedManifestProtocol {
-                actual: manifest.protocol_version.clone(),
+                actual: protocol_version_label(&manifest.protocol_version).to_owned(),
             },
         );
     }
-    if invocation.protocol_version != EXTERNAL_ADAPTER_PROTOCOL_VERSION {
+    if invocation.protocol_version != ExternalAdapterProtocolVersion::V1 {
         return Err(
             ExternalAdapterSupervisorError::UnsupportedInvocationProtocol {
-                actual: invocation.protocol_version.clone(),
+                actual: protocol_version_label(&invocation.protocol_version).to_owned(),
             },
         );
     }
     if manifest.adapter_id != invocation.adapter_id {
         return Err(ExternalAdapterSupervisorError::AdapterIdMismatch {
-            manifest_adapter_id: manifest.adapter_id.clone(),
-            invocation_adapter_id: invocation.adapter_id.clone(),
+            manifest_adapter_id: manifest.adapter_id.to_string(),
+            invocation_adapter_id: invocation.adapter_id.to_string(),
         });
     }
     if !manifest
@@ -727,8 +731,8 @@ fn validate_invocation_contract(
         .any(|source_type| source_type == &invocation.source_type)
     {
         return Err(ExternalAdapterSupervisorError::UnsupportedSourceType {
-            adapter_id: manifest.adapter_id.clone(),
-            source_type: invocation.source_type.clone(),
+            adapter_id: manifest.adapter_id.to_string(),
+            source_type: invocation.source_type.to_string(),
         });
     }
     if manifest.timeouts.startup_ms == 0 {
@@ -743,6 +747,24 @@ fn validate_invocation_contract(
         });
     }
     Ok(())
+}
+
+const fn protocol_version_label(version: &ExternalAdapterProtocolVersion) -> &'static str {
+    match version {
+        ExternalAdapterProtocolVersion::V1 => EXTERNAL_ADAPTER_PROTOCOL_VERSION,
+    }
+}
+
+const fn manifest_schema_label(schema: &ExternalAdapterManifestSchema) -> &'static str {
+    match schema {
+        ExternalAdapterManifestSchema::V1 => MANIFEST_SCHEMA,
+    }
+}
+
+const fn invocation_schema_label(schema: &ExternalAdapterInvocationSchema) -> &'static str {
+    match schema {
+        ExternalAdapterInvocationSchema::V1 => INVOCATION_SCHEMA,
+    }
 }
 
 fn process_command(
@@ -770,7 +792,7 @@ fn spawn_process(
         command.args(args);
     }
     if let Some(cwd) = invocation.cwd.as_ref() {
-        command.current_dir(cwd);
+        command.current_dir(cwd.as_str());
     }
     command
         .env_clear()
@@ -798,7 +820,7 @@ fn process_env(
         }
     }
     if let Some(receipt_dir) = invocation.receipt_dir.as_ref() {
-        env.insert("RUNX_RECEIPT_DIR".to_owned(), receipt_dir.clone());
+        env.insert("RUNX_RECEIPT_DIR".to_owned(), receipt_dir.to_string());
     }
     for (key, value) in credential_delivery.secret_env().iter() {
         env.insert(key.to_owned(), value.to_owned());
@@ -850,7 +872,7 @@ fn parse_response(
                 })?;
             Err(
                 ExternalAdapterSupervisorError::UnexpectedCredentialRequest {
-                    request_id: credential_delivery.redact_text(request.request_id),
+                    request_id: credential_delivery.redact_text(request.request_id.to_string()),
                 },
             )
         }
@@ -887,14 +909,14 @@ fn host_resolution_response(
     let mut metadata = JsonObject::new();
     metadata.insert(
         HOST_RESOLUTION_FRAME_ID_METADATA.to_owned(),
-        JsonValue::String(frame.frame_id.clone()),
+        JsonValue::String(frame.frame_id.to_string()),
     );
     metadata.insert(HOST_RESOLUTION_REQUEST_METADATA.to_owned(), request);
     let mut response = ExternalAdapterResponse {
         schema: RESPONSE_SCHEMA.to_owned(),
-        protocol_version: frame.protocol_version,
-        invocation_id: frame.invocation_id,
-        adapter_id: frame.adapter_id,
+        protocol_version: protocol_version_label(&frame.protocol_version).to_owned(),
+        invocation_id: frame.invocation_id.to_string(),
+        adapter_id: frame.adapter_id.to_string(),
         status: ExternalAdapterStatus::HostResolutionRequested,
         stdout: None,
         stderr: Some("external adapter requested host resolution".to_owned()),
@@ -904,7 +926,7 @@ fn host_resolution_response(
         errors: None,
         telemetry: None,
         metadata: Some(metadata),
-        observed_at: frame.requested_at,
+        observed_at: frame.requested_at.to_string(),
     };
     redact_response(&mut response, credential_delivery);
     Ok(response)
@@ -1001,14 +1023,14 @@ fn validate_response_contract(
     if response.adapter_id != invocation.adapter_id {
         return Err(ExternalAdapterSupervisorError::ResponseMismatch {
             field: "adapter_id",
-            expected: invocation.adapter_id.clone(),
+            expected: invocation.adapter_id.to_string(),
             actual: response.adapter_id.clone(),
         });
     }
     if response.invocation_id != invocation.invocation_id {
         return Err(ExternalAdapterSupervisorError::ResponseMismatch {
             field: "invocation_id",
-            expected: invocation.invocation_id.clone(),
+            expected: invocation.invocation_id.to_string(),
             actual: response.invocation_id.clone(),
         });
     }
@@ -1021,13 +1043,13 @@ fn timeout_cancellation_frame(
     timeout_ms: u64,
 ) -> ExternalAdapterCancellationFrame {
     ExternalAdapterCancellationFrame {
-        schema: CANCELLATION_SCHEMA.to_owned(),
-        protocol_version: EXTERNAL_ADAPTER_PROTOCOL_VERSION.to_owned(),
-        frame_id: format!("{}_timeout_cancel", invocation.invocation_id),
+        schema: ExternalAdapterCancellationSchema::V1,
+        protocol_version: ExternalAdapterProtocolVersion::V1,
+        frame_id: format!("{}_timeout_cancel", invocation.invocation_id).into(),
         invocation_id: invocation.invocation_id.clone(),
         adapter_id: manifest.adapter_id.clone(),
-        reason: format!("invocation timeout after {timeout_ms}ms"),
-        requested_at: now_iso8601(),
+        reason: format!("invocation timeout after {timeout_ms}ms").into(),
+        requested_at: now_iso8601().into(),
     }
 }
 

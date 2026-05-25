@@ -513,10 +513,27 @@ fn artifact_types(receipt: &Receipt) -> Vec<String> {
 
 fn metadata_string(metadata: Option<&JsonObject>, keys: &[&str]) -> Option<String> {
     let metadata = metadata?;
-    keys.iter().find_map(|key| match metadata.get(*key) {
-        Some(JsonValue::String(value)) if !value.trim().is_empty() => Some(value.trim().to_owned()),
-        _ => None,
-    })
+    find_metadata_string(metadata, keys)
+}
+
+fn find_metadata_string(metadata: &JsonObject, keys: &[&str]) -> Option<String> {
+    keys.iter()
+        .find_map(|key| match metadata.get(*key) {
+            Some(JsonValue::String(value)) if !value.trim().is_empty() => {
+                Some(value.trim().to_owned())
+            }
+            _ => None,
+        })
+        .or_else(|| {
+            metadata.values().find_map(|value| match value {
+                JsonValue::Object(object) => find_metadata_string(object, keys),
+                JsonValue::Null
+                | JsonValue::Bool(_)
+                | JsonValue::Number(_)
+                | JsonValue::String(_)
+                | JsonValue::Array(_) => None,
+            })
+        })
 }
 
 fn metadata_values(metadata: Option<&JsonObject>, keys: &[&str]) -> Vec<String> {
@@ -1001,6 +1018,9 @@ fn subject_state(_kind: &ReceiptSubjectKind, disposition: &ClosureDisposition) -
 }
 
 fn disposition_status(disposition: &ClosureDisposition) -> String {
+    if matches!(disposition, ClosureDisposition::Closed) {
+        return "sealed".to_owned();
+    }
     serde_json::to_value(disposition).map_or_else(
         |_| format!("{disposition:?}").to_lowercase(),
         |value| value.as_str().unwrap_or("unknown").to_owned(),

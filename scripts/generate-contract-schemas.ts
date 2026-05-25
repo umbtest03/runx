@@ -1,38 +1,79 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { runxGeneratedSchemaArtifacts } from "../packages/contracts/src/index.js";
-
 const workspaceRoot = process.cwd();
+const schemasDir = path.join(workspaceRoot, "schemas");
+const schemaArtifactsPath = path.join(workspaceRoot, "packages", "contracts", "src", "schema-artifacts.ts");
 const check = process.argv.includes("--check");
+const cargo = process.platform === "win32" ? "cargo.exe" : "cargo";
 
-await mkdir(path.join(workspaceRoot, "schemas"), { recursive: true });
+const args = [
+  "run",
+  "--quiet",
+  "--manifest-path",
+  path.join(workspaceRoot, "crates", "Cargo.toml"),
+  "-p",
+  "runx-contracts",
+  "--bin",
+  "runx-contract-schemas",
+  "--",
+  "--out",
+  schemasDir,
+];
 
-const staleArtifacts: string[] = [];
-
-for (const [fileName, schema] of Object.entries(runxGeneratedSchemaArtifacts)) {
-  const schemaPath = path.join(workspaceRoot, "schemas", fileName);
-  const generated = `${JSON.stringify(schema, null, 2)}\n`;
-  if (check) {
-    let current = "";
-    try {
-      current = await readFile(schemaPath, "utf8");
-    } catch {
-      staleArtifacts.push(fileName);
-      continue;
-    }
-    if (current !== generated) {
-      staleArtifacts.push(fileName);
-    }
-    continue;
-  }
-  await writeFile(schemaPath, generated);
+if (check) {
+  args.push("--check");
 }
 
-if (staleArtifacts.length > 0) {
-  console.error("Generated contract schemas are stale:");
-  for (const fileName of staleArtifacts) {
-    console.error(`- ${fileName}`);
+const result = spawnSync(cargo, args, {
+  cwd: workspaceRoot,
+  env: process.env,
+  stdio: "inherit",
+});
+
+if (result.error) {
+  throw result.error;
+}
+
+if ((result.status ?? 1) !== 0) {
+  process.exit(result.status ?? 1);
+}
+
+const schemaArtifactsSource = renderSchemaArtifactsSource(schemasDir);
+if (check) {
+  const existing = readFileSync(schemaArtifactsPath, "utf8");
+  if (existing !== schemaArtifactsSource) {
+    console.error(`${path.relative(workspaceRoot, schemaArtifactsPath)} is stale. Run pnpm schemas:generate.`);
+    process.exit(1);
   }
-  process.exit(1);
+} else {
+  writeFileSync(schemaArtifactsPath, schemaArtifactsSource);
+}
+
+process.exit(0);
+
+function renderSchemaArtifactsSource(sourceDir: string): string {
+  const artifactEntries = readdirSync(sourceDir)
+    .filter((fileName) => fileName.endsWith(".schema.json"))
+    .sort((left, right) => left.localeCompare(right))
+    .map((fileName) => {
+      const schema = JSON.parse(readFileSync(path.join(sourceDir, fileName), "utf8")) as unknown;
+      return `  ${JSON.stringify(fileName)}: ${JSON.stringify(schema, null, 2).replace(/\n/g, "\n  ")} as JsonSchema`;
+    });
+
+  return [
+    `import type { JsonSchema } from "./internal.js";`,
+    "",
+    "export const runxSchemaArtifacts = {",
+    artifactEntries.join(",\n"),
+    "} as const satisfies Record<string, JsonSchema>;",
+    "",
+    "export type RunxSchemaArtifactName = keyof typeof runxSchemaArtifacts;",
+    "",
+    "export function schemaArtifact<TName extends RunxSchemaArtifactName>(fileName: TName): (typeof runxSchemaArtifacts)[TName] {",
+    "  return runxSchemaArtifacts[fileName];",
+    "}",
+    "",
+  ].join("\n");
 }

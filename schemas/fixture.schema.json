@@ -1,18 +1,27 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.runx.dev/runx/fixture/v1.json",
-  "x-runx-schema": "runx.fixture.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "name",
-    "lane",
-    "target",
-    "expect"
-  ],
   "properties": {
-    "name": {
-      "type": "string"
+    "agent": {
+      "additionalProperties": {},
+      "type": "object"
+    },
+    "env": {
+      "additionalProperties": {},
+      "type": "object"
+    },
+    "execution": {
+      "additionalProperties": {},
+      "type": "object"
+    },
+    "expect": {
+      "additionalProperties": {},
+      "type": "object"
+    },
+    "inputs": {
+      "additionalProperties": {},
+      "type": "object"
     },
     "lane": {
       "anyOf": [
@@ -30,53 +39,28 @@
         }
       ]
     },
-    "target": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
-    },
-    "inputs": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
-    },
-    "env": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
-    },
-    "agent": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
-    },
-    "repo": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
-    },
-    "execution": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
+    "name": {
+      "type": "string"
     },
     "permissions": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
+      "additionalProperties": {},
+      "type": "object"
     },
-    "expect": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
+    "repo": {
+      "additionalProperties": {},
+      "type": "object"
+    },
+    "target": {
+      "additionalProperties": {},
+      "type": "object"
     }
-  }
+  },
+  "required": [
+    "name",
+    "lane",
+    "target",
+    "expect"
+  ],
+  "type": "object",
+  "x-runx-schema": "runx.fixture.v1"
 }

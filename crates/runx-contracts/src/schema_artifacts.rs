@@ -2,8 +2,7 @@
 //!
 //! This is the authoritative Rust-side list consumed by the schema generation
 //! gate. Keep filenames aligned with `oss/schemas/*.json`.
-
-use serde_json::Value;
+use serde_json as schema_json;
 
 use crate::schema::RunxSchema;
 use crate::{
@@ -25,10 +24,12 @@ use crate::{
 #[derive(Clone, Debug, PartialEq)]
 pub struct SchemaArtifact {
     pub file_name: &'static str,
-    pub schema: Value,
+    pub schema: schema_json::Value,
 }
 
 #[must_use]
+// rust-style-allow: long-function - the artifact manifest is deliberately one
+// ordered list so the published schema set is auditable against `oss/schemas`.
 pub fn generated_schema_artifacts() -> Vec<SchemaArtifact> {
     vec![
         artifact::<Output>("output.schema.json"),

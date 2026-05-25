@@ -161,6 +161,8 @@ function handoffDispositionToStatus(disposition: HandoffSignal["disposition"]): 
       return "suppressed";
     case "rerouted":
       return "rerouted";
+    default:
+      throw new Error(`Unknown handoff disposition: ${disposition}`);
   }
 }
 
@@ -188,6 +190,8 @@ function suppressionScopeSpecificity(scope: SuppressionRecord["scope"]): number 
       return 2;
     case "repo":
       return 1;
+    default:
+      throw new Error(`Unknown suppression scope: ${scope}`);
   }
 }
 
@@ -201,6 +205,8 @@ function suppressionRecordMatchesHandoff(record: SuppressionRecord, handoff: Han
       return typeof handoff.target_repo === "string" && record.key === handoff.target_repo;
     case "contact":
       return typeof handoff.contact_locator === "string" && record.key === handoff.contact_locator;
+    default:
+      return false;
   }
 }
 

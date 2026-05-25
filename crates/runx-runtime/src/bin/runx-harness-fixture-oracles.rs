@@ -1,0 +1,365 @@
+// rust-style-allow: large-file - this binary is the fixture oracle transaction:
+// it replays harness fixtures, signs canonical receipts, and compares committed
+// root/step oracles in one reviewable regeneration boundary.
+use std::error::Error;
+use std::ffi::OsString;
+use std::fmt::{Display, Formatter};
+use std::fs;
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
+
+use runx_contracts::{JsonObject, JsonValue, Receipt};
+use runx_receipts::{
+    canonical_receipt_body_digest, canonical_receipt_digest, canonical_receipt_json,
+};
+use runx_runtime::payment::supervisor::{
+    PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID, PaymentRailSupervisor, PaymentSupervisorError,
+    PaymentSupervisorSettlementEvidence, PaymentSupervisorSettlementRequest,
+    RuntimePaymentSupervisor,
+};
+use runx_runtime::{
+    HarnessReplayOutput, InvocationStatus, RuntimeOptions, SkillAdapter, SkillInvocation,
+    SkillOutput, run_harness_fixture_with_adapter,
+};
+
+const FIXTURES: &[FixtureSpec] = &[
+    FixtureSpec {
+        name: "echo-skill",
+        fixture_path: "fixtures/harness/echo-skill.yaml",
+        root_oracle_path: "fixtures/harness/oracle/echo-skill.receipt.json",
+        step_oracles: &[],
+    },
+    FixtureSpec {
+        name: "sequential-graph",
+        fixture_path: "fixtures/harness/sequential-graph.yaml",
+        root_oracle_path: "fixtures/harness/oracle/sequential-graph.receipt.json",
+        step_oracles: &[
+            StepOracle {
+                step_id: "first",
+                oracle_path: "fixtures/harness/oracle/sequential-graph.first.json",
+            },
+            StepOracle {
+                step_id: "second",
+                oracle_path: "fixtures/harness/oracle/sequential-graph.second.json",
+            },
+        ],
+    },
+    FixtureSpec {
+        name: "payment-approval-graph",
+        fixture_path: "fixtures/harness/payment-approval-graph.yaml",
+        root_oracle_path: "fixtures/harness/oracle/payment-approval-graph.receipt.json",
+        step_oracles: &[
+            StepOracle {
+                step_id: "approve-spend",
+                oracle_path: "fixtures/harness/oracle/payment-approval-graph.approve-spend.json",
+            },
+            StepOracle {
+                step_id: "fulfill",
+                oracle_path: "fixtures/harness/oracle/payment-approval-graph.fulfill.json",
+            },
+        ],
+    },
+];
+
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            let _ignored = writeln!(io::stderr().lock(), "runx: {error}");
+            ExitCode::from(1)
+        }
+    }
+}
+
+fn run() -> Result<(), Box<dyn Error>> {
+    let cli = Cli::parse(std::env::args_os().skip(1))?;
+    let mut failed = false;
+
+    for fixture in FIXTURES {
+        let fixture_path = cli.repo_root.join(fixture.fixture_path);
+        let output = run_harness_fixture_with_adapter(
+            &fixture_path,
+            FixtureOracleAdapter,
+            fixture_runtime_options(),
+        )?;
+        let root = CheckedReceipt {
+            oracle_path: cli.repo_root.join(fixture.root_oracle_path),
+            receipt: &output.receipt,
+        };
+        failed |= process_receipt(&cli, &root)?;
+        failed |= process_step_oracles(&cli, fixture, &output)?;
+        failed |= check_fixture_digests(&cli, fixture, &output.receipt)?;
+    }
+
+    if failed {
+        Err(Box::new(MessageError(
+            "one or more harness fixture oracles are stale".to_owned(),
+        )))
+    } else {
+        Ok(())
+    }
+}
+
+fn process_step_oracles(
+    cli: &Cli,
+    fixture: &FixtureSpec,
+    output: &HarnessReplayOutput,
+) -> Result<bool, Box<dyn Error>> {
+    let mut failed = false;
+    for (index, step) in fixture.step_oracles.iter().enumerate() {
+        let receipt = output.step_receipts.get(index).ok_or_else(|| {
+            MessageError(format!(
+                "{} did not emit step receipt {}",
+                fixture.name, step.step_id
+            ))
+        })?;
+        let checked = CheckedReceipt {
+            oracle_path: cli.repo_root.join(step.oracle_path),
+            receipt,
+        };
+        failed |= process_receipt(cli, &checked)?;
+    }
+    if output.step_receipts.len() != fixture.step_oracles.len() {
+        return Err(Box::new(MessageError(format!(
+            "{} emitted {} step receipts, expected {}",
+            fixture.name,
+            output.step_receipts.len(),
+            fixture.step_oracles.len()
+        ))));
+    }
+    Ok(failed)
+}
+
+fn process_receipt(cli: &Cli, checked: &CheckedReceipt<'_>) -> Result<bool, Box<dyn Error>> {
+    let canonical = format!("{}\n", canonical_receipt_json(checked.receipt)?);
+    if cli.write {
+        if let Some(parent) = checked.oracle_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(&checked.oracle_path, canonical)?;
+        return Ok(false);
+    }
+
+    let expected = match fs::read_to_string(&checked.oracle_path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            write_stderr_line(&format!(
+                "missing harness oracle {}",
+                cli.relative(&checked.oracle_path).display()
+            ))?;
+            return Ok(true);
+        }
+        Err(error) => return Err(Box::new(error)),
+    };
+
+    if expected != canonical {
+        write_stderr_line(&format!(
+            "stale harness oracle {}",
+            cli.relative(&checked.oracle_path).display()
+        ))?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+fn check_fixture_digests(
+    cli: &Cli,
+    fixture: &FixtureSpec,
+    receipt: &Receipt,
+) -> Result<bool, Box<dyn Error>> {
+    let body_digest = canonical_receipt_body_digest(receipt)?;
+    let receipt_digest = canonical_receipt_digest(receipt)?;
+
+    if cli.write {
+        write_stdout_line(&format!("{} body_digest={body_digest}", fixture.name))?;
+        write_stdout_line(&format!("{} receipt_digest={receipt_digest}", fixture.name))?;
+        return Ok(false);
+    }
+
+    let fixture_path = cli.repo_root.join(fixture.fixture_path);
+    let contents = fs::read_to_string(&fixture_path)?;
+    let mut failed = false;
+
+    if !contents.contains(&format!("body_digest: {body_digest}")) {
+        write_stderr_line(&format!(
+            "stale body_digest in {}",
+            cli.relative(&fixture_path).display()
+        ))?;
+        failed = true;
+    }
+    if !contents.contains(&format!("receipt_digest: {receipt_digest}")) {
+        write_stderr_line(&format!(
+            "stale receipt_digest in {}",
+            cli.relative(&fixture_path).display()
+        ))?;
+        failed = true;
+    }
+
+    Ok(failed)
+}
+
+fn write_stdout_line(message: &str) -> io::Result<()> {
+    writeln!(io::stdout().lock(), "{message}")
+}
+
+fn write_stderr_line(message: &str) -> io::Result<()> {
+    writeln!(io::stderr().lock(), "{message}")
+}
+
+struct Cli {
+    repo_root: PathBuf,
+    write: bool,
+}
+
+impl Cli {
+    fn parse(args: impl Iterator<Item = OsString>) -> Result<Self, Box<dyn Error>> {
+        let mut repo_root = std::env::current_dir()?;
+        let mut write = false;
+        let mut check = false;
+        let mut args = args.peekable();
+
+        while let Some(arg) = args.next() {
+            let token = arg
+                .to_str()
+                .ok_or_else(|| MessageError("harness oracle arguments must be UTF-8".to_owned()))?;
+            match token {
+                "--write" | "--generate" => write = true,
+                "--check" => check = true,
+                "--repo-root" => {
+                    let value = args
+                        .next()
+                        .ok_or_else(|| MessageError("--repo-root requires a path".to_owned()))?;
+                    repo_root = PathBuf::from(value);
+                }
+                "--help" | "-h" => {
+                    return Err(Box::new(MessageError(usage())));
+                }
+                _ => {
+                    return Err(Box::new(MessageError(format!(
+                        "unknown harness oracle argument {token}\n{}",
+                        usage()
+                    ))));
+                }
+            }
+        }
+
+        if write && check {
+            return Err(Box::new(MessageError(
+                "use either --write or --check, not both".to_owned(),
+            )));
+        }
+
+        Ok(Self {
+            repo_root,
+            write: write && !check,
+        })
+    }
+
+    fn relative(&self, path: &Path) -> PathBuf {
+        path.strip_prefix(&self.repo_root)
+            .map_or_else(|_| path.to_path_buf(), Path::to_path_buf)
+    }
+}
+
+fn usage() -> String {
+    "usage: runx-harness-fixture-oracles [--check|--write] [--repo-root path]".to_owned()
+}
+
+struct FixtureSpec {
+    name: &'static str,
+    fixture_path: &'static str,
+    root_oracle_path: &'static str,
+    step_oracles: &'static [StepOracle],
+}
+
+struct StepOracle {
+    step_id: &'static str,
+    oracle_path: &'static str,
+}
+
+struct CheckedReceipt<'a> {
+    oracle_path: PathBuf,
+    receipt: &'a Receipt,
+}
+
+#[derive(Debug)]
+struct MessageError(String);
+
+impl Display for MessageError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl Error for MessageError {}
+
+fn fixture_runtime_options() -> RuntimeOptions {
+    RuntimeOptions {
+        payment_supervisor: RuntimePaymentSupervisor::from_supervisor(FixturePaymentSupervisor),
+        ..RuntimeOptions::default()
+    }
+}
+
+#[derive(Clone, Debug)]
+struct FixturePaymentSupervisor;
+
+impl PaymentRailSupervisor for FixturePaymentSupervisor {
+    fn settlement_evidence(
+        &self,
+        request: PaymentSupervisorSettlementRequest<'_>,
+    ) -> Result<PaymentSupervisorSettlementEvidence, PaymentSupervisorError> {
+        if request.proof_ref != "receipt-proof:mock:x402-pay-approval-001" {
+            return Err(PaymentSupervisorError::InvalidSupervisorEvidence {
+                message: format!(
+                    "fixture supervisor has no settlement for {}",
+                    request.proof_ref
+                ),
+            });
+        }
+        Ok(PaymentSupervisorSettlementEvidence {
+            verifier_id: PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID.to_owned(),
+            proof_ref: request.proof_ref.to_owned(),
+            rail: request.rail.to_owned(),
+            counterparty: "merchant-123".to_owned(),
+            amount_minor: request.amount_minor,
+            currency: request.currency.to_owned(),
+            idempotency_key: "payment:x402-pay-approval-001".to_owned(),
+            settlement_status: Some("fulfilled".to_owned()),
+            provider_event_ref: Some("fixture:event:x402-pay-approval-001".to_owned()),
+        })
+    }
+}
+
+struct FixtureOracleAdapter;
+
+impl SkillAdapter for FixtureOracleAdapter {
+    fn adapter_type(&self) -> &'static str {
+        "cli-tool"
+    }
+
+    fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, runx_runtime::RuntimeError> {
+        let stdout = if request.skill_name == "pay-fulfill-rail" {
+            r#"{"payment_rail_packet":{"data":{"rail_result":{"status":"fulfilled","rail":"mock","amount_minor":125,"currency":"USD"},"rail_proof":{"proof_ref":"receipt-proof:mock:x402-pay-approval-001","idempotency_key":"payment:x402-pay-approval-001"},"credential_envelope":{"form":"paid_tool_credential","credential_ref":"credential:mock:x402-pay-approval-001"}}}}"#.to_owned()
+        } else {
+            request
+                .inputs
+                .get("message")
+                .and_then(|value| match value {
+                    JsonValue::String(value) => Some(value.as_str()),
+                    _ => None,
+                })
+                .unwrap_or_default()
+                .to_owned()
+        };
+        Ok(SkillOutput {
+            status: InvocationStatus::Success,
+            stdout,
+            stderr: String::new(),
+            exit_code: Some(0),
+            duration_ms: 0,
+            metadata: JsonObject::default(),
+        })
+    }
+}

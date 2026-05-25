@@ -1,40 +1,15 @@
-import { spawnSync } from "node:child_process";
-import path from "node:path";
-
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   extractSkillQualityProfileViaParser,
   validateGraphYamlViaParser,
   validateSkillMarkdownViaParser,
 } from "./parser-bridge.js";
+import { resolveRunxBinary } from "../../../../tests/runx-binary.js";
 
 const workspaceRoot = process.cwd();
-const cargo = process.platform === "win32" ? "cargo.exe" : "cargo";
-const cargoTargetDir = process.env.CARGO_TARGET_DIR
-  ? path.resolve(workspaceRoot, process.env.CARGO_TARGET_DIR)
-  : path.join(workspaceRoot, "crates", "target");
-const runxBinary = path.join(
-  cargoTargetDir,
-  "debug",
-  process.platform === "win32" ? "runx.exe" : "runx",
-);
+const runxBinary = resolveRunxBinary();
 
 describe("Rust parser CLI JSON bridge", () => {
-  beforeAll(() => {
-    const result = spawnSync(
-      cargo,
-      ["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"],
-      {
-        cwd: workspaceRoot,
-        encoding: "utf8",
-        env: process.env,
-        maxBuffer: 8 * 1024 * 1024,
-      },
-    );
-
-    expect(result.status, result.stderr || result.stdout).toBe(0);
-  }, 120_000);
-
   it("validates skill markdown through the Rust parser", async () => {
     const skill = await validateSkillMarkdownViaParser(
       [

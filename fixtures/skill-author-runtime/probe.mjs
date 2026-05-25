@@ -60,7 +60,7 @@ function spawnTimeoutDescendant() {
     throw new Error("RUNX_SENTINEL_PATH is required");
   }
   const script = [
-    `setTimeout(() => require("node:fs").writeFileSync(${JSON.stringify(sentinelPath)}, "survived"), 2500);`,
+    `setTimeout(() => require("node:fs").writeFileSync(${JSON.stringify(sentinelPath)}, "survived"), 300);`,
     "setInterval(() => undefined, 1000);",
   ].join("");
   spawn(process.execPath, ["-e", script], { stdio: "ignore" });

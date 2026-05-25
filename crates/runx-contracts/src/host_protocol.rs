@@ -83,7 +83,7 @@ pub enum ResolutionRequest {
     },
     AgentAct {
         id: NonEmptyString,
-        invocation: AgentActInvocation,
+        invocation: Box<AgentActInvocation>,
     },
 }
 

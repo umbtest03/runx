@@ -10,9 +10,14 @@ use runx_contracts::{
 };
 use runx_core::state_machine::GraphStatus;
 use runx_receipts::ReceiptTreeConfig;
-use runx_runtime::payment_state::{
+use runx_runtime::payment::state::{
     FileBackedPaymentStateStore, PaymentRecoveryState, RUNX_PAYMENT_STATE_PATH_ENV,
     RailMutationStatus,
+};
+use runx_runtime::payment::supervisor::{
+    PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID, PaymentRailSupervisor, PaymentSupervisorError,
+    PaymentSupervisorSettlementEvidence, PaymentSupervisorSettlementRequest,
+    RuntimePaymentSupervisor,
 };
 use runx_runtime::{
     Host, InvocationStatus, Runtime, RuntimeError, RuntimeOptions, SkillAdapter, SkillInvocation,
@@ -30,7 +35,10 @@ const X402_APPROVAL_PROOF_REF: &str = "receipt-proof:mock:x402-pay-approval-001"
 fn approved_payment_approval_emits_approval_output_and_runs_fulfill()
 -> Result<(), Box<dyn std::error::Error>> {
     let fixture = GraphFixture::new()?;
-    let runtime = Runtime::new(RecordingAdapter::default(), RuntimeOptions::default());
+    let runtime = Runtime::new(
+        RecordingAdapter::default(),
+        runtime_options_with_payment_supervisor(vec![x402_approval_supervisor_evidence()]),
+    );
     let mut host = ApprovalHost::approved(true);
 
     let run = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host)?;
@@ -99,7 +107,10 @@ fn denied_payment_approval_emits_denied_output_and_blocks_fulfill()
 #[test]
 fn payment_approval_step_is_recorded_with_receipt() -> Result<(), Box<dyn std::error::Error>> {
     let fixture = GraphFixture::new()?;
-    let runtime = Runtime::new(RecordingAdapter::default(), RuntimeOptions::default());
+    let runtime = Runtime::new(
+        RecordingAdapter::default(),
+        runtime_options_with_payment_supervisor(vec![x402_approval_supervisor_evidence()]),
+    );
     let mut host = ApprovalHost::approved(true);
 
     let run = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host)?;
@@ -125,7 +136,10 @@ fn payment_approval_step_is_recorded_with_receipt() -> Result<(), Box<dyn std::e
 fn payment_graph_seals_with_strict_parent_child_receipt_proof()
 -> Result<(), Box<dyn std::error::Error>> {
     let fixture = GraphFixture::new()?;
-    let runtime = Runtime::new(RecordingAdapter::default(), RuntimeOptions::default());
+    let runtime = Runtime::new(
+        RecordingAdapter::default(),
+        runtime_options_with_payment_supervisor(vec![x402_approval_supervisor_evidence()]),
+    );
     let mut host = ApprovalHost::approved(true);
 
     let run = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host)?;
@@ -150,6 +164,42 @@ fn payment_graph_seals_with_strict_parent_child_receipt_proof()
                 && reference.proof_kind.as_ref() == Some(&ProofKind::PaymentRail)),
         "payment fulfillment act must carry the rail proof reference into the sealed receipt"
     );
+    Ok(())
+}
+
+#[test]
+fn payment_spend_success_without_runtime_supervisor_is_denied_before_graph_success()
+-> Result<(), Box<dyn std::error::Error>> {
+    let fixture = GraphFixture::new()?;
+    let runtime = Runtime::new(RecordingAdapter::default(), RuntimeOptions::default());
+    let mut host = ApprovalHost::approved(true);
+
+    let result = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host);
+
+    match result {
+        Err(RuntimeError::AuthorityDenied {
+            verb,
+            step_id,
+            reason,
+        }) => {
+            assert_eq!(verb, AuthorityVerb::Spend);
+            assert_eq!(step_id, "fulfill");
+            assert!(
+                reason.contains("supervisor") && reason.contains("not configured"),
+                "payment authority denial should name the missing runtime supervisor, got: {reason}"
+            );
+        }
+        Ok(run) => {
+            return Err(std::io::Error::other(format!(
+                "payment spend must not succeed from skill proof alone, ran {:?}",
+                step_ids(&run.steps)
+            ))
+            .into());
+        }
+        Err(error) => {
+            return Err(std::io::Error::other(format!("unexpected runtime error: {error}")).into());
+        }
+    }
     Ok(())
 }
 
@@ -308,7 +358,12 @@ fn x402_paid_echo_returns_echo_only_after_sealed_payment_proof()
     let fixture = PaidEchoFixture::new()?;
     let adapter = PaidEchoAdapter::new(PaidEchoRailProof::Present);
     let invocations = adapter.invocations();
-    let runtime = Runtime::new(adapter, RuntimeOptions::default());
+    let runtime = Runtime::new(
+        adapter,
+        runtime_options_with_payment_supervisor(vec![paid_echo_supervisor_evidence(
+            PAID_ECHO_IDEMPOTENCY_KEY,
+        )]),
+    );
     let mut host = ApprovalHost::approved(true);
 
     let run = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host)?;
@@ -398,6 +453,9 @@ fn x402_paid_echo_replays_sealed_idempotency_without_second_rail()
         adapter,
         RuntimeOptions {
             env,
+            payment_supervisor: payment_supervisor(vec![paid_echo_supervisor_evidence(
+                PAID_ECHO_IDEMPOTENCY_KEY,
+            )]),
             ..RuntimeOptions::default()
         },
     );
@@ -476,6 +534,9 @@ fn x402_paid_echo_reused_spend_capability_with_new_idempotency_denied_from_persi
         adapter,
         RuntimeOptions {
             env,
+            payment_supervisor: payment_supervisor(vec![paid_echo_supervisor_evidence(
+                PAID_ECHO_IDEMPOTENCY_KEY,
+            )]),
             ..RuntimeOptions::default()
         },
     );
@@ -607,7 +668,7 @@ fn x402_paid_echo_partial_mutation_escalates_without_second_rail()
     );
     let store = FileBackedPaymentStateStore::open(&payment_state_path)?;
     let mutation = store
-        .lookup_rail_mutation(&runx_runtime::payment_state::PaymentIdempotencyKey::new(
+        .lookup_rail_mutation(&runx_runtime::payment::state::PaymentIdempotencyKey::new(
             "mock",
             "merchant:paid-echo",
             PAID_ECHO_IDEMPOTENCY_KEY,
@@ -750,6 +811,140 @@ fn assert_payment_admission_denied_before_adapter(
         "payment rail admission must deny before invoking the adapter"
     );
     Ok(())
+}
+
+fn runtime_options_with_payment_supervisor(
+    evidence: Vec<PaymentSupervisorSettlementEvidence>,
+) -> RuntimeOptions {
+    RuntimeOptions {
+        payment_supervisor: payment_supervisor(evidence),
+        ..RuntimeOptions::default()
+    }
+}
+
+fn payment_supervisor(
+    evidence: Vec<PaymentSupervisorSettlementEvidence>,
+) -> RuntimePaymentSupervisor {
+    RuntimePaymentSupervisor::from_supervisor(ExpectedPaymentSupervisor::new(evidence))
+}
+
+#[derive(Clone, Debug)]
+struct ExpectedPaymentSupervisor {
+    evidence_by_proof_ref: BTreeMap<String, PaymentSupervisorSettlementEvidence>,
+}
+
+impl ExpectedPaymentSupervisor {
+    fn new(evidence: Vec<PaymentSupervisorSettlementEvidence>) -> Self {
+        Self {
+            evidence_by_proof_ref: evidence
+                .into_iter()
+                .map(|evidence| (evidence.proof_ref.clone(), evidence))
+                .collect(),
+        }
+    }
+}
+
+impl PaymentRailSupervisor for ExpectedPaymentSupervisor {
+    fn settlement_evidence(
+        &self,
+        request: PaymentSupervisorSettlementRequest<'_>,
+    ) -> Result<PaymentSupervisorSettlementEvidence, PaymentSupervisorError> {
+        let evidence = self
+            .evidence_by_proof_ref
+            .get(request.proof_ref)
+            .cloned()
+            .ok_or_else(|| PaymentSupervisorError::InvalidSupervisorEvidence {
+                message: format!(
+                    "no supervisor settlement for proof ref {}",
+                    request.proof_ref
+                ),
+            })?;
+        expect_supervisor_field("rail", request.rail, &evidence.rail)?;
+        expect_supervisor_field("counterparty", request.counterparty, &evidence.counterparty)?;
+        expect_supervisor_u64("amount_minor", request.amount_minor, evidence.amount_minor)?;
+        expect_supervisor_field("currency", request.currency, &evidence.currency)?;
+        expect_supervisor_field(
+            "idempotency_key",
+            request.idempotency_key,
+            &evidence.idempotency_key,
+        )?;
+        Ok(evidence)
+    }
+}
+
+fn expect_supervisor_field(
+    field: &'static str,
+    expected: &str,
+    actual: &str,
+) -> Result<(), PaymentSupervisorError> {
+    if expected == actual {
+        Ok(())
+    } else {
+        Err(PaymentSupervisorError::FieldMismatch {
+            field,
+            expected: expected.to_owned(),
+            actual: actual.to_owned(),
+        })
+    }
+}
+
+fn expect_supervisor_u64(
+    field: &'static str,
+    expected: u64,
+    actual: u64,
+) -> Result<(), PaymentSupervisorError> {
+    if expected == actual {
+        Ok(())
+    } else {
+        Err(PaymentSupervisorError::FieldMismatch {
+            field,
+            expected: expected.to_string(),
+            actual: actual.to_string(),
+        })
+    }
+}
+
+fn x402_approval_supervisor_evidence() -> PaymentSupervisorSettlementEvidence {
+    payment_supervisor_evidence(
+        X402_APPROVAL_PROOF_REF,
+        "mock",
+        "merchant-123",
+        125,
+        "USD",
+        X402_APPROVAL_IDEMPOTENCY_KEY,
+    )
+}
+
+fn paid_echo_supervisor_evidence(idempotency_key: &str) -> PaymentSupervisorSettlementEvidence {
+    payment_supervisor_evidence(
+        "receipt-proof:mock:paid-echo-001",
+        "mock",
+        "merchant:paid-echo",
+        125,
+        "USD",
+        idempotency_key,
+    )
+}
+
+fn payment_supervisor_evidence(
+    proof_ref: &str,
+    rail: &str,
+    counterparty: &str,
+    amount_minor: u64,
+    currency: &str,
+    idempotency_key: &str,
+) -> PaymentSupervisorSettlementEvidence {
+    PaymentSupervisorSettlementEvidence {
+        verifier_id: PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID.to_owned(),
+        proof_ref: proof_ref.to_owned(),
+        rail: rail.to_owned(),
+        counterparty: counterparty.to_owned(),
+        amount_minor,
+        currency: currency.to_owned(),
+        idempotency_key: idempotency_key.to_owned(),
+        settlement_status: Some("fulfilled".to_owned()),
+        provider_event_ref: Some(format!("provider:event:{idempotency_key}")),
+    }
 }
 
 struct RecordingAdapter {

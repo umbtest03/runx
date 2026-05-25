@@ -1,96 +1,45 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.runx.dev/runx/external-adapter/response/v1.json",
-  "x-runx-schema": "runx.external_adapter.response.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "schema",
-    "protocol_version",
-    "invocation_id",
-    "adapter_id",
-    "status",
-    "observed_at"
-  ],
   "properties": {
-    "schema": {
-      "const": "runx.external_adapter.response.v1",
-      "type": "string"
-    },
-    "protocol_version": {
-      "const": "runx.external_adapter.v1",
-      "type": "string"
-    },
-    "invocation_id": {
-      "minLength": 1,
-      "type": "string"
-    },
     "adapter_id": {
-      "minLength": 1,
       "type": "string"
-    },
-    "status": {
-      "anyOf": [
-        {
-          "const": "completed",
-          "type": "string"
-        },
-        {
-          "const": "failed",
-          "type": "string"
-        },
-        {
-          "const": "host_resolution_requested",
-          "type": "string"
-        },
-        {
-          "const": "cancelled",
-          "type": "string"
-        }
-      ]
-    },
-    "stdout": {
-      "type": "string"
-    },
-    "stderr": {
-      "type": "string"
-    },
-    "exit_code": {
-      "anyOf": [
-        {
-          "type": "integer"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "output": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
     },
     "artifacts": {
-      "type": "array",
       "items": {
         "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "artifact_ref"
-        ],
         "properties": {
           "artifact_ref": {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "$id": "https://schemas.runx.dev/runx/reference/v1.json",
-            "x-runx-schema": "runx.reference.v1",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
-            "type": "object",
-            "required": [
-              "type",
-              "uri"
-            ],
             "properties": {
+              "label": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "locator": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "observed_at": {
+                "minLength": 1,
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+                "type": "string"
+              },
+              "proof_kind": {
+                "anyOf": [
+                  {
+                    "const": "payment_rail",
+                    "type": "string"
+                  }
+                ]
+              },
+              "provider": {
+                "minLength": 1,
+                "type": "string"
+              },
               "schema": {
                 "const": "runx.reference.v1",
                 "type": "string"
@@ -238,74 +187,106 @@
               "uri": {
                 "minLength": 1,
                 "type": "string"
-              },
-              "provider": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "locator": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "label": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "observed_at": {
-                "minLength": 1,
-                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
-                "type": "string"
-              },
-              "proof_kind": {
-                "const": "payment_rail",
-                "type": "string"
               }
-            }
+            },
+            "required": [
+              "type",
+              "uri"
+            ],
+            "type": "object",
+            "x-runx-schema": "runx.reference.v1"
           },
           "summary": {
-            "minLength": 1,
             "type": "string"
           }
-        }
-      }
+        },
+        "required": [
+          "artifact_ref"
+        ],
+        "type": "object"
+      },
+      "type": "array"
     },
     "errors": {
-      "type": "array",
       "items": {
         "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "code",
-          "message",
-          "retryable"
-        ],
         "properties": {
           "code": {
-            "minLength": 1,
             "type": "string"
           },
           "message": {
-            "minLength": 1,
             "type": "string"
           },
           "retryable": {
             "type": "boolean"
           }
+        },
+        "required": [
+          "code",
+          "message",
+          "retryable"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "exit_code": {
+      "type": "integer"
+    },
+    "invocation_id": {
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": {},
+      "type": "object"
+    },
+    "observed_at": {
+      "type": "string"
+    },
+    "output": {
+      "additionalProperties": {},
+      "type": "object"
+    },
+    "protocol_version": {
+      "type": "string"
+    },
+    "schema": {
+      "type": "string"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "const": "completed",
+          "type": "string"
+        },
+        {
+          "const": "failed",
+          "type": "string"
+        },
+        {
+          "const": "host_resolution_requested",
+          "type": "string"
+        },
+        {
+          "const": "cancelled",
+          "type": "string"
         }
-      }
+      ]
+    },
+    "stderr": {
+      "type": "string"
+    },
+    "stdout": {
+      "type": "string"
     },
     "telemetry": {
-      "type": "array",
       "items": {
         "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name",
-          "value"
-        ],
         "properties": {
           "name": {
-            "minLength": 1,
+            "type": "string"
+          },
+          "unit": {
             "type": "string"
           },
           "value": {
@@ -320,24 +301,25 @@
                 "type": "boolean"
               }
             ]
-          },
-          "unit": {
-            "minLength": 1,
-            "type": "string"
           }
-        }
-      }
-    },
-    "metadata": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
-    },
-    "observed_at": {
-      "minLength": 1,
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
-      "type": "string"
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "type": "object"
+      },
+      "type": "array"
     }
-  }
+  },
+  "required": [
+    "schema",
+    "protocol_version",
+    "invocation_id",
+    "adapter_id",
+    "status",
+    "observed_at"
+  ],
+  "type": "object",
+  "x-runx-schema": "runx.external_adapter.response.v1"
 }

@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -7,21 +6,12 @@ import { describe, expect, it } from "vitest";
 
 import { createDefaultSkillAdapters } from "@runxhq/adapters";
 import { runLocalSkill, type Caller } from "@runxhq/runtime-local";
+import { kernelEnv } from "./runx-binary.js";
 
 const caller: Caller = {
   resolve: async () => undefined,
   report: () => undefined,
 };
-const workspaceRoot = process.cwd();
-const cargo = process.platform === "win32" ? "cargo.exe" : "cargo";
-const runxBinary = path.join(
-  workspaceRoot,
-  "crates",
-  "target",
-  "debug",
-  process.platform === "win32" ? "runx.exe" : "runx",
-);
-let rustRunxBuilt = false;
 
 describe("local runtime auth security", () => {
   it("fails closed when resolved credential material does not match the admitted grant", async () => {
@@ -61,7 +51,7 @@ Exercises connected credential binding.
         caller,
         receiptDir,
         runxHome: path.join(tempDir, "home"),
-        env: process.env,
+        env: kernelEnv(),
         adapters: createDefaultSkillAdapters(),
         authResolver: {
           resolveGrants: async () => ({
@@ -86,7 +76,7 @@ Exercises connected credential binding.
               provider: "github",
               auth_mode: "oauth",
               material_kind: "nango_connection",
-              connection_id: "conn_1",
+              provider_reference: "conn_1",
               scopes: ["repo:read"],
               grant_reference: {
                 grant_id: "grant_other",
@@ -178,7 +168,7 @@ Exercises admitted grant narrowing.
         caller,
         receiptDir: path.join(tempDir, "receipts"),
         runxHome: path.join(tempDir, "home"),
-        env: process.env,
+        env: kernelEnv(),
         adapters: createDefaultSkillAdapters(),
         authResolver: {
           resolveGrants: async () => ({
@@ -218,7 +208,7 @@ Exercises admitted grant narrowing.
                   provider: grant.provider,
                   auth_mode: "oauth",
                   material_kind: "nango_connection",
-                  connection_id: "conn_1",
+                  provider_reference: "conn_1",
                   scopes: grant.scopes,
                   grant_reference: {
                     grant_id: grant.grant_id,
@@ -274,7 +264,7 @@ Exercises missing credential denial.
         caller,
         receiptDir: path.join(tempDir, "receipts"),
         runxHome: path.join(tempDir, "home"),
-        env: process.env,
+        env: kernelEnv(),
         adapters: createDefaultSkillAdapters(),
         authResolver: {
           resolveGrants: async () => ({
@@ -359,8 +349,6 @@ source:
 Graph wrapper used to verify policy denial receipt propagation.
 `,
       );
-      ensureRustRunxBinary();
-
       const result = await runLocalSkill({
         skillPath: wrapperDir,
         caller,
@@ -447,7 +435,7 @@ Graph wrapper used to verify top-level graph authority proof metadata.
         caller,
         receiptDir: path.join(tempDir, "receipts"),
         runxHome: path.join(tempDir, "home"),
-        env: process.env,
+        env: kernelEnv(),
         adapters: createDefaultSkillAdapters(),
       });
 
@@ -486,30 +474,4 @@ function graphStepStatusesFromReceipt(receipt: { readonly metadata?: Readonly<Re
     String(step.step_id),
     String(step.status),
   ]);
-}
-
-function kernelEnv(): NodeJS.ProcessEnv {
-  return {
-    ...process.env,
-    RUNX_KERNEL_EVAL_BIN: runxBinary,
-  };
-}
-
-function ensureRustRunxBinary(): void {
-  if (rustRunxBuilt) {
-    return;
-  }
-  const result = spawnSync(
-    cargo,
-    ["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"],
-    {
-      cwd: workspaceRoot,
-      encoding: "utf8",
-      env: process.env,
-      maxBuffer: 8 * 1024 * 1024,
-    },
-  );
-
-  expect(result.status, result.stderr || result.stdout).toBe(0);
-  rustRunxBuilt = true;
 }

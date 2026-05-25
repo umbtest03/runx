@@ -22,7 +22,7 @@ waivers that are deferred decompositions. TS offenders: `runtime-local/src/sdk/
 index.ts` (~1800 lines: SDK + ingestion + config + marketplace),
 `runner-local/graph-governance.ts` (~1400), `runner-local/index.ts` (~1260),
 `packages/cli/src/index.test.ts` (~2200). Rust waivers: `runx-runtime/src/
-receipts/seal.rs`, `runx-runtime/src/payment_ledger.rs`, `runx-receipts/src/
+receipts/seal.rs`, `runx-runtime/src/payment/ledger.rs`, `runx-receipts/src/
 tree.rs`.
 Blockers: the runtime-local TS offenders overlap the `rust-ts-sunset-*` work; if
 those modules are slated for deletion, decompose only what survives the sunset to

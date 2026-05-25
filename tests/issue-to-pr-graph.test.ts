@@ -239,7 +239,7 @@ describe("issue-to-PR composite skill", () => {
       if (result.status !== "sealed") {
         throw new Error(JSON.stringify(result, null, 2));
       }
-      expect(result.receipt).toMatchObject({ schema: "runx.harness_receipt.v1" });
+      expect(result.receipt).toMatchObject({ schema: "runx.receipt.v1" });
       const output = JSON.parse(result.execution.stdout);
       expect(output).toMatchObject({
         outbox_entry: {

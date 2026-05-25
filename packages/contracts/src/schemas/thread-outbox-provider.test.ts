@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { Value } from "@sinclair/typebox/value";
+import { contractSchemaMatches } from "../internal.js";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -39,19 +39,19 @@ describe("thread outbox provider protocol schemas", () => {
 
   it("rejects raw secret-like fields on public frames", () => {
     for (const field of forbiddenSecretFields) {
-      expect(Value.Check(threadOutboxProviderManifestV1Schema, {
+      expect(contractSchemaMatches(threadOutboxProviderManifestV1Schema, {
         ...(readExpected("manifest.json") as Record<string, unknown>),
         [field]: "super-secret-token",
       })).toBe(false);
-      expect(Value.Check(threadOutboxProviderPushV1Schema, {
+      expect(contractSchemaMatches(threadOutboxProviderPushV1Schema, {
         ...(readExpected("push.json") as Record<string, unknown>),
         [field]: "super-secret-token",
       })).toBe(false);
-      expect(Value.Check(threadOutboxProviderFetchV1Schema, {
+      expect(contractSchemaMatches(threadOutboxProviderFetchV1Schema, {
         ...(readExpected("fetch.json") as Record<string, unknown>),
         [field]: "super-secret-token",
       })).toBe(false);
-      expect(Value.Check(threadOutboxProviderObservationV1Schema, {
+      expect(contractSchemaMatches(threadOutboxProviderObservationV1Schema, {
         ...(readExpected("observation.json") as Record<string, unknown>),
         [field]: "super-secret-token",
       })).toBe(false);
@@ -74,9 +74,9 @@ describe("thread outbox provider protocol schemas", () => {
       },
     };
 
-    expect(Value.Check(threadOutboxProviderPushV1Schema, push)).toBe(false);
+    expect(contractSchemaMatches(threadOutboxProviderPushV1Schema, push)).toBe(false);
     expect(() => validateThreadOutboxProviderPushContract(push)).toThrow();
-    expect(Value.Check(threadOutboxProviderObservationV1Schema, observation)).toBe(false);
+    expect(contractSchemaMatches(threadOutboxProviderObservationV1Schema, observation)).toBe(false);
     expect(() => validateThreadOutboxProviderObservationContract(observation)).toThrow();
   });
 
@@ -84,7 +84,7 @@ describe("thread outbox provider protocol schemas", () => {
     const push = { ...(readExpected("push.json") as Record<string, unknown>) };
     delete push.thread_locator;
 
-    expect(Value.Check(threadOutboxProviderPushV1Schema, push)).toBe(false);
+    expect(contractSchemaMatches(threadOutboxProviderPushV1Schema, push)).toBe(false);
     expect(() => validateThreadOutboxProviderPushContract(push)).toThrow();
   });
 
@@ -92,7 +92,7 @@ describe("thread outbox provider protocol schemas", () => {
     const fetch = { ...(readExpected("fetch.json") as Record<string, unknown>) };
     delete fetch.target;
 
-    expect(Value.Check(threadOutboxProviderFetchV1Schema, fetch)).toBe(false);
+    expect(contractSchemaMatches(threadOutboxProviderFetchV1Schema, fetch)).toBe(false);
     expect(() => validateThreadOutboxProviderFetchContract(fetch)).toThrow();
   });
 
@@ -105,15 +105,15 @@ describe("thread outbox provider protocol schemas", () => {
       },
     };
 
-    expect(Value.Check(threadOutboxProviderManifestV1Schema, manifest)).toBe(false);
+    expect(contractSchemaMatches(threadOutboxProviderManifestV1Schema, manifest)).toBe(false);
     expect(() => validateThreadOutboxProviderManifestContract(manifest)).toThrow();
   });
 
   it("rejects unknown fields on all top-level frame shapes", () => {
-    expect(Value.Check(threadOutboxProviderManifestV1Schema, withExtra("manifest.json"))).toBe(false);
-    expect(Value.Check(threadOutboxProviderPushV1Schema, withExtra("push.json"))).toBe(false);
-    expect(Value.Check(threadOutboxProviderFetchV1Schema, withExtra("fetch.json"))).toBe(false);
-    expect(Value.Check(threadOutboxProviderObservationV1Schema, withExtra("observation.json"))).toBe(false);
+    expect(contractSchemaMatches(threadOutboxProviderManifestV1Schema, withExtra("manifest.json"))).toBe(false);
+    expect(contractSchemaMatches(threadOutboxProviderPushV1Schema, withExtra("push.json"))).toBe(false);
+    expect(contractSchemaMatches(threadOutboxProviderFetchV1Schema, withExtra("fetch.json"))).toBe(false);
+    expect(contractSchemaMatches(threadOutboxProviderObservationV1Schema, withExtra("observation.json"))).toBe(false);
   });
 });
 

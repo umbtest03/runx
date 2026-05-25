@@ -12,7 +12,7 @@ export interface HttpConnectGrant {
   readonly authority_kind?: "read_only" | "constructive" | "destructive";
   readonly target_repo?: string;
   readonly target_locator?: string;
-  readonly connection_id?: string;
+  readonly provider_reference?: string;
   readonly status: "active" | "revoked";
   readonly created_at?: string;
 }

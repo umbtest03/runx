@@ -1,105 +1,248 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.runx.dev/runx/dev/v1.json",
-  "x-runx-schema": "runx.dev.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "schema",
-    "status",
-    "doctor",
-    "fixtures"
-  ],
   "properties": {
-    "schema": {
-      "const": "runx.dev.v1",
-      "type": "string"
-    },
-    "status": {
-      "anyOf": [
-        {
-          "const": "success",
-          "type": "string"
-        },
-        {
-          "const": "failure",
-          "type": "string"
-        },
-        {
-          "const": "skipped",
-          "type": "string"
-        },
-        {
-          "const": "needs_approval",
-          "type": "string"
-        }
-      ]
-    },
     "doctor": {
-      "$ref": "https://schemas.runx.dev/runx/doctor/v1.json"
-    },
-    "fixtures": {
-      "type": "array",
-      "items": {
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name",
-          "lane",
-          "target",
-          "status",
-          "duration_ms",
-          "assertions"
-        ],
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "lane": {
-            "type": "string"
-          },
-          "target": {
-            "type": "object",
-            "patternProperties": {
-              "^(.*)$": {}
-            }
-          },
-          "status": {
-            "anyOf": [
-              {
-                "const": "success",
+      "$id": "https://schemas.runx.dev/runx/doctor/v1.json",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "diagnostics": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "evidence": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "id": {
                 "type": "string"
               },
-              {
-                "const": "failure",
+              "instance_id": {
                 "type": "string"
               },
-              {
-                "const": "skipped",
+              "location": {
+                "additionalProperties": false,
+                "properties": {
+                  "json_pointer": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              },
+              "message": {
+                "type": "string"
+              },
+              "repairs": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "anyOf": [
+                        {
+                          "const": "low",
+                          "type": "string"
+                        },
+                        {
+                          "const": "medium",
+                          "type": "string"
+                        },
+                        {
+                          "const": "high",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "contents": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "json_pointer": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "anyOf": [
+                        {
+                          "const": "create_file",
+                          "type": "string"
+                        },
+                        {
+                          "const": "replace_file",
+                          "type": "string"
+                        },
+                        {
+                          "const": "edit_yaml",
+                          "type": "string"
+                        },
+                        {
+                          "const": "edit_json",
+                          "type": "string"
+                        },
+                        {
+                          "const": "add_fixture",
+                          "type": "string"
+                        },
+                        {
+                          "const": "run_command",
+                          "type": "string"
+                        },
+                        {
+                          "const": "manual",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "patch": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "requires_human_review": {
+                      "type": "boolean"
+                    },
+                    "risk": {
+                      "anyOf": [
+                        {
+                          "const": "low",
+                          "type": "string"
+                        },
+                        {
+                          "const": "medium",
+                          "type": "string"
+                        },
+                        {
+                          "const": "high",
+                          "type": "string"
+                        },
+                        {
+                          "const": "sensitive",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "confidence",
+                    "risk",
+                    "requires_human_review"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "anyOf": [
+                  {
+                    "const": "error",
+                    "type": "string"
+                  },
+                  {
+                    "const": "warning",
+                    "type": "string"
+                  },
+                  {
+                    "const": "info",
+                    "type": "string"
+                  }
+                ]
+              },
+              "target": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "title": {
                 "type": "string"
               }
-            ]
+            },
+            "required": [
+              "id",
+              "instance_id",
+              "severity",
+              "title",
+              "message",
+              "target",
+              "location",
+              "repairs"
+            ],
+            "type": "object"
           },
-          "duration_ms": {
-            "minimum": 0,
-            "type": "integer"
+          "type": "array"
+        },
+        "schema": {
+          "anyOf": [
+            {
+              "const": "runx.doctor.v1",
+              "type": "string"
+            }
+          ]
+        },
+        "status": {
+          "anyOf": [
+            {
+              "const": "success",
+              "type": "string"
+            },
+            {
+              "const": "failure",
+              "type": "string"
+            }
+          ]
+        },
+        "summary": {
+          "additionalProperties": false,
+          "properties": {
+            "errors": {
+              "type": "integer"
+            },
+            "infos": {
+              "type": "integer"
+            },
+            "warnings": {
+              "type": "integer"
+            }
           },
+          "required": [
+            "errors",
+            "warnings",
+            "infos"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "schema",
+        "status",
+        "summary",
+        "diagnostics"
+      ],
+      "type": "object",
+      "x-runx-schema": "runx.doctor.v1"
+    },
+    "fixtures": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
           "assertions": {
-            "type": "array",
             "items": {
               "additionalProperties": false,
-              "type": "object",
-              "required": [
-                "path",
-                "kind",
-                "message"
-              ],
               "properties": {
-                "path": {
-                  "type": "string"
-                },
-                "expected": {},
                 "actual": {},
+                "expected": {},
                 "kind": {
                   "anyOf": [
                     {
@@ -126,22 +269,107 @@
                 },
                 "message": {
                   "type": "string"
+                },
+                "path": {
+                  "type": "string"
                 }
-              }
-            }
+              },
+              "required": [
+                "path",
+                "kind",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
           },
-          "skip_reason": {
+          "duration_ms": {
+            "type": "integer"
+          },
+          "lane": {
+            "type": "string"
+          },
+          "name": {
             "type": "string"
           },
           "output": {},
           "replay_path": {
             "type": "string"
+          },
+          "skip_reason": {
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "const": "success",
+                "type": "string"
+              },
+              {
+                "const": "failure",
+                "type": "string"
+              },
+              {
+                "const": "skipped",
+                "type": "string"
+              }
+            ]
+          },
+          "target": {
+            "additionalProperties": {},
+            "type": "object"
           }
-        }
-      }
+        },
+        "required": [
+          "name",
+          "lane",
+          "target",
+          "status",
+          "duration_ms",
+          "assertions"
+        ],
+        "type": "object"
+      },
+      "type": "array"
     },
     "receipt_id": {
       "type": "string"
+    },
+    "schema": {
+      "anyOf": [
+        {
+          "const": "runx.dev.v1",
+          "type": "string"
+        }
+      ]
+    },
+    "status": {
+      "anyOf": [
+        {
+          "const": "success",
+          "type": "string"
+        },
+        {
+          "const": "failure",
+          "type": "string"
+        },
+        {
+          "const": "skipped",
+          "type": "string"
+        },
+        {
+          "const": "needs_approval",
+          "type": "string"
+        }
+      ]
     }
-  }
+  },
+  "required": [
+    "schema",
+    "status",
+    "doctor",
+    "fixtures"
+  ],
+  "type": "object",
+  "x-runx-schema": "runx.dev.v1"
 }

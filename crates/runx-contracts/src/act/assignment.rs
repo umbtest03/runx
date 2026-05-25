@@ -30,9 +30,8 @@ pub enum ActAssignmentHostKind {
 
 // `ActAssignmentActor` / `ActAssignmentHost` fields stay `String`: they feed the
 // fixture-backed idempotency hash pipeline (`normalize_*`, `derive_*`) which is
-// parity-sensitive and must not be reshaped. The committed `minLength: 1` on
-// these nested fields is therefore not enforced by the emitter; corpus values
-// keep them non-empty so accept/reject parity holds.
+// parity-sensitive and must not be reshaped. Builders normalize empty strings
+// away before hashing; the contract keeps the raw inbound envelope permissive.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ActAssignmentActor {

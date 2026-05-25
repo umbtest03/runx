@@ -1,102 +1,28 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.runx.dev/runx/thread-outbox-provider/manifest/v1.json",
-  "x-runx-schema": "runx.thread_outbox_provider.manifest.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "schema",
-    "protocol_version",
-    "adapter_id",
-    "provider",
-    "name",
-    "version",
-    "supported_operations",
-    "transport",
-    "receipt_capabilities",
-    "redaction_capabilities"
-  ],
   "properties": {
-    "schema": {
-      "const": "runx.thread_outbox_provider.manifest.v1",
-      "type": "string"
-    },
-    "protocol_version": {
-      "const": "runx.thread_outbox_provider.v1",
-      "type": "string"
-    },
     "adapter_id": {
       "minLength": 1,
       "type": "string"
     },
-    "provider": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "name": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "version": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "supported_operations": {
-      "minItems": 1,
-      "type": "array",
-      "items": {
-        "anyOf": [
-          {
-            "const": "push",
-            "type": "string"
-          },
-          {
-            "const": "fetch",
-            "type": "string"
-          }
-        ]
-      }
-    },
-    "transport": {
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "kind"
-      ],
-      "properties": {
-        "kind": {
-          "const": "process",
-          "type": "string"
-        },
-        "command": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "args": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "endpoint": {
-          "minLength": 1,
-          "type": "string"
-        }
-      }
-    },
     "credential_needs": {
-      "type": "array",
       "items": {
         "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "provider",
-          "purpose",
-          "profile_id",
-          "delivery_mode",
-          "required"
-        ],
         "properties": {
+          "delivery_mode": {
+            "anyOf": [
+              {
+                "const": "process_env",
+                "type": "string"
+              }
+            ]
+          },
+          "profile_id": {
+            "minLength": 1,
+            "type": "string"
+          },
           "provider": {
             "minLength": 1,
             "type": "string"
@@ -121,30 +47,40 @@
               }
             ]
           },
-          "profile_id": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "delivery_mode": {
-            "const": "process_env",
-            "type": "string"
-          },
           "required": {
             "type": "boolean"
           },
           "scope_refs": {
-            "type": "array",
             "items": {
-              "$schema": "https://json-schema.org/draft/2020-12/schema",
               "$id": "https://schemas.runx.dev/runx/reference/v1.json",
-              "x-runx-schema": "runx.reference.v1",
+              "$schema": "https://json-schema.org/draft/2020-12/schema",
               "additionalProperties": false,
-              "type": "object",
-              "required": [
-                "type",
-                "uri"
-              ],
               "properties": {
+                "label": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "locator": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "observed_at": {
+                  "minLength": 1,
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+                  "type": "string"
+                },
+                "proof_kind": {
+                  "anyOf": [
+                    {
+                      "const": "payment_rail",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "provider": {
+                  "minLength": 1,
+                  "type": "string"
+                },
                 "schema": {
                   "const": "runx.reference.v1",
                   "type": "string"
@@ -292,42 +228,47 @@
                 "uri": {
                   "minLength": 1,
                   "type": "string"
-                },
-                "provider": {
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "locator": {
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "label": {
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "observed_at": {
-                  "minLength": 1,
-                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
-                  "type": "string"
-                },
-                "proof_kind": {
-                  "const": "payment_rail",
-                  "type": "string"
                 }
-              }
-            }
+              },
+              "required": [
+                "type",
+                "uri"
+              ],
+              "type": "object",
+              "x-runx-schema": "runx.reference.v1"
+            },
+            "type": "array"
           }
+        },
+        "required": [
+          "provider",
+          "purpose",
+          "profile_id",
+          "delivery_mode",
+          "required"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "name": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "protocol_version": {
+      "anyOf": [
+        {
+          "const": "runx.thread_outbox_provider.v1",
+          "type": "string"
         }
-      }
+      ]
+    },
+    "provider": {
+      "minLength": 1,
+      "type": "string"
     },
     "receipt_capabilities": {
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "idempotent_push",
-        "readback",
-        "stable_provider_event_hash"
-      ],
       "properties": {
         "idempotent_push": {
           "type": "boolean"
@@ -338,16 +279,16 @@
         "stable_provider_event_hash": {
           "type": "boolean"
         }
-      }
+      },
+      "required": [
+        "idempotent_push",
+        "readback",
+        "stable_provider_event_hash"
+      ],
+      "type": "object"
     },
     "redaction_capabilities": {
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "redacts_credentials",
-        "redacts_provider_payloads",
-        "supports_redaction_refs"
-      ],
       "properties": {
         "redacts_credentials": {
           "type": "boolean"
@@ -358,7 +299,85 @@
         "supports_redaction_refs": {
           "type": "boolean"
         }
-      }
+      },
+      "required": [
+        "redacts_credentials",
+        "redacts_provider_payloads",
+        "supports_redaction_refs"
+      ],
+      "type": "object"
+    },
+    "schema": {
+      "anyOf": [
+        {
+          "const": "runx.thread_outbox_provider.manifest.v1",
+          "type": "string"
+        }
+      ]
+    },
+    "supported_operations": {
+      "items": {
+        "anyOf": [
+          {
+            "const": "push",
+            "type": "string"
+          },
+          {
+            "const": "fetch",
+            "type": "string"
+          }
+        ]
+      },
+      "type": "array"
+    },
+    "transport": {
+      "additionalProperties": false,
+      "properties": {
+        "args": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "command": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "endpoint": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "const": "process",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "version": {
+      "minLength": 1,
+      "type": "string"
     }
-  }
+  },
+  "required": [
+    "schema",
+    "protocol_version",
+    "adapter_id",
+    "provider",
+    "name",
+    "version",
+    "supported_operations",
+    "transport",
+    "receipt_capabilities",
+    "redaction_capabilities"
+  ],
+  "type": "object",
+  "x-runx-schema": "runx.thread_outbox_provider.manifest.v1"
 }

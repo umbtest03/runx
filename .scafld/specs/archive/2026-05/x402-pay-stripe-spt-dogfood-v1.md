@@ -39,7 +39,7 @@ receipt-before-forward, or raw-provider-material redaction.
 
 In scope:
 
-- `crates/runx-runtime/tests/stripe_spt_payment.rs`
+- `crates/runx-runtime/tests/payment/stripe_spt.rs`
 - `scripts/dogfood-core-skills.mjs`
 - `skills/stripe-pay/SKILL.md`
 - `skills/stripe-pay/X.yaml`
@@ -77,13 +77,13 @@ Profile: strict
 
 Validation:
 - [x] `v1` test - Rust Stripe SPT payment runtime tests pass.
-  - Command: `cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --test stripe_spt_payment`
+  - Command: `cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --test payment`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
   - Source event: entry-11
 - [x] `v1b` feature parity - Rust Stripe SPT payment runtime tests pass with
-  - Command: `cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool --test stripe_spt_payment`
+  - Command: `cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool --test payment`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
@@ -106,7 +106,7 @@ Validation:
 Strategy: per_phase
 
 Commands:
-- `git checkout HEAD -- crates/runx-runtime/tests/stripe_spt_payment.rs scripts/dogfood-core-skills.mjs skills/stripe-pay skills/pay-fulfill-rail tests/payment-skill-profile-validation.test.ts`
+- `git checkout HEAD -- crates/runx-runtime/tests/payment/stripe_spt.rs scripts/dogfood-core-skills.mjs skills/stripe-pay skills/pay-fulfill-rail tests/payment-skill-profile-validation.test.ts`
 
 ## Harden Rounds
 

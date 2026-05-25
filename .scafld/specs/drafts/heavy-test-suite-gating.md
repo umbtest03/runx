@@ -14,15 +14,15 @@ risk_level: low
 ## Current State
 
 Status: draft
-Current phase: planning
-Next: harden
-Reason: A+ roadmap step 5. The full `cargo test --workspace --all-features` and
-the heavy graph integration tests are slow and flake on the debug `runx` binary's
-cold start under parallel load unless `RUNX_KERNEL_EVAL_BIN` (and the parser/CLI
-eval binaries) are set. Because of that flakiness the thorough suite is NOT part
-of the enforced gate (`verify:fast` runs a fast subset), so a regression can slip
-the fast gate and only surface in a slow local run.
-Blockers: none.
+Current phase: implemented and two-run heavy evidence recorded
+Next: keep the heavy graph and workspace cargo gates enforced in CI.
+Reason: `scripts/verify-fast.mjs` now builds the Rust CLI and harness fixture
+oracle once, exports `RUNX_KERNEL_EVAL_BIN` / `RUNX_PARSER_EVAL_BIN` /
+`RUNX_RUST_CLI_BIN` / `RUNX_HARNESS_FIXTURE_ORACLE_BIN`, and includes
+`fixtures:harness:check`. CI also runs `pnpm test:heavy:graph` and
+`cargo test --workspace --all-features`. Two consecutive heavy graph runs are
+recorded green after the eval-binary/oracle provisioning fix.
+Blockers: none for this gating slice.
 
 ## Summary
 
@@ -50,11 +50,34 @@ Out of scope: changing test assertions or fixtures.
 
 ## Acceptance
 
-- [ ] `dod1` The heavy/subprocess suites run without cold-start flakiness because
+- [x] `dod1` The heavy/subprocess suites run without cold-start flakiness because
   the eval binary is prebuilt and the env vars are provisioned by the harness.
-- [ ] `dod2` `cargo test --workspace` (or the defined superset) is part of the
+  - Command: `pnpm test:heavy:graph`
+  - Expected kind: `exit_code_zero`
+  - Status: passed
+  - Evidence: 2026-05-25 full heavy graph suite passed after the shared
+    eval-binary/oracle provisioning was wired.
+- [x] `dod2` `cargo test --workspace` (or the defined superset) is part of the
   enforced gate, not just a manual run.
-- [ ] `dod3` Two consecutive full runs are green with no flaky retries.
+  - Command: `rg -n "pnpm test:heavy:graph|cargo test --workspace --all-features" .github/workflows/ci.yml`
+  - Expected kind: `reviewed_output`
+  - Status: reviewed
+  - Evidence: CI contains both the heavy graph suite and workspace all-features
+    cargo gate.
+- [x] `dod3` Two consecutive full runs are green with no flaky retries.
+  - Command: `pnpm test:heavy:graph`
+  - Expected kind: `exit_code_zero`
+  - Status: passed twice
+  - Evidence: 2026-05-25 full heavy graph suite passed twice consecutively; the
+    second recorded run passed 13 files / 66 tests in 65.90s.
+
+Evidence (static, 2026-05-25):
+- `scripts/verify-fast.mjs` builds `runx` and `runx-harness-fixture-oracles`,
+  then exports the eval/oracle env vars for the fast gate.
+- `.github/workflows/ci.yml` runs `pnpm test:heavy:graph` and
+  `cargo test --workspace --all-features`.
+- Two consecutive `pnpm test:heavy:graph` runs were recorded green on
+  2026-05-25.
 
 ## Origin
 

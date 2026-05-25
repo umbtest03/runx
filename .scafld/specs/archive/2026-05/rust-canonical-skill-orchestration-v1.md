@@ -277,7 +277,7 @@ Validation:
   - Evidence: exit code was 0
   - Source event: entry-22
 - [x] `dod5` command - Official payment/x402 dogfood eventualities have
-  - Command: `cargo test --quiet --manifest-path crates/Cargo.toml -p runx-cli --test x402_native_dogfood && cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --test payment_execution && cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --test stripe_spt_payment && ! rg -n 'command: node|node -e|tsx|pnpm' fixtures/harness fixtures/graphs fixtures/skills`
+  - Command: `cargo test --quiet --manifest-path crates/Cargo.toml -p runx-cli --test x402_native_dogfood && cargo test --quiet --manifest-path crates/Cargo.toml -p runx-runtime --test payment && ! rg -n 'command: node|node -e|tsx|pnpm' fixtures/harness fixtures/graphs fixtures/skills`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
@@ -421,4 +421,3 @@ Findings:
   - Evidence: dispatch.ts:52-62 imports handleInspectCommand alongside handleInspectRunCommand/handleDiffCommand/handleReplaySeedCommand/etc. A workspace-wide grep for handleInspectCommand outside its definition in packages/cli/src/commands/history.ts:101 shows only the dispatch.ts:55 import — there is no call site. The handler itself unconditionally throws so the import is doubly dead.
   - Impact: Adds noise and a fragile reference; would be caught by no-unused-imports lint if enabled. No behavior impact.
   - Validation: After removal, rg -n 'handleInspectCommand' packages/cli/src returns only the history.ts definition (or zero if also removed), and pnpm --dir oss typecheck/test pass.
-

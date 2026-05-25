@@ -12,6 +12,11 @@
       "phase1_state": "keep",
       "decision": "Provider-neutral contracts and credential-delivery envelope stay MIT."
     },
+    "runx-contracts-derive": {
+      "class": "mit-oss",
+      "phase1_state": "keep",
+      "decision": "Provider-neutral schema derivation stays MIT; no brokerage or provider calls."
+    },
     "runx-core": {
       "class": "mit-oss",
       "phase1_state": "keep",
@@ -69,34 +74,9 @@
   ],
   "allowlist": [
     {
-      "path": "crates/runx-core/src/policy/types.rs",
-      "identifier": "connection_id",
-      "rationale": "Legacy public wire field from the credential envelope. OSS must not broker or construct provider-specific values here; field rename/removal is a contract migration deferred to credential-envelope-opaque-reference-v1."
-    },
-    {
-      "path": "crates/runx-core/src/policy/authority_proof.rs",
-      "identifier": "connection_id",
-      "rationale": "Legacy authority-proof projection of the public envelope field. OSS must not broker or construct provider-specific values here; field rename/removal is deferred to credential-envelope-opaque-reference-v1."
-    },
-    {
       "path": "crates/runx-core/tests/policy_proptest.rs",
       "identifier": "nango",
       "rationale": "Legacy/negative fixture material; prefer provider-opaque replacement during Phase 2."
-    },
-    {
-      "path": "crates/runx-runtime/tests/credential_delivery.rs",
-      "identifier": "connection_id",
-      "rationale": "Credential delivery fixture; prefer provider-opaque replacement during Phase 2."
-    },
-    {
-      "path": "crates/runx-runtime/src/credentials.rs",
-      "identifier": "connection_id",
-      "rationale": "Local per-run credential provision builds a CredentialEnvelope and sets the legacy public field to None; OSS brokers nothing. Field rename/removal is deferred to credential-envelope-opaque-reference-v1."
-    },
-    {
-      "path": "crates/runx-runtime/tests/external_adapter.rs",
-      "identifier": "connection_id",
-      "rationale": "External adapter fixture; prefer provider-opaque replacement during Phase 2."
     },
     {
       "path": "crates/runx-runtime/tests/license_boundary.rs",

@@ -34,6 +34,13 @@ pub struct SandboxPlan {
     pub cwd: PathBuf,
     pub env: BTreeMap<String, String>,
     pub metadata: JsonObject,
+    pub cleanup_paths: Vec<PathBuf>,
+}
+
+impl Drop for SandboxPlan {
+    fn drop(&mut self) {
+        cleanup_paths_quietly(&self.cleanup_paths);
+    }
 }
 
 pub fn prepare_process_sandbox(
@@ -47,18 +54,42 @@ pub fn prepare_process_sandbox(
     validate_sandbox(sandbox)?;
     let workspace_cwd = workspace_cwd(base_env)?;
     let cwd = resolve_cwd(source, sandbox, skill_directory, workspace_cwd.as_deref())?;
-    let env = child_env(sandbox, base_env, inputs)?;
     let args = source
         .args
         .iter()
         .map(|arg| resolve_template(arg, inputs))
         .collect();
+    let writable_paths = resolved_writable_paths(sandbox, inputs);
+    validate_writable_paths(sandbox, &writable_paths, &cwd, workspace_cwd.as_deref())?;
+    let runtime = resolve_sandbox_runtime(sandbox, base_env)?;
+    let mut cleanup_paths = Vec::new();
+    let mut sandbox_base_env = base_env.clone();
+    prepare_enforced_env(&runtime, &mut sandbox_base_env, &mut cleanup_paths)?;
+    let env = match child_env(sandbox, &sandbox_base_env, inputs) {
+        Ok(env) => env,
+        Err(error) => {
+            cleanup_paths_quietly(&cleanup_paths);
+            return Err(error);
+        }
+    };
+    let (command, args) = sandbox_spawn_command(SandboxSpawnCommand {
+        runtime: runtime.as_ref(),
+        command,
+        args,
+        cwd: &cwd,
+        skill_directory,
+        workspace_cwd: workspace_cwd.as_deref(),
+        writable_paths: &writable_paths,
+        network: sandbox_network_enabled(sandbox),
+        private_tmp: cleanup_paths.first().map(PathBuf::as_path),
+    });
     Ok(SandboxPlan {
         command,
         args,
         cwd,
         env,
-        metadata: sandbox_metadata(sandbox),
+        metadata: sandbox_metadata_with_runtime(sandbox, &writable_paths, runtime.as_ref()),
+        cleanup_paths,
     })
 }
 
@@ -77,13 +108,37 @@ pub fn prepare_mcp_process_sandbox(
         skill_directory,
         workspace_cwd.as_deref(),
     )?;
-    let env = child_base_env(sandbox, base_env)?;
-    Ok(SandboxPlan {
+    let writable_paths = resolved_writable_paths(sandbox, &JsonObject::new());
+    validate_writable_paths(sandbox, &writable_paths, &cwd, workspace_cwd.as_deref())?;
+    let runtime = resolve_sandbox_runtime(sandbox, base_env)?;
+    let mut cleanup_paths = Vec::new();
+    let mut sandbox_base_env = base_env.clone();
+    prepare_enforced_env(&runtime, &mut sandbox_base_env, &mut cleanup_paths)?;
+    let env = match child_base_env(sandbox, &sandbox_base_env) {
+        Ok(env) => env,
+        Err(error) => {
+            cleanup_paths_quietly(&cleanup_paths);
+            return Err(error);
+        }
+    };
+    let (command, args) = sandbox_spawn_command(SandboxSpawnCommand {
+        runtime: runtime.as_ref(),
         command: server.command.clone(),
         args: server.args.clone(),
+        cwd: &cwd,
+        skill_directory,
+        workspace_cwd: workspace_cwd.as_deref(),
+        writable_paths: &writable_paths,
+        network: sandbox_network_enabled(sandbox),
+        private_tmp: cleanup_paths.first().map(PathBuf::as_path),
+    });
+    Ok(SandboxPlan {
+        command,
+        args,
         cwd,
         env,
-        metadata: sandbox_metadata(sandbox),
+        metadata: sandbox_metadata_with_runtime(sandbox, &writable_paths, runtime.as_ref()),
+        cleanup_paths,
     })
 }
 
@@ -334,11 +389,6 @@ fn validate_sandbox(sandbox: Option<&SkillSandbox>) -> Result<(), RuntimeError> 
     let Some(sandbox) = sandbox else {
         return Ok(());
     };
-    if sandbox.require_enforcement == Some(true) {
-        return Err(sandbox_violation(
-            "platform isolation helpers are not available in the runtime skeleton",
-        ));
-    }
     match sandbox.profile.as_str() {
         "readonly" => validate_readonly_sandbox(sandbox),
         "workspace-write" | "network" => Ok(()),
@@ -347,6 +397,53 @@ fn validate_sandbox(sandbox: Option<&SkillSandbox>) -> Result<(), RuntimeError> 
             "unsupported sandbox profile '{profile}'"
         ))),
     }
+}
+
+fn resolved_writable_paths(sandbox: Option<&SkillSandbox>, inputs: &JsonObject) -> Vec<String> {
+    sandbox.map_or_else(Vec::new, |sandbox| {
+        sandbox
+            .writable_paths
+            .iter()
+            .map(|path| resolve_template(path, inputs))
+            .filter(|path| !path.trim().is_empty())
+            .collect()
+    })
+}
+
+fn validate_writable_paths(
+    sandbox: Option<&SkillSandbox>,
+    writable_paths: &[String],
+    cwd: &Path,
+    workspace_cwd: Option<&Path>,
+) -> Result<(), RuntimeError> {
+    let Some(sandbox) = sandbox else {
+        return Ok(());
+    };
+    if sandbox.profile != SandboxProfile::WorkspaceWrite {
+        return Ok(());
+    }
+    let workspace_root = match workspace_cwd {
+        Some(workspace_cwd) => normalize_path(workspace_cwd),
+        None => normalize_path(&std::env::current_dir().map_err(|source| {
+            RuntimeError::io("resolving workspace cwd for sandbox writable paths", source)
+        })?),
+    };
+    let escaped = writable_paths
+        .iter()
+        .map(|path| normalize_path(&resolve_path(cwd, path)))
+        .filter(|path| !is_within_path(path, &workspace_root))
+        .collect::<Vec<_>>();
+    if escaped.is_empty() {
+        return Ok(());
+    }
+    Err(sandbox_violation(format!(
+        "workspace-write sandbox has writable path(s) outside workspace: {}",
+        escaped
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    )))
 }
 
 fn validate_readonly_sandbox(sandbox: &SkillSandbox) -> Result<(), RuntimeError> {
@@ -374,6 +471,430 @@ fn validate_unrestricted_sandbox(sandbox: &SkillSandbox) -> Result<(), RuntimeEr
 fn sandbox_violation(message: impl Into<String>) -> RuntimeError {
     RuntimeError::SandboxViolation {
         message: message.into(),
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum SandboxRuntime {
+    Direct,
+    DeclaredPolicyOnly {
+        reason: String,
+    },
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+    Bubblewrap {
+        path: PathBuf,
+    },
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    SandboxExec {
+        path: PathBuf,
+    },
+}
+
+impl SandboxRuntime {
+    fn enforces(&self) -> bool {
+        matches!(self, Self::Bubblewrap { .. } | Self::SandboxExec { .. })
+    }
+}
+
+fn resolve_sandbox_runtime(
+    sandbox: Option<&SkillSandbox>,
+    base_env: &BTreeMap<String, String>,
+) -> Result<Option<SandboxRuntime>, RuntimeError> {
+    let Some(sandbox) = sandbox else {
+        return Ok(None);
+    };
+    if sandbox.profile == SandboxProfile::UnrestrictedLocalDev {
+        if sandbox.require_enforcement == Some(true)
+            || sandbox_enforcement_required_by_env(base_env)
+        {
+            return Err(sandbox_violation(
+                "unrestricted-local-dev cannot satisfy required sandbox enforcement",
+            ));
+        }
+        return Ok(Some(SandboxRuntime::Direct));
+    }
+
+    let runtime = platform_sandbox_runtime(sandbox.profile.as_str(), base_env);
+    if runtime.enforces() || !requires_enforcement(sandbox, base_env) {
+        return Ok(Some(runtime));
+    }
+    let reason = match runtime {
+        SandboxRuntime::DeclaredPolicyOnly { reason } => reason,
+        SandboxRuntime::Direct => {
+            "direct execution does not enforce sandbox declarations".to_owned()
+        }
+        SandboxRuntime::Bubblewrap { .. } | SandboxRuntime::SandboxExec { .. } => {
+            return Ok(Some(runtime));
+        }
+    };
+    Err(sandbox_violation(reason))
+}
+
+fn requires_enforcement(sandbox: &SkillSandbox, base_env: &BTreeMap<String, String>) -> bool {
+    sandbox.require_enforcement == Some(true) || sandbox_enforcement_required_by_env(base_env)
+}
+
+fn sandbox_enforcement_required_by_env(base_env: &BTreeMap<String, String>) -> bool {
+    matches!(
+        base_env
+            .get("RUNX_SANDBOX_REQUIRE_ENFORCEMENT")
+            .map(String::as_str),
+        Some("1" | "true")
+    )
+}
+
+fn platform_sandbox_runtime(profile: &str, base_env: &BTreeMap<String, String>) -> SandboxRuntime {
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(path) = find_executable("bwrap", base_env.get("PATH")) {
+            return SandboxRuntime::Bubblewrap { path };
+        }
+        return SandboxRuntime::DeclaredPolicyOnly {
+            reason: format!(
+                "local sandbox profile '{profile}' requires bubblewrap (bwrap) for filesystem and network enforcement"
+            ),
+        };
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(path) = find_executable("sandbox-exec", base_env.get("PATH")) {
+            return SandboxRuntime::SandboxExec { path };
+        }
+        SandboxRuntime::DeclaredPolicyOnly {
+            reason: format!(
+                "local sandbox profile '{profile}' requires macOS sandbox-exec for filesystem and network enforcement"
+            ),
+        }
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        let _ = base_env;
+        SandboxRuntime::DeclaredPolicyOnly {
+            reason: format!(
+                "local sandbox profile '{profile}' requires Linux bubblewrap or macOS sandbox-exec for filesystem and network enforcement"
+            ),
+        }
+    }
+}
+
+fn find_executable(command: &str, search_path: Option<&String>) -> Option<PathBuf> {
+    let search_paths = search_path
+        .map(|path| std::env::split_paths(path).collect::<Vec<_>>())
+        .unwrap_or_default();
+    search_paths
+        .into_iter()
+        .chain(default_executable_search_paths(command))
+        .map(|dir| dir.join(command))
+        .find(|candidate| candidate.exists())
+}
+
+fn default_executable_search_paths(command: &str) -> Vec<PathBuf> {
+    let mut paths = vec![PathBuf::from("/usr/bin"), PathBuf::from("/bin")];
+    if command == "sandbox-exec" {
+        paths.push(PathBuf::from("/usr/sbin"));
+        paths.push(PathBuf::from("/sbin"));
+    }
+    paths
+}
+
+fn prepare_enforced_env(
+    runtime: &Option<SandboxRuntime>,
+    env: &mut BTreeMap<String, String>,
+    cleanup_paths: &mut Vec<PathBuf>,
+) -> Result<(), RuntimeError> {
+    if !matches!(runtime, Some(SandboxRuntime::Bubblewrap { .. })) {
+        return Ok(());
+    }
+    let private_tmp = create_private_tmp()?;
+    let private_tmp_str = private_tmp.to_string_lossy().into_owned();
+    env.insert("TMPDIR".to_owned(), private_tmp_str.clone());
+    env.insert("TMP".to_owned(), private_tmp_str.clone());
+    env.insert("TEMP".to_owned(), private_tmp_str);
+    cleanup_paths.push(private_tmp);
+    Ok(())
+}
+
+fn create_private_tmp() -> Result<PathBuf, RuntimeError> {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_nanos());
+    let path =
+        std::env::temp_dir().join(format!("runx-local-sandbox-{}-{nanos}", std::process::id()));
+    fs::create_dir_all(&path)
+        .map_err(|source| RuntimeError::io("creating sandbox private temp dir", source))?;
+    Ok(path)
+}
+
+struct SandboxSpawnCommand<'a> {
+    runtime: Option<&'a SandboxRuntime>,
+    command: String,
+    args: Vec<String>,
+    cwd: &'a Path,
+    skill_directory: &'a Path,
+    workspace_cwd: Option<&'a Path>,
+    writable_paths: &'a [String],
+    network: bool,
+    private_tmp: Option<&'a Path>,
+}
+
+fn sandbox_spawn_command(input: SandboxSpawnCommand<'_>) -> (String, Vec<String>) {
+    match input.runtime {
+        Some(SandboxRuntime::Bubblewrap { path }) => (
+            path.to_string_lossy().into_owned(),
+            bubblewrap_args(BubblewrapCommand {
+                command: input.command,
+                command_args: input.args,
+                cwd: input.cwd,
+                skill_directory: input.skill_directory,
+                workspace_cwd: input.workspace_cwd,
+                writable_paths: input.writable_paths,
+                network: input.network,
+                private_tmp: input.private_tmp,
+            }),
+        ),
+        Some(SandboxRuntime::SandboxExec { path }) => (
+            path.to_string_lossy().into_owned(),
+            sandbox_exec_args(
+                input.command,
+                input.args,
+                input.cwd,
+                input.writable_paths,
+                input.network,
+            ),
+        ),
+        Some(SandboxRuntime::Direct | SandboxRuntime::DeclaredPolicyOnly { .. }) | None => {
+            (input.command, input.args)
+        }
+    }
+}
+
+fn sandbox_network_enabled(sandbox: Option<&SkillSandbox>) -> bool {
+    sandbox.is_some_and(|sandbox| {
+        sandbox
+            .network
+            .unwrap_or(sandbox.profile == SandboxProfile::Network)
+    })
+}
+
+struct BubblewrapCommand<'a> {
+    command: String,
+    command_args: Vec<String>,
+    cwd: &'a Path,
+    skill_directory: &'a Path,
+    workspace_cwd: Option<&'a Path>,
+    writable_paths: &'a [String],
+    network: bool,
+    private_tmp: Option<&'a Path>,
+}
+
+fn bubblewrap_args(input: BubblewrapCommand<'_>) -> Vec<String> {
+    let BubblewrapCommand {
+        command,
+        command_args,
+        cwd,
+        skill_directory,
+        workspace_cwd,
+        writable_paths,
+        network,
+        private_tmp,
+    } = input;
+    let workspace_root = workspace_cwd.map(normalize_path).or_else(|| {
+        std::env::current_dir()
+            .ok()
+            .map(|path| normalize_path(&path))
+    });
+    let mut args = vec!["--unshare-all".to_owned()];
+    if network {
+        args.push("--share-net".to_owned());
+    }
+    args.extend([
+        "--die-with-parent".to_owned(),
+        "--proc".to_owned(),
+        "/proc".to_owned(),
+        "--dev".to_owned(),
+        "/dev".to_owned(),
+        "--tmpfs".to_owned(),
+        "/tmp".to_owned(),
+    ]);
+    for mount_path in readonly_mounts(skill_directory, workspace_root.as_deref(), cwd) {
+        args.extend([
+            "--ro-bind-try".to_owned(),
+            path_string(&mount_path),
+            path_string(&mount_path),
+        ]);
+    }
+    if let Some(private_tmp) = private_tmp {
+        args.extend([
+            "--bind".to_owned(),
+            path_string(private_tmp),
+            path_string(private_tmp),
+        ]);
+    }
+    for mount in writable_mounts(writable_paths, cwd) {
+        args.extend([
+            "--bind".to_owned(),
+            path_string(&mount),
+            path_string(&mount),
+        ]);
+    }
+    args.extend([
+        "--chdir".to_owned(),
+        path_string(cwd),
+        "--".to_owned(),
+        command,
+    ]);
+    args.extend(command_args);
+    args
+}
+
+fn readonly_mounts(
+    skill_directory: &Path,
+    workspace_root: Option<&Path>,
+    cwd: &Path,
+) -> Vec<PathBuf> {
+    unique_paths(
+        system_readonly_mounts()
+            .into_iter()
+            .chain(find_package_root(skill_directory))
+            .chain([normalize_existing_path(skill_directory)])
+            .chain(workspace_root.map(Path::to_path_buf))
+            .chain([normalize_existing_path(cwd)])
+            .collect(),
+    )
+}
+
+fn system_readonly_mounts() -> Vec<PathBuf> {
+    [
+        "/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc", "/opt", "/nix", "/snap",
+    ]
+    .into_iter()
+    .map(PathBuf::from)
+    .collect()
+}
+
+fn writable_mounts(writable_paths: &[String], cwd: &Path) -> Vec<PathBuf> {
+    unique_paths(
+        writable_paths
+            .iter()
+            .map(|path| writable_mount_path(&resolve_path(cwd, path)))
+            .collect(),
+    )
+}
+
+fn writable_mount_path(path: &Path) -> PathBuf {
+    if path.exists() {
+        return normalize_existing_path(path);
+    }
+    path.parent()
+        .map(normalize_existing_path)
+        .unwrap_or_else(|| normalize_path(path))
+}
+
+fn sandbox_exec_args(
+    command: String,
+    command_args: Vec<String>,
+    cwd: &Path,
+    writable_paths: &[String],
+    network: bool,
+) -> Vec<String> {
+    let mut args = vec![
+        "-p".to_owned(),
+        sandbox_exec_profile(cwd, writable_paths, network),
+    ];
+    args.push(command);
+    args.extend(command_args);
+    args
+}
+
+fn sandbox_exec_profile(cwd: &Path, writable_paths: &[String], network: bool) -> String {
+    let mut profile = [
+        "(version 1)",
+        "(deny default)",
+        "(allow process*)",
+        "(allow sysctl*)",
+        "(allow file-read*)",
+    ]
+    .join("\n");
+    if network {
+        profile.push_str("\n(allow network*)");
+    }
+    for writable_path in writable_paths {
+        let declared = resolve_path(cwd, writable_path);
+        let path = sandbox_exec_path_filter_path(&declared);
+        if declared.is_dir() {
+            profile.push_str(&format!(
+                "\n(allow file-write* (literal \"{}\") (subpath \"{}\"))",
+                sandbox_profile_string(&path),
+                sandbox_profile_string(&path)
+            ));
+        } else {
+            profile.push_str(&format!(
+                "\n(allow file-write* (literal \"{}\"))",
+                sandbox_profile_string(&path)
+            ));
+        }
+    }
+    profile
+}
+
+fn sandbox_exec_path_filter_path(path: &Path) -> PathBuf {
+    if path.exists() {
+        return normalize_existing_path(path);
+    }
+    let parent = path.parent().map(normalize_existing_path);
+    parent
+        .map(|parent| {
+            path.file_name()
+                .map(|name| parent.join(name))
+                .unwrap_or(parent)
+        })
+        .unwrap_or_else(|| path.to_path_buf())
+}
+
+fn sandbox_profile_string(path: &Path) -> String {
+    path_string(path).replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn find_package_root(start: &Path) -> Option<PathBuf> {
+    let mut current = normalize_existing_path(start);
+    let mut found = None;
+    loop {
+        if current.join("package.json").exists() || current.join("pnpm-workspace.yaml").exists() {
+            found = Some(current.clone());
+        }
+        let Some(parent) = current.parent() else {
+            return found;
+        };
+        if parent == current {
+            return found;
+        }
+        current = parent.to_path_buf();
+    }
+}
+
+fn normalize_existing_path(path: &Path) -> PathBuf {
+    fs::canonicalize(path).unwrap_or_else(|_| normalize_path(path))
+}
+
+fn unique_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
+    let mut unique = Vec::new();
+    for path in paths {
+        if !unique.iter().any(|prior| prior == &path) {
+            unique.push(path);
+        }
+    }
+    unique
+}
+
+fn path_string(path: &Path) -> String {
+    path.to_string_lossy().into_owned()
+}
+
+fn cleanup_paths_quietly(paths: &[PathBuf]) {
+    for path in paths {
+        let _ = fs::remove_dir_all(path);
     }
 }
 
@@ -418,6 +939,17 @@ fn resolve_template(template: &str, inputs: &JsonObject) -> String {
 }
 
 pub fn sandbox_metadata(sandbox: Option<&SkillSandbox>) -> JsonObject {
+    let writable_paths = sandbox
+        .map(|sandbox| sandbox.writable_paths.clone())
+        .unwrap_or_default();
+    sandbox_metadata_with_runtime(sandbox, &writable_paths, None)
+}
+
+fn sandbox_metadata_with_runtime(
+    sandbox: Option<&SkillSandbox>,
+    writable_paths: &[String],
+    runtime: Option<&SandboxRuntime>,
+) -> JsonObject {
     let mut metadata = JsonObject::new();
     if let Some(sandbox) = sandbox {
         metadata.insert(
@@ -434,15 +966,15 @@ pub fn sandbox_metadata(sandbox: Option<&SkillSandbox>) -> JsonObject {
             "env".to_owned(),
             JsonValue::Object(sandbox_env_metadata(sandbox)),
         );
-        insert_network_metadata(&mut metadata, sandbox);
-        insert_writable_paths_metadata(&mut metadata, sandbox);
+        insert_network_metadata(&mut metadata, sandbox, runtime);
+        insert_writable_paths_metadata(&mut metadata, writable_paths);
         metadata.insert(
             "require_enforcement".to_owned(),
             JsonValue::Bool(sandbox.require_enforcement.unwrap_or(false)),
         );
-        insert_filesystem_metadata(&mut metadata, sandbox);
+        insert_filesystem_metadata(&mut metadata, sandbox, runtime);
         insert_approval_metadata(&mut metadata, sandbox);
-        insert_runtime_metadata(&mut metadata);
+        insert_runtime_metadata(&mut metadata, sandbox, runtime);
     }
     metadata
 }
@@ -471,18 +1003,22 @@ fn sandbox_env_metadata(sandbox: &SkillSandbox) -> JsonObject {
     .into()
 }
 
-fn insert_network_metadata(metadata: &mut JsonObject, sandbox: &SkillSandbox) {
+fn insert_network_metadata(
+    metadata: &mut JsonObject,
+    sandbox: &SkillSandbox,
+    runtime: Option<&SandboxRuntime>,
+) {
     metadata.insert(
         "network".to_owned(),
         JsonValue::Object(
             [
                 (
                     "declared".to_owned(),
-                    JsonValue::Bool(sandbox.network.unwrap_or(false)),
+                    JsonValue::Bool(sandbox_network_enabled(Some(sandbox))),
                 ),
                 (
                     "enforcement".to_owned(),
-                    JsonValue::String("not-enforced-local".to_owned()),
+                    JsonValue::String(network_enforcement(sandbox, runtime).to_owned()),
                 ),
             ]
             .into(),
@@ -490,12 +1026,11 @@ fn insert_network_metadata(metadata: &mut JsonObject, sandbox: &SkillSandbox) {
     );
 }
 
-fn insert_writable_paths_metadata(metadata: &mut JsonObject, sandbox: &SkillSandbox) {
+fn insert_writable_paths_metadata(metadata: &mut JsonObject, writable_paths: &[String]) {
     metadata.insert(
         "writable_paths".to_owned(),
         JsonValue::Array(
-            sandbox
-                .writable_paths
+            writable_paths
                 .iter()
                 .cloned()
                 .map(JsonValue::String)
@@ -504,21 +1039,34 @@ fn insert_writable_paths_metadata(metadata: &mut JsonObject, sandbox: &SkillSand
     );
 }
 
-fn insert_filesystem_metadata(metadata: &mut JsonObject, sandbox: &SkillSandbox) {
+fn insert_filesystem_metadata(
+    metadata: &mut JsonObject,
+    sandbox: &SkillSandbox,
+    runtime: Option<&SandboxRuntime>,
+) {
     metadata.insert(
         "filesystem".to_owned(),
         JsonValue::Object(
             [
                 (
                     "enforcement".to_owned(),
-                    JsonValue::String("not-enforced-local".to_owned()),
+                    JsonValue::String(filesystem_enforcement(sandbox, runtime).to_owned()),
                 ),
                 (
                     "readonly_paths".to_owned(),
                     JsonValue::Bool(sandbox.profile != SandboxProfile::UnrestrictedLocalDev),
                 ),
-                ("writable_paths_enforced".to_owned(), JsonValue::Bool(false)),
-                ("private_tmp".to_owned(), JsonValue::Bool(false)),
+                (
+                    "writable_paths_enforced".to_owned(),
+                    JsonValue::Bool(
+                        runtime.is_some_and(SandboxRuntime::enforces)
+                            && sandbox.profile == SandboxProfile::WorkspaceWrite,
+                    ),
+                ),
+                (
+                    "private_tmp".to_owned(),
+                    JsonValue::Bool(matches!(runtime, Some(SandboxRuntime::Bubblewrap { .. }))),
+                ),
             ]
             .into(),
         ),
@@ -544,24 +1092,99 @@ fn insert_approval_metadata(metadata: &mut JsonObject, sandbox: &SkillSandbox) {
     );
 }
 
-fn insert_runtime_metadata(metadata: &mut JsonObject) {
+fn insert_runtime_metadata(
+    metadata: &mut JsonObject,
+    sandbox: &SkillSandbox,
+    runtime: Option<&SandboxRuntime>,
+) {
     metadata.insert(
         "runtime".to_owned(),
-        JsonValue::Object(
-            [
-                (
-                    "enforcer".to_owned(),
-                    JsonValue::String("declared-policy-only".to_owned()),
-                ),
-                (
-                    "reason".to_owned(),
-                    JsonValue::String(
-                        "local sandbox isolation is not enforced by the runtime skeleton"
-                            .to_owned(),
-                    ),
-                ),
-            ]
-            .into(),
-        ),
+        JsonValue::Object(runtime_metadata(sandbox, runtime)),
     );
+}
+
+fn network_enforcement(sandbox: &SkillSandbox, runtime: Option<&SandboxRuntime>) -> &'static str {
+    match runtime {
+        Some(SandboxRuntime::Bubblewrap { .. } | SandboxRuntime::SandboxExec { .. }) => {
+            if sandbox_network_enabled(Some(sandbox)) {
+                "host-network-shared"
+            } else {
+                "isolated-namespace"
+            }
+        }
+        Some(SandboxRuntime::Direct) if sandbox.profile == SandboxProfile::UnrestrictedLocalDev => {
+            "host-ambient"
+        }
+        Some(SandboxRuntime::DeclaredPolicyOnly { .. }) | None => "not-enforced-local",
+        Some(SandboxRuntime::Direct) => "host-ambient",
+    }
+}
+
+fn filesystem_enforcement(
+    sandbox: &SkillSandbox,
+    runtime: Option<&SandboxRuntime>,
+) -> &'static str {
+    match runtime {
+        Some(SandboxRuntime::Bubblewrap { .. }) => "bubblewrap-mount-namespace",
+        Some(SandboxRuntime::SandboxExec { .. }) => "sandbox-exec-seatbelt",
+        Some(SandboxRuntime::Direct) if sandbox.profile == SandboxProfile::UnrestrictedLocalDev => {
+            "host-ambient"
+        }
+        Some(SandboxRuntime::DeclaredPolicyOnly { .. }) | None => "not-enforced-local",
+        Some(SandboxRuntime::Direct) => "host-ambient",
+    }
+}
+
+fn runtime_metadata(sandbox: &SkillSandbox, runtime: Option<&SandboxRuntime>) -> JsonObject {
+    match runtime {
+        Some(SandboxRuntime::Bubblewrap { path }) => [
+            (
+                "enforcer".to_owned(),
+                JsonValue::String("bubblewrap".to_owned()),
+            ),
+            (
+                "command".to_owned(),
+                JsonValue::String(path.to_string_lossy().into_owned()),
+            ),
+        ]
+        .into(),
+        Some(SandboxRuntime::SandboxExec { path }) => [
+            (
+                "enforcer".to_owned(),
+                JsonValue::String("sandbox-exec".to_owned()),
+            ),
+            (
+                "command".to_owned(),
+                JsonValue::String(path.to_string_lossy().into_owned()),
+            ),
+        ]
+        .into(),
+        Some(SandboxRuntime::Direct) => [(
+            "enforcer".to_owned(),
+            JsonValue::String("direct".to_owned()),
+        )]
+        .into(),
+        Some(SandboxRuntime::DeclaredPolicyOnly { reason }) => [
+            (
+                "enforcer".to_owned(),
+                JsonValue::String("declared-policy-only".to_owned()),
+            ),
+            ("reason".to_owned(), JsonValue::String(reason.clone())),
+        ]
+        .into(),
+        None => [
+            (
+                "enforcer".to_owned(),
+                JsonValue::String("declared-policy-only".to_owned()),
+            ),
+            (
+                "reason".to_owned(),
+                JsonValue::String(format!(
+                    "local sandbox profile '{}' requires Linux bubblewrap or macOS sandbox-exec for filesystem and network enforcement",
+                    sandbox.profile.as_str()
+                )),
+            ),
+        ]
+        .into(),
+    }
 }

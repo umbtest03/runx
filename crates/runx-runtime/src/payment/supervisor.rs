@@ -1,18 +1,84 @@
 // rust-style-allow: large-file because the payment rail supervisor keeps the
-// settlement evidence/proof types, claim validation, runtime evidence
-// synthesis, and verification in one trusted boundary until the payment
+// settlement evidence/proof types, claim validation, runtime supervisor
+// boundary, and receipt binding in one trusted boundary until the payment
 // execution modules are split.
+use std::fmt;
+use std::sync::Arc;
+
 use runx_contracts::{
     JsonObject, JsonValue, ProofKind, Receipt, Reference, ReferenceType, sha256_prefixed,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::payment_packets::{PaymentPacketError, PaymentRailResult, read_payment_rail_packet};
+use crate::payment::packets::{PaymentPacketError, PaymentRailResult, read_payment_rail_packet};
 
 pub const PAYMENT_RAIL_SUPERVISOR_EVIDENCE_METADATA: &str = "payment_rail_supervisor_evidence";
 pub const PAYMENT_RAIL_SUPERVISOR_PROOF_METADATA: &str = "payment_rail_supervisor_proof";
 pub const PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID: &str = "runx.payment_rail_supervisor.local.v1";
+
+pub trait PaymentRailSupervisor: Send + Sync {
+    fn settlement_evidence(
+        &self,
+        request: PaymentSupervisorSettlementRequest<'_>,
+    ) -> Result<PaymentSupervisorSettlementEvidence, PaymentSupervisorError>;
+}
+
+#[derive(Clone)]
+pub struct RuntimePaymentSupervisor {
+    inner: Arc<dyn PaymentRailSupervisor>,
+}
+
+impl RuntimePaymentSupervisor {
+    #[must_use]
+    pub fn rejecting() -> Self {
+        Self::from_supervisor(RejectingPaymentRailSupervisor)
+    }
+
+    #[must_use]
+    pub fn from_supervisor<T>(supervisor: T) -> Self
+    where
+        T: PaymentRailSupervisor + 'static,
+    {
+        Self {
+            inner: Arc::new(supervisor),
+        }
+    }
+
+    pub fn settlement_evidence(
+        &self,
+        request: PaymentSupervisorSettlementRequest<'_>,
+    ) -> Result<PaymentSupervisorSettlementEvidence, PaymentSupervisorError> {
+        self.inner.settlement_evidence(request)
+    }
+}
+
+impl Default for RuntimePaymentSupervisor {
+    fn default() -> Self {
+        Self::rejecting()
+    }
+}
+
+impl fmt::Debug for RuntimePaymentSupervisor {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("RuntimePaymentSupervisor")
+            .field("configured", &true)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Debug)]
+struct RejectingPaymentRailSupervisor;
+
+impl PaymentRailSupervisor for RejectingPaymentRailSupervisor {
+    fn settlement_evidence(
+        &self,
+        _request: PaymentSupervisorSettlementRequest<'_>,
+    ) -> Result<PaymentSupervisorSettlementEvidence, PaymentSupervisorError> {
+        Err(PaymentSupervisorError::SupervisorUnavailable)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -75,8 +141,21 @@ pub struct PaymentSupervisorProofMatch<'a> {
     pub receipt_digest: &'a str,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct PaymentSupervisorSettlementRequest<'a> {
+    pub rail: &'a str,
+    pub counterparty: &'a str,
+    pub amount_minor: u64,
+    pub currency: &'a str,
+    pub idempotency_key: &'a str,
+    pub proof_ref: &'a str,
+    pub skill_settlement_status: Option<&'a str>,
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum PaymentSupervisorError {
+    #[error("payment rail supervisor is not configured")]
+    SupervisorUnavailable,
     #[error("payment rail packet is required for supervisor proof")]
     MissingRailPacket,
     #[error("payment rail result is required for supervisor proof")]
@@ -269,39 +348,6 @@ pub fn payment_supervisor_evidence_metadata_value(
     evidence: &PaymentSupervisorSettlementEvidence,
 ) -> Result<JsonValue, PaymentSupervisorError> {
     encode_json_value(evidence)
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct PaymentSupervisorEvidenceInput<'a> {
-    pub rail: &'a str,
-    pub counterparty: &'a str,
-    pub amount_minor: u64,
-    pub currency: &'a str,
-    pub idempotency_key: &'a str,
-    pub proof_ref: &'a str,
-    pub settlement_status: Option<&'a str>,
-}
-
-/// Synthesize supervisor settlement evidence from the trusted admitted spend
-/// authority plus the skill's claimed rail proof reference. Settlement facts
-/// (rail, counterparty, amount, currency, idempotency key) originate from
-/// admission, never from a skill-provided object; the skill only contributes
-/// the proof ref and a settlement-status claim, both re-validated by
-/// `verify_payment_rail_supervisor_proof`.
-pub fn synthesize_payment_supervisor_evidence(
-    input: PaymentSupervisorEvidenceInput<'_>,
-) -> PaymentSupervisorSettlementEvidence {
-    PaymentSupervisorSettlementEvidence {
-        verifier_id: PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID.to_owned(),
-        proof_ref: input.proof_ref.to_owned(),
-        rail: input.rail.to_owned(),
-        counterparty: input.counterparty.to_owned(),
-        amount_minor: input.amount_minor,
-        currency: input.currency.to_owned(),
-        idempotency_key: input.idempotency_key.to_owned(),
-        settlement_status: input.settlement_status.map(str::to_owned),
-        provider_event_ref: None,
-    }
 }
 
 /// Re-bind a stored supervisor proof to a receipt whose digest changed after the

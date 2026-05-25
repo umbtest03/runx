@@ -1,140 +1,70 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.runx.dev/runx/doctor/v1.json",
-  "x-runx-schema": "runx.doctor.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "schema",
-    "status",
-    "summary",
-    "diagnostics"
-  ],
   "properties": {
-    "schema": {
-      "const": "runx.doctor.v1",
-      "type": "string"
-    },
-    "status": {
-      "anyOf": [
-        {
-          "const": "success",
-          "type": "string"
-        },
-        {
-          "const": "failure",
-          "type": "string"
-        }
-      ]
-    },
-    "summary": {
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "errors",
-        "warnings",
-        "infos"
-      ],
-      "properties": {
-        "errors": {
-          "minimum": 0,
-          "type": "integer"
-        },
-        "warnings": {
-          "minimum": 0,
-          "type": "integer"
-        },
-        "infos": {
-          "minimum": 0,
-          "type": "integer"
-        }
-      }
-    },
     "diagnostics": {
-      "type": "array",
       "items": {
         "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "instance_id",
-          "severity",
-          "title",
-          "message",
-          "target",
-          "location",
-          "repairs"
-        ],
         "properties": {
+          "evidence": {
+            "additionalProperties": {},
+            "type": "object"
+          },
           "id": {
             "type": "string"
           },
           "instance_id": {
             "type": "string"
           },
-          "severity": {
-            "anyOf": [
-              {
-                "const": "error",
+          "location": {
+            "additionalProperties": false,
+            "properties": {
+              "json_pointer": {
                 "type": "string"
               },
-              {
-                "const": "warning",
-                "type": "string"
-              },
-              {
-                "const": "info",
+              "path": {
                 "type": "string"
               }
-            ]
-          },
-          "title": {
-            "type": "string"
+            },
+            "required": [
+              "path"
+            ],
+            "type": "object"
           },
           "message": {
             "type": "string"
           },
-          "target": {
-            "type": "object",
-            "patternProperties": {
-              "^(.*)$": {}
-            }
-          },
-          "location": {
-            "additionalProperties": false,
-            "type": "object",
-            "required": [
-              "path"
-            ],
-            "properties": {
-              "path": {
-                "type": "string"
-              },
-              "json_pointer": {
-                "type": "string"
-              }
-            }
-          },
-          "evidence": {
-            "type": "object",
-            "patternProperties": {
-              "^(.*)$": {}
-            }
-          },
           "repairs": {
-            "type": "array",
             "items": {
               "additionalProperties": false,
-              "type": "object",
-              "required": [
-                "id",
-                "kind",
-                "confidence",
-                "risk",
-                "requires_human_review"
-              ],
               "properties": {
+                "command": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "anyOf": [
+                    {
+                      "const": "low",
+                      "type": "string"
+                    },
+                    {
+                      "const": "medium",
+                      "type": "string"
+                    },
+                    {
+                      "const": "high",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "contents": {
+                  "type": "string"
+                },
                 "id": {
+                  "type": "string"
+                },
+                "json_pointer": {
                   "type": "string"
                 },
                 "kind": {
@@ -169,21 +99,14 @@
                     }
                   ]
                 },
-                "confidence": {
-                  "anyOf": [
-                    {
-                      "const": "low",
-                      "type": "string"
-                    },
-                    {
-                      "const": "medium",
-                      "type": "string"
-                    },
-                    {
-                      "const": "high",
-                      "type": "string"
-                    }
-                  ]
+                "patch": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "requires_human_review": {
+                  "type": "boolean"
                 },
                 "risk": {
                   "anyOf": [
@@ -204,30 +127,104 @@
                       "type": "string"
                     }
                   ]
-                },
-                "path": {
-                  "type": "string"
-                },
-                "json_pointer": {
-                  "type": "string"
-                },
-                "contents": {
-                  "type": "string"
-                },
-                "patch": {
-                  "type": "string"
-                },
-                "command": {
-                  "type": "string"
-                },
-                "requires_human_review": {
-                  "type": "boolean"
                 }
+              },
+              "required": [
+                "id",
+                "kind",
+                "confidence",
+                "risk",
+                "requires_human_review"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "const": "error",
+                "type": "string"
+              },
+              {
+                "const": "warning",
+                "type": "string"
+              },
+              {
+                "const": "info",
+                "type": "string"
               }
-            }
+            ]
+          },
+          "target": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "title": {
+            "type": "string"
           }
+        },
+        "required": [
+          "id",
+          "instance_id",
+          "severity",
+          "title",
+          "message",
+          "target",
+          "location",
+          "repairs"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema": {
+      "anyOf": [
+        {
+          "const": "runx.doctor.v1",
+          "type": "string"
         }
-      }
+      ]
+    },
+    "status": {
+      "anyOf": [
+        {
+          "const": "success",
+          "type": "string"
+        },
+        {
+          "const": "failure",
+          "type": "string"
+        }
+      ]
+    },
+    "summary": {
+      "additionalProperties": false,
+      "properties": {
+        "errors": {
+          "type": "integer"
+        },
+        "infos": {
+          "type": "integer"
+        },
+        "warnings": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "errors",
+        "warnings",
+        "infos"
+      ],
+      "type": "object"
     }
-  }
+  },
+  "required": [
+    "schema",
+    "status",
+    "summary",
+    "diagnostics"
+  ],
+  "type": "object",
+  "x-runx-schema": "runx.doctor.v1"
 }

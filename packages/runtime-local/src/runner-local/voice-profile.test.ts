@@ -8,6 +8,7 @@ import { hashString } from "@runxhq/core/util";
 
 import type { AdapterActInvocation, SkillAdapter } from "./adapter-types.js";
 import { runLocalSkill } from "./index.js";
+import { kernelEnv } from "../../../../tests/runx-binary.js";
 
 describe("voice profile injection", () => {
   it("injects voice_profile separately from project context and pins receipt metadata", async () => {
@@ -44,7 +45,7 @@ describe("voice profile injection", () => {
           report: async () => undefined,
         },
         env: {
-          ...process.env,
+          ...kernelEnv(),
           RUNX_CWD: tempDir,
           INIT_CWD: tempDir,
           RUNX_HOME: runxHome,

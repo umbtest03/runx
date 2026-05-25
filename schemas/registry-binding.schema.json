@@ -1,21 +1,120 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://runx.ai/schemas/registry-binding.schema.json",
-  "title": "runx upstream registry binding",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": true,
-  "type": "object",
-  "required": [
-    "schema",
-    "state",
-    "skill",
-    "upstream",
-    "registry",
-    "harness"
-  ],
   "properties": {
+    "harness": {
+      "additionalProperties": true,
+      "properties": {
+        "assertion_count": {
+          "type": "number"
+        },
+        "case_count": {
+          "type": "number"
+        },
+        "case_names": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "const": "pending",
+              "type": "string"
+            },
+            {
+              "const": "failed",
+              "type": "string"
+            },
+            {
+              "const": "harness_verified",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "case_count"
+      ],
+      "type": "object"
+    },
+    "registry": {
+      "additionalProperties": true,
+      "properties": {
+        "install_command": {
+          "type": "string"
+        },
+        "materialized_package_is_registry_artifact": {
+          "type": "boolean"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "profile_path": {
+          "type": "string"
+        },
+        "run_command": {
+          "type": "string"
+        },
+        "trust_tier": {
+          "anyOf": [
+            {
+              "const": "first_party",
+              "type": "string"
+            },
+            {
+              "const": "verified",
+              "type": "string"
+            },
+            {
+              "const": "community",
+              "type": "string"
+            }
+          ]
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "owner",
+        "trust_tier",
+        "version",
+        "profile_path",
+        "materialized_package_is_registry_artifact"
+      ],
+      "type": "object"
+    },
     "schema": {
-      "const": "runx.registry_binding.v1",
-      "type": "string"
+      "anyOf": [
+        {
+          "const": "runx.registry_binding.v1",
+          "type": "string"
+        }
+      ]
+    },
+    "skill": {
+      "additionalProperties": true,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description"
+      ],
+      "type": "object"
     },
     "state": {
       "anyOf": [
@@ -37,29 +136,46 @@
         }
       ]
     },
-    "skill": {
-      "additionalProperties": true,
-      "type": "object",
-      "required": [
-        "id",
-        "name",
-        "description"
-      ],
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        }
-      }
-    },
     "upstream": {
       "additionalProperties": true,
-      "type": "object",
+      "properties": {
+        "blob_sha": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "html_url": {
+          "type": "string"
+        },
+        "merged_at": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "pr_url": {
+          "type": "string"
+        },
+        "raw_url": {
+          "type": "string"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "source_of_truth": {
+          "type": "boolean"
+        }
+      },
       "required": [
         "host",
         "owner",
@@ -69,131 +185,16 @@
         "blob_sha",
         "source_of_truth"
       ],
-      "properties": {
-        "host": {
-          "type": "string"
-        },
-        "owner": {
-          "type": "string"
-        },
-        "repo": {
-          "type": "string"
-        },
-        "path": {
-          "type": "string"
-        },
-        "branch": {
-          "type": "string"
-        },
-        "commit": {
-          "type": "string"
-        },
-        "blob_sha": {
-          "type": "string"
-        },
-        "pr_url": {
-          "type": "string"
-        },
-        "merged_at": {
-          "type": "string"
-        },
-        "html_url": {
-          "type": "string"
-        },
-        "raw_url": {
-          "type": "string"
-        },
-        "source_of_truth": {
-          "const": true,
-          "type": "boolean"
-        }
-      }
-    },
-    "registry": {
-      "additionalProperties": true,
-      "type": "object",
-      "required": [
-        "owner",
-        "trust_tier",
-        "version",
-        "profile_path",
-        "materialized_package_is_registry_artifact"
-      ],
-      "properties": {
-        "owner": {
-          "type": "string"
-        },
-        "trust_tier": {
-          "anyOf": [
-            {
-              "const": "first_party",
-              "type": "string"
-            },
-            {
-              "const": "verified",
-              "type": "string"
-            },
-            {
-              "const": "community",
-              "type": "string"
-            }
-          ]
-        },
-        "version": {
-          "type": "string"
-        },
-        "install_command": {
-          "type": "string"
-        },
-        "run_command": {
-          "type": "string"
-        },
-        "profile_path": {
-          "type": "string"
-        },
-        "materialized_package_is_registry_artifact": {
-          "const": true,
-          "type": "boolean"
-        }
-      }
-    },
-    "harness": {
-      "additionalProperties": true,
-      "type": "object",
-      "required": [
-        "status",
-        "case_count"
-      ],
-      "properties": {
-        "status": {
-          "anyOf": [
-            {
-              "const": "pending",
-              "type": "string"
-            },
-            {
-              "const": "failed",
-              "type": "string"
-            },
-            {
-              "const": "harness_verified",
-              "type": "string"
-            }
-          ]
-        },
-        "case_count": {
-          "type": "number"
-        },
-        "assertion_count": {
-          "type": "number"
-        },
-        "case_names": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
+      "type": "object"
     }
-  }
+  },
+  "required": [
+    "schema",
+    "state",
+    "skill",
+    "upstream",
+    "registry",
+    "harness"
+  ],
+  "type": "object"
 }

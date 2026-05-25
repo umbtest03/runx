@@ -108,7 +108,7 @@ Acceptance:
   - Evidence: exit code was 0
   - Source event: entry-12
 - [x] `ac3` command - Payment graph still seals through strict runtime proof
-  - Command: `cargo test --manifest-path crates/runx-runtime/Cargo.toml --test payment_execution payment_graph_seals_with_strict_parent_child_receipt_proof`
+  - Command: `cargo test --manifest-path crates/runx-runtime/Cargo.toml --test payment payment_graph_seals_with_strict_parent_child_receipt_proof`
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0 on 2026-05-21

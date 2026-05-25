@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   admitGraphStepScopesViaKernel,
   admitRetryPolicyViaKernel,
@@ -18,33 +18,12 @@ import {
   transitionSequentialGraphViaKernel,
   transitionSingleStepViaKernel,
 } from "./kernel-bridge.js";
+import { resolveRunxBinary } from "../../../../tests/runx-binary.js";
 
 const workspaceRoot = process.cwd();
-const cargo = process.platform === "win32" ? "cargo.exe" : "cargo";
-const runxBinary = path.join(
-  workspaceRoot,
-  "crates",
-  "target",
-  "debug",
-  process.platform === "win32" ? "runx.exe" : "runx",
-);
+const runxBinary = resolveRunxBinary();
 
 describe("Rust kernel CLI JSON bridge", () => {
-  beforeAll(() => {
-    const result = spawnSync(
-      cargo,
-      ["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"],
-      {
-        cwd: workspaceRoot,
-        encoding: "utf8",
-        env: process.env,
-        maxBuffer: 8 * 1024 * 1024,
-      },
-    );
-
-    expect(result.status, result.stderr || result.stdout).toBe(0);
-  }, 120_000);
-
   it("evaluates a policy fixture through process JSON", () => {
     assertKernelFixture("fixtures/kernel/policy/retry-admission-denies-mutating-without-key.json");
   }, 20_000);
@@ -292,7 +271,7 @@ describe("Rust kernel CLI JSON bridge", () => {
         provider: "github",
         auth_mode: "oauth",
         material_kind: "nango_connection",
-        connection_id: "conn_1",
+        provider_reference: "conn_1",
         scopes: ["repo:read"],
         material_ref: "nango:github:conn_1",
       },

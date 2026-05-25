@@ -1,11 +1,13 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use runx_contracts::schema::NonEmptyString;
 use runx_contracts::{
     AgentActInvocation, AgentActSourceType, AgentContextEnvelope, ExecutionLocation, JsonObject,
     JsonValue, Output, OutputField, ResolutionRequest,
 };
 
+use crate::RuntimeError;
 use crate::SkillInvocation;
 
 const TRUST_BOUNDARY: &str = "native-managed: runx executes the model and tool loop directly, receipts the result, and only yields to a surface for explicit human resolution outside this path";
@@ -40,7 +42,7 @@ pub(crate) fn agent_act_resolution_request(
     let id = agent_act_invocation_id(request, source_type);
     Ok(ResolutionRequest::AgentAct {
         id: id.clone().into(),
-        invocation: build_agent_act_invocation(request, source_type)?,
+        invocation: Box::new(build_agent_act_invocation(request, source_type)?),
     })
 }
 
@@ -67,8 +69,8 @@ pub(crate) fn build_agent_act_invocation(
     Ok(AgentActInvocation {
         id: agent_act_invocation_id(request, source_type).into(),
         source_type: source_type.contract_source_type(),
-        agent: request.source.agent.clone().map(Into::into),
-        task: request.source.task.clone().map(Into::into),
+        agent: optional_non_empty(request.source.agent.as_deref()),
+        task: optional_non_empty(request.source.task.as_deref()),
         envelope: envelope(request, source_type)?,
     })
 }
@@ -99,6 +101,10 @@ fn envelope(
             .transpose()?,
         trust_boundary: TRUST_BOUNDARY.into(),
     })
+}
+
+fn optional_non_empty(value: Option<&str>) -> Option<NonEmptyString> {
+    value.and_then(NonEmptyString::new)
 }
 
 fn output_contract(raw: &JsonObject) -> Result<BTreeMap<String, OutputField>, RuntimeError> {

@@ -19,7 +19,8 @@ ensureRustKernelBin();
 if (forwardedArgs.length > 0) {
   await runVitest(["run", ...forwardedArgs]);
 } else {
-  await runVitest(["run"]);
+  await runVitest(["run", "--exclude", "tests/cli-package.test.ts"]);
+  await runVitest(["run", "tests/cli-package.test.ts"], { RUNX_VITEST_BATCH: "cli-package" });
 }
 
 async function runVitest(args, extraEnv = {}) {
@@ -35,6 +36,8 @@ async function runVitest(args, extraEnv = {}) {
         RUNX_KERNEL_EVAL_BIN: rustKernelBin,
         RUNX_PARSER_EVAL_BIN: rustKernelBin,
         RUNX_RUST_CLI_BIN: rustKernelBin,
+        RUNX_KERNEL_EVAL_TIMEOUT_MS: "30000",
+        RUNX_PARSER_EVAL_TIMEOUT_MS: "30000",
         ...extraEnv,
       },
     });

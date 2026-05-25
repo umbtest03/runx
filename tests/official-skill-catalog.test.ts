@@ -7,6 +7,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { parseSkillMarkdown, parseRunnerManifestYaml, validateRunnerManifest, validateSkill } from "@runxhq/core/parser";
+import { resolveRunxBinary } from "./runx-binary.js";
 
 const officialSkillPackages = [
   "charge-challenge",
@@ -145,8 +146,7 @@ const harnessedShowcasePackages = [
 ] as const;
 
 const workspaceRoot = process.cwd();
-const cargo = process.platform === "win32" ? "cargo.exe" : "cargo";
-const nativeRunx = path.resolve("crates", "target", "debug", process.platform === "win32" ? "runx.exe" : "runx");
+const nativeRunx = resolveRunxBinary();
 
 describe("official skill catalog", () => {
   it("ships official skills as portable packages plus checked-in execution profiles", async () => {
@@ -183,7 +183,6 @@ describe("official skill catalog", () => {
   });
 
   it("keeps evaluator-facing packages runnable through native inline harness fixtures", async () => {
-    ensureNativeRunxBuilt();
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-official-native-harness-"));
     let executedCases = 0;
     try {
@@ -211,7 +210,7 @@ describe("official skill catalog", () => {
           const result = spawnSync(nativeRunx, ["harness", fixturePath, "--json"], {
             cwd: workspaceRoot,
             encoding: "utf8",
-            env: process.env,
+            env: { ...process.env, RUNX_KERNEL_EVAL_BIN: nativeRunx },
             maxBuffer: 8 * 1024 * 1024,
           });
 
@@ -226,18 +225,3 @@ describe("official skill catalog", () => {
     expect(executedCases).toBeGreaterThan(0);
   }, 60_000);
 });
-
-function ensureNativeRunxBuilt(): void {
-  const result = spawnSync(
-    cargo,
-    ["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"],
-    {
-      cwd: workspaceRoot,
-      encoding: "utf8",
-      env: process.env,
-      maxBuffer: 8 * 1024 * 1024,
-    },
-  );
-
-  expect(result.status, result.stderr || result.stdout).toBe(0);
-}

@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -7,21 +6,13 @@ import { describe, expect, it } from "vitest";
 
 import { createDefaultSkillAdapters } from "@runxhq/adapters";
 import { runLocalGraph, type Caller, type SkillAdapter } from "@runxhq/runtime-local";
+import { kernelEnv } from "./runx-binary.js";
 
 const nonInteractiveCaller: Caller = {
   resolve: async () => undefined,
   report: () => undefined,
 };
 const adapters = createDefaultSkillAdapters();
-const workspaceRoot = process.cwd();
-const cargo = process.platform === "win32" ? "cargo.exe" : "cargo";
-const runxBinary = path.join(
-  workspaceRoot,
-  "crates",
-  "target",
-  "debug",
-  process.platform === "win32" ? "runx.exe" : "runx",
-);
 
 describe("local fanout graph runner", () => {
   it("runs a fanout group with all-success sync policy", async () => {
@@ -35,7 +26,7 @@ describe("local fanout graph runner", () => {
         caller: nonInteractiveCaller,
         receiptDir,
         runxHome,
-        env: process.env,
+        env: kernelEnv(),
         adapters,
       });
 
@@ -45,10 +36,10 @@ describe("local fanout graph runner", () => {
       }
 
       expect(result.steps.map((step) => [step.stepId, step.status, step.fanoutGroup])).toEqual([
-        ["market", "success", "advisors"],
-        ["risk", "success", "advisors"],
-        ["finance", "success", "advisors"],
-        ["synthesize", "success", undefined],
+        ["market", "sealed", "advisors"],
+        ["risk", "sealed", "advisors"],
+        ["finance", "sealed", "advisors"],
+        ["synthesize", "sealed", undefined],
       ]);
       expect(result.steps[3].stdout).toBe("approved");
       expect(result.receipt.schema).toBe("runx.receipt.v1");
@@ -69,17 +60,18 @@ describe("local fanout graph runner", () => {
     }
   });
 
-  it("executes three one-second fanout branches concurrently", async () => {
+  it("starts fanout branches concurrently", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-fanout-parallel-"));
     const receiptDir = path.join(tempDir, "receipts");
     const runxHome = path.join(tempDir, "home");
     const graphPath = path.join(tempDir, "parallel.yaml");
+    const adapter = createConcurrencyProbeAdapter(3);
 
     try {
       await Promise.all([
-        writeSleepSkill(path.join(tempDir, "market"), "market"),
-        writeSleepSkill(path.join(tempDir, "risk"), "risk"),
-        writeSleepSkill(path.join(tempDir, "finance"), "finance"),
+        writeProbeSkill(path.join(tempDir, "market"), "market"),
+        writeProbeSkill(path.join(tempDir, "risk"), "risk"),
+        writeProbeSkill(path.join(tempDir, "finance"), "finance"),
       ]);
       await writeFile(
         graphPath,
@@ -106,19 +98,17 @@ steps:
 `,
       );
 
-      const started = performance.now();
       const result = await runLocalGraph({
         graphPath,
         caller: nonInteractiveCaller,
         receiptDir,
         runxHome,
-        env: process.env,
-        adapters,
+        env: kernelEnv(),
+        adapters: [adapter],
       });
-      const durationMs = performance.now() - started;
 
       expect(result.status).toBe("sealed");
-      expect(durationMs).toBeLessThan(2000);
+      expect(adapter.maxActive()).toBe(3);
       if (result.status !== "sealed") {
         return;
       }
@@ -139,7 +129,7 @@ steps:
         caller: nonInteractiveCaller,
         receiptDir,
         runxHome,
-        env: process.env,
+        env: kernelEnv(),
         adapters,
       });
 
@@ -149,10 +139,10 @@ steps:
       }
 
       expect(result.steps.map((step) => [step.stepId, step.status, step.fanoutGroup])).toEqual([
-        ["market", "success", "advisors"],
-        ["risk", "success", "advisors"],
+        ["market", "sealed", "advisors"],
+        ["risk", "sealed", "advisors"],
         ["finance", "failure", "advisors"],
-        ["synthesize", "success", undefined],
+        ["synthesize", "sealed", undefined],
       ]);
       expect(result.steps.slice(0, 3).map((step) => step.parentReceipt)).toEqual([undefined, undefined, undefined]);
       expect(result.steps[3].stdout).toBe("go");
@@ -192,7 +182,7 @@ steps:
         caller: nonInteractiveCaller,
         receiptDir,
         runxHome,
-        env: process.env,
+        env: kernelEnv(),
         adapters,
       });
 
@@ -218,7 +208,7 @@ steps:
         caller: approvingCaller,
         receiptDir,
         runxHome,
-        env: process.env,
+        env: kernelEnv(),
         adapters,
         resumeFromRunId: result.runId,
       });
@@ -287,7 +277,7 @@ steps:
         caller: nonInteractiveCaller,
         receiptDir,
         runxHome,
-        env: process.env,
+        env: kernelEnv(),
         adapters,
       });
 
@@ -369,7 +359,7 @@ steps:
         caller: nonInteractiveCaller,
         receiptDir,
         runxHome,
-        env: process.env,
+        env: kernelEnv(),
         adapters,
       });
 
@@ -436,8 +426,6 @@ steps:
       max_attempts: 2
 `,
       );
-      ensureRustRunxBinary();
-
       const result = await runLocalGraph({
         graphPath,
         caller: nonInteractiveCaller,
@@ -479,7 +467,7 @@ steps:
         caller: nonInteractiveCaller,
         receiptDir,
         runxHome: path.join(tempDir, "home"),
-        env: process.env,
+        env: kernelEnv(),
         adapters,
       });
       expect(result.status).toBe("sealed");
@@ -501,30 +489,8 @@ steps:
   });
 });
 
-function kernelEnv(): NodeJS.ProcessEnv {
-  return {
-    ...process.env,
-    RUNX_KERNEL_EVAL_BIN: runxBinary,
-  };
-}
-
-function ensureRustRunxBinary(): void {
-  const result = spawnSync(
-    cargo,
-    ["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"],
-    {
-      cwd: workspaceRoot,
-      encoding: "utf8",
-      env: process.env,
-      maxBuffer: 8 * 1024 * 1024,
-    },
-  );
-
-  expect(result.status, result.stderr || result.stdout).toBe(0);
-}
-
-function runtimeSyncPoints(receipt: ({ readonly metadata?: Readonly<Record<string, unknown>> } & { readonly sync_points?: unknown }) | undefined): readonly unknown[] {
-  const syncPoints = receipt?.sync_points;
+function runtimeSyncPoints(receipt: ({ readonly lineage?: { readonly sync?: unknown } } & { readonly sync_points?: unknown }) | undefined): readonly unknown[] {
+  const syncPoints = receipt?.lineage?.sync ?? receipt?.sync_points;
   expect(Array.isArray(syncPoints)).toBe(true);
   return syncPoints as readonly unknown[];
 }
@@ -564,24 +530,59 @@ function createCountingAdapter(): SkillAdapter & { callCount: () => number } {
   };
 }
 
-async function writeSleepSkill(directory: string, label: string): Promise<void> {
+function createConcurrencyProbeAdapter(expectedActive: number): SkillAdapter & { maxActive: () => number } {
+  let active = 0;
+  let maxActive = 0;
+  let releaseBarrier: () => void = () => undefined;
+  const barrier = new Promise<void>((resolve) => {
+    releaseBarrier = resolve;
+  });
+
+  return {
+    type: "cli-tool",
+    maxActive: () => maxActive,
+    invoke: async (request) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      if (active === expectedActive) {
+        releaseBarrier();
+      }
+      await Promise.race([barrier, delay(500)]);
+      active -= 1;
+      return {
+        status: "sealed",
+        stdout: path.basename(request.skillDirectory),
+        stderr: "",
+        exitCode: 0,
+        signal: null,
+        durationMs: 1,
+      };
+    },
+  };
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function writeProbeSkill(directory: string, label: string): Promise<void> {
   await mkdir(directory, { recursive: true });
   await writeFile(
     path.join(directory, "SKILL.md"),
     `---
 name: ${label}
-description: Sleep for one second and then emit the skill label.
+description: Emit the skill label through the injected concurrency probe.
 source:
   type: cli-tool
   command: node
   args:
     - -e
-    - "setTimeout(() => process.stdout.write('${label}'), 1000)"
+    - "process.stdout.write('${label}')"
   timeout_seconds: 5
 inputs: {}
 ---
 
-Emit ${label} after a one-second delay.
+Emit ${label}.
 `,
   );
 }

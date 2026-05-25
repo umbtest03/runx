@@ -12,9 +12,9 @@ use runx_parser::GraphStep;
 
 use super::super::graph::{load_skill, output_object, resolve_inputs, skill_dir};
 use super::authority::{
-    StepPaymentReplay, authority_denied, enforce_step_authority_admission,
-    enforce_step_authority_receipt_before_success, escalate_in_flight_payment_recovery,
-    sealed_payment_replay, synthesize_payment_supervisor_evidence_before_gate,
+    StepPaymentReplay, attach_payment_supervisor_evidence_before_gate, authority_denied,
+    enforce_step_authority_admission, enforce_step_authority_receipt_before_success,
+    escalate_in_flight_payment_recovery, sealed_payment_replay,
     validate_replayed_payment_supervisor_proof,
 };
 use super::inputs::{optional_input_string, required_input_string, string_value, string_value_ref};
@@ -23,9 +23,11 @@ use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
 use crate::approval::{ApprovalResolution, request_approval};
 use crate::host::Host;
-use crate::payment_state::{PaymentStepStateInput, persist_payment_step_state};
-use crate::payment_supervisor::{PaymentSupervisorProof, insert_payment_supervisor_proof_metadata};
-use crate::receipts::step_receipt;
+use crate::payment::state::{PaymentStepStateInput, persist_payment_step_state};
+use crate::payment::supervisor::{
+    PaymentSupervisorProof, insert_payment_supervisor_proof_metadata,
+};
+use crate::receipts::step_receipt_with_signature_policy;
 
 const EXTERNAL_ADAPTER_HOST_RESOLUTION_REQUEST_METADATA: &str =
     "external_adapter_host_resolution_request";
@@ -56,7 +58,7 @@ where
 {
     let inputs = resolve_inputs(step, prior_runs)?;
     if let Some(replay) = sealed_payment_replay(step, &inputs, &runtime.options.env, graph_dir)? {
-        return run_replayed_payment_step(graph_dir, graph_name, step, attempt, replay);
+        return run_replayed_payment_step(runtime, graph_dir, graph_name, step, attempt, replay);
     }
     escalate_in_flight_payment_recovery(step, &inputs, &runtime.options.env, graph_dir)?;
     let authority =
@@ -79,18 +81,20 @@ where
     })?;
     route_external_adapter_host_resolution(step, host, &mut output)?;
     let outputs = output_object(&output);
-    let receipt = step_receipt(
+    let receipt = step_receipt_with_signature_policy(
         graph_name,
         &step.id,
         attempt,
         &output,
         &runtime.options.created_at,
+        runtime.options.signature_policy(),
     )?;
-    synthesize_payment_supervisor_evidence_before_gate(
+    attach_payment_supervisor_evidence_before_gate(
         step,
         authority.as_ref(),
         &outputs,
         &mut output,
+        &runtime.options.payment_supervisor,
     )?;
     let supervisor_proof = enforce_step_authority_receipt_before_success(
         step,
@@ -232,6 +236,7 @@ where
 // rust-style-allow: long-function - replayed payment step reconstruction is one linear recovery
 // path; the reconstruction order must stay together to rebuild state deterministically.
 fn run_replayed_payment_step(
+    runtime: &Runtime<impl SkillAdapter>,
     graph_dir: &Path,
     graph_name: &str,
     step: &GraphStep,
@@ -249,12 +254,13 @@ fn run_replayed_payment_step(
             "sealed payment replay requires a successful stored rail output".to_owned(),
         ));
     }
-    let receipt = step_receipt(
+    let receipt = step_receipt_with_signature_policy(
         graph_name,
         &step.id,
         attempt,
         &output,
         &replay.receipt_created_at,
+        runtime.options.signature_policy(),
     )?;
     if receipt.id != replay.receipt_ref {
         return Err(authority_denied(
@@ -437,12 +443,13 @@ where
         duration_ms: 0,
         metadata: JsonObject::new(),
     };
-    let receipt = step_receipt(
+    let receipt = step_receipt_with_signature_policy(
         graph_name,
         &step.id,
         attempt,
         &output,
         &runtime.options.created_at,
+        runtime.options.signature_policy(),
     )?;
     let admission_witness = StepAdmissionWitness::local_runtime(&step.id, receipt.id.as_str());
     Ok(StepRun {
@@ -598,12 +605,13 @@ where
         metadata: JsonObject::new(),
     };
     let outputs = output_object(&output);
-    let receipt = step_receipt(
+    let receipt = step_receipt_with_signature_policy(
         graph_name,
         &step.id,
         attempt,
         &output,
         &runtime.options.created_at,
+        runtime.options.signature_policy(),
     )?;
     let admission_witness = StepAdmissionWitness::local_runtime(&step.id, receipt.id.as_str());
     Ok(StepRun {

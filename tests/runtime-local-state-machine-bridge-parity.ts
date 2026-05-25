@@ -1,5 +1,3 @@
-import { describe, expect, it } from "vitest";
-
 import type {
   FanoutSyncDecision,
   SequentialGraphEvent,
@@ -28,9 +26,3 @@ type _SingleStepSuccessRequiresWitness = Assert<
 type _SequentialStepSuccessRequiresWitness = Assert<
   StepSucceededEvent extends { readonly admissionWitness: StepAdmissionWitness } ? true : false
 >;
-
-describe("runtime-local state-machine bridge type parity", () => {
-  it("keeps bridge state, plan, and decision contracts owned by the Rust kernel boundary", () => {
-    expect(true).toBe(true);
-  });
-});

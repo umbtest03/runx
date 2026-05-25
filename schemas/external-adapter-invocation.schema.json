@@ -1,467 +1,46 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.runx.dev/runx/external-adapter/invocation/v1.json",
-  "x-runx-schema": "runx.external_adapter.invocation.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "schema",
-    "protocol_version",
-    "invocation_id",
-    "adapter_id",
-    "run_id",
-    "step_id",
-    "source_type",
-    "skill_ref",
-    "harness_ref",
-    "host_ref",
-    "inputs"
-  ],
   "properties": {
-    "schema": {
-      "const": "runx.external_adapter.invocation.v1",
-      "type": "string"
-    },
-    "protocol_version": {
-      "const": "runx.external_adapter.v1",
-      "type": "string"
-    },
-    "invocation_id": {
-      "minLength": 1,
-      "type": "string"
-    },
     "adapter_id": {
       "minLength": 1,
       "type": "string"
     },
-    "run_id": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "step_id": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "source_type": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "skill_ref": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "harness_ref": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://schemas.runx.dev/runx/reference/v1.json",
-      "x-runx-schema": "runx.reference.v1",
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "type",
-        "uri"
-      ],
-      "properties": {
-        "schema": {
-          "const": "runx.reference.v1",
-          "type": "string"
-        },
-        "type": {
-          "anyOf": [
-            {
-              "const": "github_issue",
-              "type": "string"
-            },
-            {
-              "const": "github_pull_request",
-              "type": "string"
-            },
-            {
-              "const": "github_repo",
-              "type": "string"
-            },
-            {
-              "const": "slack_thread",
-              "type": "string"
-            },
-            {
-              "const": "sentry_event",
-              "type": "string"
-            },
-            {
-              "const": "signal",
-              "type": "string"
-            },
-            {
-              "const": "act",
-              "type": "string"
-            },
-            {
-              "const": "receipt",
-              "type": "string"
-            },
-            {
-              "const": "graph_receipt",
-              "type": "string"
-            },
-            {
-              "const": "artifact",
-              "type": "string"
-            },
-            {
-              "const": "verification",
-              "type": "string"
-            },
-            {
-              "const": "harness",
-              "type": "string"
-            },
-            {
-              "const": "host",
-              "type": "string"
-            },
-            {
-              "const": "deployment",
-              "type": "string"
-            },
-            {
-              "const": "surface",
-              "type": "string"
-            },
-            {
-              "const": "target",
-              "type": "string"
-            },
-            {
-              "const": "opportunity",
-              "type": "string"
-            },
-            {
-              "const": "thesis_assessment",
-              "type": "string"
-            },
-            {
-              "const": "selection",
-              "type": "string"
-            },
-            {
-              "const": "skill_binding",
-              "type": "string"
-            },
-            {
-              "const": "target_transition_entry",
-              "type": "string"
-            },
-            {
-              "const": "selection_cycle",
-              "type": "string"
-            },
-            {
-              "const": "decision",
-              "type": "string"
-            },
-            {
-              "const": "reflection_entry",
-              "type": "string"
-            },
-            {
-              "const": "feed_entry",
-              "type": "string"
-            },
-            {
-              "const": "principal",
-              "type": "string"
-            },
-            {
-              "const": "authority_proof",
-              "type": "string"
-            },
-            {
-              "const": "scope_admission",
-              "type": "string"
-            },
-            {
-              "const": "grant",
-              "type": "string"
-            },
-            {
-              "const": "mandate",
-              "type": "string"
-            },
-            {
-              "const": "credential",
-              "type": "string"
-            },
-            {
-              "const": "webhook_delivery",
-              "type": "string"
-            },
-            {
-              "const": "redaction_policy",
-              "type": "string"
-            },
-            {
-              "const": "external_url",
-              "type": "string"
-            }
-          ]
-        },
-        "uri": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "provider": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "locator": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "label": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "observed_at": {
-          "minLength": 1,
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
-          "type": "string"
-        },
-        "proof_kind": {
-          "const": "payment_rail",
-          "type": "string"
-        }
-      }
-    },
-    "host_ref": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
-      "$id": "https://schemas.runx.dev/runx/reference/v1.json",
-      "x-runx-schema": "runx.reference.v1",
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "type",
-        "uri"
-      ],
-      "properties": {
-        "schema": {
-          "const": "runx.reference.v1",
-          "type": "string"
-        },
-        "type": {
-          "anyOf": [
-            {
-              "const": "github_issue",
-              "type": "string"
-            },
-            {
-              "const": "github_pull_request",
-              "type": "string"
-            },
-            {
-              "const": "github_repo",
-              "type": "string"
-            },
-            {
-              "const": "slack_thread",
-              "type": "string"
-            },
-            {
-              "const": "sentry_event",
-              "type": "string"
-            },
-            {
-              "const": "signal",
-              "type": "string"
-            },
-            {
-              "const": "act",
-              "type": "string"
-            },
-            {
-              "const": "receipt",
-              "type": "string"
-            },
-            {
-              "const": "graph_receipt",
-              "type": "string"
-            },
-            {
-              "const": "artifact",
-              "type": "string"
-            },
-            {
-              "const": "verification",
-              "type": "string"
-            },
-            {
-              "const": "harness",
-              "type": "string"
-            },
-            {
-              "const": "host",
-              "type": "string"
-            },
-            {
-              "const": "deployment",
-              "type": "string"
-            },
-            {
-              "const": "surface",
-              "type": "string"
-            },
-            {
-              "const": "target",
-              "type": "string"
-            },
-            {
-              "const": "opportunity",
-              "type": "string"
-            },
-            {
-              "const": "thesis_assessment",
-              "type": "string"
-            },
-            {
-              "const": "selection",
-              "type": "string"
-            },
-            {
-              "const": "skill_binding",
-              "type": "string"
-            },
-            {
-              "const": "target_transition_entry",
-              "type": "string"
-            },
-            {
-              "const": "selection_cycle",
-              "type": "string"
-            },
-            {
-              "const": "decision",
-              "type": "string"
-            },
-            {
-              "const": "reflection_entry",
-              "type": "string"
-            },
-            {
-              "const": "feed_entry",
-              "type": "string"
-            },
-            {
-              "const": "principal",
-              "type": "string"
-            },
-            {
-              "const": "authority_proof",
-              "type": "string"
-            },
-            {
-              "const": "scope_admission",
-              "type": "string"
-            },
-            {
-              "const": "grant",
-              "type": "string"
-            },
-            {
-              "const": "mandate",
-              "type": "string"
-            },
-            {
-              "const": "credential",
-              "type": "string"
-            },
-            {
-              "const": "webhook_delivery",
-              "type": "string"
-            },
-            {
-              "const": "redaction_policy",
-              "type": "string"
-            },
-            {
-              "const": "external_url",
-              "type": "string"
-            }
-          ]
-        },
-        "uri": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "provider": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "locator": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "label": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "observed_at": {
-          "minLength": 1,
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
-          "type": "string"
-        },
-        "proof_kind": {
-          "const": "payment_rail",
-          "type": "string"
-        }
-      }
-    },
-    "inputs": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
-    },
-    "resolved_inputs": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
-    },
-    "cwd": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "receipt_dir": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "env": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
-    },
     "credential_refs": {
-      "type": "array",
       "items": {
         "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "credential_ref",
-          "provider",
-          "purpose"
-        ],
         "properties": {
           "credential_ref": {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "$id": "https://schemas.runx.dev/runx/reference/v1.json",
-            "x-runx-schema": "runx.reference.v1",
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
-            "type": "object",
-            "required": [
-              "type",
-              "uri"
-            ],
             "properties": {
+              "label": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "locator": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "observed_at": {
+                "minLength": 1,
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+                "type": "string"
+              },
+              "proof_kind": {
+                "anyOf": [
+                  {
+                    "const": "payment_rail",
+                    "type": "string"
+                  }
+                ]
+              },
+              "provider": {
+                "minLength": 1,
+                "type": "string"
+              },
               "schema": {
                 "const": "runx.reference.v1",
                 "type": "string"
@@ -609,29 +188,14 @@
               "uri": {
                 "minLength": 1,
                 "type": "string"
-              },
-              "provider": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "locator": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "label": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "observed_at": {
-                "minLength": 1,
-                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
-                "type": "string"
-              },
-              "proof_kind": {
-                "const": "payment_rail",
-                "type": "string"
               }
-            }
+            },
+            "required": [
+              "type",
+              "uri"
+            ],
+            "type": "object",
+            "x-runx-schema": "runx.reference.v1"
           },
           "provider": {
             "minLength": 1,
@@ -657,14 +221,462 @@
               }
             ]
           }
+        },
+        "required": [
+          "credential_ref",
+          "provider",
+          "purpose"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "cwd": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "env": {
+      "additionalProperties": {},
+      "type": "object"
+    },
+    "harness_ref": {
+      "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "locator": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "observed_at": {
+          "minLength": 1,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "type": "string"
+        },
+        "proof_kind": {
+          "anyOf": [
+            {
+              "const": "payment_rail",
+              "type": "string"
+            }
+          ]
+        },
+        "provider": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "const": "runx.reference.v1",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "const": "github_issue",
+              "type": "string"
+            },
+            {
+              "const": "github_pull_request",
+              "type": "string"
+            },
+            {
+              "const": "github_repo",
+              "type": "string"
+            },
+            {
+              "const": "slack_thread",
+              "type": "string"
+            },
+            {
+              "const": "sentry_event",
+              "type": "string"
+            },
+            {
+              "const": "signal",
+              "type": "string"
+            },
+            {
+              "const": "act",
+              "type": "string"
+            },
+            {
+              "const": "receipt",
+              "type": "string"
+            },
+            {
+              "const": "graph_receipt",
+              "type": "string"
+            },
+            {
+              "const": "artifact",
+              "type": "string"
+            },
+            {
+              "const": "verification",
+              "type": "string"
+            },
+            {
+              "const": "harness",
+              "type": "string"
+            },
+            {
+              "const": "host",
+              "type": "string"
+            },
+            {
+              "const": "deployment",
+              "type": "string"
+            },
+            {
+              "const": "surface",
+              "type": "string"
+            },
+            {
+              "const": "target",
+              "type": "string"
+            },
+            {
+              "const": "opportunity",
+              "type": "string"
+            },
+            {
+              "const": "thesis_assessment",
+              "type": "string"
+            },
+            {
+              "const": "selection",
+              "type": "string"
+            },
+            {
+              "const": "skill_binding",
+              "type": "string"
+            },
+            {
+              "const": "target_transition_entry",
+              "type": "string"
+            },
+            {
+              "const": "selection_cycle",
+              "type": "string"
+            },
+            {
+              "const": "decision",
+              "type": "string"
+            },
+            {
+              "const": "reflection_entry",
+              "type": "string"
+            },
+            {
+              "const": "feed_entry",
+              "type": "string"
+            },
+            {
+              "const": "principal",
+              "type": "string"
+            },
+            {
+              "const": "authority_proof",
+              "type": "string"
+            },
+            {
+              "const": "scope_admission",
+              "type": "string"
+            },
+            {
+              "const": "grant",
+              "type": "string"
+            },
+            {
+              "const": "mandate",
+              "type": "string"
+            },
+            {
+              "const": "credential",
+              "type": "string"
+            },
+            {
+              "const": "webhook_delivery",
+              "type": "string"
+            },
+            {
+              "const": "redaction_policy",
+              "type": "string"
+            },
+            {
+              "const": "external_url",
+              "type": "string"
+            }
+          ]
+        },
+        "uri": {
+          "minLength": 1,
+          "type": "string"
         }
-      }
+      },
+      "required": [
+        "type",
+        "uri"
+      ],
+      "type": "object",
+      "x-runx-schema": "runx.reference.v1"
+    },
+    "host_ref": {
+      "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "locator": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "observed_at": {
+          "minLength": 1,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+          "type": "string"
+        },
+        "proof_kind": {
+          "anyOf": [
+            {
+              "const": "payment_rail",
+              "type": "string"
+            }
+          ]
+        },
+        "provider": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "const": "runx.reference.v1",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "const": "github_issue",
+              "type": "string"
+            },
+            {
+              "const": "github_pull_request",
+              "type": "string"
+            },
+            {
+              "const": "github_repo",
+              "type": "string"
+            },
+            {
+              "const": "slack_thread",
+              "type": "string"
+            },
+            {
+              "const": "sentry_event",
+              "type": "string"
+            },
+            {
+              "const": "signal",
+              "type": "string"
+            },
+            {
+              "const": "act",
+              "type": "string"
+            },
+            {
+              "const": "receipt",
+              "type": "string"
+            },
+            {
+              "const": "graph_receipt",
+              "type": "string"
+            },
+            {
+              "const": "artifact",
+              "type": "string"
+            },
+            {
+              "const": "verification",
+              "type": "string"
+            },
+            {
+              "const": "harness",
+              "type": "string"
+            },
+            {
+              "const": "host",
+              "type": "string"
+            },
+            {
+              "const": "deployment",
+              "type": "string"
+            },
+            {
+              "const": "surface",
+              "type": "string"
+            },
+            {
+              "const": "target",
+              "type": "string"
+            },
+            {
+              "const": "opportunity",
+              "type": "string"
+            },
+            {
+              "const": "thesis_assessment",
+              "type": "string"
+            },
+            {
+              "const": "selection",
+              "type": "string"
+            },
+            {
+              "const": "skill_binding",
+              "type": "string"
+            },
+            {
+              "const": "target_transition_entry",
+              "type": "string"
+            },
+            {
+              "const": "selection_cycle",
+              "type": "string"
+            },
+            {
+              "const": "decision",
+              "type": "string"
+            },
+            {
+              "const": "reflection_entry",
+              "type": "string"
+            },
+            {
+              "const": "feed_entry",
+              "type": "string"
+            },
+            {
+              "const": "principal",
+              "type": "string"
+            },
+            {
+              "const": "authority_proof",
+              "type": "string"
+            },
+            {
+              "const": "scope_admission",
+              "type": "string"
+            },
+            {
+              "const": "grant",
+              "type": "string"
+            },
+            {
+              "const": "mandate",
+              "type": "string"
+            },
+            {
+              "const": "credential",
+              "type": "string"
+            },
+            {
+              "const": "webhook_delivery",
+              "type": "string"
+            },
+            {
+              "const": "redaction_policy",
+              "type": "string"
+            },
+            {
+              "const": "external_url",
+              "type": "string"
+            }
+          ]
+        },
+        "uri": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "uri"
+      ],
+      "type": "object",
+      "x-runx-schema": "runx.reference.v1"
+    },
+    "inputs": {
+      "additionalProperties": {},
+      "type": "object"
+    },
+    "invocation_id": {
+      "minLength": 1,
+      "type": "string"
     },
     "metadata": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
+      "additionalProperties": {},
+      "type": "object"
+    },
+    "protocol_version": {
+      "anyOf": [
+        {
+          "const": "runx.external_adapter.v1",
+          "type": "string"
+        }
+      ]
+    },
+    "receipt_dir": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "resolved_inputs": {
+      "additionalProperties": {},
+      "type": "object"
+    },
+    "run_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "anyOf": [
+        {
+          "const": "runx.external_adapter.invocation.v1",
+          "type": "string"
+        }
+      ]
+    },
+    "skill_ref": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "source_type": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "step_id": {
+      "minLength": 1,
+      "type": "string"
     }
-  }
+  },
+  "required": [
+    "schema",
+    "protocol_version",
+    "invocation_id",
+    "adapter_id",
+    "run_id",
+    "step_id",
+    "source_type",
+    "skill_ref",
+    "harness_ref",
+    "host_ref",
+    "inputs"
+  ],
+  "type": "object",
+  "x-runx-schema": "runx.external_adapter.invocation.v1"
 }

@@ -288,7 +288,7 @@ function credentialMaterialProof(
       status: "resolved",
       grant_id: credential.grant_id,
       provider: credential.provider,
-      connection_id: credential.connection_id,
+      provider_reference: credential.provider_reference,
       scopes: [...credential.scopes],
       grant_reference: credential.grant_reference,
       material_ref_hash: hashString(credential.material_ref),

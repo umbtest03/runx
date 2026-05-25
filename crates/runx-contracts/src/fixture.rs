@@ -52,18 +52,17 @@ impl RunxSchema for Fixture {
             true,
             None,
         );
-        let object = schema
-            .as_object_mut()
-            .expect("object_schema always returns an object");
-        object.insert(
-            "$schema".to_owned(),
-            json!("https://json-schema.org/draft/2020-12/schema"),
-        );
-        object.insert(
-            "$id".to_owned(),
-            json!("https://schemas.runx.dev/runx/fixture/v1.json"),
-        );
-        object.insert("x-runx-schema".to_owned(), json!("runx.fixture.v1"));
+        if let Some(object) = schema.as_object_mut() {
+            object.insert(
+                "$schema".to_owned(),
+                json!("https://json-schema.org/draft/2020-12/schema"),
+            );
+            object.insert(
+                "$id".to_owned(),
+                json!("https://schemas.runx.dev/runx/fixture/v1.json"),
+            );
+            object.insert("x-runx-schema".to_owned(), json!("runx.fixture.v1"));
+        }
         schema
     }
 }

@@ -6,10 +6,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use runx_contracts::{
-    CredentialDeliveryMode, CredentialDeliveryObservation, CredentialDeliveryObservationStatus,
-    CredentialDeliveryPurpose, CredentialEnvelopeKind, CredentialMaterialRole,
-    EXTERNAL_ADAPTER_PROTOCOL_VERSION, ExecutionEvent, ExternalAdapterHostResolutionFrame,
-    ExternalAdapterInvocation, ExternalAdapterManifest, ExternalAdapterResponse,
+    CredentialDeliveryMode, CredentialDeliveryObservation, CredentialDeliveryObservationSchema,
+    CredentialDeliveryObservationStatus, CredentialDeliveryPurpose, CredentialEnvelopeKind,
+    CredentialMaterialRole, ExecutionEvent, ExternalAdapterCancellationSchema,
+    ExternalAdapterHostResolutionFrame, ExternalAdapterHostResolutionSchema,
+    ExternalAdapterInvocation, ExternalAdapterInvocationSchema, ExternalAdapterManifest,
+    ExternalAdapterManifestSchema, ExternalAdapterProtocolVersion, ExternalAdapterResponse,
     ExternalAdapterSandboxIntent, ExternalAdapterStatus, ExternalAdapterTimeouts,
     ExternalAdapterTransport, ExternalAdapterTransportKind, JsonNumber, JsonObject, JsonValue,
     Question, Reference, ReferenceType, ResolutionRequest, ResolutionResponse,
@@ -28,8 +30,8 @@ use runx_runtime::{
 };
 
 const MANIFEST_SCHEMA: &str = "runx.external_adapter.manifest.v1";
-const INVOCATION_SCHEMA: &str = "runx.external_adapter.invocation.v1";
 const RESPONSE_SCHEMA: &str = "runx.external_adapter.response.v1";
+const PROTOCOL_VERSION: &str = "runx.external_adapter.v1";
 
 #[test]
 fn external_adapter_process_supervisor_invokes_contract_process()
@@ -151,9 +153,9 @@ IFS= read -r _invocation
     assert_eq!(timeout_ms, 50);
     assert_eq!(
         cancellation.protocol_version,
-        EXTERNAL_ADAPTER_PROTOCOL_VERSION
+        ExternalAdapterProtocolVersion::V1
     );
-    assert_eq!(cancellation.schema, "runx.external_adapter.cancellation.v1");
+    assert_eq!(cancellation.schema, ExternalAdapterCancellationSchema::V1);
     assert_eq!(cancellation.adapter_id, "adapter.github.issue-intake");
     assert_eq!(cancellation.invocation_id, "external_inv_123");
     assert_eq!(cancellation.reason, "invocation timeout after 50ms");
@@ -188,28 +190,31 @@ exit 12
 #[test]
 fn external_adapter_process_supervisor_rejects_unknown_protocol_before_spawn()
 -> Result<(), Box<dyn std::error::Error>> {
-    let temp = tempfile::tempdir()?;
-    let marker_path = temp.path().join("should-not-exist");
-    let script = write_script(
-        temp.path(),
-        r#"set -eu
-printf spawned > "$RUNX_MARKER_PATH"
-"#,
-    )?;
-    let mut manifest = manifest_for_script(&script)?;
-    manifest.protocol_version = "runx.external_adapter.v2".to_owned();
-    let invocation = invocation_with_env([("RUNX_MARKER_PATH", path_string(&marker_path)?)]);
-
-    let Err(error) = ExternalAdapterProcessSupervisor.invoke(&manifest, &invocation) else {
-        return Err("unknown manifest protocol must fail before process spawn".into());
+    let manifest = serde_json::json!({
+        "schema": MANIFEST_SCHEMA,
+        "protocol_version": "runx.external_adapter.v2",
+        "adapter_id": "adapter.github.issue-intake",
+        "name": "GitHub issue intake adapter",
+        "version": "0.1.0",
+        "supported_source_types": ["external-adapter"],
+        "transport": { "kind": "process", "command": "/bin/sh" },
+        "timeouts": { "startup_ms": 500, "invocation_ms": 2_000 },
+        "sandbox_intent": {
+            "profile": "readonly",
+            "network": false,
+            "cwd_policy": "skill-directory"
+        }
+    });
+    let error = match serde_json::from_value::<ExternalAdapterManifest>(manifest) {
+        Ok(_) => {
+            return Err("typed manifest must reject unknown protocol before supervision".into());
+        }
+        Err(error) => error,
     };
-
-    assert!(matches!(
-        error,
-        ExternalAdapterSupervisorError::UnsupportedManifestProtocol { actual }
-            if actual == "runx.external_adapter.v2"
-    ));
-    assert!(!marker_path.exists());
+    assert!(
+        error.to_string().contains("runx.external_adapter.v1"),
+        "unexpected serde error: {error}"
+    );
     Ok(())
 }
 
@@ -654,15 +659,15 @@ fn manifest_for_script(
     script: &Path,
 ) -> Result<ExternalAdapterManifest, Box<dyn std::error::Error>> {
     Ok(ExternalAdapterManifest {
-        schema: MANIFEST_SCHEMA.to_owned(),
-        protocol_version: EXTERNAL_ADAPTER_PROTOCOL_VERSION.to_owned(),
-        adapter_id: "adapter.github.issue-intake".to_owned(),
-        name: "GitHub issue intake adapter".to_owned(),
-        version: "0.1.0".to_owned(),
-        supported_source_types: vec!["external-adapter".to_owned()],
+        schema: ExternalAdapterManifestSchema::V1,
+        protocol_version: ExternalAdapterProtocolVersion::V1,
+        adapter_id: "adapter.github.issue-intake".into(),
+        name: "GitHub issue intake adapter".into(),
+        version: "0.1.0".into(),
+        supported_source_types: vec!["external-adapter".into()],
         transport: ExternalAdapterTransport {
             kind: ExternalAdapterTransportKind::Process,
-            command: Some("/bin/sh".to_owned()),
+            command: Some("/bin/sh".into()),
             args: Some(vec![path_string(script)?]),
             endpoint: None,
         },
@@ -672,9 +677,9 @@ fn manifest_for_script(
         },
         credential_needs: None,
         sandbox_intent: ExternalAdapterSandboxIntent {
-            profile: "readonly".to_owned(),
+            profile: "readonly".into(),
             network: false,
-            cwd_policy: "skill-directory".to_owned(),
+            cwd_policy: "skill-directory".into(),
             writable_paths: None,
         },
         metadata: None,
@@ -802,14 +807,14 @@ fn base_invocation() -> ExternalAdapterInvocation {
 
 fn invocation_with_env<const N: usize>(env: [(&str, String); N]) -> ExternalAdapterInvocation {
     ExternalAdapterInvocation {
-        schema: INVOCATION_SCHEMA.to_owned(),
-        protocol_version: EXTERNAL_ADAPTER_PROTOCOL_VERSION.to_owned(),
-        invocation_id: "external_inv_123".to_owned(),
-        adapter_id: "adapter.github.issue-intake".to_owned(),
-        run_id: "run_123".to_owned(),
-        step_id: "issue-intake".to_owned(),
-        source_type: "external-adapter".to_owned(),
-        skill_ref: "runx/github-issue-intake".to_owned(),
+        schema: ExternalAdapterInvocationSchema::V1,
+        protocol_version: ExternalAdapterProtocolVersion::V1,
+        invocation_id: "external_inv_123".into(),
+        adapter_id: "adapter.github.issue-intake".into(),
+        run_id: "run_123".into(),
+        step_id: "issue-intake".into(),
+        source_type: "external-adapter".into(),
+        skill_ref: "runx/github-issue-intake".into(),
         harness_ref: reference(ReferenceType::Harness, "runx:harness:hrn_123"),
         host_ref: reference(ReferenceType::Host, "runx:host:local-cli"),
         inputs: [
@@ -833,7 +838,7 @@ fn invocation_with_env<const N: usize>(env: [(&str, String); N]) -> ExternalAdap
             .collect(),
         ),
         cwd: None,
-        receipt_dir: Some("/workspace/.runx/receipts".to_owned()),
+        receipt_dir: Some("/workspace/.runx/receipts".into()),
         env: Some(
             env.into_iter()
                 .map(|(key, value)| (key.to_owned(), JsonValue::String(value)))
@@ -857,7 +862,7 @@ fn completed_response() -> ExternalAdapterResponse {
 
     ExternalAdapterResponse {
         schema: RESPONSE_SCHEMA.to_owned(),
-        protocol_version: EXTERNAL_ADAPTER_PROTOCOL_VERSION.to_owned(),
+        protocol_version: PROTOCOL_VERSION.to_owned(),
         invocation_id: "external_inv_123".to_owned(),
         adapter_id: "adapter.github.issue-intake".to_owned(),
         status: ExternalAdapterStatus::Completed,
@@ -875,22 +880,22 @@ fn completed_response() -> ExternalAdapterResponse {
 
 fn host_resolution_frame(invocation_id: &str) -> ExternalAdapterHostResolutionFrame {
     ExternalAdapterHostResolutionFrame {
-        schema: "runx.external_adapter.host_resolution.v1".to_owned(),
-        protocol_version: EXTERNAL_ADAPTER_PROTOCOL_VERSION.to_owned(),
-        frame_id: "host_resolution_1".to_owned(),
-        invocation_id: invocation_id.to_owned(),
-        adapter_id: "adapter.github.issue-intake".to_owned(),
+        schema: ExternalAdapterHostResolutionSchema::V1,
+        protocol_version: ExternalAdapterProtocolVersion::V1,
+        frame_id: "host_resolution_1".into(),
+        invocation_id: invocation_id.to_owned().into(),
+        adapter_id: "adapter.github.issue-intake".into(),
         request: ResolutionRequest::Input {
-            id: "input_request_1".to_owned(),
+            id: "input_request_1".into(),
             questions: vec![Question {
-                id: "triage_label".to_owned(),
-                prompt: "Triage label".to_owned(),
+                id: "triage_label".into(),
+                prompt: "Triage label".into(),
                 description: None,
                 required: true,
-                question_type: "text".to_owned(),
+                question_type: "text".into(),
             }],
         },
-        requested_at: "2026-05-21T15:00:00Z".to_owned(),
+        requested_at: "2026-05-21T15:00:00Z".into(),
     }
 }
 
@@ -915,28 +920,28 @@ fn allowed_delivery_with_public_observation() -> Result<CredentialDelivery, Cred
 
 fn credential_delivery_observation() -> CredentialDeliveryObservation {
     CredentialDeliveryObservation {
-        schema: "runx.credential_delivery.observation.v1".to_owned(),
-        observation_id: "credential_delivery_observation_1".to_owned(),
-        request_id: "credential_delivery_request_1".to_owned(),
-        response_id: Some("credential_delivery_response_1".to_owned()),
+        schema: CredentialDeliveryObservationSchema::V1,
+        observation_id: "credential_delivery_observation_1".into(),
+        request_id: "credential_delivery_request_1".into(),
+        response_id: Some("credential_delivery_response_1".into()),
         status: CredentialDeliveryObservationStatus::Delivered,
         harness_ref: reference(ReferenceType::Harness, "runx:harness:hrn_123"),
         host_ref: Some(reference(ReferenceType::Host, "runx:host:local-cli")),
-        profile_id: "github-oauth-env".to_owned(),
-        provider: "github".to_owned(),
+        profile_id: "github-oauth-env".into(),
+        provider: "github".into(),
         purpose: CredentialDeliveryPurpose::ProviderApi,
         delivery_mode: Some(CredentialDeliveryMode::ProcessEnv),
         credential_refs: vec![reference(
             ReferenceType::Credential,
             "runx:credential:grant_github_main",
         )],
-        material_ref_hash: Some("sha256:material-ref-hash".to_owned()),
+        material_ref_hash: Some("sha256:material-ref-hash".into()),
         delivered_roles: vec![CredentialMaterialRole::AccessToken],
         redaction_refs: Some(vec![reference(
             ReferenceType::RedactionPolicy,
             "runx:evidence:redaction-policy/github-token",
         )]),
-        observed_at: "2026-05-21T15:00:00Z".to_owned(),
+        observed_at: "2026-05-21T15:00:00Z".into(),
     }
 }
 
@@ -947,7 +952,7 @@ fn credential() -> CredentialEnvelope {
         provider: "github".into(),
         auth_mode: "oauth_bearer".into(),
         material_kind: "access_token".into(),
-        connection_id: "conn_github_main".into(),
+        provider_reference: "conn_github_main".into(),
         scopes: vec!["repo".into()],
         grant_reference: None,
         material_ref: "secret://github/main".into(),

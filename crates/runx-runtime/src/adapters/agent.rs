@@ -173,7 +173,6 @@ where
     }
 }
 
-#[must_use]
 pub fn build_managed_agent_act_invocation(
     request: &SkillInvocation,
     source_type: AgentAdapterSourceType,

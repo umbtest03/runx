@@ -2,6 +2,11 @@ use std::path::{Path, PathBuf};
 
 use runx_contracts::{ClosureDisposition, JsonObject, JsonValue, ReceiptSchema};
 use runx_receipts::canonical_receipt_json;
+use runx_runtime::payment::supervisor::{
+    PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID, PaymentRailSupervisor, PaymentSupervisorError,
+    PaymentSupervisorSettlementEvidence, PaymentSupervisorSettlementRequest,
+    RuntimePaymentSupervisor,
+};
 use runx_runtime::{
     HarnessExpectedStatus, HarnessFixtureError, HarnessFixtureKind, InvocationStatus,
     RuntimeOptions, SkillAdapter, SkillInvocation, SkillOutput, load_harness_fixture,
@@ -391,8 +396,62 @@ fn run_fixture_with_test_adapter(
     run_harness_fixture_with_adapter(
         fixture_path(relative_path),
         TestAdapter,
-        RuntimeOptions::default(),
+        fixture_runtime_options(),
     )
+}
+
+fn fixture_runtime_options() -> RuntimeOptions {
+    RuntimeOptions {
+        payment_supervisor: RuntimePaymentSupervisor::from_supervisor(FixturePaymentSupervisor),
+        ..RuntimeOptions::default()
+    }
+}
+
+#[derive(Clone, Debug)]
+struct FixturePaymentSupervisor;
+
+impl PaymentRailSupervisor for FixturePaymentSupervisor {
+    fn settlement_evidence(
+        &self,
+        request: PaymentSupervisorSettlementRequest<'_>,
+    ) -> Result<PaymentSupervisorSettlementEvidence, PaymentSupervisorError> {
+        match request.proof_ref {
+            "receipt-proof:mock:x402-pay-approval-001" => Ok(payment_supervisor_evidence(
+                request,
+                "merchant-123",
+                "payment:x402-pay-approval-001",
+            )),
+            "receipt-proof:mock:paid-echo-001" => Ok(payment_supervisor_evidence(
+                request,
+                "merchant:paid-echo",
+                "payment:paid-echo-001",
+            )),
+            _ => Err(PaymentSupervisorError::InvalidSupervisorEvidence {
+                message: format!(
+                    "fixture supervisor has no settlement for {}",
+                    request.proof_ref
+                ),
+            }),
+        }
+    }
+}
+
+fn payment_supervisor_evidence(
+    request: PaymentSupervisorSettlementRequest<'_>,
+    expected_counterparty: &str,
+    expected_idempotency_key: &str,
+) -> PaymentSupervisorSettlementEvidence {
+    PaymentSupervisorSettlementEvidence {
+        verifier_id: PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID.to_owned(),
+        proof_ref: request.proof_ref.to_owned(),
+        rail: request.rail.to_owned(),
+        counterparty: expected_counterparty.to_owned(),
+        amount_minor: request.amount_minor,
+        currency: request.currency.to_owned(),
+        idempotency_key: expected_idempotency_key.to_owned(),
+        settlement_status: Some("fulfilled".to_owned()),
+        provider_event_ref: Some(format!("fixture:event:{}", request.proof_ref)),
+    }
 }
 
 struct TestAdapter;
@@ -404,8 +463,8 @@ impl SkillAdapter for TestAdapter {
 
     fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, runx_runtime::RuntimeError> {
         // The skill emits only the rail-packet claim. The trusted runtime
-        // supervisor synthesizes and verifies the settlement evidence from the
-        // admitted spend authority, so test and live execution share one path.
+        // supervisor supplies matching settlement evidence, so test and live
+        // execution share the same fail-closed boundary.
         let stdout = if request.skill_name == "pay-fulfill-rail" {
             r#"{"payment_rail_packet":{"data":{"rail_result":{"status":"fulfilled","rail":"mock","amount_minor":125,"currency":"USD"},"rail_proof":{"proof_ref":"receipt-proof:mock:x402-pay-approval-001","idempotency_key":"payment:x402-pay-approval-001"},"credential_envelope":{"form":"paid_tool_credential","credential_ref":"credential:mock:x402-pay-approval-001"}}}}"#.to_owned()
         } else {

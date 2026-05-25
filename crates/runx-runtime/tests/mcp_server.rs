@@ -15,7 +15,7 @@ use runx_runtime::adapters::mcp::{
     McpToolResult, mcp_tool_result_from_host_result, serve_mcp_json_rpc,
 };
 #[cfg(feature = "mcp")]
-use runx_runtime::receipt_store::LocalReceiptStore;
+use runx_runtime::receipts::store::LocalReceiptStore;
 
 #[test]
 #[cfg(feature = "mcp")]

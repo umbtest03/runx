@@ -7,6 +7,9 @@
 //! reproduces the committed shape: fully inlined, closed string enums as
 //! `anyOf` of `const`, `additionalProperties: false`, and the `$id` /
 //! `x-runx-schema` identity.
+// rust-style-allow: large-file - the schema emitter keeps shared JSON Schema
+// construction helpers and primitive type impls together so generated contract
+// shapes are reviewable as one boundary.
 
 use std::collections::BTreeMap;
 
@@ -117,6 +120,8 @@ pub fn object_schema(
 /// apply). `flattened` entries that are not plain objects (e.g. a flattened
 /// map) relax the parent to accept additional properties, matching serde's
 /// open-ended flatten capture.
+// rust-style-allow: long-function - flatten merging mirrors serde's object
+// projection rules and is easier to audit as one schema-construction path.
 pub fn object_schema_with_flatten(
     properties: Vec<Property>,
     flattened: Vec<Value>,
@@ -342,7 +347,79 @@ impl<T: RunxSchema> RunxSchema for Vec<T> {
     }
 }
 
+/// A non-empty array (`minItems: 1`) for contract fields where an empty list
+/// would erase the proof-bearing edge the record exists to carry.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct NonEmptyVec<T>(Vec<T>);
+
+impl<T> NonEmptyVec<T> {
+    pub fn new(value: Vec<T>) -> Option<Self> {
+        if value.is_empty() {
+            None
+        } else {
+            Some(Self(value))
+        }
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        &self.0
+    }
+
+    pub fn into_vec(self) -> Vec<T> {
+        self.0
+    }
+}
+
+impl<T> From<Vec<T>> for NonEmptyVec<T> {
+    fn from(value: Vec<T>) -> Self {
+        debug_assert!(
+            !value.is_empty(),
+            "NonEmptyVec::from received an empty outbound value"
+        );
+        Self(value)
+    }
+}
+
+impl<T> std::ops::Deref for NonEmptyVec<T> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'de, T> Deserialize<'de> for NonEmptyVec<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Vec::<T>::deserialize(deserializer)?;
+        Self::new(value)
+            .ok_or_else(|| serde::de::Error::custom("array must contain at least one item"))
+    }
+}
+
+impl<T: RunxSchema> RunxSchema for NonEmptyVec<T> {
+    fn json_schema() -> Value {
+        let mut schema = Vec::<T>::json_schema();
+        if let Some(object) = schema.as_object_mut() {
+            object.insert("minItems".to_owned(), json!(1));
+        }
+        schema
+    }
+}
+
 impl<T: RunxSchema> RunxSchema for Option<T> {
+    fn json_schema() -> Value {
+        T::json_schema()
+    }
+}
+
+impl<T: RunxSchema> RunxSchema for Box<T> {
     fn json_schema() -> Value {
         T::json_schema()
     }
@@ -385,12 +462,20 @@ impl NonEmptyString {
 // enforced on deserialization, where untrusted input crosses the boundary.
 impl From<String> for NonEmptyString {
     fn from(value: String) -> Self {
+        debug_assert!(
+            !value.is_empty(),
+            "NonEmptyString::from received an empty outbound value"
+        );
         Self(value)
     }
 }
 
 impl From<&str> for NonEmptyString {
     fn from(value: &str) -> Self {
+        debug_assert!(
+            !value.is_empty(),
+            "NonEmptyString::from received an empty outbound value"
+        );
         Self(value.to_owned())
     }
 }

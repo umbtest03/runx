@@ -1,33 +1,9 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.runx.dev/runx/handoff-state/v1.json",
-  "x-runx-schema": "runx.handoff_state.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "schema",
-    "handoff_id",
-    "status",
-    "signal_count"
-  ],
   "properties": {
-    "schema": {
-      "const": "runx.handoff_state.v1",
-      "type": "string"
-    },
-    "handoff_id": {
-      "minLength": 1,
-      "type": "string"
-    },
     "boundary_kind": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "target_repo": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "target_locator": {
       "minLength": 1,
       "type": "string"
     },
@@ -35,51 +11,7 @@
       "minLength": 1,
       "type": "string"
     },
-    "status": {
-      "anyOf": [
-        {
-          "const": "awaiting_response",
-          "type": "string"
-        },
-        {
-          "const": "engaged",
-          "type": "string"
-        },
-        {
-          "const": "needs_revision",
-          "type": "string"
-        },
-        {
-          "const": "accepted",
-          "type": "string"
-        },
-        {
-          "const": "approved_to_send",
-          "type": "string"
-        },
-        {
-          "const": "completed",
-          "type": "string"
-        },
-        {
-          "const": "declined",
-          "type": "string"
-        },
-        {
-          "const": "rerouted",
-          "type": "string"
-        },
-        {
-          "const": "suppressed",
-          "type": "string"
-        }
-      ]
-    },
-    "signal_count": {
-      "minimum": 0,
-      "type": "integer"
-    },
-    "last_signal_id": {
+    "handoff_id": {
       "minLength": 1,
       "type": "string"
     },
@@ -128,8 +60,62 @@
         }
       ]
     },
-    "suppression_record_id": {
+    "last_signal_id": {
       "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "anyOf": [
+        {
+          "const": "runx.handoff_state.v1",
+          "type": "string"
+        }
+      ]
+    },
+    "signal_count": {
+      "type": "integer"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "const": "awaiting_response",
+          "type": "string"
+        },
+        {
+          "const": "engaged",
+          "type": "string"
+        },
+        {
+          "const": "needs_revision",
+          "type": "string"
+        },
+        {
+          "const": "accepted",
+          "type": "string"
+        },
+        {
+          "const": "approved_to_send",
+          "type": "string"
+        },
+        {
+          "const": "completed",
+          "type": "string"
+        },
+        {
+          "const": "declined",
+          "type": "string"
+        },
+        {
+          "const": "rerouted",
+          "type": "string"
+        },
+        {
+          "const": "suppressed",
+          "type": "string"
+        }
+      ]
+    },
+    "summary": {
       "type": "string"
     },
     "suppression_reason": {
@@ -152,8 +138,25 @@
         }
       ]
     },
-    "summary": {
+    "suppression_record_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "target_locator": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "target_repo": {
+      "minLength": 1,
       "type": "string"
     }
-  }
+  },
+  "required": [
+    "schema",
+    "handoff_id",
+    "status",
+    "signal_count"
+  ],
+  "type": "object",
+  "x-runx-schema": "runx.handoff_state.v1"
 }

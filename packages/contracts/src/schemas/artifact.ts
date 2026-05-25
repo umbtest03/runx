@@ -1,4 +1,4 @@
-import { Type, type Static } from "@sinclair/typebox";
+import { Type, type Static } from "../internal.js";
 import { type DeepReadonly, unknownRecordSchema, validateContractSchema } from "../internal.js";
 
 export const artifactProducerSchema = Type.Object(

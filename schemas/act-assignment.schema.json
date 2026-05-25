@@ -1,46 +1,29 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.runx.dev/runx/act-assignment/v1.json",
-  "x-runx-schema": "runx.act_assignment.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "schema",
-    "skill_ref",
-    "runner",
-    "requested_at",
-    "host",
-    "idempotency"
-  ],
   "properties": {
-    "schema": {
-      "const": "runx.act_assignment.v1",
-      "type": "string"
-    },
-    "skill_ref": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "runner": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "source_ref": {
-      "minLength": 1,
-      "type": "string"
-    },
-    "requested_at": {
-      "minLength": 1,
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
-      "type": "string"
-    },
     "host": {
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "kind"
-      ],
       "properties": {
+        "actor": {
+          "additionalProperties": false,
+          "properties": {
+            "actor_id": {
+              "type": "string"
+            },
+            "display_name": {
+              "type": "string"
+            },
+            "provider_identity": {
+              "type": "string"
+            },
+            "role": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "kind": {
           "anyOf": [
             {
@@ -61,58 +44,29 @@
             }
           ]
         },
-        "trigger_ref": {
-          "minLength": 1,
-          "type": "string"
-        },
         "scope_set": {
-          "type": "array",
           "items": {
-            "minLength": 1,
             "type": "string"
-          }
+          },
+          "type": "array"
         },
-        "actor": {
-          "additionalProperties": false,
-          "type": "object",
-          "properties": {
-            "actor_id": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "display_name": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "role": {
-              "minLength": 1,
-              "type": "string"
-            },
-            "provider_identity": {
-              "minLength": 1,
-              "type": "string"
-            }
-          }
+        "trigger_ref": {
+          "type": "string"
         }
-      }
-    },
-    "input_overrides": {
-      "type": "object",
-      "patternProperties": {
-        "^(.*)$": {}
-      }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
     },
     "idempotency": {
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "algorithm",
-        "intent_key",
-        "content_hash"
-      ],
       "properties": {
         "algorithm": {
-          "const": "sha256",
+          "type": "string"
+        },
+        "content_hash": {
+          "minLength": 1,
           "type": "string"
         },
         "intent_key": {
@@ -122,12 +76,53 @@
         "trigger_key": {
           "minLength": 1,
           "type": "string"
-        },
-        "content_hash": {
-          "minLength": 1,
+        }
+      },
+      "required": [
+        "algorithm",
+        "intent_key",
+        "content_hash"
+      ],
+      "type": "object"
+    },
+    "input_overrides": {
+      "additionalProperties": {},
+      "type": "object"
+    },
+    "requested_at": {
+      "minLength": 1,
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+      "type": "string"
+    },
+    "runner": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema": {
+      "anyOf": [
+        {
+          "const": "runx.act_assignment.v1",
           "type": "string"
         }
-      }
+      ]
+    },
+    "skill_ref": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "source_ref": {
+      "minLength": 1,
+      "type": "string"
     }
-  }
+  },
+  "required": [
+    "schema",
+    "skill_ref",
+    "runner",
+    "requested_at",
+    "host",
+    "idempotency"
+  ],
+  "type": "object",
+  "x-runx-schema": "runx.act_assignment.v1"
 }

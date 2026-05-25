@@ -182,7 +182,7 @@ fn public_projection_redacts_absolute_external_receipt_path_input() {
     assert!(summary.contains(label));
     assert_redacts_external_path(&summary);
 
-    let direct_projection = runx_runtime::receipt_paths::safe_receipt_store_projection(
+    let direct_projection = runx_runtime::receipts::paths::safe_receipt_store_projection(
         &resolved.path,
         &workspace,
         &project_runx_dir,
@@ -196,7 +196,7 @@ fn public_projection_uses_project_relative_label_for_run_state() {
     let project_runx_dir = workspace.join(".runx");
     let receipt_dir = project_runx_dir.join("receipts");
 
-    let projection = runx_runtime::receipt_paths::safe_receipt_store_projection(
+    let projection = runx_runtime::receipts::paths::safe_receipt_store_projection(
         &receipt_dir,
         &workspace,
         &project_runx_dir,

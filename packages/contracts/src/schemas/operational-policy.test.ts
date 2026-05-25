@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { Value } from "@sinclair/typebox/value";
+import { contractSchemaMatches } from "../internal.js";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -114,7 +114,7 @@ const validPolicy: OperationalPolicyContract = {
 
 describe("operational-policy schema", () => {
   it("accepts a valid multi-source, multi-target policy", () => {
-    expect(Value.Check(operationalPolicySchema, validPolicy)).toBe(true);
+    expect(contractSchemaMatches(operationalPolicySchema, validPolicy)).toBe(true);
     expect(validateOperationalPolicyContract(validPolicy)).toMatchObject({
       policy_id: "nitrosend-dev-flow",
       permissions: {
@@ -166,12 +166,12 @@ describe("operational-policy schema", () => {
   ])("rejects schema-invalid fixture %s", (fixtureName) => {
     const policy = readPolicyFixture(fixtureName);
 
-    expect(Value.Check(operationalPolicySchema, policy)).toBe(false);
+    expect(contractSchemaMatches(operationalPolicySchema, policy)).toBe(false);
     expect(() => validateOperationalPolicyContract(policy)).toThrow();
   });
 
   it("rejects policy that enables auto-merge", () => {
-    expect(Value.Check(operationalPolicySchema, {
+    expect(contractSchemaMatches(operationalPolicySchema, {
       ...validPolicy,
       permissions: {
         ...validPolicy.permissions,
@@ -181,7 +181,7 @@ describe("operational-policy schema", () => {
   });
 
   it("rejects source routes that can fall back when the source thread is missing", () => {
-    expect(Value.Check(operationalPolicySchema, {
+    expect(contractSchemaMatches(operationalPolicySchema, {
       ...validPolicy,
       sources: [{
         ...validPolicy.sources[0],
@@ -194,7 +194,7 @@ describe("operational-policy schema", () => {
   });
 
   it("rejects target repos that are not owner/repo slugs", () => {
-    expect(Value.Check(operationalPolicySchema, {
+    expect(contractSchemaMatches(operationalPolicySchema, {
       ...validPolicy,
       targets: [{
         ...validPolicy.targets[0],
@@ -204,7 +204,7 @@ describe("operational-policy schema", () => {
   });
 
   it("rejects unknown source providers", () => {
-    expect(Value.Check(operationalPolicySchema, {
+    expect(contractSchemaMatches(operationalPolicySchema, {
       ...validPolicy,
       sources: [{
         ...validPolicy.sources[0],
@@ -214,7 +214,7 @@ describe("operational-policy schema", () => {
   });
 
   it("rejects extra fields so secrets do not drift into policy", () => {
-    expect(Value.Check(operationalPolicySchema, {
+    expect(contractSchemaMatches(operationalPolicySchema, {
       ...validPolicy,
       github_token: "ghp_123",
     })).toBe(false);

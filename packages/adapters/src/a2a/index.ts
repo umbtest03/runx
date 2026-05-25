@@ -125,13 +125,18 @@ async function pollTask(
   signal?: AbortSignal,
 ): Promise<A2aTask> {
   const started = performance.now();
-  while (performance.now() - started < timeoutMs) {
+  const deadline = started + timeoutMs;
+  while (performance.now() < deadline) {
     if (signal?.aborted) throw new Error("A2A task aborted.");
     const task = await transport.getTask({ agentCardUrl, taskId });
     if (task.status === "completed" || task.status === "failed" || task.status === "canceled") {
       return task;
     }
-    await delay(defaultPollIntervalMs);
+    const remainingMs = deadline - performance.now();
+    if (remainingMs <= 0) {
+      break;
+    }
+    await delay(Math.min(defaultPollIntervalMs, Math.max(10, remainingMs)));
   }
   throw new Error(`A2A task timed out after ${timeoutMs}ms.`);
 }

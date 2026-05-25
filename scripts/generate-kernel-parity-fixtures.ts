@@ -411,7 +411,7 @@ function fixtureCases(): readonly KernelFixtureCase[] {
     provider: "github",
     auth_mode: "oauth",
     material_kind: "nango_connection",
-    connection_id: "conn_1",
+    provider_reference: "conn_1",
     scopes: ["repo:read"],
     grant_reference: {
       grant_id: "grant_expected",

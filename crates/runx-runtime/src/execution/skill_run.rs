@@ -25,7 +25,10 @@ use crate::agent_invocation::{
 use crate::execution::orchestrator::SkillRunRequest;
 use crate::receipts::paths::{ReceiptPathInputs, resolve_receipt_path};
 use crate::receipts::store::{LocalReceiptStore, ReceiptStoreError};
-use crate::receipts::{StepReceiptWithDisposition, step_receipt_with_disposition};
+use crate::receipts::{
+    RuntimeReceiptSignatureConfig, StepReceiptWithDisposition,
+    step_receipt_with_disposition_and_policy,
+};
 use crate::time::DEFAULT_CREATED_AT;
 
 const SKILL_RUN_SCHEMA: &str = "runx.skill_run.v1";
@@ -41,6 +44,8 @@ pub enum SkillRunError {
 }
 
 pub(crate) fn execute_skill_run(request: &SkillRunRequest) -> Result<JsonValue, SkillRunError> {
+    let signature_config = RuntimeReceiptSignatureConfig::from_env(&request.env)
+        .map_err(|error| SkillRunError::Invalid(error.to_string()))?;
     let skill_dir = resolve_skill_dir(&request.skill_path)?;
     let manifest = load_runner_manifest(&skill_dir)?;
     let runner = selected_runner(&manifest)?;
@@ -52,14 +57,21 @@ pub(crate) fn execute_skill_run(request: &SkillRunRequest) -> Result<JsonValue, 
         request.local_credential.as_ref(),
     )?;
     if runner.source.source_type == runx_parser::SourceKind::CliTool {
-        return execute_cli_tool_skill_run(request, &manifest, runner, invocation);
+        return execute_cli_tool_skill_run(
+            request,
+            &signature_config,
+            &manifest,
+            runner,
+            invocation,
+        );
     }
 
-    execute_agent_skill_run(request, &manifest, runner, invocation)
+    execute_agent_skill_run(request, &signature_config, &manifest, runner, invocation)
 }
 
 fn execute_agent_skill_run(
     request: &SkillRunRequest,
+    signature_config: &RuntimeReceiptSignatureConfig,
     manifest: &SkillRunnerManifest,
     runner: &SkillRunnerDefinition,
     invocation: SkillInvocation,
@@ -81,8 +93,8 @@ fn execute_agent_skill_run(
     let stdout = serde_json::to_string(&answer)
         .map_err(|error| SkillRunError::Invalid(format!("failed to serialize answer: {error}")))?;
     let disposition = answer_disposition(&answer);
-    let receipt = seal_skill_answer(&run_id, runner, &stdout, disposition)?;
-    write_skill_receipt(request, &receipt)?;
+    let receipt = seal_skill_answer(&run_id, runner, &stdout, disposition, signature_config)?;
+    write_skill_receipt(request, &receipt, signature_config)?;
 
     Ok(JsonValue::Object(sealed_output(
         manifest,
@@ -215,6 +227,7 @@ fn runner_invocation(
 #[cfg(feature = "cli-tool")]
 fn execute_cli_tool_skill_run(
     request: &SkillRunRequest,
+    signature_config: &RuntimeReceiptSignatureConfig,
     manifest: &SkillRunnerManifest,
     runner: &SkillRunnerDefinition,
     invocation: SkillInvocation,
@@ -245,8 +258,9 @@ fn execute_cli_tool_skill_run(
         disposition.clone(),
         format!("process_{}", closure_disposition_label(&disposition)),
         format!("cli-tool {} completed", runner.name),
+        signature_config,
     )?;
-    write_skill_receipt(request, &receipt)?;
+    write_skill_receipt(request, &receipt, signature_config)?;
     Ok(JsonValue::Object(sealed_output(
         manifest,
         &run_id,
@@ -260,6 +274,7 @@ fn execute_cli_tool_skill_run(
 #[cfg(not(feature = "cli-tool"))]
 fn execute_cli_tool_skill_run(
     _request: &SkillRunRequest,
+    _signature_config: &RuntimeReceiptSignatureConfig,
     _manifest: &SkillRunnerManifest,
     _runner: &SkillRunnerDefinition,
     _invocation: SkillInvocation,
@@ -272,6 +287,7 @@ fn execute_cli_tool_skill_run(
 fn write_skill_receipt(
     request: &SkillRunRequest,
     receipt: &runx_contracts::Receipt,
+    signature_config: &RuntimeReceiptSignatureConfig,
 ) -> Result<(), SkillRunError> {
     let receipt_path = resolve_receipt_path(ReceiptPathInputs {
         explicit_dir: request.receipt_dir.as_deref(),
@@ -280,7 +296,7 @@ fn write_skill_receipt(
         cwd: &request.cwd,
     });
     LocalReceiptStore::new(&receipt_path.path)
-        .write_receipt(receipt)
+        .write_receipt_with_policy(receipt, signature_config.signature_policy())
         .map_err(Into::into)
 }
 
@@ -352,6 +368,7 @@ fn seal_skill_answer(
     runner: &SkillRunnerDefinition,
     stdout: &str,
     disposition: ClosureDisposition,
+    signature_config: &RuntimeReceiptSignatureConfig,
 ) -> Result<runx_contracts::Receipt, SkillRunError> {
     let disposition_label = closure_disposition_label(&disposition);
     let succeeded = disposition == ClosureDisposition::Closed;
@@ -379,6 +396,7 @@ fn seal_skill_answer(
         disposition,
         format!("agent_act_{disposition_label}"),
         format!("agent act closed with {disposition_label}"),
+        signature_config,
     )
 }
 
@@ -411,19 +429,23 @@ fn seal_skill_output(
     disposition: ClosureDisposition,
     reason_code: String,
     summary: String,
+    signature_config: &RuntimeReceiptSignatureConfig,
 ) -> Result<runx_contracts::Receipt, SkillRunError> {
     let graph_name = identifier_segment(run_id);
     let step_id = identifier_segment(&runner.name);
-    Ok(step_receipt_with_disposition(StepReceiptWithDisposition {
-        graph_name: &graph_name,
-        step_id: &step_id,
-        attempt: 1,
-        output,
-        created_at: DEFAULT_CREATED_AT,
-        disposition,
-        reason_code,
-        summary,
-    })?)
+    Ok(step_receipt_with_disposition_and_policy(
+        StepReceiptWithDisposition {
+            graph_name: &graph_name,
+            step_id: &step_id,
+            attempt: 1,
+            output,
+            created_at: DEFAULT_CREATED_AT,
+            disposition,
+            reason_code,
+            summary,
+        },
+        signature_config.signature_policy(),
+    )?)
 }
 
 fn answer_disposition(answer: &JsonValue) -> ClosureDisposition {

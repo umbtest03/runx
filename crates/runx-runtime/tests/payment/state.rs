@@ -2,14 +2,14 @@ use std::collections::BTreeMap;
 
 use runx_contracts::{JsonObject, JsonValue, Receipt};
 use runx_runtime::RUNX_RECEIPT_DIR_ENV;
-use runx_runtime::payment_state::{
+use runx_runtime::payment::state::{
     FileBackedPaymentStateStore, PaymentIdempotencyEntry, PaymentIdempotencyKey,
     PaymentRecoveryState, PaymentStepStateInput, RUNX_PAYMENT_STATE_PATH_ENV, RailMutation,
     RailMutationStatus, SpendCapabilityConsumption, consumed_spend_capability_recorded,
     escalate_payment_rail_mutation, lookup_payment_idempotency_entry, lookup_payment_rail_mutation,
     persist_payment_step_state,
 };
-use runx_runtime::payment_supervisor::{
+use runx_runtime::payment::supervisor::{
     PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID, PaymentSupervisorProof,
 };
 use runx_runtime::receipts::step_receipt;

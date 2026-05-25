@@ -1,24 +1,17 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://runx.ai/spec/question.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "id",
-    "prompt",
-    "required",
-    "type"
-  ],
   "properties": {
+    "description": {
+      "type": "string"
+    },
     "id": {
       "minLength": 1,
       "type": "string"
     },
     "prompt": {
       "minLength": 1,
-      "type": "string"
-    },
-    "description": {
       "type": "string"
     },
     "required": {
@@ -28,5 +21,12 @@
       "minLength": 1,
       "type": "string"
     }
-  }
+  },
+  "required": [
+    "id",
+    "prompt",
+    "required",
+    "type"
+  ],
+  "type": "object"
 }

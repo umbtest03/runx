@@ -1,4 +1,4 @@
-import { Value } from "@sinclair/typebox/value";
+import { contractSchemaMatches } from "../internal.js";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -25,7 +25,7 @@ const validCredentialEnvelope: CredentialEnvelopeContract = {
   provider: "github",
   auth_mode: "oauth",
   material_kind: "nango_connection",
-  connection_id: "conn_1",
+  provider_reference: "conn_1",
   scopes: ["repo:read"],
   grant_reference: {
     grant_id: "grant_1",
@@ -55,7 +55,7 @@ const validAuthorityProof: AuthorityProofContract = {
     status: "resolved",
     grant_id: "grant_1",
     provider: "github",
-    connection_id: "conn_1",
+    provider_reference: "conn_1",
     scopes: ["repo:read"],
     grant_reference: validCredentialEnvelope.grant_reference,
     material_ref_hash: "sha256-ref",
@@ -94,23 +94,47 @@ const validAuthorityProof: AuthorityProofContract = {
 
 describe("credential and authority proof schemas", () => {
   it("accepts scoped credential envelopes and scope admissions", () => {
-    expect(Value.Check(credentialEnvelopeSchema, validCredentialEnvelope)).toBe(true);
-    expect(Value.Check(scopeAdmissionSchema, validScopeAdmission)).toBe(true);
+    expect(contractSchemaMatches(credentialEnvelopeSchema, validCredentialEnvelope)).toBe(true);
+    expect(contractSchemaMatches(scopeAdmissionSchema, validScopeAdmission)).toBe(true);
   });
 
   it("accepts a complete authority proof without raw secret material", () => {
-    expect(Value.Check(authorityProofSchema, validAuthorityProof)).toBe(true);
+    expect(contractSchemaMatches(authorityProofSchema, validAuthorityProof)).toBe(true);
     expect(JSON.stringify(validAuthorityProof)).not.toContain("sk-contract-test");
     expect(JSON.stringify(validAuthorityProof)).not.toContain("super-secret-token");
   });
 
+  it("rejects legacy connection_id fields", () => {
+    expect(
+      contractSchemaMatches(credentialEnvelopeSchema, {
+        kind: "runx.credential-envelope.v1",
+        grant_id: "grant_1",
+        provider: "github",
+        auth_mode: "oauth",
+        material_kind: "nango_connection",
+        connection_id: "conn_1",
+        scopes: ["repo:read"],
+        material_ref: "nango:github:conn_1",
+      }),
+    ).toBe(false);
+    expect(
+      contractSchemaMatches(authorityProofSchema, {
+        ...validAuthorityProof,
+        credential_material: {
+          status: "resolved",
+          connection_id: "conn_1",
+        },
+      }),
+    ).toBe(false);
+  });
+
   it("rejects unknown authority proof fields", () => {
-    expect(Value.Check(authorityProofSchema, { ...validAuthorityProof, raw_token: "secret" })).toBe(false);
+    expect(contractSchemaMatches(authorityProofSchema, { ...validAuthorityProof, raw_token: "secret" })).toBe(false);
   });
 
   it("rejects raw secret-like fields inside credential material", () => {
     expect(
-      Value.Check(authorityProofSchema, {
+      contractSchemaMatches(authorityProofSchema, {
         ...validAuthorityProof,
         credential_material: {
           ...validAuthorityProof.credential_material,

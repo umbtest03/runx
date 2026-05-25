@@ -1,22 +1,127 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.runx.dev/runx/list/v1.json",
-  "x-runx-schema": "runx.list.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "schema",
-    "root",
-    "requested_kind",
-    "items"
-  ],
   "properties": {
-    "schema": {
-      "const": "runx.list.v1",
-      "type": "string"
-    },
-    "root": {
-      "type": "string"
+    "items": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "diagnostics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "emits": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "packet": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "fixtures": {
+            "type": "integer"
+          },
+          "harness_cases": {
+            "type": "integer"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "const": "tool",
+                "type": "string"
+              },
+              {
+                "const": "skill",
+                "type": "string"
+              },
+              {
+                "const": "graph",
+                "type": "string"
+              },
+              {
+                "const": "packet",
+                "type": "string"
+              },
+              {
+                "const": "overlay",
+                "type": "string"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "const": "local",
+                "type": "string"
+              },
+              {
+                "const": "workspace",
+                "type": "string"
+              },
+              {
+                "const": "dependencies",
+                "type": "string"
+              },
+              {
+                "const": "built-in",
+                "type": "string"
+              }
+            ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "const": "ok",
+                "type": "string"
+              },
+              {
+                "const": "invalid",
+                "type": "string"
+              }
+            ]
+          },
+          "steps": {
+            "type": "integer"
+          },
+          "wraps": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "source",
+          "path",
+          "status"
+        ],
+        "type": "object"
+      },
+      "type": "array"
     },
     "requested_kind": {
       "anyOf": [
@@ -46,128 +151,24 @@
         }
       ]
     },
-    "items": {
-      "type": "array",
-      "items": {
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "kind",
-          "name",
-          "source",
-          "path",
-          "status"
-        ],
-        "properties": {
-          "kind": {
-            "anyOf": [
-              {
-                "const": "tool",
-                "type": "string"
-              },
-              {
-                "const": "skill",
-                "type": "string"
-              },
-              {
-                "const": "graph",
-                "type": "string"
-              },
-              {
-                "const": "packet",
-                "type": "string"
-              },
-              {
-                "const": "overlay",
-                "type": "string"
-              }
-            ]
-          },
-          "name": {
-            "type": "string"
-          },
-          "source": {
-            "anyOf": [
-              {
-                "const": "local",
-                "type": "string"
-              },
-              {
-                "const": "workspace",
-                "type": "string"
-              },
-              {
-                "const": "dependencies",
-                "type": "string"
-              },
-              {
-                "const": "built-in",
-                "type": "string"
-              }
-            ]
-          },
-          "path": {
-            "type": "string"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "const": "ok",
-                "type": "string"
-              },
-              {
-                "const": "invalid",
-                "type": "string"
-              }
-            ]
-          },
-          "diagnostics": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "scopes": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "emits": {
-            "type": "array",
-            "items": {
-              "additionalProperties": false,
-              "type": "object",
-              "required": [
-                "name"
-              ],
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "packet": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "fixtures": {
-            "minimum": 0,
-            "type": "integer"
-          },
-          "harness_cases": {
-            "minimum": 0,
-            "type": "integer"
-          },
-          "steps": {
-            "minimum": 0,
-            "type": "integer"
-          },
-          "wraps": {
-            "type": "string"
-          }
+    "root": {
+      "type": "string"
+    },
+    "schema": {
+      "anyOf": [
+        {
+          "const": "runx.list.v1",
+          "type": "string"
         }
-      }
+      ]
     }
-  }
+  },
+  "required": [
+    "schema",
+    "root",
+    "requested_kind",
+    "items"
+  ],
+  "type": "object",
+  "x-runx-schema": "runx.list.v1"
 }

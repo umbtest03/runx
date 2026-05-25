@@ -16,6 +16,8 @@ import {
   runxContractSchemas,
   runxAuxiliarySchemas,
   runxGeneratedSchemaArtifacts,
+  actAssignmentV1Schema,
+  contractSchemaMatches,
   validateActReceiptEnvelopeContract,
   validateActContract,
   validateAgentContextEnvelopeContract,
@@ -60,12 +62,13 @@ describe("@runxhq/contracts", () => {
   it("uses durable schema URI ids", () => {
     expect(RUNX_CONTRACT_IDS.toolManifest).toBe("https://schemas.runx.dev/runx/tool/manifest/v1.json");
     expect(runxContractSchemas.toolManifest.$id).toBe(RUNX_CONTRACT_IDS.toolManifest);
-    expect((runxContractSchemas.dev.properties?.doctor as { readonly $ref?: string } | undefined)?.$ref)
-      .toBe(RUNX_CONTRACT_IDS.doctor);
+    const devProperties = runxContractSchemas.dev.properties as Record<string, unknown> | undefined;
+    expect(devProperties?.doctor).toMatchObject({ $id: RUNX_CONTRACT_IDS.doctor });
   });
 
   it("keeps fixture lanes aligned with authoring plan", () => {
-    const lane = runxContractSchemas.fixture.properties?.lane;
+    const fixtureProperties = runxContractSchemas.fixture.properties as Record<string, unknown> | undefined;
+    const lane = fixtureProperties?.lane as { readonly anyOf?: readonly { readonly const?: string }[] } | undefined;
     expect((lane?.anyOf as readonly { readonly const?: string }[] | undefined)?.map((entry) => entry.const)).toEqual([
       "deterministic",
       "agent",
@@ -76,8 +79,7 @@ describe("@runxhq/contracts", () => {
   it("accepts typed proof kinds on references", () => {
     expect(proofKinds).toEqual(["payment_rail"]);
     expect(proofKindSchema).toMatchObject({
-      const: "payment_rail",
-      type: "string",
+      anyOf: [expect.objectContaining({ const: "payment_rail", type: "string" })],
     });
     expect(validateReferenceContract({
       type: "verification",
@@ -98,7 +100,7 @@ describe("@runxhq/contracts", () => {
       provider: "github",
       auth_mode: "oauth",
       material_kind: "nango_connection",
-      connection_id: "conn_1",
+      provider_reference: "conn_1",
       scopes: ["repo:read"],
       material_ref: "nango:github:conn_1",
     })).toMatchObject({
@@ -129,8 +131,8 @@ describe("@runxhq/contracts", () => {
 
   it("owns authority proof schema and generated artifact", () => {
     expect(authorityProofSchema.$id).toBe(RUNX_CONTROL_SCHEMA_REFS.authority_proof);
-    expect(runxContractSchemas.authorityProof).toBe(authorityProofSchema);
-    expect(runxGeneratedSchemaArtifacts["authority-proof.schema.json"]).toBe(authorityProofSchema);
+    expect(runxContractSchemas.authorityProof.$id).toBe(authorityProofSchema.$id);
+    expect(runxGeneratedSchemaArtifacts["authority-proof.schema.json"].$id).toBe(authorityProofSchema.$id);
     expect(validateAuthorityProofContract({
       schema_version: "runx.authority-proof.v1",
       skill_name: "connected-review",
@@ -172,9 +174,9 @@ describe("@runxhq/contracts", () => {
     expect(outputSchema.$id).toBe(RUNX_CONTROL_SCHEMA_REFS.output);
     expect(agentContextEnvelopeSchema.$id).toBe(RUNX_CONTROL_SCHEMA_REFS.agent_context_envelope);
     expect(actReceiptEnvelopeSchema.$id).toBe(RUNX_CONTROL_SCHEMA_REFS.act_receipt);
-    expect(runxGeneratedSchemaArtifacts["output.schema.json"]).toBe(outputSchema);
-    expect(runxGeneratedSchemaArtifacts["agent-context-envelope.schema.json"]).toBe(agentContextEnvelopeSchema);
-    expect(runxGeneratedSchemaArtifacts["act-receipt.schema.json"]).toBe(actReceiptEnvelopeSchema);
+    expect(runxGeneratedSchemaArtifacts["output.schema.json"].$id).toBe(outputSchema.$id);
+    expect(runxGeneratedSchemaArtifacts["agent-context-envelope.schema.json"].$id).toBe(agentContextEnvelopeSchema.$id);
+    expect(runxGeneratedSchemaArtifacts["act-receipt.schema.json"].$id).toBe(actReceiptEnvelopeSchema.$id);
 
     expect(validateOutputContract({
       summary: "string",
@@ -220,7 +222,7 @@ describe("@runxhq/contracts", () => {
         voice_grammar: {},
       },
       trust_boundary: "test",
-    })).toThrow("agent_context_envelope.context.voice_grammar must match");
+    })).toThrow("agent_context_envelope.context must match");
 
     expect(validateAgentContextEnvelopeContract({
       run_id: "rx_contract",
@@ -272,7 +274,10 @@ describe("@runxhq/contracts", () => {
   it("owns generated auxiliary schemas", () => {
     expect(registryBindingSchema.$id).toBe(RUNX_AUXILIARY_SCHEMA_IDS.registryBinding);
     expect(reviewReceiptOutputSchema.$id).toBe(RUNX_AUXILIARY_SCHEMA_IDS.reviewReceiptOutput);
-    expect(runxAuxiliarySchemas.reviewReceiptOutput).toBe(reviewReceiptOutputSchema);
+    expect(runxAuxiliarySchemas.registryBinding).toBe(runxGeneratedSchemaArtifacts["registry-binding.schema.json"]);
+    expect(runxAuxiliarySchemas.reviewReceiptOutput).toBe(runxGeneratedSchemaArtifacts["review-receipt-output.schema.json"]);
+    expect(runxAuxiliarySchemas.registryBinding.$id).toBe(registryBindingSchema.$id);
+    expect(runxAuxiliarySchemas.reviewReceiptOutput.$id).toBe(reviewReceiptOutputSchema.$id);
     expect(runxGeneratedSchemaArtifacts["doctor.schema.json"]).toBe(runxContractSchemas.doctor);
     expect(runxGeneratedSchemaArtifacts["act-assignment.schema.json"]).toBe(runxContractSchemas.actAssignment);
     expect(runxGeneratedSchemaArtifacts["receipt.schema.json"]).toBe(runxContractSchemas.receipt);
@@ -298,7 +303,7 @@ describe("@runxhq/contracts", () => {
       .toBe(runxContractSchemas.threadOutboxProviderObservation);
     const retiredIssueArtifact = `${"issue"}-to-pr-${"out"}come.schema.json` as keyof typeof runxGeneratedSchemaArtifacts;
     expect(runxGeneratedSchemaArtifacts[retiredIssueArtifact]).toBeUndefined();
-    expect(runxGeneratedSchemaArtifacts["review-receipt-output.schema.json"]).toBe(reviewReceiptOutputSchema);
+    expect(runxGeneratedSchemaArtifacts["review-receipt-output.schema.json"].$id).toBe(reviewReceiptOutputSchema.$id);
   });
 
   it("owns operational policy for issue intake and source-thread routing", () => {
@@ -798,7 +803,37 @@ describe("@runxhq/contracts", () => {
     });
   });
 
-  it("validates machine report payloads from TypeBox-owned contracts", () => {
+  it("routes public schema validation through Rust-generated artifacts", () => {
+    const rustAuthoritativeAssignment = {
+      schema: "runx.act_assignment.v1",
+      skill_ref: "outreach",
+      runner: "rerun",
+      requested_at: "2026-04-25T13:45:00Z",
+      host: {
+        kind: "api",
+        trigger_ref: "",
+        scope_set: [""],
+        actor: {
+          actor_id: "",
+        },
+      },
+      idempotency: {
+        algorithm: "sha256",
+        intent_key: "sha256:intent",
+        content_hash: "sha256:content",
+      },
+    };
+
+    expect(contractSchemaMatches(runxContractSchemas.actAssignment, rustAuthoritativeAssignment)).toBe(true);
+    expect(contractSchemaMatches(actAssignmentV1Schema, rustAuthoritativeAssignment)).toBe(true);
+    expect(validateActAssignmentContract(rustAuthoritativeAssignment)).toMatchObject({
+      host: {
+        kind: "api",
+      },
+    });
+  });
+
+  it("validates machine report payloads from Rust-generated contract schemas", () => {
     expect(validateDoctorReportContract({
       schema: RUNX_LOGICAL_SCHEMAS.doctor,
       status: "success",
