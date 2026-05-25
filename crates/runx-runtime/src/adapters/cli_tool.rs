@@ -13,7 +13,7 @@ use runx_contracts::JsonValue;
 
 use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
-use crate::credentials::CredentialDelivery;
+use crate::credentials::{CredentialDelivery, CredentialDeliveryError};
 use crate::sandbox::{SandboxPlan, prepare_process_sandbox};
 
 const OUTPUT_LIMIT_BYTES: usize = 1024 * 1024;
@@ -31,13 +31,14 @@ impl SkillAdapter for CliToolAdapter {
     fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
         let started = Instant::now();
         let credential_delivery = request.credential_delivery.clone();
+        reject_process_env_credential_delivery(&credential_delivery)?;
         let sandbox = prepare_process_sandbox(
             &request.source,
             &request.skill_directory,
             &request.inputs,
             &request.env,
         )?;
-        let mut child = match spawn_cli_tool_process(&sandbox, &credential_delivery) {
+        let mut child = match spawn_cli_tool_process(&sandbox) {
             Ok(child) => child,
             Err(error) => {
                 cleanup_sandbox(&sandbox);
@@ -67,17 +68,26 @@ impl SkillAdapter for CliToolAdapter {
     }
 }
 
-fn spawn_cli_tool_process(
-    sandbox: &SandboxPlan,
+fn reject_process_env_credential_delivery(
     credential_delivery: &CredentialDelivery,
-) -> Result<Child, RuntimeError> {
+) -> Result<(), RuntimeError> {
+    if credential_delivery.secret_env().is_empty() {
+        return Ok(());
+    }
+    Err(RuntimeError::CredentialDelivery(
+        CredentialDeliveryError::ProcessEnvBoundaryUnsupported {
+            boundary: "cli-tool".to_owned(),
+        },
+    ))
+}
+
+fn spawn_cli_tool_process(sandbox: &SandboxPlan) -> Result<Child, RuntimeError> {
     let mut command = Command::new(&sandbox.command);
     command
         .args(&sandbox.args)
         .current_dir(&sandbox.cwd)
         .env_clear()
         .envs(&sandbox.env)
-        .envs(credential_delivery.secret_env().iter())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());

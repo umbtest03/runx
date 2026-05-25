@@ -142,9 +142,8 @@ fn payment_authority_spends(term: &AuthorityTerm) -> bool {
 pub fn admit_step_authority(
     input: StepAuthorityAdmission<'_>,
 ) -> Result<StepAuthorityAdmissionDecision<'_>, PaymentAuthorityError> {
-    if input.child_authority.resource_family == AuthorityResourceFamily::Payment
-        && payment_authority_spends(input.child_authority)
-    {
+    if input.child_authority.resource_family == AuthorityResourceFamily::Payment {
+        let spends = payment_authority_spends(input.child_authority);
         let admission = admit_payment_rail(PaymentRailAdmission {
             parent_authority: input.parent_authority,
             child_authority: input.child_authority,
@@ -158,7 +157,7 @@ pub fn admit_step_authority(
             spend_capability_ref: input.spend_capability_ref,
         })?;
         return Ok(StepAuthorityAdmissionDecision {
-            verb: Some(AuthorityVerb::Spend),
+            verb: admitted_payment_verb(input.child_authority, spends),
             parent_term_id: admission.parent_term_id,
             child_term_id: admission.child_term_id,
             idempotency_key: admission.idempotency_key,
@@ -173,6 +172,13 @@ pub fn admit_step_authority(
         idempotency_key: input.idempotency_key,
         spend_capability_ref: input.spend_capability_ref,
     })
+}
+
+fn admitted_payment_verb(term: &AuthorityTerm, spends: bool) -> Option<AuthorityVerb> {
+    if spends {
+        return Some(AuthorityVerb::Spend);
+    }
+    term.verbs.first().cloned()
 }
 
 #[cfg(test)]
@@ -624,7 +630,8 @@ fn requires_single_use_capability(term: &AuthorityTerm) -> bool {
 mod tests {
     use super::{
         PaymentAuthorityError, PaymentRailAuthorization, PaymentRailAuthorizationDecision,
-        PaymentSpendCapabilityBinding, authorize_payment_rail,
+        PaymentSpendCapabilityBinding, StepAuthorityAdmission, admit_step_authority,
+        authorize_payment_rail,
     };
     use runx_contracts::{
         AuthorityApproval, AuthorityBounds, AuthorityCapability, AuthorityCondition,
@@ -657,6 +664,64 @@ mod tests {
                 Some(IDEMPOTENCY_KEY.to_owned()),
                 1,
             ))
+        );
+    }
+
+    #[test]
+    fn admits_non_spend_payment_authority_with_subset_proof() {
+        let scenario = PaymentScenario::with_child(payment_term(
+            "child",
+            vec![AuthorityVerb::Reserve],
+            PaymentShape::new(2_500, &["card"]),
+        ));
+
+        let result = admit_step_authority(StepAuthorityAdmission {
+            parent_authority: &scenario.parent,
+            child_authority: &scenario.child,
+            reservation_decision: None,
+            subset_proof: Some(&scenario.subset_proof),
+            child_harness_ref: &scenario.child_harness_ref,
+            act_id: "act_payment_reserve",
+            idempotency_key: None,
+            spend_capability_binding: None,
+            consumed_spend_capability_refs: &[],
+            spend_capability_ref: None,
+        });
+
+        assert_eq!(
+            result.map(|decision| (
+                decision.verb,
+                decision.parent_term_id,
+                decision.child_term_id,
+                decision.idempotency_key,
+                decision.spend_capability_ref,
+            )),
+            Ok((Some(AuthorityVerb::Reserve), "parent", "child", None, None,))
+        );
+    }
+
+    #[test]
+    fn denies_non_spend_payment_authority_without_subset_proof() {
+        let scenario = PaymentScenario::with_child(payment_term(
+            "child",
+            vec![AuthorityVerb::Reserve],
+            PaymentShape::new(2_500, &["card"]),
+        ));
+
+        assert_eq!(
+            admit_step_authority(StepAuthorityAdmission {
+                parent_authority: &scenario.parent,
+                child_authority: &scenario.child,
+                reservation_decision: None,
+                subset_proof: None,
+                child_harness_ref: &scenario.child_harness_ref,
+                act_id: "act_payment_reserve",
+                idempotency_key: None,
+                spend_capability_binding: None,
+                consumed_spend_capability_refs: &[],
+                spend_capability_ref: None,
+            }),
+            Err(PaymentAuthorityError::MissingSubsetProof)
         );
     }
 

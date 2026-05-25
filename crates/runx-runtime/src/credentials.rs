@@ -372,6 +372,8 @@ pub enum CredentialDeliveryError {
     InvalidEnvName { name: String },
     #[error("unsupported credential delivery mode '{mode}'")]
     UnsupportedDeliveryMode { mode: String },
+    #[error("credential process-env delivery is not supported across the '{boundary}' boundary")]
+    ProcessEnvBoundaryUnsupported { boundary: String },
     #[error("unsupported credential material role '{role}'")]
     UnsupportedMaterialRole { role: String },
 }

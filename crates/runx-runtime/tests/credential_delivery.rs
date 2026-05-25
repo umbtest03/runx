@@ -167,10 +167,10 @@ fn delivery_profile_rejects_empty_material() -> Result<(), Box<dyn std::error::E
 }
 
 #[test]
-fn cli_tool_injects_secret_env_and_redacts_process_output() -> Result<(), Box<dyn std::error::Error>>
-{
+fn cli_tool_rejects_process_env_credential_delivery_before_spawn()
+-> Result<(), Box<dyn std::error::Error>> {
     let delivery = allowed_delivery()?;
-    let output = CliToolAdapter.invoke(SkillInvocation {
+    let result = CliToolAdapter.invoke(SkillInvocation {
         skill_name: "credential.echo".to_owned(),
         source: cli_source(),
         inputs: Default::default(),
@@ -178,15 +178,14 @@ fn cli_tool_injects_secret_env_and_redacts_process_output() -> Result<(), Box<dy
         skill_directory: std::env::current_dir()?,
         env: process_env(),
         credential_delivery: delivery,
-    })?;
+    });
 
-    assert_eq!(output.status, InvocationStatus::Success);
-    assert_eq!(output.stdout.trim(), "[redacted-credential]");
-    assert!(!output.stdout.contains("ghs_secret_token"));
-    assert!(
-        !serde_json::to_string(&output.metadata)?.contains("ghs_secret_token"),
-        "credential material must not enter sandbox metadata"
-    );
+    assert!(matches!(
+        result,
+        Err(RuntimeError::CredentialDelivery(
+            CredentialDeliveryError::ProcessEnvBoundaryUnsupported { boundary },
+        )) if boundary == "cli-tool"
+    ));
     Ok(())
 }
 
@@ -199,7 +198,7 @@ fn cli_tool_omits_truncated_output_before_redaction() -> Result<(), Box<dyn std:
         resolved_inputs: Default::default(),
         skill_directory: std::env::current_dir()?,
         env: process_env(),
-        credential_delivery: allowed_delivery()?,
+        credential_delivery: CredentialDelivery::none(),
     })?;
 
     assert_eq!(output.status, InvocationStatus::Failure);
@@ -372,8 +371,7 @@ fn large_output_cli_source() -> SkillSource {
     source.command = Some("node".to_owned());
     source.args = vec![
         "-e".to_owned(),
-        "process.stdout.write('x'.repeat(1024 * 1024 - 4)); process.stdout.write(process.env.GITHUB_TOKEN || '');"
-            .to_owned(),
+        "process.stdout.write('x'.repeat(1024 * 1024 + 1));".to_owned(),
     ];
     source
 }

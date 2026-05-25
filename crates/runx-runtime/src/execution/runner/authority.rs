@@ -225,6 +225,12 @@ pub(super) fn enforce_step_authority_admission(
     let consumed_spend_capability_refs =
         consumed_spend_capability_refs_for_admission(&input, env, graph_dir)?;
     let act_id = format!("act_{}", step.id);
+    let admission_error_verb = input
+        .child_authority
+        .verbs
+        .first()
+        .cloned()
+        .unwrap_or(AuthorityVerb::Spend);
     let decision = admit_step_authority(StepAuthorityAdmission {
         parent_authority: &input.parent_authority,
         child_authority: &input.child_authority,
@@ -232,12 +238,12 @@ pub(super) fn enforce_step_authority_admission(
         subset_proof: input.subset_proof.as_ref(),
         child_harness_ref: &input.child_harness_ref,
         act_id: &act_id,
-        idempotency_key: Some(&input.idempotency_key),
+        idempotency_key: input.idempotency_key.as_deref(),
         spend_capability_binding: input.spend_capability_binding.clone(),
         consumed_spend_capability_refs: &consumed_spend_capability_refs,
-        spend_capability_ref: Some(&input.spend_capability_ref),
+        spend_capability_ref: input.spend_capability_ref.as_ref(),
     })
-    .map_err(|source| authority_denied(step, AuthorityVerb::Spend, source.to_string()))?;
+    .map_err(|source| authority_denied(step, admission_error_verb, source.to_string()))?;
     let payment = payment_context(&input);
     Ok(decision.verb.map(|verb| {
         let admission_witness = AuthorityAdmissionWitness {
@@ -288,10 +294,10 @@ pub(super) fn sealed_payment_replay(
         subset_proof: input.subset_proof.as_ref(),
         child_harness_ref: &input.child_harness_ref,
         act_id: &act_id,
-        idempotency_key: Some(&input.idempotency_key),
+        idempotency_key: input.idempotency_key.as_deref(),
         spend_capability_binding: input.spend_capability_binding.clone(),
         consumed_spend_capability_refs: &input.consumed_spend_capability_refs,
-        spend_capability_ref: Some(&input.spend_capability_ref),
+        spend_capability_ref: input.spend_capability_ref.as_ref(),
     })
     .map_err(|source| authority_denied(step, AuthorityVerb::Spend, source.to_string()))?;
     if decision.verb != Some(AuthorityVerb::Spend) {
@@ -351,10 +357,10 @@ pub(super) fn escalate_in_flight_payment_recovery(
         subset_proof: input.subset_proof.as_ref(),
         child_harness_ref: &input.child_harness_ref,
         act_id: &act_id,
-        idempotency_key: Some(&input.idempotency_key),
+        idempotency_key: input.idempotency_key.as_deref(),
         spend_capability_binding: input.spend_capability_binding.clone(),
         consumed_spend_capability_refs: &input.consumed_spend_capability_refs,
-        spend_capability_ref: Some(&input.spend_capability_ref),
+        spend_capability_ref: input.spend_capability_ref.as_ref(),
     })
     .map_err(|source| authority_denied(step, AuthorityVerb::Spend, source.to_string()))?;
     if mutation.amount_minor != payment.amount_minor
@@ -399,26 +405,31 @@ fn consumed_spend_capability_refs_for_admission(
     graph_dir: &Path,
 ) -> Result<Vec<runx_contracts::Reference>, RuntimeError> {
     let mut refs = input.consumed_spend_capability_refs.clone();
-    if consumed_spend_capability_recorded(env, graph_dir, &input.spend_capability_ref.uri).map_err(
+    let Some(spend_capability_ref) = input.spend_capability_ref.as_ref() else {
+        return Ok(refs);
+    };
+    if consumed_spend_capability_recorded(env, graph_dir, &spend_capability_ref.uri).map_err(
         |source| RuntimeError::payment_state("reading payment state for admission", source),
     )? && !refs
         .iter()
-        .any(|reference| same_reference(reference, &input.spend_capability_ref))
+        .any(|reference| same_reference(reference, spend_capability_ref))
     {
-        refs.push(input.spend_capability_ref.clone());
+        refs.push(spend_capability_ref.clone());
     }
     Ok(refs)
 }
 
 fn payment_context(input: &OwnedStepAuthoritySubmission) -> Option<StepPaymentAuthorityContext> {
     let binding = input.spend_capability_binding.as_ref()?;
+    let idempotency_key = input.idempotency_key.as_ref()?;
+    let spend_capability_ref = input.spend_capability_ref.as_ref()?;
     Some(StepPaymentAuthorityContext {
         idempotency_key: PaymentIdempotencyKey::new(
             binding.rail.clone(),
             binding.counterparty.clone(),
-            input.idempotency_key.clone(),
+            idempotency_key.clone(),
         ),
-        spend_capability_ref: input.spend_capability_ref.clone(),
+        spend_capability_ref: spend_capability_ref.clone(),
         rail: binding.rail.clone(),
         counterparty: binding.counterparty.clone(),
         amount_minor: binding.amount_minor,
@@ -437,14 +448,28 @@ fn step_authority_submission(
     let Some(reserved) = optional_payment_authority_object(step, inputs)? else {
         return Ok(None);
     };
-    let idempotency = require_object_input(step, inputs, "idempotency")?;
     let reserved = parse_reserved_payment_authority(step, reserved)?;
-    if !authority_term_has_verb(&reserved.child_authority, AuthorityVerb::Spend) {
-        return Ok(None);
-    }
+    let spends = authority_term_has_verb(&reserved.child_authority, AuthorityVerb::Spend);
+    let (spend_capability_ref, idempotency_key) = if spends {
+        let idempotency = require_object_input(step, inputs, "idempotency")?;
+        (
+            Some(require_reference_input(
+                step,
+                inputs,
+                "spend_capability_ref",
+            )?),
+            Some(require_non_empty_string_field(
+                step,
+                idempotency,
+                "idempotency.key",
+            )?),
+        )
+    } else {
+        (None, None)
+    };
     Ok(Some(OwnedStepAuthoritySubmission {
-        spend_capability_ref: require_reference_input(step, inputs, "spend_capability_ref")?,
-        idempotency_key: require_non_empty_string_field(step, idempotency, "idempotency.key")?,
+        spend_capability_ref,
+        idempotency_key,
         parent_authority: reserved.parent_authority,
         child_authority: reserved.child_authority,
         reservation_decision: reserved.reservation_decision,
@@ -582,8 +607,8 @@ struct OwnedStepAuthoritySubmission {
     child_harness_ref: runx_contracts::Reference,
     spend_capability_binding: Option<PaymentSpendCapabilityBinding>,
     consumed_spend_capability_refs: Vec<runx_contracts::Reference>,
-    spend_capability_ref: runx_contracts::Reference,
-    idempotency_key: String,
+    spend_capability_ref: Option<runx_contracts::Reference>,
+    idempotency_key: Option<String>,
 }
 
 #[derive(Clone, Debug)]
