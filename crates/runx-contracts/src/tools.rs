@@ -4,8 +4,10 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 
 use crate::JsonNumber;
+use crate::schema::RunxSchema;
 
 pub const TOOL_MANIFEST_SCHEMA: &str = "runx.tool.manifest.v1";
 pub const TOOL_BUILD_REPORT_SCHEMA: &str = "runx.tool.build.v1";
@@ -23,19 +25,25 @@ pub enum JsonPayload {
     Object(JsonPayloadObject),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+impl RunxSchema for JsonPayload {
+    fn json_schema() -> Value {
+        json!({})
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 pub enum ToolManifestSchema {
     #[serde(rename = "runx.tool.manifest.v1")]
     V1,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 pub enum ToolBuildReportSchema {
     #[serde(rename = "runx.tool.build.v1")]
     V1,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolCommandInputMode {
     Args,
@@ -43,7 +51,7 @@ pub enum ToolCommandInputMode {
     None,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ToolSourceType {
     CliTool,
@@ -52,22 +60,23 @@ pub enum ToolSourceType {
     Catalog,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolBuildStatus {
     Success,
     Failure,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolInspectOrigin {
     Local,
     Imported,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.tool.manifest.v1")]
 pub struct ToolManifest {
     pub schema: ToolManifestSchema,
     pub name: String,
@@ -98,7 +107,7 @@ pub struct ToolManifest {
     pub toolkit_version: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ToolInput {
     #[serde(rename = "type")]
@@ -110,7 +119,7 @@ pub struct ToolInput {
     pub default: Option<JsonPayload>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ToolOutput {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -121,7 +130,7 @@ pub struct ToolOutput {
     pub extra: JsonPayloadObject,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ToolSource {
     #[serde(rename = "type")]
@@ -152,7 +161,7 @@ pub struct ToolSource {
     pub agent_identity: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ToolMcpServer {
     pub command: String,
@@ -162,7 +171,7 @@ pub struct ToolMcpServer {
     pub cwd: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RuntimeCommand {
     pub command: String,
@@ -174,7 +183,7 @@ pub struct RuntimeCommand {
     pub env: BTreeMap<String, String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ToolSandboxProfile {
     Readonly,
@@ -183,7 +192,7 @@ pub enum ToolSandboxProfile {
     UnrestrictedLocalDev,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ToolSandboxCwdPolicy {
     SkillDirectory,
@@ -191,7 +200,7 @@ pub enum ToolSandboxCwdPolicy {
     Custom,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ToolSandbox {
     pub profile: ToolSandboxProfile,
@@ -207,13 +216,13 @@ pub struct ToolSandbox {
     pub require_enforcement: Option<bool>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ToolRetryPolicy {
     pub max_attempts: u64,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ToolIdempotencyPolicy {
     #[serde(skip_serializing_if = "Option::is_none")]

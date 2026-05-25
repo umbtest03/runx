@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+use runx_contracts::CredentialEnvelopeKind;
 use runx_contracts::{CredentialDeliveryMode, CredentialDeliveryPurpose, CredentialMaterialRole};
 use runx_core::policy::{CredentialBindingDecision, CredentialEnvelope};
 use runx_parser::{SkillSandbox, SkillSource};
@@ -295,15 +296,15 @@ fn github_profile() -> Result<CredentialDeliveryProfile, CredentialDeliveryError
 
 fn credential() -> CredentialEnvelope {
     CredentialEnvelope {
-        kind: "runx.credential-envelope.v1".to_owned(),
-        grant_id: "grant_github_main".to_owned(),
-        provider: "github".to_owned(),
-        auth_mode: "oauth_bearer".to_owned(),
-        material_kind: "access_token".to_owned(),
-        connection_id: Some("conn_github_main".to_owned()),
-        scopes: vec!["repo".to_owned()],
+        kind: CredentialEnvelopeKind::V1,
+        grant_id: "grant_github_main".into(),
+        provider: "github".into(),
+        auth_mode: "oauth_bearer".into(),
+        material_kind: "access_token".into(),
+        connection_id: "conn_github_main".into(),
+        scopes: vec!["repo".into()],
         grant_reference: None,
-        material_ref: "secret://github/main".to_owned(),
+        material_ref: "secret://github/main".into(),
     }
 }
 

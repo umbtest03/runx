@@ -91,7 +91,9 @@ fn write_stderr(value: &str) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use runx_contracts::{DoctorReport, DoctorReportSchema, DoctorStatus, DoctorSummary};
+    use runx_contracts::{
+        DevReportSchema, DoctorReport, DoctorReportSchema, DoctorStatus, DoctorSummary,
+    };
     use runx_runtime::{DevReport, DevReportStatus};
 
     use super::render_dev_stdout;
@@ -99,7 +101,7 @@ mod tests {
     #[test]
     fn dev_json_stdout_is_pretty_printed_like_ts_cli() -> Result<(), serde_json::Error> {
         let report = DevReport {
-            schema: "runx.dev.v1".to_owned(),
+            schema: DevReportSchema::V1,
             status: DevReportStatus::Skipped,
             doctor: DoctorReport {
                 schema: DoctorReportSchema::V1,

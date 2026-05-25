@@ -1,8 +1,11 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use runx_contracts::{DoctorReport, JsonObject, JsonValue};
-use serde::{Deserialize, Serialize};
+use runx_contracts::JsonObject;
+pub use runx_contracts::{
+    DevFixtureAssertion, DevFixtureAssertionKind, DevFixtureResult, DevFixtureStatus, DevReport,
+    DevReportSchema, DevReportStatus,
+};
 use thiserror::Error;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -55,73 +58,6 @@ impl From<&str> for DevLane {
             other => Self::Other(other.to_owned()),
         }
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DevReportStatus {
-    Success,
-    Failure,
-    Skipped,
-    NeedsApproval,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DevFixtureStatus {
-    Success,
-    Failure,
-    Skipped,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DevFixtureAssertionKind {
-    SubsetMiss,
-    ExactMismatch,
-    PacketInvalid,
-    StatusMismatch,
-    TypeMismatch,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DevFixtureAssertion {
-    pub path: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expected: Option<JsonValue>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub actual: Option<JsonValue>,
-    pub kind: DevFixtureAssertionKind,
-    pub message: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DevFixtureResult {
-    pub name: String,
-    pub lane: String,
-    pub target: JsonObject,
-    pub status: DevFixtureStatus,
-    pub duration_ms: u64,
-    pub assertions: Vec<DevFixtureAssertion>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub skip_reason: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub output: Option<JsonValue>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub replay_path: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DevReport {
-    pub schema: String,
-    pub status: DevReportStatus,
-    pub doctor: DoctorReport,
-    pub fixtures: Vec<DevFixtureResult>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub receipt_id: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

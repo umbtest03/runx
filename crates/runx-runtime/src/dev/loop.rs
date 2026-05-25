@@ -16,7 +16,8 @@ use super::tool::{materialize_fixture_string, materialize_fixture_value, run_too
 use super::types::{
     DevError, DevFixtureAssertion, DevFixtureAssertionKind, DevFixtureExecutionRoots,
     DevFixtureExecutor, DevFixtureResult, DevFixtureStatus, DevLoopOptions, DevReport,
-    DevReportStatus, LocalDevFixtureExecutor, ParsedDevFixture, PreparedDevFixtureWorkspace,
+    DevReportSchema, DevReportStatus, LocalDevFixtureExecutor, ParsedDevFixture,
+    PreparedDevFixtureWorkspace,
 };
 use crate::doctor::{default_doctor_options, run_doctor};
 
@@ -32,7 +33,7 @@ pub fn run_dev_once_with_executor(
     let doctor = run_doctor(&root, &default_doctor_options())?;
     if doctor.status == DoctorStatus::Failure {
         return Ok(DevReport {
-            schema: "runx.dev.v1".to_owned(),
+            schema: DevReportSchema::V1,
             status: DevReportStatus::Failure,
             doctor,
             fixtures: Vec::new(),
@@ -56,7 +57,7 @@ pub fn run_dev_once_with_executor(
     }
 
     Ok(DevReport {
-        schema: "runx.dev.v1".to_owned(),
+        schema: DevReportSchema::V1,
         status: report_status(&fixtures),
         doctor,
         fixtures,

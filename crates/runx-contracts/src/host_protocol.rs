@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::schema::{NonEmptyString, RunxSchema};
-use crate::{JsonObject, JsonValue};
+use crate::{AgentContextEnvelope, JsonObject, JsonValue};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
@@ -122,6 +122,7 @@ pub struct ApprovalGate {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
+#[runx_schema(spec_id = "https://runx.ai/spec/agent-act-invocation.schema.json")]
 pub struct AgentActInvocation {
     pub id: NonEmptyString,
     pub source_type: AgentActSourceType,
@@ -129,11 +130,7 @@ pub struct AgentActInvocation {
     pub agent: Option<NonEmptyString>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub task: Option<NonEmptyString>,
-    /// Intentionally opaque agent-act envelope.
-    ///
-    /// `AgentActInvocation` is typed at the protocol edge, but the envelope's
-    /// internal payload model is deferred to `rust-resolution-payload-parity`.
-    pub envelope: JsonValue,
+    pub envelope: AgentContextEnvelope,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]

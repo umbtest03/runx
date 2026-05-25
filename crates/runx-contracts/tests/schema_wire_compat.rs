@@ -12,6 +12,7 @@ use std::path::PathBuf;
 
 use runx_contracts::act::Act;
 use runx_contracts::act_assignment::ActAssignment;
+use runx_contracts::act_receipt::ActReceiptEnvelope;
 use runx_contracts::agent_context::AgentContextEnvelope;
 use runx_contracts::artifact::Artifact;
 use runx_contracts::aster::{
@@ -24,16 +25,20 @@ use runx_contracts::credential_delivery::{
     CredentialDeliveryRequest,
 };
 use runx_contracts::decision::Decision;
+use runx_contracts::dev::DevReport;
 use runx_contracts::doctor::DoctorReport;
 use runx_contracts::external_adapter::{
     ExternalAdapterCancellationFrame, ExternalAdapterCredentialRequest,
     ExternalAdapterHostResolutionFrame, ExternalAdapterInvocation, ExternalAdapterManifest,
     ExternalAdapterResponse,
 };
+use runx_contracts::fixture::Fixture;
 use runx_contracts::handoff::{HandoffSignal, HandoffState};
 use runx_contracts::host_protocol::{
-    ApprovalGate, Question, ResolutionRequest, ResolutionResponse,
+    AgentActInvocation, ApprovalGate, Question, ResolutionRequest, ResolutionResponse,
 };
+use runx_contracts::ledger::LedgerEntry;
+use runx_contracts::list::RunxListReport;
 use runx_contracts::operational_policy::OperationalPolicy;
 use runx_contracts::output::Output;
 use runx_contracts::packet_index::PacketIndex;
@@ -43,6 +48,7 @@ use runx_contracts::redaction::Redaction;
 use runx_contracts::reference::Reference;
 use runx_contracts::registry_binding::RegistryBinding;
 use runx_contracts::review::ReviewReceiptOutput;
+use runx_contracts::run_summary::RunSummary;
 use runx_contracts::schema::RunxSchema;
 use runx_contracts::signal::Signal;
 use runx_contracts::suppression::SuppressionRecord;
@@ -50,8 +56,35 @@ use runx_contracts::thread_outbox_provider::{
     ThreadOutboxProviderFetch, ThreadOutboxProviderManifest, ThreadOutboxProviderObservation,
     ThreadOutboxProviderPush,
 };
+use runx_contracts::tools::ToolManifest;
 use runx_contracts::verification::Verification;
 use serde_json::{Value, json};
+
+#[derive(Clone)]
+struct SchemaDirRetriever {
+    dir: PathBuf,
+}
+
+impl jsonschema::Retrieve for SchemaDirRetriever {
+    fn retrieve(
+        &self,
+        uri: &jsonschema::Uri<String>,
+    ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+        let expected = uri.to_string();
+        for entry in std::fs::read_dir(&self.dir)? {
+            let entry = entry?;
+            if entry.path().extension().and_then(|value| value.to_str()) != Some("json") {
+                continue;
+            }
+            let raw = std::fs::read_to_string(entry.path())?;
+            let schema: Value = serde_json::from_str(&raw)?;
+            if schema.get("$id").and_then(Value::as_str) == Some(expected.as_str()) {
+                return Ok(schema);
+            }
+        }
+        Err(format!("schema reference not found: {expected}").into())
+    }
+}
 
 struct Covered {
     file_name: &'static str,
@@ -297,6 +330,46 @@ fn covered() -> Vec<Covered> {
             corpus: agent_context_envelope_corpus(),
         },
         Covered {
+            file_name: "agent-act-invocation.schema.json",
+            emitted: AgentActInvocation::json_schema(),
+            corpus: agent_act_invocation_corpus(),
+        },
+        Covered {
+            file_name: "act-receipt.schema.json",
+            emitted: ActReceiptEnvelope::json_schema(),
+            corpus: act_receipt_corpus(),
+        },
+        Covered {
+            file_name: "dev.schema.json",
+            emitted: DevReport::json_schema(),
+            corpus: dev_report_corpus(),
+        },
+        Covered {
+            file_name: "fixture.schema.json",
+            emitted: Fixture::json_schema(),
+            corpus: fixture_corpus(),
+        },
+        Covered {
+            file_name: "tool-manifest.schema.json",
+            emitted: ToolManifest::json_schema(),
+            corpus: tool_manifest_corpus(),
+        },
+        Covered {
+            file_name: "list.schema.json",
+            emitted: RunxListReport::json_schema(),
+            corpus: list_corpus(),
+        },
+        Covered {
+            file_name: "run-summary.schema.json",
+            emitted: RunSummary::json_schema(),
+            corpus: run_summary_corpus(),
+        },
+        Covered {
+            file_name: "ledger-entry.schema.json",
+            emitted: LedgerEntry::json_schema(),
+            corpus: ledger_entry_corpus(),
+        },
+        Covered {
             file_name: "scope-admission.schema.json",
             emitted: ScopeAdmission::json_schema(),
             corpus: scope_admission_corpus(),
@@ -319,15 +392,383 @@ fn covered() -> Vec<Covered> {
     ]
 }
 
+fn act_receipt_corpus() -> Vec<(&'static str, Value)> {
+    let terminal = json!({
+        "status": "sealed",
+        "stdout": "ok",
+        "stderr": "",
+        "exitCode": 0,
+        "signal": null,
+        "durationMs": 12,
+    });
+    let needs_agent = json!({
+        "status": "needs_agent",
+        "stdout": "",
+        "stderr": "",
+        "exitCode": null,
+        "signal": null,
+        "durationMs": 0,
+        "request": {
+            "id": "req_1",
+            "kind": "input",
+            "questions": [],
+        },
+    });
+    vec![
+        ("terminal valid", terminal.clone()),
+        ("terminal full valid", {
+            let mut v = terminal.clone();
+            v["status"] = json!("failure");
+            v["exitCode"] = json!(null);
+            v["signal"] = json!("SIGTERM");
+            v["errorMessage"] = json!("failed");
+            v["metadata"] = json!({ "k": true });
+            v
+        }),
+        ("needs_agent valid", needs_agent.clone()),
+        (
+            "terminal missing exitCode",
+            drop_field(terminal.clone(), "exitCode"),
+        ),
+        (
+            "terminal unknown status",
+            set_field(terminal.clone(), "status", json!("done")),
+        ),
+        (
+            "terminal unknown signal",
+            set_field(terminal.clone(), "signal", json!("SIGNOPE")),
+        ),
+        (
+            "needs_agent non-null exitCode",
+            set_field(needs_agent.clone(), "exitCode", json!(1)),
+        ),
+        (
+            "needs_agent missing request",
+            drop_field(needs_agent.clone(), "request"),
+        ),
+        (
+            "needs_agent unknown request kind",
+            set_field(
+                needs_agent.clone(),
+                "request",
+                json!({ "id": "req_1", "kind": "other" }),
+            ),
+        ),
+        (
+            "additional property",
+            set_field(terminal.clone(), "bogus", json!(true)),
+        ),
+    ]
+}
+
+fn dev_report_corpus() -> Vec<(&'static str, Value)> {
+    let valid = json!({
+        "schema": "runx.dev.v1",
+        "status": "success",
+        "doctor": doctor_valid_report(),
+        "fixtures": [],
+    });
+    vec![
+        ("minimal valid", valid.clone()),
+        ("full valid", {
+            let mut v = valid.clone();
+            v["fixtures"] = json!([{
+                "name": "fixture-1",
+                "lane": "deterministic",
+                "target": { "kind": "tool" },
+                "status": "success",
+                "duration_ms": 12,
+                "assertions": [{
+                    "path": "$.status",
+                    "expected": "sealed",
+                    "actual": "sealed",
+                    "kind": "exact_mismatch",
+                    "message": "checked",
+                }],
+                "skip_reason": "none",
+                "output": { "ok": true },
+                "replay_path": "fixtures/a.yaml",
+            }]);
+            v["receipt_id"] = json!("rcpt_1");
+            v
+        }),
+        ("missing schema", drop_field(valid.clone(), "schema")),
+        (
+            "wrong schema",
+            set_field(valid.clone(), "schema", json!("runx.old")),
+        ),
+        ("missing doctor", drop_field(valid.clone(), "doctor")),
+        (
+            "unknown status",
+            set_field(valid.clone(), "status", json!("done")),
+        ),
+        (
+            "fixture unknown status",
+            set_field(
+                valid.clone(),
+                "fixtures",
+                json!([{
+                    "name": "fixture-1",
+                    "lane": "deterministic",
+                    "target": {},
+                    "status": "done",
+                    "duration_ms": 1,
+                    "assertions": [],
+                }]),
+            ),
+        ),
+        (
+            "fixture assertion unknown kind",
+            set_field(
+                valid.clone(),
+                "fixtures",
+                json!([{
+                    "name": "fixture-1",
+                    "lane": "deterministic",
+                    "target": {},
+                    "status": "success",
+                    "duration_ms": 1,
+                    "assertions": [{
+                        "path": "$",
+                        "kind": "surprise",
+                        "message": "bad",
+                    }],
+                }]),
+            ),
+        ),
+        (
+            "additional property",
+            set_field(valid.clone(), "bogus", json!(true)),
+        ),
+    ]
+}
+
+fn fixture_corpus() -> Vec<(&'static str, Value)> {
+    let valid = json!({
+        "name": "fixture-1",
+        "lane": "deterministic",
+        "target": { "kind": "tool", "tool": "echo" },
+        "expect": { "status": "sealed" },
+    });
+    vec![
+        ("minimal valid", valid.clone()),
+        ("full valid", {
+            let mut v = valid.clone();
+            v["inputs"] = json!({ "message": "hi" });
+            v["env"] = json!({ "RUNX": "1" });
+            v["agent"] = json!({ "model": "fixture" });
+            v["repo"] = json!({ "path": "." });
+            v["execution"] = json!({ "timeout_ms": 10 });
+            v["permissions"] = json!({ "network": false });
+            v
+        }),
+        ("missing name", drop_field(valid.clone(), "name")),
+        ("missing expect", drop_field(valid.clone(), "expect")),
+        (
+            "unknown lane",
+            set_field(valid.clone(), "lane", json!("manual")),
+        ),
+        (
+            "additional property",
+            set_field(valid.clone(), "bogus", json!(true)),
+        ),
+    ]
+}
+
+fn list_corpus() -> Vec<(&'static str, Value)> {
+    let valid = json!({
+        "schema": "runx.list.v1",
+        "root": "/tmp/runx",
+        "requested_kind": "all",
+        "items": [],
+    });
+    vec![
+        ("minimal valid", valid.clone()),
+        ("full valid", {
+            let mut v = valid.clone();
+            v["items"] = json!([{
+                "kind": "tool",
+                "name": "echo",
+                "source": "local",
+                "path": "tools/demo/echo/manifest.json",
+                "status": "ok",
+                "diagnostics": [],
+                "scopes": ["repo:read"],
+                "emits": [{ "name": "report", "packet": "runx.report.v1" }],
+                "fixtures": 2,
+                "harness_cases": 1,
+                "steps": 0,
+                "wraps": "value",
+            }]);
+            v
+        }),
+        ("missing schema", drop_field(valid.clone(), "schema")),
+        (
+            "wrong schema",
+            set_field(valid.clone(), "schema", json!("runx.old")),
+        ),
+        (
+            "unknown requested_kind",
+            set_field(valid.clone(), "requested_kind", json!("everything")),
+        ),
+        (
+            "item unknown source",
+            set_field(
+                valid.clone(),
+                "items",
+                json!([{
+                    "kind": "tool",
+                    "name": "echo",
+                    "source": "remote",
+                    "path": "tools/demo/echo/manifest.json",
+                    "status": "ok",
+                }]),
+            ),
+        ),
+        (
+            "additional property",
+            set_field(valid.clone(), "bogus", json!(true)),
+        ),
+    ]
+}
+
+fn run_summary_corpus() -> Vec<(&'static str, Value)> {
+    let valid = json!({
+        "schema": "runx.run-summary.v1",
+        "run_id": "rx_1",
+        "command": "runx harness",
+        "status": "success",
+        "started_at": "2026-01-01T00:00:00Z",
+        "root": "/tmp/runx",
+        "steps": [],
+    });
+    vec![
+        ("minimal valid", valid.clone()),
+        ("full valid", {
+            let mut v = valid.clone();
+            v["finished_at"] = json!("2026-01-01T00:00:01Z");
+            v["unit"] = json!({ "skill": "demo" });
+            v["steps"] = json!([{ "id": "step_1", "status": "success" }]);
+            v["receipt_ref"] = json!("runx:receipt:rcpt_1");
+            v
+        }),
+        ("missing schema", drop_field(valid.clone(), "schema")),
+        (
+            "wrong schema",
+            set_field(valid.clone(), "schema", json!("runx.old")),
+        ),
+        ("missing run_id", drop_field(valid.clone(), "run_id")),
+        (
+            "unknown status",
+            set_field(valid.clone(), "status", json!("done")),
+        ),
+        (
+            "additional property",
+            set_field(valid.clone(), "bogus", json!(true)),
+        ),
+    ]
+}
+
+fn ledger_entry_corpus() -> Vec<(&'static str, Value)> {
+    let hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    let valid = json!({
+        "schema_version": "runx.ledger.entry.v1",
+        "chain": {
+            "version": "runx.ledger.chain.v1",
+            "algorithm": "sha256",
+            "canonicalization": "runx.stable-json.v1",
+            "index": 0,
+            "previous_hash": null,
+            "entry_hash": hash,
+        },
+        "entry": {
+            "type": "run_event",
+            "version": "1",
+            "data": { "kind": "started" },
+            "meta": {
+                "artifact_id": "artifact_1",
+                "run_id": "rx_1",
+                "step_id": null,
+                "producer": { "skill": "demo", "runner": "local" },
+                "created_at": "2026-01-01T00:00:00Z",
+                "hash": "sha256:abc",
+                "size_bytes": 1,
+                "parent_artifact_id": null,
+                "receipt_id": null,
+                "redacted": false,
+            },
+        },
+    });
+    vec![
+        ("minimal valid", valid.clone()),
+        ("full valid", {
+            let mut v = valid.clone();
+            v["chain"]["index"] = json!(1);
+            v["chain"]["previous_hash"] = json!(hash);
+            v["entry"]["meta"]["step_id"] = json!("step_1");
+            v["entry"]["meta"]["parent_artifact_id"] = json!("artifact_0");
+            v["entry"]["meta"]["receipt_id"] = json!("rcpt_1");
+            v
+        }),
+        (
+            "missing schema_version",
+            drop_field(valid.clone(), "schema_version"),
+        ),
+        (
+            "wrong schema_version",
+            set_field(valid.clone(), "schema_version", json!("runx.old")),
+        ),
+        (
+            "wrong chain version",
+            set_field(
+                valid.clone(),
+                "chain",
+                set_field(valid["chain"].clone(), "version", json!("runx.old")),
+            ),
+        ),
+        (
+            "invalid hash pattern",
+            set_field(
+                valid.clone(),
+                "chain",
+                set_field(valid["chain"].clone(), "entry_hash", json!("not-a-hash")),
+            ),
+        ),
+        (
+            "empty artifact_id",
+            set_field(
+                valid.clone(),
+                "entry",
+                set_field(
+                    valid["entry"].clone(),
+                    "meta",
+                    set_field(valid["entry"]["meta"].clone(), "artifact_id", json!("")),
+                ),
+            ),
+        ),
+        (
+            "additional property",
+            set_field(valid.clone(), "bogus", json!(true)),
+        ),
+    ]
+}
+
+fn doctor_valid_report() -> Value {
+    json!({
+        "schema": "runx.doctor.v1",
+        "status": "success",
+        "summary": { "errors": 0, "warnings": 0, "infos": 0 },
+        "diagnostics": [],
+    })
+}
+
 fn scope_admission_corpus() -> Vec<(&'static str, Value)> {
-    // `status` is a closed enum the emitter models; the string fields commit
-    // `minLength: 1` (a constraint the plain-`String` Rust type does not carry),
-    // so corpus values keep those fields non-empty so both validators agree.
+    // `decision_summary` is optional on the committed wire contract. Keep a
+    // no-summary valid case so the Rust source stays aligned with that shape.
     let valid = json!({
         "status": "allow",
         "requested_scopes": ["issues:write"],
         "granted_scopes": ["issues:write"],
-        "decision_summary": "granted",
     });
     vec![
         ("minimal valid", valid.clone()),
@@ -335,6 +776,7 @@ fn scope_admission_corpus() -> Vec<(&'static str, Value)> {
             let mut v = valid.clone();
             v["grant_id"] = json!("grant_1");
             v["reasons"] = json!(["policy allowed"]);
+            v["decision_summary"] = json!("granted");
             v
         }),
         ("missing status", drop_field(valid.clone(), "status")),
@@ -342,8 +784,18 @@ fn scope_admission_corpus() -> Vec<(&'static str, Value)> {
             "missing requested_scopes",
             drop_field(valid.clone(), "requested_scopes"),
         ),
-        // `decision_summary` is required by the Rust type but optional in the
-        // committed schema; keep it present so both validators agree.
+        (
+            "empty requested scope",
+            set_field(valid.clone(), "requested_scopes", json!([""])),
+        ),
+        (
+            "empty grant_id",
+            set_field(valid.clone(), "grant_id", json!("")),
+        ),
+        (
+            "empty reason",
+            set_field(valid.clone(), "reasons", json!([""])),
+        ),
         (
             "unknown status",
             set_field(valid.clone(), "status", json!("maybe")),
@@ -360,11 +812,6 @@ fn scope_admission_corpus() -> Vec<(&'static str, Value)> {
 }
 
 fn credential_envelope_corpus() -> Vec<(&'static str, Value)> {
-    // The committed schema requires `connection_id` and pins `kind` to a const,
-    // and marks the string fields `minLength: 1`; the Rust type carries `kind`
-    // as a plain `String` and `connection_id` as optional. Corpus values keep
-    // those fields present, correctly-valued, and non-empty so both validators
-    // agree on accept/reject.
     let valid = json!({
         "kind": "runx.credential-envelope.v1",
         "grant_id": "grant_1",
@@ -391,15 +838,35 @@ fn credential_envelope_corpus() -> Vec<(&'static str, Value)> {
         ("missing grant_id", drop_field(valid.clone(), "grant_id")),
         ("missing provider", drop_field(valid.clone(), "provider")),
         (
+            "missing connection_id",
+            drop_field(valid.clone(), "connection_id"),
+        ),
+        (
             "missing material_ref",
             drop_field(valid.clone(), "material_ref"),
+        ),
+        (
+            "wrong kind",
+            set_field(valid.clone(), "kind", json!("runx.old")),
+        ),
+        (
+            "empty grant_id",
+            set_field(valid.clone(), "grant_id", json!("")),
+        ),
+        (
+            "empty scope item",
+            set_field(valid.clone(), "scopes", json!([""])),
         ),
         (
             "grant_reference unknown authority_kind",
             set_field(
                 valid.clone(),
                 "grant_reference",
-                json!({ "grant_id": "g", "authority_kind": "godmode" }),
+                json!({
+                    "grant_id": "g",
+                    "scope_family": "github",
+                    "authority_kind": "godmode",
+                }),
             ),
         ),
         (
@@ -408,6 +875,22 @@ fn credential_envelope_corpus() -> Vec<(&'static str, Value)> {
                 valid.clone(),
                 "grant_reference",
                 json!({ "scope_family": "github" }),
+            ),
+        ),
+        (
+            "grant_reference missing scope_family",
+            set_field(
+                valid.clone(),
+                "grant_reference",
+                json!({ "grant_id": "g", "authority_kind": "constructive" }),
+            ),
+        ),
+        (
+            "grant_reference missing authority_kind",
+            set_field(
+                valid.clone(),
+                "grant_reference",
+                json!({ "grant_id": "g", "scope_family": "github" }),
             ),
         ),
         (
@@ -440,13 +923,6 @@ fn authority_proof_redaction() -> Value {
 }
 
 fn authority_proof_corpus() -> Vec<(&'static str, Value)> {
-    // The committed schema pins several const strings (`schema_version`, the
-    // redaction attestation fields) and marks string fields `minLength: 1`; the
-    // Rust type carries those as plain `String`. Corpus values keep those fields
-    // present and correctly-valued so both validators agree; reject cases target
-    // the enum-typed nested fields (`requested.authority_kind`,
-    // `scope_admission.status`) and required-field presence, which the emitter
-    // models.
     let valid = json!({
         "schema_version": "runx.authority-proof.v1",
         "skill_name": "demo",
@@ -509,6 +985,18 @@ fn authority_proof_corpus() -> Vec<(&'static str, Value)> {
             "missing schema_version",
             drop_field(valid.clone(), "schema_version"),
         ),
+        (
+            "wrong schema_version",
+            set_field(valid.clone(), "schema_version", json!("runx.old")),
+        ),
+        (
+            "empty skill_name",
+            set_field(valid.clone(), "skill_name", json!("")),
+        ),
+        (
+            "empty source_type",
+            set_field(valid.clone(), "source_type", json!("")),
+        ),
         ("missing requested", drop_field(valid.clone(), "requested")),
         (
             "missing scope_admission",
@@ -538,6 +1026,42 @@ fn authority_proof_corpus() -> Vec<(&'static str, Value)> {
                     "granted_scopes": [],
                     "decision_summary": "x",
                 }),
+            ),
+        ),
+        (
+            "credential_material unknown status",
+            set_field(
+                valid.clone(),
+                "credential_material",
+                json!({ "status": "materialized" }),
+            ),
+        ),
+        (
+            "redaction wrong status",
+            set_field(
+                valid.clone(),
+                "redaction",
+                set_field(authority_proof_redaction(), "status", json!("pending")),
+            ),
+        ),
+        (
+            "redaction wrong secret posture",
+            set_field(
+                valid.clone(),
+                "redaction",
+                set_field(
+                    authority_proof_redaction(),
+                    "secret_material",
+                    json!("inline"),
+                ),
+            ),
+        ),
+        (
+            "redaction wrong stdout posture",
+            set_field(
+                valid.clone(),
+                "redaction",
+                set_field(authority_proof_redaction(), "stdout", json!("raw")),
             ),
         ),
         (
@@ -2610,11 +3134,47 @@ fn resolution_response_corpus() -> Vec<(&'static str, Value)> {
     ]
 }
 
+fn agent_act_invocation_corpus() -> Vec<(&'static str, Value)> {
+    let valid = json!({
+        "id": "inv_1",
+        "source_type": "agent-step",
+        "agent": "assistant",
+        "task": "draft",
+        "envelope": agent_context_envelope(),
+    });
+    vec![
+        ("valid agent-step invocation", valid.clone()),
+        (
+            "valid agent invocation",
+            set_field(valid.clone(), "source_type", json!("agent")),
+        ),
+        ("missing id", drop_field(valid.clone(), "id")),
+        ("empty id", set_field(valid.clone(), "id", json!(""))),
+        (
+            "unknown source type",
+            set_field(valid.clone(), "source_type", json!("robot")),
+        ),
+        (
+            "empty optional agent",
+            set_field(valid.clone(), "agent", json!("")),
+        ),
+        ("missing envelope", drop_field(valid.clone(), "envelope")),
+        (
+            "invalid envelope",
+            set_field(
+                valid.clone(),
+                "envelope",
+                drop_field(agent_context_envelope(), "trust_boundary"),
+            ),
+        ),
+        (
+            "additional property",
+            set_field(valid.clone(), "bogus", json!(true)),
+        ),
+    ]
+}
+
 fn agent_context_envelope() -> Value {
-    // A fully-valid agent-context envelope: the committed schema models this
-    // strictly while the Rust `AgentActInvocation.envelope` is an opaque
-    // `JsonValue` (accepts anything). Keep agent_act corpus values to envelopes
-    // both validators accept, so the corpus stays outside that modeling gap.
     json!({
         "run_id": "run_1",
         "skill": "demo",
@@ -3551,13 +4111,19 @@ fn emitted_schemas_are_wire_compatible_with_committed() {
             continue;
         }
 
-        let Ok(committed_validator) = jsonschema::validator_for(&committed) else {
+        let Ok(committed_validator) = jsonschema::draft202012::options()
+            .with_retriever(SchemaDirRetriever { dir: dir.clone() })
+            .build(&committed)
+        else {
             failures.push(format!(
                 "{name}: committed schema is not a usable validator"
             ));
             continue;
         };
-        let Ok(emitted_validator) = jsonschema::validator_for(&contract.emitted) else {
+        let Ok(emitted_validator) = jsonschema::draft202012::options()
+            .with_retriever(SchemaDirRetriever { dir: dir.clone() })
+            .build(&contract.emitted)
+        else {
             failures.push(format!("{name}: emitted schema is not a usable validator"));
             continue;
         };

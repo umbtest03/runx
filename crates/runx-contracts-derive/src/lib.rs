@@ -134,26 +134,41 @@ fn map_newtype_body(
     })
 }
 
-/// Extract `T` from a `BTreeMap<String, T>` (or `HashMap<String, T>`) type,
-/// returning `None` for any other shape.
+/// Extract `T` from a `BTreeMap<String, T>` type, returning `None` for any
+/// other shape. Contract map roots are intentionally deterministic and
+/// string-keyed; a `HashMap` or non-string key would make the emitted open-map
+/// schema lie about the wire domain.
 fn map_value_type(ty: &Type) -> Option<Type> {
     let Type::Path(type_path) = ty else {
         return None;
     };
     let segment = type_path.path.segments.last()?;
-    if segment.ident != "BTreeMap" && segment.ident != "HashMap" {
+    if segment.ident != "BTreeMap" {
         return None;
     }
     let PathArguments::AngleBracketed(args) = &segment.arguments else {
         return None;
     };
-    // The value type is the second generic argument (`String` is the key).
     let mut type_args = args.args.iter().filter_map(|arg| match arg {
         GenericArgument::Type(inner) => Some(inner.clone()),
         _ => None,
     });
-    let _key = type_args.next()?;
+    let key = type_args.next()?;
+    if !is_string_type(&key) {
+        return None;
+    }
     type_args.next()
+}
+
+fn is_string_type(ty: &Type) -> bool {
+    let Type::Path(type_path) = ty else {
+        return false;
+    };
+    type_path
+        .path
+        .segments
+        .last()
+        .is_some_and(|segment| segment.ident == "String")
 }
 
 /// Build the object-schema constructor call for a set of normal properties and

@@ -141,7 +141,7 @@ fn dev_marks_workspace_executable_files_executable() -> Result<(), Box<dyn std::
 #[test]
 fn dev_presentation_matches_terminal_shape() {
     let report = DevReport {
-        schema: "runx.dev.v1".to_owned(),
+        schema: runx_contracts::DevReportSchema::V1,
         status: DevReportStatus::Success,
         doctor: DoctorReport {
             schema: DoctorReportSchema::V1,

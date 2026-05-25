@@ -50,38 +50,27 @@ fn agent_step_invocation_id_and_envelope_shape() -> Result<(), Box<dyn std::erro
     assert_eq!(invocation.agent.as_deref(), Some("assistant"));
     assert_eq!(invocation.task.as_deref(), Some("draft release notes"));
 
-    let envelope = object(&invocation.envelope, "envelope")?;
-    assert_eq!(envelope.get("run_id"), Some(&string("rx_pending")));
-    assert_eq!(envelope.get("skill"), Some(&string("fixture.step")));
-    assert_eq!(envelope.get("instructions"), Some(&string("")));
+    assert_eq!(invocation.envelope.run_id, "rx_pending");
+    assert_eq!(invocation.envelope.skill, "fixture.step");
+    assert!(!invocation.envelope.instructions.is_empty());
+    assert!(invocation.envelope.allowed_tools.is_empty());
+    assert!(invocation.envelope.current_context.is_empty());
+    assert!(invocation.envelope.historical_context.is_empty());
+    assert!(invocation.envelope.provenance.is_empty());
+    assert!(!invocation.envelope.trust_boundary.is_empty());
+    let execution_location = invocation
+        .envelope
+        .execution_location
+        .as_ref()
+        .ok_or_else(|| std::io::Error::other("missing execution location"))?;
+    assert_eq!(execution_location.skill_directory.as_ref(), "/tmp/skill");
+    let tool_roots = execution_location
+        .tool_roots
+        .as_ref()
+        .ok_or_else(|| std::io::Error::other("missing tool roots"))?;
     assert_eq!(
-        envelope.get("allowed_tools"),
-        Some(&JsonValue::Array(Vec::new()))
-    );
-    assert_eq!(
-        envelope.get("current_context"),
-        Some(&JsonValue::Array(Vec::new()))
-    );
-    assert_eq!(
-        envelope.get("historical_context"),
-        Some(&JsonValue::Array(Vec::new()))
-    );
-    assert_eq!(
-        envelope.get("provenance"),
-        Some(&JsonValue::Array(Vec::new()))
-    );
-    assert!(envelope.get("trust_boundary").is_some());
-    let execution_location = object_field(envelope, "execution_location")?;
-    assert_eq!(
-        execution_location.get("skill_directory"),
-        Some(&string("/tmp/skill"))
-    );
-    assert_eq!(
-        execution_location.get("tool_roots"),
-        Some(&JsonValue::Array(vec![
-            string("/tmp/runx-tools"),
-            string("/opt/runx-tools")
-        ]))
+        tool_roots.iter().map(AsRef::as_ref).collect::<Vec<&str>>(),
+        vec!["/tmp/runx-tools", "/opt/runx-tools"]
     );
 
     let agent_hook = object_field(&output.metadata, "agent_hook")?;
@@ -162,10 +151,10 @@ fn agent_step_structured_json_payload_success() -> Result<(), Box<dyn std::error
         .into(),
     );
     let resolver = RecordingResolver::success(payload, None);
-    let outputs = [(
-        "schema".to_owned(),
-        JsonValue::String("acme.release_notes".to_owned()),
-    )]
+    let outputs = [
+        ("title".to_owned(), JsonValue::String("string".to_owned())),
+        ("ready".to_owned(), JsonValue::String("boolean".to_owned())),
+    ]
     .into();
 
     let output = AgentAdapter::agent_step(config(), &resolver).invoke(invocation(
@@ -186,16 +175,13 @@ fn agent_step_structured_json_payload_success() -> Result<(), Box<dyn std::error
     let ResolutionRequest::AgentAct { invocation, .. } = &requests[0] else {
         return Err(std::io::Error::other("missing agent_act request").into());
     };
-    let envelope = object(&invocation.envelope, "envelope")?;
     assert_eq!(
-        envelope.get("output"),
-        Some(&JsonValue::Object(
-            [(
-                "schema".to_owned(),
-                JsonValue::String("acme.release_notes".to_owned())
-            )]
-            .into()
-        ))
+        invocation
+            .envelope
+            .output
+            .as_ref()
+            .map(|output| output.len()),
+        Some(2)
     );
     Ok(())
 }

@@ -152,7 +152,7 @@ where
         }
 
         let resolution_request =
-            agent_act_resolution_request(&request, self.source_type.invocation_source_type());
+            agent_act_resolution_request(&request, self.source_type.invocation_source_type())?;
         match self.resolver.resolve(resolution_request) {
             Ok(resolution) => {
                 let metadata = native_agent_metadata(
@@ -177,7 +177,7 @@ where
 pub fn build_managed_agent_act_invocation(
     request: &SkillInvocation,
     source_type: AgentAdapterSourceType,
-) -> AgentActInvocation {
+) -> Result<AgentActInvocation, RuntimeError> {
     build_agent_act_invocation(request, source_type.invocation_source_type())
 }
 

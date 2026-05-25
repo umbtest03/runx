@@ -6,7 +6,7 @@ use std::fmt;
 
 use runx_contracts::{
     CredentialDeliveryMode, CredentialDeliveryObservation, CredentialDeliveryObservationStatus,
-    CredentialDeliveryPurpose, Reference, ReferenceType, sha256_prefixed,
+    CredentialDeliveryPurpose, CredentialEnvelopeKind, Reference, ReferenceType, sha256_prefixed,
 };
 use runx_core::policy::{CredentialBindingDecision, CredentialEnvelope};
 use thiserror::Error;
@@ -253,15 +253,15 @@ impl CredentialDelivery {
         let profile =
             CredentialDeliveryProfile::env_token(provider.clone(), auth_mode.clone(), env_var)?;
         let envelope = CredentialEnvelope {
-            kind: "runx.credential-envelope.v1".to_owned(),
-            grant_id: material_ref.clone(),
-            provider,
-            auth_mode,
-            material_kind: "access_token".to_owned(),
-            connection_id: None,
-            scopes,
+            kind: CredentialEnvelopeKind::V1,
+            grant_id: material_ref.clone().into(),
+            provider: provider.into(),
+            auth_mode: auth_mode.into(),
+            material_kind: "access_token".into(),
+            connection_id: "local_per_run".into(),
+            scopes: scopes.into_iter().map(Into::into).collect(),
             grant_reference: None,
-            material_ref: material_ref.clone(),
+            material_ref: material_ref.clone().into(),
         };
         let decision = CredentialBindingDecision::Allow {
             reasons: vec!["local per-run credential provision".to_owned()],
@@ -286,14 +286,14 @@ impl CredentialDelivery {
         require_allowed_binding(decision)?;
         if credential.provider != profile.provider {
             return Err(CredentialDeliveryError::ProviderMismatch {
-                credential_provider: credential.provider.clone(),
+                credential_provider: credential.provider.to_string(),
                 profile_provider: profile.provider.clone(),
             });
         }
         let material = resolver.resolve_material(&credential.material_ref)?;
         if material.material_ref != credential.material_ref {
             return Err(CredentialDeliveryError::MaterialRefMismatch {
-                expected: credential.material_ref.clone(),
+                expected: credential.material_ref.to_string(),
                 actual: material.material_ref,
             });
         }

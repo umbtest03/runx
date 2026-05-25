@@ -1,4 +1,5 @@
 // rust-style-allow: large-file - authority-proof parity keeps the TS oracle mapping in one reviewable module.
+use runx_contracts::schema::NonEmptyString;
 use runx_contracts::{JsonObject, JsonValue, sha256_hex};
 
 use super::{
@@ -10,15 +11,16 @@ use super::{
     scope::{scope_allows, unique_strings},
     types::{
         AuthorityProof, AuthorityProofApproval, AuthorityProofApprovalDecision,
-        AuthorityProofCredentialMaterial, AuthorityProofMetadata, AuthorityProofRedaction,
-        AuthorityProofRequested, AuthorityProofSandbox, AuthorityProofSandboxDeclaration,
-        AuthorityProofSandboxFilesystem, AuthorityProofSandboxNetwork,
-        AuthorityProofSandboxRuntime, BuildAuthorityProofOptions, CredentialBindingDecision,
-        CredentialBindingRequest, CredentialEnvelope, CredentialGrantReference,
+        AuthorityProofApprovalDecisionValue, AuthorityProofCredentialMaterial,
+        AuthorityProofCredentialMaterialStatus, AuthorityProofMetadata, AuthorityProofRedaction,
+        AuthorityProofRedactionSecretMaterial, AuthorityProofRedactionStatus,
+        AuthorityProofRedactionStream, AuthorityProofRequested, AuthorityProofSandbox,
+        AuthorityProofSandboxDeclaration, AuthorityProofSandboxFilesystem,
+        AuthorityProofSandboxNetwork, AuthorityProofSandboxRuntime, AuthorityProofSchemaVersion,
+        BuildAuthorityProofOptions, CredentialBindingDecision, CredentialBindingRequest,
+        CredentialEnvelope, CredentialGrantReference,
     },
 };
-
-const AUTHORITY_PROOF_SCHEMA_VERSION: &str = "runx.authority-proof.v1";
 
 #[must_use]
 pub fn build_local_scope_admission(
@@ -84,10 +86,10 @@ pub fn build_authority_proof(options: &BuildAuthorityProofOptions) -> AuthorityP
     );
 
     AuthorityProof {
-        schema_version: AUTHORITY_PROOF_SCHEMA_VERSION.to_owned(),
-        run_id: options.run_id.clone(),
-        skill_name: options.skill_name.clone(),
-        source_type: options.source_type.clone(),
+        schema_version: AuthorityProofSchemaVersion::V1,
+        run_id: non_empty_option(options.run_id.clone()),
+        skill_name: options.skill_name.clone().into(),
+        source_type: options.source_type.clone().into(),
         requested: authority_proof_requested(&requirement, &sandbox, options),
         scope_admission: scope_admission.clone(),
         credential_material: credential_material_proof(
@@ -226,7 +228,7 @@ fn collect_credential_scope_reasons(
                 .iter()
                 .any(|credential_scope| scope_allows(credential_scope, scope, false))
         })
-        .cloned()
+        .map(ToString::to_string)
         .collect::<Vec<_>>();
     if !missing_requested_scopes.is_empty() {
         reasons.push(format!(
@@ -244,7 +246,7 @@ fn collect_credential_scope_reasons(
                 .iter()
                 .any(|granted_scope| scope_allows(granted_scope, scope, false))
         })
-        .cloned()
+        .map(ToString::to_string)
         .collect::<Vec<_>>();
     if !out_of_grant_scopes.is_empty() {
         reasons.push(format!(
@@ -289,22 +291,22 @@ fn authority_proof_requested(
 ) -> AuthorityProofRequested {
     AuthorityProofRequested {
         connected_auth: requirement.is_some(),
-        scopes: requirement
-            .as_ref()
-            .map_or_else(Vec::new, |value| unique_strings(&value.scopes)),
+        scopes: requirement.as_ref().map_or_else(Vec::new, |value| {
+            non_empty_vec(unique_strings(&value.scopes))
+        }),
         mutating: options.mutating.unwrap_or(false),
         scope_family: requirement
             .as_ref()
-            .and_then(|value| value.scope_family.clone()),
+            .and_then(|value| non_empty_option(value.scope_family.clone())),
         authority_kind: requirement
             .as_ref()
             .and_then(|value| value.authority_kind.clone()),
         target_repo: requirement
             .as_ref()
-            .and_then(|value| value.target_repo.clone()),
+            .and_then(|value| non_empty_option(value.target_repo.clone())),
         target_locator: requirement
             .as_ref()
-            .and_then(|value| value.target_locator.clone()),
+            .and_then(|value| non_empty_option(value.target_locator.clone())),
         sandbox_profile: sandbox.as_ref().map(|value| value.profile.clone()),
     }
 }
@@ -319,7 +321,7 @@ fn credential_material_proof(
     }
     match requirement {
         None => AuthorityProofCredentialMaterial {
-            status: "not_requested".to_owned(),
+            status: AuthorityProofCredentialMaterialStatus::NotRequested,
             ..empty_credential_material()
         },
         Some(requirement) => unresolved_credential_material(requirement, scope_admission),
@@ -330,13 +332,13 @@ fn resolved_credential_material(
     credential: &CredentialEnvelope,
 ) -> AuthorityProofCredentialMaterial {
     AuthorityProofCredentialMaterial {
-        status: "resolved".to_owned(),
+        status: AuthorityProofCredentialMaterialStatus::Resolved,
         grant_id: Some(credential.grant_id.clone()),
         provider: Some(credential.provider.clone()),
-        connection_id: credential.connection_id.clone(),
+        connection_id: Some(credential.connection_id.clone()),
         scopes: Some(credential.scopes.clone()),
         grant_reference: credential.grant_reference.clone(),
-        material_ref_hash: Some(sha256_hex(credential.material_ref.as_bytes())),
+        material_ref_hash: Some(sha256_hex(credential.material_ref.as_bytes()).into()),
         ..empty_credential_material()
     }
 }
@@ -347,17 +349,17 @@ fn unresolved_credential_material(
 ) -> AuthorityProofCredentialMaterial {
     AuthorityProofCredentialMaterial {
         status: if scope_admission.status == ScopeAdmissionStatus::Deny {
-            "denied".to_owned()
+            AuthorityProofCredentialMaterialStatus::Denied
         } else {
-            "not_resolved".to_owned()
+            AuthorityProofCredentialMaterialStatus::NotResolved
         },
         grant_id: scope_admission.grant_id.clone(),
-        provider: Some(requirement.provider.clone()),
-        scopes: Some(unique_strings(&requirement.scopes)),
-        scope_family: requirement.scope_family.clone(),
+        provider: Some(requirement.provider.clone().into()),
+        scopes: Some(non_empty_vec(unique_strings(&requirement.scopes))),
+        scope_family: non_empty_option(requirement.scope_family.clone()),
         authority_kind: requirement.authority_kind.clone(),
-        target_repo: requirement.target_repo.clone(),
-        target_locator: requirement.target_locator.clone(),
+        target_repo: non_empty_option(requirement.target_repo.clone()),
+        target_locator: non_empty_option(requirement.target_locator.clone()),
         ..empty_credential_material()
     }
 }
@@ -379,9 +381,10 @@ fn summarize_authority_sandbox(
     let runtime = summarize_runtime(record.and_then(|value| object_field(value, "runtime")));
 
     Some(AuthorityProofSandbox {
-        profile: profile.clone(),
+        profile: profile.clone().into(),
         cwd_policy: string_field(record, "cwd_policy")
-            .or_else(|| declaration.and_then(|value| optional_string(value.cwd_policy.as_deref()))),
+            .or_else(|| declaration.and_then(|value| optional_string(value.cwd_policy.as_deref())))
+            .map(Into::into),
         require_enforcement: bool_field(record, "require_enforcement")
             .or_else(|| declaration.and_then(|value| value.require_enforcement)),
         network,
@@ -410,7 +413,7 @@ fn summarize_network(
     let summary = AuthorityProofSandboxNetwork {
         declared: bool_field(network, "declared")
             .or_else(|| declaration.and_then(|value| value.network)),
-        enforcement: string_field(network, "enforcement"),
+        enforcement: string_field(network, "enforcement").map(Into::into),
     };
     if summary.declared.is_none() && summary.enforcement.is_none() {
         None
@@ -424,7 +427,7 @@ fn summarize_filesystem(
 ) -> Option<AuthorityProofSandboxFilesystem> {
     filesystem.and_then(|value| {
         let summary = AuthorityProofSandboxFilesystem {
-            enforcement: string_field(Some(value), "enforcement"),
+            enforcement: string_field(Some(value), "enforcement").map(Into::into),
             readonly_paths: bool_field(Some(value), "readonly_paths"),
             writable_paths_enforced: bool_field(Some(value), "writable_paths_enforced"),
             private_tmp: bool_field(Some(value), "private_tmp"),
@@ -444,8 +447,8 @@ fn summarize_filesystem(
 fn summarize_runtime(runtime: Option<&JsonObject>) -> Option<AuthorityProofSandboxRuntime> {
     runtime.and_then(|value| {
         let summary = AuthorityProofSandboxRuntime {
-            enforcer: string_field(Some(value), "enforcer"),
-            reason: string_field(Some(value), "reason"),
+            enforcer: string_field(Some(value), "enforcer").map(Into::into),
+            reason: string_field(Some(value), "reason").map(Into::into),
         };
         if summary.enforcer.is_none() && summary.reason.is_none() {
             None
@@ -457,33 +460,34 @@ fn summarize_runtime(runtime: Option<&JsonObject>) -> Option<AuthorityProofSandb
 
 fn approval_decision(approval: &AuthorityProofApproval) -> AuthorityProofApprovalDecision {
     AuthorityProofApprovalDecision {
-        gate_id: approval.gate.id.clone(),
+        gate_id: approval.gate.id.clone().into(),
         gate_type: approval
             .gate
             .gate_type
             .clone()
-            .unwrap_or_else(|| "unspecified".to_owned()),
+            .unwrap_or_else(|| "unspecified".to_owned())
+            .into(),
         decision: if approval.approved {
-            "approved".to_owned()
+            AuthorityProofApprovalDecisionValue::Approved
         } else {
-            "denied".to_owned()
+            AuthorityProofApprovalDecisionValue::Denied
         },
-        reason: approval.gate.reason.clone(),
+        reason: non_empty_option(approval.gate.reason.clone()),
     }
 }
 
 fn authority_redaction() -> AuthorityProofRedaction {
     AuthorityProofRedaction {
-        status: "applied".to_owned(),
-        secret_material: "omitted".to_owned(),
-        stdout: "hashed".to_owned(),
-        stderr: "hashed".to_owned(),
+        status: AuthorityProofRedactionStatus::Applied,
+        secret_material: AuthorityProofRedactionSecretMaterial::Omitted,
+        stdout: AuthorityProofRedactionStream::Hashed,
+        stderr: AuthorityProofRedactionStream::Hashed,
         metadata_secret_keys: vec![
-            "token-like metadata keys".to_owned(),
-            "api-key-like metadata keys".to_owned(),
-            "password-like metadata keys".to_owned(),
-            "client-secret-like metadata keys".to_owned(),
-            "raw-secret-like metadata keys".to_owned(),
+            "token-like metadata keys".into(),
+            "api-key-like metadata keys".into(),
+            "password-like metadata keys".into(),
+            "client-secret-like metadata keys".into(),
+            "raw-secret-like metadata keys".into(),
         ],
     }
 }
@@ -492,12 +496,14 @@ fn credential_grant_reference(grant: &LocalAdmissionGrant) -> Option<CredentialG
     if !has_grant_reference(grant) {
         return None;
     }
+    let scope_family = non_empty_option(grant.scope_family.clone())?;
+    let authority_kind = grant.authority_kind.clone()?;
     Some(CredentialGrantReference {
-        grant_id: grant.grant_id.clone(),
-        scope_family: grant.scope_family.clone(),
-        authority_kind: grant.authority_kind.clone(),
-        target_repo: grant.target_repo.clone(),
-        target_locator: grant.target_locator.clone(),
+        grant_id: grant.grant_id.clone().into(),
+        scope_family,
+        authority_kind,
+        target_repo: non_empty_option(grant.target_repo.clone()),
+        target_locator: non_empty_option(grant.target_locator.clone()),
     })
 }
 
@@ -541,11 +547,11 @@ fn scope_admission_allow(
 ) -> ScopeAdmission {
     ScopeAdmission {
         status: ScopeAdmissionStatus::Allow,
-        requested_scopes,
-        granted_scopes,
-        grant_id,
+        requested_scopes: non_empty_vec(requested_scopes),
+        granted_scopes: non_empty_vec(granted_scopes),
+        grant_id: non_empty_option(grant_id),
         reasons: None,
-        decision_summary: summary.to_owned(),
+        decision_summary: Some(summary.to_owned()),
     }
 }
 
@@ -557,11 +563,11 @@ fn scope_admission_deny(
 ) -> ScopeAdmission {
     ScopeAdmission {
         status: ScopeAdmissionStatus::Deny,
-        requested_scopes,
-        granted_scopes,
+        requested_scopes: non_empty_vec(requested_scopes),
+        granted_scopes: non_empty_vec(granted_scopes),
         grant_id: None,
-        reasons: Some(reasons),
-        decision_summary: summary.to_owned(),
+        reasons: Some(non_empty_vec(reasons)),
+        decision_summary: Some(summary.to_owned()),
     }
 }
 
@@ -574,7 +580,7 @@ fn admitted_grant_id(scope_admission: &ScopeAdmission) -> Option<&str> {
 
 fn empty_credential_material() -> AuthorityProofCredentialMaterial {
     AuthorityProofCredentialMaterial {
-        status: String::new(),
+        status: AuthorityProofCredentialMaterialStatus::NotRequested,
         grant_id: None,
         provider: None,
         connection_id: None,
@@ -586,6 +592,16 @@ fn empty_credential_material() -> AuthorityProofCredentialMaterial {
         grant_reference: None,
         material_ref_hash: None,
     }
+}
+
+fn non_empty_vec(values: Vec<String>) -> Vec<NonEmptyString> {
+    values.into_iter().map(Into::into).collect()
+}
+
+fn non_empty_option(value: Option<String>) -> Option<NonEmptyString> {
+    value
+        .filter(|value| !value.trim().is_empty())
+        .map(Into::into)
 }
 
 fn allow(reasons: Vec<String>) -> CredentialBindingDecision {

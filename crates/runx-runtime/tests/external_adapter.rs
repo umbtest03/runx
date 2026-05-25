@@ -7,12 +7,13 @@ use std::path::{Path, PathBuf};
 
 use runx_contracts::{
     CredentialDeliveryMode, CredentialDeliveryObservation, CredentialDeliveryObservationStatus,
-    CredentialDeliveryPurpose, CredentialMaterialRole, EXTERNAL_ADAPTER_PROTOCOL_VERSION,
-    ExecutionEvent, ExternalAdapterHostResolutionFrame, ExternalAdapterInvocation,
-    ExternalAdapterManifest, ExternalAdapterResponse, ExternalAdapterSandboxIntent,
-    ExternalAdapterStatus, ExternalAdapterTimeouts, ExternalAdapterTransport,
-    ExternalAdapterTransportKind, JsonNumber, JsonObject, JsonValue, Question, Reference,
-    ReferenceType, ResolutionRequest, ResolutionResponse, ResolutionResponseActor,
+    CredentialDeliveryPurpose, CredentialEnvelopeKind, CredentialMaterialRole,
+    EXTERNAL_ADAPTER_PROTOCOL_VERSION, ExecutionEvent, ExternalAdapterHostResolutionFrame,
+    ExternalAdapterInvocation, ExternalAdapterManifest, ExternalAdapterResponse,
+    ExternalAdapterSandboxIntent, ExternalAdapterStatus, ExternalAdapterTimeouts,
+    ExternalAdapterTransport, ExternalAdapterTransportKind, JsonNumber, JsonObject, JsonValue,
+    Question, Reference, ReferenceType, ResolutionRequest, ResolutionResponse,
+    ResolutionResponseActor,
 };
 use runx_core::policy::{CredentialBindingDecision, CredentialEnvelope};
 use runx_core::state_machine::GraphStatus;
@@ -941,15 +942,15 @@ fn credential_delivery_observation() -> CredentialDeliveryObservation {
 
 fn credential() -> CredentialEnvelope {
     CredentialEnvelope {
-        kind: "runx.credential-envelope.v1".to_owned(),
-        grant_id: "grant_github_main".to_owned(),
-        provider: "github".to_owned(),
-        auth_mode: "oauth_bearer".to_owned(),
-        material_kind: "access_token".to_owned(),
-        connection_id: Some("conn_github_main".to_owned()),
-        scopes: vec!["repo".to_owned()],
+        kind: CredentialEnvelopeKind::V1,
+        grant_id: "grant_github_main".into(),
+        provider: "github".into(),
+        auth_mode: "oauth_bearer".into(),
+        material_kind: "access_token".into(),
+        connection_id: "conn_github_main".into(),
+        scopes: vec!["repo".into()],
         grant_reference: None,
-        material_ref: "secret://github/main".to_owned(),
+        material_ref: "secret://github/main".into(),
     }
 }
 

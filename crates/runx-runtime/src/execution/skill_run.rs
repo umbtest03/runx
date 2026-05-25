@@ -295,7 +295,7 @@ fn agent_request(
     invocation: &SkillInvocation,
     source_type: AgentActInvocationSourceType,
 ) -> Result<JsonValue, SkillRunError> {
-    contract_json_value(&agent_act_resolution_request(invocation, source_type))
+    contract_json_value(&agent_act_resolution_request(invocation, source_type)?)
 }
 
 fn needs_agent_output(run_id: &str, request_id: &str, request: JsonValue) -> JsonObject {

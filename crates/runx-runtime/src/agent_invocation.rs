@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use runx_contracts::{
-    AgentActInvocation, AgentActSourceType, JsonObject, JsonValue, ResolutionRequest,
+    AgentActInvocation, AgentActSourceType, AgentContextEnvelope, ExecutionLocation, JsonObject,
+    JsonValue, Output, OutputField, ResolutionRequest,
 };
 
 use crate::SkillInvocation;
@@ -35,12 +36,12 @@ impl AgentActInvocationSourceType {
 pub(crate) fn agent_act_resolution_request(
     request: &SkillInvocation,
     source_type: AgentActInvocationSourceType,
-) -> ResolutionRequest {
+) -> Result<ResolutionRequest, RuntimeError> {
     let id = agent_act_invocation_id(request, source_type);
-    ResolutionRequest::AgentAct {
+    Ok(ResolutionRequest::AgentAct {
         id: id.clone().into(),
-        invocation: build_agent_act_invocation(request, source_type),
-    }
+        invocation: build_agent_act_invocation(request, source_type)?,
+    })
 }
 
 pub(crate) fn agent_act_invocation_id(
@@ -62,66 +63,62 @@ pub(crate) fn agent_act_invocation_id(
 pub(crate) fn build_agent_act_invocation(
     request: &SkillInvocation,
     source_type: AgentActInvocationSourceType,
-) -> AgentActInvocation {
-    AgentActInvocation {
+) -> Result<AgentActInvocation, RuntimeError> {
+    Ok(AgentActInvocation {
         id: agent_act_invocation_id(request, source_type).into(),
         source_type: source_type.contract_source_type(),
         agent: request.source.agent.clone().map(Into::into),
         task: request.source.task.clone().map(Into::into),
-        envelope: JsonValue::Object(envelope(request, source_type)),
-    }
+        envelope: envelope(request, source_type)?,
+    })
 }
 
-fn envelope(request: &SkillInvocation, source_type: AgentActInvocationSourceType) -> JsonObject {
-    let mut envelope = JsonObject::new();
-    envelope.insert(
-        "run_id".to_owned(),
-        JsonValue::String("rx_pending".to_owned()),
-    );
-    envelope.insert(
-        "skill".to_owned(),
-        JsonValue::String(skill_name(request, source_type)),
-    );
-    envelope.insert("instructions".to_owned(), JsonValue::String(String::new()));
-    envelope.insert(
-        "inputs".to_owned(),
-        JsonValue::Object(request.inputs.clone()),
-    );
-    envelope.insert("allowed_tools".to_owned(), JsonValue::Array(Vec::new()));
-    envelope.insert("current_context".to_owned(), JsonValue::Array(Vec::new()));
-    envelope.insert(
-        "historical_context".to_owned(),
-        JsonValue::Array(Vec::new()),
-    );
-    envelope.insert("provenance".to_owned(), JsonValue::Array(Vec::new()));
-    envelope.insert(
-        "execution_location".to_owned(),
-        JsonValue::Object(execution_location(&request.skill_directory, &request.env)),
-    );
-    envelope.insert(
-        "trust_boundary".to_owned(),
-        JsonValue::String(TRUST_BOUNDARY.to_owned()),
-    );
-    if let Some(output) = &request.source.outputs {
-        envelope.insert("output".to_owned(), JsonValue::Object(output.clone()));
-    }
-    envelope
+fn envelope(
+    request: &SkillInvocation,
+    source_type: AgentActInvocationSourceType,
+) -> Result<AgentContextEnvelope, RuntimeError> {
+    Ok(AgentContextEnvelope {
+        run_id: "rx_pending".into(),
+        step_id: None,
+        skill: skill_name(request, source_type).into(),
+        instructions: "Resolve the runx agent act using the supplied inputs and context.".into(),
+        inputs: request.inputs.clone(),
+        allowed_tools: Vec::new(),
+        current_context: Vec::new(),
+        historical_context: Vec::new(),
+        provenance: Vec::new(),
+        context: None,
+        voice_profile: None,
+        quality_profile: None,
+        execution_location: Some(execution_location(&request.skill_directory, &request.env)),
+        output: request
+            .source
+            .outputs
+            .as_ref()
+            .map(output_contract)
+            .transpose()?,
+        trust_boundary: TRUST_BOUNDARY.into(),
+    })
 }
 
-fn execution_location(skill_directory: &Path, env: &BTreeMap<String, String>) -> JsonObject {
-    let mut location = JsonObject::new();
-    location.insert(
-        "skill_directory".to_owned(),
-        JsonValue::String(skill_directory.to_string_lossy().into_owned()),
-    );
+fn output_contract(raw: &JsonObject) -> Result<BTreeMap<String, OutputField>, RuntimeError> {
+    let value = serde_json::to_value(JsonValue::Object(raw.clone()))
+        .map_err(|source| RuntimeError::json("serializing agent output contract", source))?;
+    let Output(output) = serde_json::from_value(value)
+        .map_err(|source| RuntimeError::json("parsing agent output contract", source))?;
+    Ok(output)
+}
+
+fn execution_location(skill_directory: &Path, env: &BTreeMap<String, String>) -> ExecutionLocation {
     let tool_roots = parse_configured_tool_roots(env);
-    if !tool_roots.is_empty() {
-        location.insert(
-            "tool_roots".to_owned(),
-            JsonValue::Array(tool_roots.into_iter().map(JsonValue::String).collect()),
-        );
+    ExecutionLocation {
+        skill_directory: skill_directory.to_string_lossy().into_owned().into(),
+        tool_roots: if tool_roots.is_empty() {
+            None
+        } else {
+            Some(tool_roots.into_iter().map(Into::into).collect())
+        },
     }
-    location
 }
 
 fn parse_configured_tool_roots(env: &BTreeMap<String, String>) -> Vec<String> {

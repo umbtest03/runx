@@ -7,10 +7,13 @@ use serde::{Deserialize, Serialize};
 // every existing policy/runtime importer keeps compiling unchanged.
 pub use runx_contracts::policy_proof::{
     AuthorityKind, AuthorityProof, AuthorityProofApprovalDecision,
-    AuthorityProofCredentialMaterial, AuthorityProofRedaction, AuthorityProofRequested,
-    AuthorityProofSandbox, AuthorityProofSandboxFilesystem, AuthorityProofSandboxNetwork,
-    AuthorityProofSandboxRuntime, CredentialEnvelope, CredentialGrantReference, ScopeAdmission,
-    ScopeAdmissionStatus,
+    AuthorityProofApprovalDecisionValue, AuthorityProofCredentialMaterial,
+    AuthorityProofCredentialMaterialStatus, AuthorityProofRedaction,
+    AuthorityProofRedactionSecretMaterial, AuthorityProofRedactionStatus,
+    AuthorityProofRedactionStream, AuthorityProofRequested, AuthorityProofSandbox,
+    AuthorityProofSandboxFilesystem, AuthorityProofSandboxNetwork, AuthorityProofSandboxRuntime,
+    AuthorityProofSchemaVersion, CredentialEnvelope, CredentialEnvelopeKind,
+    CredentialGrantReference, ScopeAdmission, ScopeAdmissionStatus,
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

@@ -5,84 +5,13 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
+pub use runx_contracts::{
+    RunxListEmit, RunxListItem, RunxListItemKind, RunxListReport, RunxListRequestedKind,
+    RunxListSchema, RunxListSource, RunxListStatus,
+};
+use serde::Deserialize;
 
 use crate::RuntimeError;
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum RunxListRequestedKind {
-    All,
-    Tools,
-    Skills,
-    Graphs,
-    Packets,
-    Overlays,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum RunxListItemKind {
-    Tool,
-    Skill,
-    Graph,
-    Packet,
-    Overlay,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum RunxListSource {
-    Local,
-    Workspace,
-    Dependencies,
-    BuiltIn,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum RunxListStatus {
-    Ok,
-    Invalid,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub struct RunxListEmit {
-    pub name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub packet: Option<String>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub struct RunxListItem {
-    pub kind: RunxListItemKind,
-    pub name: String,
-    pub source: RunxListSource,
-    pub path: String,
-    pub status: RunxListStatus,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub diagnostics: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scopes: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub emits: Option<Vec<RunxListEmit>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub fixtures: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub harness_cases: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub steps: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub wraps: Option<String>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub struct RunxListReport {
-    pub schema: &'static str,
-    pub root: String,
-    pub requested_kind: RunxListRequestedKind,
-    pub items: Vec<RunxListItem>,
-}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RunxListOptions {
@@ -105,7 +34,7 @@ pub fn list_authoring_primitives(
     let mut items = discover_list_items(&root, options.requested_kind)?;
     sort_list_items(&mut items);
     Ok(RunxListReport {
-        schema: "runx.list.v1",
+        schema: RunxListSchema::V1,
         root: display_path(&root),
         requested_kind: options.requested_kind,
         items,

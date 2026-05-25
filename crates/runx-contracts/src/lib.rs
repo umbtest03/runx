@@ -6,6 +6,7 @@ extern crate self as runx_contracts;
 
 pub mod act;
 pub mod act_assignment;
+pub mod act_receipt;
 pub mod agent_context;
 pub mod artifact;
 pub mod aster;
@@ -13,14 +14,18 @@ pub mod authority;
 pub mod cli;
 pub mod credential_delivery;
 pub mod decision;
+pub mod dev;
 pub mod doctor;
 pub mod execution;
 pub mod external_adapter;
 pub mod fingerprint;
+pub mod fixture;
 pub mod handoff;
 pub mod host_protocol;
 pub mod json;
+pub mod ledger;
 pub mod links;
+pub mod list;
 pub mod maturity;
 pub mod operational_policy;
 pub mod output;
@@ -34,7 +39,9 @@ pub mod reference;
 pub mod registry;
 pub mod registry_binding;
 pub mod review;
+pub mod run_summary;
 pub mod schema;
+pub mod schema_artifacts;
 pub mod signal;
 pub mod suppression;
 pub mod target_runner;
@@ -50,6 +57,10 @@ pub use act_assignment::{
     ActAssignment, ActAssignmentActor, ActAssignmentHost, ActAssignmentHostKind,
     ActAssignmentIdempotency, ActAssignmentSchema, BuildActAssignment, IntentKeyInput,
     derive_content_hash, derive_intent_key, derive_trigger_key,
+};
+pub use act_receipt::{
+    ActReceiptEnvelope, ActReceiptNeedsAgentEnvelope, ActReceiptNeedsAgentStatus, ActReceiptNull,
+    ActReceiptSignal, ActReceiptTerminalEnvelope, ActReceiptTerminalStatus,
 };
 pub use agent_context::{
     AgentContextEnvelope, AgentContextProfiles, ContextArtifactMeta, ContextArtifactProducer,
@@ -82,6 +93,10 @@ pub use credential_delivery::{
 pub use decision::{
     Closure, ClosureDisposition, Decision, DecisionChoice, DecisionInputs, DecisionJustification,
 };
+pub use dev::{
+    DevFixtureAssertion, DevFixtureAssertionKind, DevFixtureResult, DevFixtureStatus, DevReport,
+    DevReportSchema, DevReportStatus,
+};
 pub use doctor::{
     DoctorDiagnostic, DoctorDiagnosticSeverity, DoctorLocation, DoctorRepair,
     DoctorRepairConfidence, DoctorRepairKind, DoctorRepairRisk, DoctorReport, DoctorReportSchema,
@@ -105,6 +120,7 @@ pub use external_adapter::{
     ExternalAdapterTransportKind,
 };
 pub use fingerprint::{Fingerprint, FingerprintAlgorithm, hex_lower, sha256_hex, sha256_prefixed};
+pub use fixture::{Fixture, FixtureLane};
 pub use handoff::{
     HandoffDisposition, HandoffSignal, HandoffSignalActor, HandoffSignalSchema,
     HandoffSignalSource, HandoffSignalSourceRef, HandoffState, HandoffStateSchema, HandoffStatus,
@@ -118,7 +134,16 @@ pub use host_protocol::{
     ResolutionResponseActor,
 };
 pub use json::{JsonNumber, JsonObject, JsonValue};
+pub use ledger::{
+    LedgerCanonicalization, LedgerChain, LedgerChainVersion, LedgerEntry, LedgerEntryMeta,
+    LedgerEntrySchemaVersion, LedgerHashAlgorithm, LedgerPayload, LedgerPayloadVersion,
+    LedgerProducer, LedgerSha256Hex,
+};
 pub use links::{DuplicateCandidate, Links};
+pub use list::{
+    RunxListEmit, RunxListItem, RunxListItemKind, RunxListReport, RunxListRequestedKind,
+    RunxListSchema, RunxListSource, RunxListStatus,
+};
 pub use operational_policy::{
     OperationalPolicy, OperationalPolicyAction, OperationalPolicyAdmission,
     OperationalPolicyAdmissionRequest, OperationalPolicyAdmissionStatus,
@@ -138,6 +163,16 @@ pub use operational_policy::{
 };
 pub use output::{OutputField, OutputFieldSpec, OutputType};
 pub use packet_index::{PacketIndex, PacketIndexEntry, PacketIndexSchema};
+pub use policy_proof::{
+    AuthorityKind, AuthorityProof, AuthorityProofApprovalDecision,
+    AuthorityProofApprovalDecisionValue, AuthorityProofCredentialMaterial,
+    AuthorityProofCredentialMaterialStatus, AuthorityProofRedaction,
+    AuthorityProofRedactionSecretMaterial, AuthorityProofRedactionStatus,
+    AuthorityProofRedactionStream, AuthorityProofRequested, AuthorityProofSandbox,
+    AuthorityProofSandboxFilesystem, AuthorityProofSandboxNetwork, AuthorityProofSandboxRuntime,
+    AuthorityProofSchemaVersion, CredentialEnvelope, CredentialEnvelopeKind,
+    CredentialGrantReference, ScopeAdmission, ScopeAdmissionStatus,
+};
 pub use post_merge_observer::{
     PostMergeObserverClosureState, PostMergeObserverCriterionPlan,
     PostMergeObserverIdempotencyPlan, PostMergeObserverPlan, PostMergeObserverPlanError,
@@ -164,6 +199,8 @@ pub use registry_binding::{
     RegistryTrustTier,
 };
 pub use review::{ReviewReceiptImprovementProposal, ReviewReceiptOutput, ReviewReceiptVerdict};
+pub use run_summary::{RunSummary, RunSummarySchema, RunSummaryStatus};
+pub use schema_artifacts::{SchemaArtifact, generated_schema_artifacts};
 pub use signal::{
     SIGNAL_SCHEMA, Signal, SignalAuthenticity, SignalSchema, SignalTrustLevel, SignalType,
 };
@@ -201,6 +238,11 @@ pub use thread_outbox_provider::{
     ThreadOutboxProviderRedactionCapabilities, ThreadOutboxProviderRenderedPayload,
     ThreadOutboxProviderThreadLocator, ThreadOutboxProviderTransport,
     ThreadOutboxProviderTransportKind,
+};
+pub use tools::{
+    RuntimeCommand, ToolCommandInputMode, ToolIdempotencyPolicy, ToolInput, ToolManifest,
+    ToolManifestSchema, ToolMcpServer, ToolOutput, ToolRetryPolicy, ToolSandbox,
+    ToolSandboxCwdPolicy, ToolSandboxProfile, ToolSource, ToolSourceType,
 };
 pub use verification::{
     ReceiptVerificationSummary, VERIFICATION_SCHEMA, Verification, VerificationCheck,
