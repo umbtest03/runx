@@ -4,6 +4,7 @@ import {
   RUNX_CONTRACT_IDS,
   RUNX_LOGICAL_SCHEMAS,
   type DeepReadonly,
+  generatedSchema,
   stringEnum,
   unknownRecordSchema,
   validateContractSchema,
@@ -79,7 +80,7 @@ export type DoctorLocationContract = DeepReadonly<Static<typeof doctorLocationSc
 export type DoctorDiagnosticContract = DeepReadonly<Static<typeof doctorDiagnosticSchema>>;
 export type DoctorSummaryContract = DeepReadonly<Static<typeof doctorSummarySchema>>;
 
-export const doctorV1Schema = Type.Object(
+const doctorV1TypeSchema = Type.Object(
   {
     schema: Type.Literal(RUNX_LOGICAL_SCHEMAS.doctor),
     status: stringEnum(doctorStatuses),
@@ -94,7 +95,9 @@ export const doctorV1Schema = Type.Object(
   },
 );
 
-export type DoctorReportContract = DeepReadonly<Static<typeof doctorV1Schema>>;
+export type DoctorReportContract = DeepReadonly<Static<typeof doctorV1TypeSchema>>;
+
+export const doctorV1Schema = generatedSchema<DoctorReportContract>("doctor.schema.json");
 
 export function validateDoctorReportContract(value: unknown, label = "doctor_report"): DoctorReportContract {
   return validateContractSchema(doctorV1Schema, value, label);

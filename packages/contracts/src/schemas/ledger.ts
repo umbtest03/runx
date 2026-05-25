@@ -2,6 +2,7 @@ import { Type, type Static } from "../internal.js";
 import {
   JSON_SCHEMA_DRAFT_2020_12,
   type DeepReadonly,
+  generatedSchema,
   validateContractSchema,
 } from "../internal.js";
 import { artifactEnvelopeSchema } from "./artifact.js";
@@ -27,7 +28,7 @@ export const ledgerChainSchema = Type.Object(
 
 export type LedgerChainContract = DeepReadonly<Static<typeof ledgerChainSchema>>;
 
-export const ledgerRecordSchema = Type.Object(
+const ledgerRecordTypeSchema = Type.Object(
   {
     schema_version: Type.Literal(ledgerRecordSchemaVersion),
     chain: ledgerChainSchema,
@@ -41,7 +42,9 @@ export const ledgerRecordSchema = Type.Object(
   },
 );
 
-export type LedgerRecordContract = DeepReadonly<Static<typeof ledgerRecordSchema>>;
+export type LedgerRecordContract = DeepReadonly<Static<typeof ledgerRecordTypeSchema>>;
+
+export const ledgerRecordSchema = generatedSchema<LedgerRecordContract>("ledger-entry.schema.json");
 
 export function validateLedgerRecordContract(
   value: unknown,

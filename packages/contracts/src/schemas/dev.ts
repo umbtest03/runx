@@ -4,6 +4,7 @@ import {
   RUNX_CONTRACT_IDS,
   RUNX_LOGICAL_SCHEMAS,
   type DeepReadonly,
+  generatedSchema,
   stringEnum,
   unknownRecordSchema,
   validateContractSchema,
@@ -48,7 +49,7 @@ const devFixtureResultSchema = Type.Object(
 export type DevFixtureAssertionContract = DeepReadonly<Static<typeof devFixtureAssertionSchema>>;
 export type DevFixtureResultContract = DeepReadonly<Static<typeof devFixtureResultSchema>>;
 
-export const devV1Schema = Type.Object(
+const devV1TypeSchema = Type.Object(
   {
     schema: Type.Literal(RUNX_LOGICAL_SCHEMAS.dev),
     status: stringEnum(devStatuses),
@@ -66,7 +67,9 @@ export const devV1Schema = Type.Object(
 
 const devContractReferences = [doctorV1Schema] as const;
 
-export type DevReportContract = DeepReadonly<Static<typeof devV1Schema>>;
+export type DevReportContract = DeepReadonly<Static<typeof devV1TypeSchema>>;
+
+export const devV1Schema = generatedSchema<DevReportContract>("dev.schema.json");
 
 export function validateDevReportContract(value: unknown, label = "dev_report"): DevReportContract {
   return validateContractSchema(devV1Schema, value, label, devContractReferences);

@@ -4,6 +4,7 @@ import {
   RUNX_CONTRACT_IDS,
   RUNX_LOGICAL_SCHEMAS,
   type DeepReadonly,
+  generatedSchema,
   stringEnum,
   validateContractSchema,
 } from "../internal.js";
@@ -50,7 +51,7 @@ export const runxListItemSchema = Type.Object(
 
 export type RunxListItemContract = DeepReadonly<Static<typeof runxListItemSchema>>;
 
-export const listV1Schema = Type.Object(
+const listV1TypeSchema = Type.Object(
   {
     schema: Type.Literal(RUNX_LOGICAL_SCHEMAS.list),
     root: Type.String(),
@@ -65,7 +66,9 @@ export const listV1Schema = Type.Object(
   },
 );
 
-export type RunxListReportContract = DeepReadonly<Static<typeof listV1Schema>>;
+export type RunxListReportContract = DeepReadonly<Static<typeof listV1TypeSchema>>;
+
+export const listV1Schema = generatedSchema<RunxListReportContract>("list.schema.json");
 
 export function validateRunxListReportContract(value: unknown, label = "list_report"): RunxListReportContract {
   return validateContractSchema(listV1Schema, value, label);

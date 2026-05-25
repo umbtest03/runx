@@ -4,6 +4,7 @@ import {
   RUNX_CONTRACT_IDS,
   RUNX_LOGICAL_SCHEMAS,
   type DeepReadonly,
+  generatedSchema,
   stringEnum,
   unknownRecordSchema,
 } from "../internal.js";
@@ -12,7 +13,7 @@ const fixtureLanes = ["deterministic", "agent", "repo-integration"] as const;
 
 const fixtureEnvelopeSchema = unknownRecordSchema();
 
-export const fixtureV1Schema = Type.Object(
+const fixtureV1TypeSchema = Type.Object(
   {
     name: Type.String(),
     lane: stringEnum(fixtureLanes),
@@ -33,4 +34,6 @@ export const fixtureV1Schema = Type.Object(
   },
 );
 
-export type FixtureContract = DeepReadonly<Static<typeof fixtureV1Schema>>;
+export type FixtureContract = DeepReadonly<Static<typeof fixtureV1TypeSchema>>;
+
+export const fixtureV1Schema = generatedSchema<FixtureContract>("fixture.schema.json");

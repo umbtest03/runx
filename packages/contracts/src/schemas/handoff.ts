@@ -5,6 +5,7 @@ import {
   RUNX_LOGICAL_SCHEMAS,
   type DeepReadonly,
   dateTimeStringSchema,
+  generatedSchema,
   stringEnum,
   unknownRecordSchema,
   validateContractSchema,
@@ -71,7 +72,7 @@ const handoffEvidenceRefSchema = Type.Object(
   { additionalProperties: false },
 );
 
-export const handoffSignalV1Schema = Type.Object(
+const handoffSignalV1TypeSchema = Type.Object(
   {
     schema: Type.Literal(RUNX_LOGICAL_SCHEMAS.handoffSignal),
     signal_id: Type.String({ minLength: 1 }),
@@ -99,9 +100,13 @@ export const handoffSignalV1Schema = Type.Object(
   },
 );
 
-export type HandoffSignalContract = DeepReadonly<Static<typeof handoffSignalV1Schema>>;
+export type HandoffSignalContract = DeepReadonly<Static<typeof handoffSignalV1TypeSchema>>;
 
-export const handoffStateV1Schema = Type.Object(
+export const handoffSignalV1Schema = generatedSchema<HandoffSignalContract>(
+  "handoff-signal.schema.json",
+);
+
+const handoffStateV1TypeSchema = Type.Object(
   {
     schema: Type.Literal(RUNX_LOGICAL_SCHEMAS.handoffState),
     handoff_id: Type.String({ minLength: 1 }),
@@ -126,9 +131,13 @@ export const handoffStateV1Schema = Type.Object(
   },
 );
 
-export type HandoffStateContract = DeepReadonly<Static<typeof handoffStateV1Schema>>;
+export type HandoffStateContract = DeepReadonly<Static<typeof handoffStateV1TypeSchema>>;
 
-export const suppressionRecordV1Schema = Type.Object(
+export const handoffStateV1Schema = generatedSchema<HandoffStateContract>(
+  "handoff-state.schema.json",
+);
+
+const suppressionRecordV1TypeSchema = Type.Object(
   {
     schema: Type.Literal(RUNX_LOGICAL_SCHEMAS.suppressionRecord),
     record_id: Type.String({ minLength: 1 }),
@@ -148,7 +157,11 @@ export const suppressionRecordV1Schema = Type.Object(
   },
 );
 
-export type SuppressionRecordContract = DeepReadonly<Static<typeof suppressionRecordV1Schema>>;
+export type SuppressionRecordContract = DeepReadonly<Static<typeof suppressionRecordV1TypeSchema>>;
+
+export const suppressionRecordV1Schema = generatedSchema<SuppressionRecordContract>(
+  "suppression-record.schema.json",
+);
 
 export function validateHandoffSignalContract(value: unknown, label = "handoff_signal"): HandoffSignalContract {
   return validateContractSchema(handoffSignalV1Schema, value, label);

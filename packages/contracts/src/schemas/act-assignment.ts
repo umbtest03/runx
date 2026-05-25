@@ -5,6 +5,7 @@ import {
   RUNX_LOGICAL_SCHEMAS,
   type DeepReadonly,
   dateTimeStringSchema,
+  generatedSchema,
   stringEnum,
   unknownRecordSchema,
   validateContractSchema,
@@ -54,7 +55,7 @@ export const actAssignmentIdempotencySchema = Type.Object(
 
 export type ActAssignmentIdempotencyContract = DeepReadonly<Static<typeof actAssignmentIdempotencySchema>>;
 
-export const actAssignmentV1Schema = Type.Object(
+const actAssignmentV1TypeSchema = Type.Object(
   {
     schema: Type.Literal(RUNX_LOGICAL_SCHEMAS.actAssignment),
     skill_ref: Type.String({ minLength: 1 }),
@@ -73,7 +74,11 @@ export const actAssignmentV1Schema = Type.Object(
   },
 );
 
-export type ActAssignmentContract = DeepReadonly<Static<typeof actAssignmentV1Schema>>;
+export type ActAssignmentContract = DeepReadonly<Static<typeof actAssignmentV1TypeSchema>>;
+
+export const actAssignmentV1Schema = generatedSchema<ActAssignmentContract>(
+  "act-assignment.schema.json",
+);
 
 export function validateActAssignmentContract(
   value: unknown,

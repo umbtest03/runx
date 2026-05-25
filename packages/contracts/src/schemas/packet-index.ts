@@ -4,6 +4,7 @@ import {
   RUNX_CONTRACT_IDS,
   RUNX_LOGICAL_SCHEMAS,
   type DeepReadonly,
+  generatedSchema,
 } from "../internal.js";
 
 const packetIndexEntrySchema = Type.Object(
@@ -19,7 +20,7 @@ const packetIndexEntrySchema = Type.Object(
 
 export type PacketIndexEntryContract = DeepReadonly<Static<typeof packetIndexEntrySchema>>;
 
-export const packetIndexV1Schema = Type.Object(
+const packetIndexV1TypeSchema = Type.Object(
   {
     schema: Type.Literal(RUNX_LOGICAL_SCHEMAS.packetIndex),
     packets: Type.Array(packetIndexEntrySchema),
@@ -32,4 +33,6 @@ export const packetIndexV1Schema = Type.Object(
   },
 );
 
-export type PacketIndexContract = DeepReadonly<Static<typeof packetIndexV1Schema>>;
+export type PacketIndexContract = DeepReadonly<Static<typeof packetIndexV1TypeSchema>>;
+
+export const packetIndexV1Schema = generatedSchema<PacketIndexContract>("packet-index.schema.json");

@@ -4,6 +4,7 @@ import {
   RUNX_CONTRACT_IDS,
   RUNX_LOGICAL_SCHEMAS,
   type DeepReadonly,
+  generatedSchema,
   stringEnum,
   unknownRecordSchema,
 } from "../internal.js";
@@ -11,7 +12,7 @@ import { devStatuses } from "./dev.js";
 
 const runSummaryStepSchema = unknownRecordSchema();
 
-export const runSummaryV1Schema = Type.Object(
+const runSummaryV1TypeSchema = Type.Object(
   {
     schema: Type.Literal(RUNX_LOGICAL_SCHEMAS.runSummary),
     run_id: Type.String(),
@@ -34,4 +35,6 @@ export const runSummaryV1Schema = Type.Object(
   },
 );
 
-export type RunSummaryContract = DeepReadonly<Static<typeof runSummaryV1Schema>>;
+export type RunSummaryContract = DeepReadonly<Static<typeof runSummaryV1TypeSchema>>;
+
+export const runSummaryV1Schema = generatedSchema<RunSummaryContract>("run-summary.schema.json");

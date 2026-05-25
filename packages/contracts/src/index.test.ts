@@ -10,20 +10,31 @@ import {
   agentActInvocationSchema,
   approvalGateSchema,
   actReceiptEnvelopeSchema,
+  actAssignmentV1Schema,
   authorityProofSchema,
+  devV1Schema,
+  doctorV1Schema,
+  fixtureV1Schema,
+  handoffSignalV1Schema,
+  handoffStateV1Schema,
+  ledgerRecordSchema,
+  listV1Schema,
   outputSchema,
+  packetIndexV1Schema,
   credentialEnvelopeSchema,
   questionSchema,
   registryBindingSchema,
   reviewReceiptOutputSchema,
   resolutionRequestSchema,
   resolutionResponseSchema,
+  receiptV1Schema,
+  runSummaryV1Schema,
   runxContractSchemas,
   runxAuxiliarySchemas,
   runxGeneratedSchemaArtifacts,
   scopeAdmissionSchema,
+  suppressionRecordV1Schema,
   toolManifestV1Schema,
-  actAssignmentV1Schema,
   contractSchemaMatches,
   validateActReceiptEnvelopeContract,
   validateActContract,
@@ -88,6 +99,18 @@ describe("@runxhq/contracts", () => {
     expect(credentialEnvelopeSchema).toBe(runxContractSchemas.credentialEnvelope);
     expect(scopeAdmissionSchema).toBe(runxContractSchemas.scopeAdmission);
     expect(authorityProofSchema).toBe(runxContractSchemas.authorityProof);
+    expect(receiptV1Schema).toBe(runxContractSchemas.receipt);
+    expect(doctorV1Schema).toBe(runxContractSchemas.doctor);
+    expect(devV1Schema).toBe(runxContractSchemas.dev);
+    expect(listV1Schema).toBe(runxContractSchemas.list);
+    expect(runSummaryV1Schema).toBe(runxContractSchemas.runSummary);
+    expect(fixtureV1Schema).toBe(runxContractSchemas.fixture);
+    expect(packetIndexV1Schema).toBe(runxContractSchemas.packetIndex);
+    expect(actAssignmentV1Schema).toBe(runxContractSchemas.actAssignment);
+    expect(ledgerRecordSchema).toBe(runxContractSchemas.ledgerEntry);
+    expect(handoffSignalV1Schema).toBe(runxContractSchemas.handoffSignal);
+    expect(handoffStateV1Schema).toBe(runxContractSchemas.handoffState);
+    expect(suppressionRecordV1Schema).toBe(runxContractSchemas.suppressionRecord);
   });
 
   it("keeps fixture lanes aligned with authoring plan", () => {

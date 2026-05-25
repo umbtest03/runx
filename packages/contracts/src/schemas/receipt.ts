@@ -5,6 +5,7 @@ import {
   RUNX_LOGICAL_SCHEMAS,
   type DeepReadonly,
   dateTimeStringSchema,
+  generatedSchema,
   stringEnum,
   unknownRecordSchema,
   validateContractSchema,
@@ -197,7 +198,7 @@ export const receiptLineageSchema = Type.Object(
   { additionalProperties: false },
 );
 
-export const receiptV1Schema = Type.Object(
+const receiptV1TypeSchema = Type.Object(
   {
     schema: Type.Literal(RUNX_LOGICAL_SCHEMAS.receipt),
     id: nonEmptyString(),
@@ -228,7 +229,9 @@ export const receiptV1Schema = Type.Object(
   },
 );
 
-export type ReceiptContract = DeepReadonly<Static<typeof receiptV1Schema>>;
+export type ReceiptContract = DeepReadonly<Static<typeof receiptV1TypeSchema>>;
+
+export const receiptV1Schema = generatedSchema<ReceiptContract>("receipt.schema.json");
 
 export function validateReceiptContract(value: unknown, label = "receipt"): ReceiptContract {
   return validateContractSchema(receiptV1Schema, value, label);
