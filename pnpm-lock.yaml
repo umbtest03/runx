@@ -26,9 +26,6 @@ importers:
       '@runxhq/runtime-local':
         specifier: workspace:^0.1.1
         version: link:packages/runtime-local
-      '@sinclair/typebox':
-        specifier: ^0.34.41
-        version: 0.34.49
       '@types/node':
         specifier: ^24.0.0
         version: 24.12.2
