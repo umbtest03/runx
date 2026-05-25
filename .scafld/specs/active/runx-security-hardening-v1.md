@@ -2,9 +2,9 @@
 spec_version: '2.0'
 task_id: runx-security-hardening-v1
 created: '2026-05-22T00:55:00Z'
-updated: '2026-05-22T02:05:00Z'
-status: active
-harden_status: in_progress
+updated: '2026-05-25T17:51:35+10:00'
+status: review
+harden_status: passed
 size: large
 risk_level: high
 ---
@@ -13,21 +13,23 @@ risk_level: high
 
 ## Current State
 
-Status: active
-Current phase: mechanism implementation validated; review pending
-Next: review the R1/R2/R3 mechanism changes with platform-specific sandbox
-coverage where available.
-Reason: C1/C2/C4/C5/C6/C7/R7 are implemented and validated. R1 now has
-backend-gated local OS sandbox enforcement through bubblewrap on Linux and
-sandbox-exec on macOS, fails closed when enforcement is required but unavailable,
-and records declared-policy-only/non-enforcing metadata otherwise. R2 production
-receipt signing is wired through runtime receipt creation paths. R3 payment rail
-proof now requires a configured runtime supervisor and rejects skill claims
-alone. Focused R1/R2/R3 validation and the heavy graph gate are green.
-Blockers: formal review remains; platform-specific sandbox backends should stay
-covered where the host provides bubblewrap or sandbox-exec.
-Allowed follow-up command: `scafld exec runx-security-hardening-v1`
-Latest runner update: 2026-05-22T12:05:00+10:00
+Status: review
+Current phase: omnibus complete; remaining findings split into narrow specs
+Next: review this omnibus for the completed mechanism work, then execute the
+new focused follow-up specs for the remaining trust-boundary gaps.
+Reason: C1/C2/C4/C5/C6/C7/R1/R2/R3/R4/R7/R9/R10/R11/R12 are implemented for
+their current live boundaries. The remaining real issues are no longer a single
+omnibus execution unit: R5 is the skill-asserted output versus
+supervisor-attested facts boundary; R8 is registry publisher trust anchoring;
+R13 is process credential delivery for MCP/external/outbox. These are now
+tracked as fresh narrow specs so this broad hardening ledger stops blocking
+unrelated Rust work.
+Blockers: formal review remains for this omnibus status. Follow-up blockers are
+owned by `skill-output-attestation-boundary-v1`,
+`registry-signed-manifest-trust-anchor-v1`, and
+`process-credential-delivery-hardening-v1`.
+Allowed follow-up command: `scafld review runx-security-hardening-v1`
+Latest runner update: 2026-05-25T17:51:35+10:00
 Review gate: not_started
 
 ## Summary
@@ -132,11 +134,10 @@ exploitable bypass or secret exposure; **Medium** = hardening / defense-in-depth
   rail, counterparty, amount, currency, idempotency key, spend capability, act,
   receipt ref, and receipt digest. Focused payment tests cover the no-supervisor
   and proofless-rail failures.
-- **R4 [High] — secrets via env + post-hoc redaction.** `secret_env` injected
-  into child env (`adapters/cli_tool.rs`); leaks via `/proc/<pid>/environ`,
-  grandchildren, dumps. `redact_text` is substring replacement (encoding-bypass),
-  and with R1 the skill can just exfiltrate over the network. → scoped/short-lived
-  tokens, broker delivery; don't treat redaction as containment.
+- **R4 [High] — DONE for `cli-tool`; residual split to R13.**
+  `CliToolAdapter` rejects process-env credential delivery before spawning.
+  Residual env-based delivery for MCP, external adapters, and outbox providers
+  is the cross-cutting R13 credential-delivery follow-up.
 - **R5 [High] — skill stdout trusted as structured output.** stdout-as-JSON →
   `outputs` feeds receipts and authority fields; attacker-controlled. → separate
   skill-asserted output from supervisor-attested facts.
@@ -150,27 +151,27 @@ exploitable bypass or secret exposure; **Medium** = hardening / defense-in-depth
   reloads the current persisted document under the lock before applying the
   mutation, and writes through the locked state. `payment_state` regression tests
   cover stale stores refusing to overwrite already-recorded idempotency state.
-- **R8 [High, supply chain] — self-asserted install digests.**
+- **R8 [High, supply chain] — split to focused spec.**
   `registry/install.rs::validate_candidate_digest` hashes the candidate's own
   markdown against a digest the candidate supplies → no trust anchor (with R2, no
-  root of trust beyond the `TrustTier` label). → verify against a publisher-signed
-  manifest.
-- **R9 [Medium] — input→env name collisions.** `sandbox.rs::input_env_name` maps
-  non-alphanumerics to `_` + uppercases, so `foo-bar`/`foo.bar`/`foo_bar` collide
-  to `RUNX_INPUT_FOO_BAR`. → reject colliding keys or pass inputs only via JSON.
-- **R10 [Medium] — SSRF in A2A + external-HTTP adapters.** `agent_card_url` and
-  external-adapter `endpoint` are influenceable, no egress allowlist / metadata-IP
-  guard. → block link-local/RFC1918 unless declared; egress allowlist.
-- **R11 [Medium] — timeout kills child, not process group.**
-  `adapters/cli_tool.rs::wait_for_exit` calls `child.kill()`; grandchildren
-  orphan. With R1 (no rlimits) → fork-bomb / disk-fill. → kill process group /
-  job object; apply rlimits.
-- **R12 [Medium] — `created_at` caller-influenced.** Receipt timestamps come from
-  `RuntimeOptions`/env with a fixed fallback → forgeable, no freshness. → stamp
-  at a trusted boundary.
-- **R13 [Medium] — credential delivery channel for external adapters
-  unspecified.** Owned by `external-adapter-plugin-protocol-v1`; flagged as the
-  cross-cutting primitive (cli-tool, external adapter, outbox all need it).
+  root of trust beyond the `TrustTier` label). Follow-up:
+  `registry-signed-manifest-trust-anchor-v1`.
+- **R9 [Medium] — DONE.** `RUNX_INPUT_*` env-name collisions fail closed.
+- **R10 [Medium] — DONE for current live HTTP surfaces.** Runtime HTTP rejects
+  localhost/RFC1918/link-local/metadata hosts and disables redirects. External
+  adapter and outbox HTTP transport are currently rejected; A2A has no live HTTP
+  implementation. Future live A2A HTTP should get its own egress spec.
+- **R11 [Medium] — DONE on Unix process paths.** `cli-tool`, external adapter,
+  and outbox provider create process groups and kill negative PGIDs on timeout.
+  Windows/job-object parity remains a future platform spec if Windows enters
+  support scope.
+- **R12 [Medium] — DONE for live runtime defaults.** `RuntimeOptions::default()`
+  stamps trusted live time, and deterministic harness/parity paths explicitly
+  pin fixture time. Optional API hardening may later make caller-supplied
+  timestamps unrepresentable.
+- **R13 [Medium] — split to focused spec.** External adapter and outbox process
+  credential delivery still need a non-env or strictly constrained channel.
+  Follow-up: `process-credential-delivery-hardening-v1`.
 
 ## Phases
 
