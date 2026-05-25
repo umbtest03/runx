@@ -14,6 +14,8 @@ use runx_runtime::{
     SkillAdapter, SkillInvocation, run_harness_fixture_with_adapter,
 };
 
+const FIXTURE_CREATED_AT: &str = "2026-05-18T00:00:00Z";
+
 #[test]
 fn agent_step_invocation_id_and_envelope_shape() -> Result<(), Box<dyn std::error::Error>> {
     let resolver = RecordingResolver::success(JsonValue::String("done".to_owned()), None);
@@ -288,7 +290,7 @@ expect:
     let replay = run_harness_fixture_with_adapter(
         &fixture_path,
         AgentAdapter::agent(config(), &resolver),
-        RuntimeOptions::default(),
+        fixture_runtime_options(),
     )?;
 
     assert_eq!(replay.status, runx_runtime::HarnessExpectedStatus::Sealed);
@@ -298,6 +300,13 @@ expect:
     assert_eq!(output.status, InvocationStatus::Success);
     assert!(output.stdout.contains("agent replayed"));
     Ok(())
+}
+
+fn fixture_runtime_options() -> RuntimeOptions {
+    RuntimeOptions {
+        created_at: FIXTURE_CREATED_AT.to_owned(),
+        ..RuntimeOptions::default()
+    }
 }
 
 struct RecordingResolver {

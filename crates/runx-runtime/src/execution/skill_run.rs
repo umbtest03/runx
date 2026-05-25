@@ -29,7 +29,6 @@ use crate::receipts::{
     RuntimeReceiptSignatureConfig, StepReceiptWithDisposition,
     step_receipt_with_disposition_and_policy,
 };
-use crate::time::DEFAULT_CREATED_AT;
 
 const SKILL_RUN_SCHEMA: &str = "runx.skill_run.v1";
 
@@ -446,7 +445,7 @@ fn seal_skill_output(
             step_id: &step_id,
             attempt: 1,
             output,
-            created_at: DEFAULT_CREATED_AT,
+            created_at: &crate::time::now_iso8601(),
             disposition,
             reason_code,
             summary,

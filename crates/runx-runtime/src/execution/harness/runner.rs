@@ -90,7 +90,7 @@ pub fn run_harness_fixture(
         run_harness_fixture_with_adapter(
             fixture_path,
             crate::adapters::cli_tool::CliToolAdapter,
-            RuntimeOptions::default(),
+            fixture_runtime_options(),
         )
     }
     #[cfg(not(feature = "cli-tool"))]
@@ -107,8 +107,16 @@ pub fn run_harness_fixture_cli_tool(
     run_harness_fixture_with_adapter(
         fixture_path,
         crate::adapters::cli_tool::CliToolAdapter,
-        RuntimeOptions::default(),
+        fixture_runtime_options(),
     )
+}
+
+#[cfg(feature = "cli-tool")]
+fn fixture_runtime_options() -> RuntimeOptions {
+    RuntimeOptions {
+        created_at: crate::time::DEFAULT_CREATED_AT.to_owned(),
+        ..RuntimeOptions::default()
+    }
 }
 
 pub fn run_harness_fixture_with_adapter<A>(

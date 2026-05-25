@@ -204,7 +204,7 @@ fn execute_mcp_server_graph(
     let runtime = Runtime::new(
         McpServerGraphAdapter,
         RuntimeOptions {
-            created_at: crate::time::DEFAULT_CREATED_AT.to_owned(),
+            created_at: crate::time::now_iso8601(),
             env: execution.env.clone(),
             receipt_signature: RuntimeReceiptSignatureConfig::from_env(&execution.env).map_err(
                 |error| RuntimeError::ReceiptInvalid {
@@ -275,7 +275,7 @@ fn complete_mcp_server_skill(
         &execution.skill.name,
         1,
         &output,
-        crate::time::DEFAULT_CREATED_AT,
+        &crate::time::now_iso8601(),
         signature_config.signature_policy(),
     )?;
     if let Some(receipt_dir) = &execution.receipt_dir {

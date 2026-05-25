@@ -15,6 +15,8 @@ use runx_runtime::{
     SkillAdapter, SkillInvocation,
 };
 
+const FIXTURE_CREATED_AT: &str = "2026-05-18T00:00:00Z";
+
 #[test]
 fn delivery_profile_requires_allowed_binding() -> Result<(), Box<dyn std::error::Error>> {
     let result = CredentialDelivery::from_allowed_binding(
@@ -96,6 +98,25 @@ fn delivery_profile_maps_process_env_contract_profile() -> Result<(), Box<dyn st
         delivery.secret_env().get("GITHUB_TOKEN"),
         Some("ghs_secret_token")
     );
+    Ok(())
+}
+
+#[test]
+fn local_descriptor_observation_uses_live_timestamp() -> Result<(), Box<dyn std::error::Error>> {
+    let delivery = CredentialDelivery::from_local_descriptor(
+        "github",
+        "bearer",
+        "GITHUB_TOKEN",
+        "local://github/main",
+        vec!["repo".to_owned()],
+        "ghs_secret_token",
+    )?;
+    let observation = delivery
+        .public_observation()
+        .ok_or("local descriptor must record public observation")?;
+
+    assert_ne!(observation.observed_at, FIXTURE_CREATED_AT);
+    assert!(observation.observed_at.ends_with('Z'));
     Ok(())
 }
 

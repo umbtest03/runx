@@ -13,6 +13,8 @@ use runx_runtime::{
     parse_harness_fixture, run_harness_fixture_with_adapter,
 };
 
+const FIXTURE_CREATED_AT: &str = "2026-05-18T00:00:00Z";
+
 #[test]
 fn loads_active_harness_fixtures_without_retired_receipt_fields() -> Result<(), HarnessFixtureError>
 {
@@ -402,6 +404,7 @@ fn run_fixture_with_test_adapter(
 
 fn fixture_runtime_options() -> RuntimeOptions {
     RuntimeOptions {
+        created_at: FIXTURE_CREATED_AT.to_owned(),
         payment_supervisor: RuntimePaymentSupervisor::from_supervisor(FixturePaymentSupervisor),
         ..RuntimeOptions::default()
     }

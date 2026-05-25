@@ -1,8 +1,8 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Deterministic fallback timestamp used when no real `created_at` is supplied
-/// (default `RuntimeOptions`, synthetic MCP-server runs). One canonical value so
-/// receipt content stays identical across execution paths.
+/// Deterministic fixture timestamp for harness/parity/oracle callers that must
+/// keep receipt content stable. Live runtime paths should call [`now_iso8601`].
+#[cfg(feature = "cli-tool")]
 pub(crate) const DEFAULT_CREATED_AT: &str = "2026-05-18T00:00:00Z";
 
 pub(crate) fn now_iso8601() -> String {

@@ -7,6 +7,8 @@ use runx_runtime::{
     SkillInvocation, SkillOutput, load_harness_fixture, run_harness_fixture_with_adapter,
 };
 
+const FIXTURE_CREATED_AT: &str = "2026-05-18T00:00:00Z";
+
 #[test]
 fn aster_agent_step_replays_current_rust_bridge_terminal_report()
 -> Result<(), Box<dyn std::error::Error>> {
@@ -93,7 +95,14 @@ fn aster_external_fixture_records_grounded_bridge_sources() -> Result<(), Box<dy
 }
 
 fn run_case() -> Result<HarnessReplayOutput, runx_runtime::HarnessReplayError> {
-    run_harness_fixture_with_adapter(case_path(), NoopAdapter, RuntimeOptions::default())
+    run_harness_fixture_with_adapter(
+        case_path(),
+        NoopAdapter,
+        RuntimeOptions {
+            created_at: FIXTURE_CREATED_AT.to_owned(),
+            ..RuntimeOptions::default()
+        },
+    )
 }
 
 fn skill_payload(output: &HarnessReplayOutput) -> Result<JsonValue, Box<dyn std::error::Error>> {

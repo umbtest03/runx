@@ -17,6 +17,8 @@ use runx_runtime::adapters::mcp::{
 #[cfg(feature = "mcp")]
 use runx_runtime::receipts::store::LocalReceiptStore;
 
+const FIXTURE_CREATED_AT: &str = "2026-05-18T00:00:00Z";
+
 #[test]
 #[cfg(feature = "mcp")]
 fn mcp_server_initializes_lists_and_calls_tools() -> Result<(), Box<dyn std::error::Error>> {
@@ -257,6 +259,7 @@ fn mcp_server_single_skill_call_writes_sealed_receipt() -> Result<(), Box<dyn st
     };
 
     let receipt = LocalReceiptStore::new(receipt_root.path()).read_exact(receipt_id)?;
+    assert_ne!(receipt.created_at, FIXTURE_CREATED_AT);
     assert_eq!(receipt.schema, ReceiptSchema::V1);
     assert_eq!(receipt.seal.disposition, ClosureDisposition::Closed);
     assert_eq!(receipt.id, *receipt_id);

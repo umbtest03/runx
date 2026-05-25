@@ -14,6 +14,8 @@ use runx_runtime::{
     run_harness_fixture_with_adapter,
 };
 
+const FIXTURE_CREATED_AT: &str = "2026-05-18T00:00:00Z";
+
 #[test]
 fn a2a_fixture_transport_submits_completed_task() -> Result<(), Box<dyn std::error::Error>> {
     let mut inputs = JsonObject::new();
@@ -314,7 +316,7 @@ expect:
     let replay = run_harness_fixture_with_adapter(
         &fixture_path,
         A2aAdapter::new(FixtureA2aTransport::new()),
-        RuntimeOptions::default(),
+        fixture_runtime_options(),
     )?;
 
     assert_eq!(replay.status, runx_runtime::HarnessExpectedStatus::Sealed);
@@ -324,6 +326,13 @@ expect:
     assert_eq!(output.status, InvocationStatus::Success);
     assert_eq!(output.stdout, "hello from harness");
     Ok(())
+}
+
+fn fixture_runtime_options() -> RuntimeOptions {
+    RuntimeOptions {
+        created_at: FIXTURE_CREATED_AT.to_owned(),
+        ..RuntimeOptions::default()
+    }
 }
 
 #[derive(Default)]
