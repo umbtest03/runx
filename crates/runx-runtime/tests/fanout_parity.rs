@@ -7,8 +7,10 @@ use runx_contracts::{
 };
 use runx_core::state_machine::{GraphStatus, GraphStepStatus};
 use runx_receipts::validate_receipt_tree;
-use runx_runtime::{Runtime, RuntimeError, RuntimeOptions, run_graph_file};
+use runx_runtime::{Runtime, RuntimeError, RuntimeOptions};
 use serde::Deserialize;
+
+const FIXTURE_CREATED_AT: &str = "2026-05-18T00:00:00Z";
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,7 +76,7 @@ struct ExpectedRetry {
 #[test]
 fn fanout_all_success_runs_group_then_synthesizes() -> Result<(), Box<dyn std::error::Error>> {
     let expected = fixture()?.all_success;
-    let run = run_graph_file(Path::new("../../fixtures/graphs/fanout/all.yaml"))?;
+    let run = run_fixture_graph_file(Path::new("../../fixtures/graphs/fanout/all.yaml"))?;
 
     assert_eq!(run.graph.name, expected.graph);
     assert_eq!(graph_status(&run.state.status), expected.status);
@@ -96,7 +98,7 @@ fn fanout_all_success_runs_group_then_synthesizes() -> Result<(), Box<dyn std::e
 #[test]
 fn fanout_quorum_continue_tolerates_failed_branch() -> Result<(), Box<dyn std::error::Error>> {
     let expected = fixture()?.quorum_continue;
-    let run = run_graph_file(Path::new("../../fixtures/graphs/fanout/graph.yaml"))?;
+    let run = run_fixture_graph_file(Path::new("../../fixtures/graphs/fanout/graph.yaml"))?;
 
     assert_eq!(run.graph.name, expected.graph);
     assert_eq!(graph_status(&run.state.status), expected.status);
@@ -113,10 +115,11 @@ fn fanout_quorum_continue_tolerates_failed_branch() -> Result<(), Box<dyn std::e
 #[test]
 fn fanout_threshold_pause_blocks_followup() -> Result<(), Box<dyn std::error::Error>> {
     let expected = fixture()?.threshold_pause;
-    let error = match run_graph_file(Path::new("../../fixtures/graphs/fanout/threshold.yaml")) {
-        Ok(_) => return Err("threshold fanout should pause".into()),
-        Err(error) => error,
-    };
+    let error =
+        match run_fixture_graph_file(Path::new("../../fixtures/graphs/fanout/threshold.yaml")) {
+            Ok(_) => return Err("threshold fanout should pause".into()),
+            Err(error) => error,
+        };
 
     let RuntimeError::GraphPaused {
         step_id,
@@ -138,7 +141,7 @@ fn fanout_threshold_pause_blocks_followup() -> Result<(), Box<dyn std::error::Er
 
     let runtime = Runtime::new(
         runx_runtime::adapters::cli_tool::CliToolAdapter,
-        RuntimeOptions::default(),
+        fixture_runtime_options(),
     );
     let checkpoint = runtime
         .run_graph_file_until_steps(Path::new("../../fixtures/graphs/fanout/threshold.yaml"), 2)?;
@@ -164,7 +167,7 @@ fn generated_n_branch_partial_failure_uses_sync_point_oracle()
         .graph_path
         .as_deref()
         .ok_or("generated partial-failure fixture is missing graphPath")?;
-    let run = run_graph_file(Path::new(graph_path))?;
+    let run = run_fixture_graph_file(Path::new(graph_path))?;
 
     assert_eq!(run.graph.name, expected.graph);
     assert_eq!(graph_status(&run.state.status), expected.status);
@@ -179,7 +182,7 @@ fn generated_retry_records_attempts_before_halt() -> Result<(), Box<dyn std::err
     let expected = fixture()?.generated.retry;
     let runtime = Runtime::new(
         runx_runtime::adapters::cli_tool::CliToolAdapter,
-        RuntimeOptions::default(),
+        fixture_runtime_options(),
     );
     let checkpoint = runtime.run_graph_file_until_steps(
         Path::new(&expected.graph_path),
@@ -198,7 +201,7 @@ fn generated_retry_records_attempts_before_halt() -> Result<(), Box<dyn std::err
         Some(expected.retry_attempts)
     );
 
-    let error = match run_graph_file(Path::new(&expected.graph_path)) {
+    let error = match run_fixture_graph_file(Path::new(&expected.graph_path)) {
         Ok(_) => return Err("retry fanout should halt after exhausting retry budget".into()),
         Err(error) => error,
     };
@@ -214,7 +217,7 @@ fn generated_retry_records_attempts_before_halt() -> Result<(), Box<dyn std::err
 #[test]
 fn fanout_runtime_error_branch_records_failure_and_continues()
 -> Result<(), Box<dyn std::error::Error>> {
-    let run = run_graph_file(Path::new(
+    let run = run_fixture_graph_file(Path::new(
         "../../fixtures/runtime/fanout/generated/fanout-generated-missing-skill.yaml",
     ))?;
 
@@ -242,6 +245,23 @@ fn fixture() -> Result<FanoutFixture, serde_json::Error> {
     serde_json::from_str(include_str!(
         "../../../fixtures/runtime/fanout/expected.json"
     ))
+}
+
+fn run_fixture_graph_file(
+    graph_path: &Path,
+) -> Result<runx_runtime::GraphRun, runx_runtime::RuntimeError> {
+    Runtime::new(
+        runx_runtime::adapters::cli_tool::CliToolAdapter,
+        fixture_runtime_options(),
+    )
+    .run_graph_file(graph_path)
+}
+
+fn fixture_runtime_options() -> RuntimeOptions {
+    RuntimeOptions {
+        created_at: FIXTURE_CREATED_AT.to_owned(),
+        ..RuntimeOptions::default()
+    }
 }
 
 fn assert_steps(run: &runx_runtime::GraphRun, expected: &[ExpectedStep]) {

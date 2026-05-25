@@ -381,8 +381,8 @@ pub enum CredentialDeliveryError {
 /// Build the non-secret observation that records a local per-run credential
 /// provision on the sealed receipt. It carries no secret material: only the
 /// provider, profile, scoped credential reference, and a hash of the opaque
-/// material ref. The timestamp uses the runtime's deterministic default so
-/// receipts stay reproducible.
+/// material ref. The timestamp is captured at observation time because local
+/// credential provision is a live trust boundary, not a fixture surface.
 fn build_local_provision_observation(
     provider: &str,
     auth_mode: &str,
@@ -413,7 +413,7 @@ fn build_local_provision_observation(
         material_ref_hash: Some(sha256_prefixed(material_ref.as_bytes()).into()),
         delivered_roles: vec![runx_contracts::CredentialMaterialRole::AccessToken],
         redaction_refs: None,
-        observed_at: crate::time::DEFAULT_CREATED_AT.into(),
+        observed_at: crate::time::now_iso8601().into(),
     }
 }
 

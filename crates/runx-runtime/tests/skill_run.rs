@@ -6,9 +6,20 @@ use runx_contracts::JsonValue;
 use runx_runtime::{
     LocalOrchestrator, LocalReceiptStore, RUNX_RECEIPT_DIR_ENV,
     RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_KID_ENV, RunResult,
-    RuntimeReceiptSignatureConfig, SkillRunRequest,
+    RuntimeOptions, RuntimeReceiptSignatureConfig, SkillRunRequest,
 };
 use tempfile::tempdir;
+
+const FIXTURE_CREATED_AT: &str = "2026-05-18T00:00:00Z";
+
+#[test]
+fn runtime_options_default_uses_live_timestamp() {
+    let options = RuntimeOptions::default();
+
+    assert_ne!(options.created_at, FIXTURE_CREATED_AT);
+    assert!(options.created_at.ends_with('Z'));
+    assert!(options.created_at.contains('T'));
+}
 
 #[test]
 fn native_skill_run_pauses_with_agent_act_request() -> Result<(), Box<dyn std::error::Error>> {
@@ -107,6 +118,7 @@ fn native_skill_run_resumes_and_seals_receipt() -> Result<(), Box<dyn std::error
     assert!(receipt_dir.join(format!("{receipt_id}.json")).exists());
 
     let receipt = LocalReceiptStore::new(&receipt_dir).read_exact(receipt_id)?;
+    assert_ne!(receipt.created_at, FIXTURE_CREATED_AT);
     assert_eq!(
         serde_json::to_value(&receipt.schema)?,
         serde_json::json!("runx.receipt.v1")

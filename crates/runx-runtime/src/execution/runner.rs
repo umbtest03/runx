@@ -48,7 +48,7 @@ impl Default for RuntimeOptions {
         let receipt_signature = RuntimeReceiptSignatureConfig::from_env(&env)
             .unwrap_or_else(|_| RuntimeReceiptSignatureConfig::local_development());
         Self {
-            created_at: crate::time::DEFAULT_CREATED_AT.to_owned(),
+            created_at: crate::time::now_iso8601(),
             env,
             receipt_signature,
             payment_supervisor: RuntimePaymentSupervisor::default(),

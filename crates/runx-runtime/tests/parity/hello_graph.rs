@@ -1,7 +1,8 @@
 use std::path::Path;
 
 use runx_core::state_machine::GraphStatus;
-use runx_runtime::run_graph_file;
+use runx_runtime::adapters::cli_tool::CliToolAdapter;
+use runx_runtime::{Runtime, RuntimeOptions};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -24,7 +25,14 @@ fn hello_graph_matches_post_cutover_fixture() -> Result<(), Box<dyn std::error::
     let expected: ExpectedSummary = serde_json::from_str(include_str!(
         "../../../../fixtures/runtime/hello-graph/summary.json"
     ))?;
-    let run = run_graph_file(Path::new("../../examples/hello-graph/graph.yaml"))?;
+    let runtime = Runtime::new(
+        CliToolAdapter,
+        RuntimeOptions {
+            created_at: expected.created_at.clone(),
+            ..RuntimeOptions::default()
+        },
+    );
+    let run = runtime.run_graph_file(Path::new("../../examples/hello-graph/graph.yaml"))?;
 
     assert_eq!(run.graph.name, expected.graph_name);
     assert_eq!(status_name(&run.state.status), expected.state);
