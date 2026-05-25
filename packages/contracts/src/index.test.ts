@@ -16,6 +16,7 @@ import {
   runxContractSchemas,
   runxAuxiliarySchemas,
   runxGeneratedSchemaArtifacts,
+  toolManifestV1Schema,
   actAssignmentV1Schema,
   contractSchemaMatches,
   validateActReceiptEnvelopeContract,
@@ -62,6 +63,9 @@ describe("@runxhq/contracts", () => {
   it("uses durable schema URI ids", () => {
     expect(RUNX_CONTRACT_IDS.toolManifest).toBe("https://schemas.runx.dev/runx/tool/manifest/v1.json");
     expect(runxContractSchemas.toolManifest.$id).toBe(RUNX_CONTRACT_IDS.toolManifest);
+    expect(toolManifestV1Schema).toBe(runxContractSchemas.toolManifest);
+    expect((toolManifestV1Schema.properties as Record<string, unknown>).source).toBeDefined();
+    expect((toolManifestV1Schema.required as readonly string[])).not.toContain("version");
     const devProperties = runxContractSchemas.dev.properties as Record<string, unknown> | undefined;
     expect(devProperties?.doctor).toMatchObject({ $id: RUNX_CONTRACT_IDS.doctor });
   });
