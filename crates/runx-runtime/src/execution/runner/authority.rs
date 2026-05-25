@@ -225,12 +225,17 @@ pub(super) fn enforce_step_authority_admission(
     let consumed_spend_capability_refs =
         consumed_spend_capability_refs_for_admission(&input, env, graph_dir)?;
     let act_id = format!("act_{}", step.id);
-    let admission_error_verb = input
-        .child_authority
-        .verbs
-        .first()
-        .cloned()
-        .unwrap_or(AuthorityVerb::Spend);
+    let admission_error_verb =
+        if authority_term_has_verb(&input.child_authority, AuthorityVerb::Spend) {
+            AuthorityVerb::Spend
+        } else {
+            input
+                .child_authority
+                .verbs
+                .first()
+                .cloned()
+                .unwrap_or(AuthorityVerb::Spend)
+        };
     let decision = admit_step_authority(StepAuthorityAdmission {
         parent_authority: &input.parent_authority,
         child_authority: &input.child_authority,

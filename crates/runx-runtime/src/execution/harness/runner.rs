@@ -36,6 +36,8 @@ use crate::payment::state::{
     FileBackedPaymentStateStore, PaymentIdempotencyKey, PaymentRecoveryState,
     RUNX_PAYMENT_STATE_PATH_ENV, RailMutationStatus,
 };
+#[cfg(feature = "cli-tool")]
+use crate::receipts::RuntimeReceiptSignaturePolicy;
 use crate::receipts::paths::{RUNX_RECEIPT_DIR_ENV, ReceiptPathInputs, resolve_receipt_path};
 use crate::receipts::{
     GraphClosure, StepReceiptWithDisposition, graph_receipt_with_disposition_and_policy,
@@ -90,7 +92,7 @@ pub fn run_harness_fixture(
         run_harness_fixture_with_adapter(
             fixture_path,
             crate::adapters::cli_tool::CliToolAdapter,
-            fixture_runtime_options(),
+            fixture_runtime_options()?,
         )
     }
     #[cfg(not(feature = "cli-tool"))]
@@ -107,16 +109,16 @@ pub fn run_harness_fixture_cli_tool(
     run_harness_fixture_with_adapter(
         fixture_path,
         crate::adapters::cli_tool::CliToolAdapter,
-        fixture_runtime_options(),
+        fixture_runtime_options()?,
     )
 }
 
 #[cfg(feature = "cli-tool")]
-fn fixture_runtime_options() -> RuntimeOptions {
-    RuntimeOptions {
+fn fixture_runtime_options() -> Result<RuntimeOptions, HarnessReplayError> {
+    Ok(RuntimeOptions {
         created_at: crate::time::DEFAULT_CREATED_AT.to_owned(),
-        ..RuntimeOptions::default()
-    }
+        ..RuntimeOptions::from_process_env()?
+    })
 }
 
 pub fn run_harness_fixture_with_adapter<A>(
@@ -274,6 +276,7 @@ fn run_x402_idempotency_sequence_fixture(
                 fixture,
                 first_run,
                 &options.created_at,
+                options.signature_policy(),
                 HarnessExpectedStatus::PolicyDenied,
                 ClosureDisposition::Blocked,
                 "x402_idempotency_capability_reuse_blocked",
@@ -302,6 +305,7 @@ fn run_x402_idempotency_sequence_fixture(
             empty_sequence_error_output(
                 fixture,
                 &options.created_at,
+                options.signature_policy(),
                 HarnessExpectedStatus::Escalated,
                 ClosureDisposition::Deferred,
                 "x402_idempotency_recovery_escalated",
@@ -526,6 +530,7 @@ fn sequence_error_output(
     fixture: &HarnessFixture,
     graph_run: GraphRun,
     created_at: &str,
+    signature_policy: RuntimeReceiptSignaturePolicy<'_>,
     status: HarnessExpectedStatus,
     disposition: ClosureDisposition,
     reason_code: &str,
@@ -536,6 +541,7 @@ fn sequence_error_output(
         fixture,
         &mut steps,
         created_at,
+        signature_policy,
         status,
         disposition,
         reason_code,
@@ -547,6 +553,7 @@ fn sequence_error_output(
 fn empty_sequence_error_output(
     fixture: &HarnessFixture,
     created_at: &str,
+    signature_policy: RuntimeReceiptSignaturePolicy<'_>,
     status: HarnessExpectedStatus,
     disposition: ClosureDisposition,
     reason_code: &str,
@@ -557,6 +564,7 @@ fn empty_sequence_error_output(
         fixture,
         &mut steps,
         created_at,
+        signature_policy,
         status,
         disposition,
         reason_code,
@@ -569,6 +577,7 @@ fn sequence_output_from_steps(
     fixture: &HarnessFixture,
     steps: &mut [StepRun],
     created_at: &str,
+    signature_policy: RuntimeReceiptSignaturePolicy<'_>,
     status: HarnessExpectedStatus,
     disposition: ClosureDisposition,
     reason_code: &str,
@@ -584,7 +593,7 @@ fn sequence_output_from_steps(
             reason_code: reason_code.to_owned(),
             summary: summary.to_owned(),
         },
-        crate::receipts::RuntimeReceiptSignaturePolicy::local_development(),
+        signature_policy,
     )?;
     let step_receipts = steps
         .iter()
@@ -876,6 +885,107 @@ fn disposition_suffix(disposition: &ClosureDisposition) -> &'static str {
         ClosureDisposition::Failed => "failed",
         ClosureDisposition::Killed => "killed",
         ClosureDisposition::TimedOut => "timed_out",
+    }
+}
+
+#[cfg(all(test, feature = "cli-tool"))]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use runx_contracts::ReceiptIssuerType;
+
+    use super::super::fixtures::HarnessExpectation;
+    use super::*;
+    use crate::receipts::{
+        Ed25519ReceiptSigner, Ed25519ReceiptVerifier, RuntimeReceiptSigningError,
+    };
+
+    const CREATED_AT: &str = "2026-05-25T00:00:00Z";
+    const FIXTURE_KID: &str = "runx-harness-sequence-prod-key";
+    const FIXTURE_SEED: [u8; 32] = [0x42; 32];
+
+    #[test]
+    // rust-style-allow: long-function because the test builds a minimal signed
+    // harness sequence so the sequence seal policy is checked without shell fixtures.
+    fn sequence_output_uses_supplied_production_signature_policy() -> Result<(), HarnessReplayError>
+    {
+        let signer =
+            Ed25519ReceiptSigner::from_seed(FIXTURE_KID, ReceiptIssuerType::Local, &FIXTURE_SEED)
+                .map_err(signing_error)?;
+        let verifier = Ed25519ReceiptVerifier::new([signer.production_key()]);
+        let signature_policy =
+            RuntimeReceiptSignaturePolicy::production_signing(&signer, &verifier);
+        let output = SkillOutput {
+            status: InvocationStatus::Success,
+            stdout: r#"{"ok":true}"#.to_owned(),
+            stderr: String::new(),
+            exit_code: Some(0),
+            duration_ms: 1,
+            metadata: JsonObject::new(),
+        };
+        let receipt = step_receipt_with_disposition_and_policy(
+            StepReceiptWithDisposition {
+                graph_name: "x402_sequence",
+                step_id: "fulfill",
+                attempt: 1,
+                output: &output,
+                created_at: CREATED_AT,
+                disposition: ClosureDisposition::Closed,
+                reason_code: "process_closed".to_owned(),
+                summary: "fulfilled".to_owned(),
+            },
+            signature_policy,
+        )?;
+        let receipt_id = receipt.id.to_string();
+        let mut steps = vec![StepRun {
+            step_id: "fulfill".to_owned(),
+            attempt: 1,
+            skill: "fulfill".to_owned(),
+            runner: None,
+            fanout_group: None,
+            output,
+            outputs: JsonObject::new(),
+            receipt,
+            admission_witness: StepAdmissionWitness::local_runtime("fulfill", &receipt_id),
+        }];
+        let fixture = HarnessFixture {
+            name: "x402-sequence".to_owned(),
+            kind: HarnessFixtureKind::Graph,
+            target: String::new(),
+            runner: None,
+            inputs: JsonObject::new(),
+            env: BTreeMap::new(),
+            caller: JsonObject::new(),
+            expect: HarnessExpectation::default(),
+            metadata: JsonObject::new(),
+        };
+
+        let output = sequence_output_from_steps(
+            &fixture,
+            &mut steps,
+            CREATED_AT,
+            signature_policy,
+            HarnessExpectedStatus::PolicyDenied,
+            ClosureDisposition::Blocked,
+            "x402_idempotency_capability_reuse_blocked",
+            "second spend capability use denied before rail",
+        )?;
+
+        assert!(output.receipt.signature.value.starts_with("base64:"));
+        assert!(!output.receipt.signature.value.starts_with("sig:"));
+        assert!(
+            output
+                .step_receipts
+                .iter()
+                .all(|receipt| receipt.signature.value.starts_with("base64:"))
+        );
+        Ok(())
+    }
+
+    fn signing_error(error: RuntimeReceiptSigningError) -> HarnessReplayError {
+        HarnessReplayError::Runtime(RuntimeError::ReceiptInvalid {
+            message: error.to_string(),
+        })
     }
 }
 

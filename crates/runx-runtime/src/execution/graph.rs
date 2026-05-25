@@ -3,10 +3,20 @@ use std::path::{Path, PathBuf};
 
 use runx_contracts::{JsonObject, JsonValue};
 use runx_core::state_machine::{RetryPolicy, SequentialGraphStepDefinition};
-use runx_parser::{ExecutionGraph, GraphStep, ValidatedSkill, parse_graph_yaml, validate_graph};
+use runx_parser::{
+    ExecutionGraph, GraphStep, SkillRunnerDefinition, SkillRunnerManifest, SkillSource,
+    ValidatedSkill, parse_graph_yaml, parse_runner_manifest_yaml, validate_graph,
+    validate_runner_manifest,
+};
 
 use crate::adapter::SkillOutput;
 use crate::{RuntimeError, StepRun};
+
+pub(crate) struct LoadedStepSkill {
+    pub(crate) name: String,
+    pub(crate) source: SkillSource,
+    pub(crate) directory: PathBuf,
+}
 
 pub(crate) fn load_graph(graph_path: &Path) -> Result<ExecutionGraph, RuntimeError> {
     let source = fs::read_to_string(graph_path)
@@ -24,6 +34,81 @@ pub(crate) fn load_skill(skill_dir: &Path) -> Result<ValidatedSkill, RuntimeErro
         .map_err(|source| RuntimeError::io("reading skill markdown", source))?;
     let raw = runx_parser::parse_skill_markdown(&source)?;
     runx_parser::validate_skill(raw).map_err(RuntimeError::from)
+}
+
+pub(crate) fn load_step_skill(
+    graph_dir: &Path,
+    step: &GraphStep,
+) -> Result<LoadedStepSkill, RuntimeError> {
+    let directory = skill_dir(graph_dir, step)?;
+    if let Some(runner) = load_step_runner(&directory, step.runner.as_deref())? {
+        return Ok(LoadedStepSkill {
+            name: runner.name,
+            source: runner.source,
+            directory,
+        });
+    }
+    let skill = load_skill(&directory)?;
+    Ok(LoadedStepSkill {
+        name: skill.name,
+        source: skill.source,
+        directory,
+    })
+}
+
+fn load_step_runner(
+    skill_dir: &Path,
+    requested_runner: Option<&str>,
+) -> Result<Option<SkillRunnerDefinition>, RuntimeError> {
+    let manifest_path = skill_dir.join("X.yaml");
+    if !manifest_path.exists() {
+        if let Some(runner) = requested_runner {
+            return Err(RuntimeError::UnsupportedRunnerSelection {
+                runner: runner.to_owned(),
+            });
+        }
+        return Ok(None);
+    }
+    let source = fs::read_to_string(&manifest_path).map_err(|source| {
+        RuntimeError::io(format!("reading {}", manifest_path.display()), source)
+    })?;
+    let parsed = parse_runner_manifest_yaml(&source).map_err(RuntimeError::from)?;
+    let manifest = validate_runner_manifest(parsed).map_err(RuntimeError::from)?;
+    select_step_runner(&manifest, requested_runner)
+        .cloned()
+        .map(Some)
+}
+
+fn select_step_runner<'a>(
+    manifest: &'a SkillRunnerManifest,
+    requested_runner: Option<&str>,
+) -> Result<&'a SkillRunnerDefinition, RuntimeError> {
+    if let Some(runner) = requested_runner {
+        return manifest.runners.get(runner).ok_or_else(|| {
+            RuntimeError::UnsupportedRunnerSelection {
+                runner: runner.to_owned(),
+            }
+        });
+    }
+    let defaults = manifest
+        .runners
+        .values()
+        .filter(|runner| runner.default)
+        .collect::<Vec<_>>();
+    match defaults.as_slice() {
+        [runner] => Ok(*runner),
+        [] if manifest.runners.len() == 1 => manifest.runners.values().next().ok_or_else(|| {
+            RuntimeError::UnsupportedRunnerSelection {
+                runner: "default".to_owned(),
+            }
+        }),
+        [] => Err(RuntimeError::UnsupportedRunnerSelection {
+            runner: "default".to_owned(),
+        }),
+        _ => Err(RuntimeError::UnsupportedRunnerSelection {
+            runner: "default".to_owned(),
+        }),
+    }
 }
 
 pub(crate) fn step_definitions(graph: &ExecutionGraph) -> Vec<SequentialGraphStepDefinition> {

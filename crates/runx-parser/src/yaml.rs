@@ -87,6 +87,8 @@ fn reject_embedded_colon_key(
     Ok(())
 }
 
+// rust-style-allow: long-function because this quote-aware scanner keeps
+// mapping delimiter detection in one place instead of splitting YAML parsing.
 fn top_level_plain_key(trimmed: &str) -> Option<&str> {
     let bytes = trimmed.as_bytes();
     if bytes
@@ -140,6 +142,8 @@ fn split_plain_mapping_value(content: &str) -> Option<(&str, &str)> {
     Some((key, &trimmed[delimiter_index + 1..]))
 }
 
+// rust-style-allow: long-function because the scalar exemptions and
+// quote-aware colon scanner are one validation rule.
 fn plain_scalar_contains_colon_space(value: &str) -> bool {
     let trimmed = value.trim_start();
     if trimmed.is_empty()

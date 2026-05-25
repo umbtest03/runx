@@ -658,6 +658,40 @@ fn native_graph_skill_run_executes_nested_cli_tool_skill() -> Result<(), Box<dyn
     Ok(())
 }
 
+#[cfg(feature = "cli-tool")]
+#[test]
+fn native_graph_skill_run_executes_nested_x_yaml_runner_skill()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let skill_dir = write_graph_nested_x_yaml_cli_skill(temp.path())?;
+    let receipt_dir = temp.path().join("receipts");
+    let inputs = [(
+        "thread_title".to_owned(),
+        JsonValue::String("Runner manifest bug".to_owned()),
+    )]
+    .into_iter()
+    .collect::<BTreeMap<_, _>>();
+
+    let result = run_skill(SkillRunRequest {
+        skill_path: skill_dir,
+        receipt_dir: Some(receipt_dir),
+        run_id: None,
+        answers_path: None,
+        inputs,
+        env: BTreeMap::new(),
+        cwd: temp.path().to_path_buf(),
+        local_credential: None,
+    })?;
+
+    let output = object(&result.output, "nested X.yaml graph skill result")?;
+    assert_eq!(string_field(output, "status"), Some("sealed"));
+    let payload = object_field(output, "payload").ok_or("missing payload")?;
+    let nested = object_field(payload, "nested").ok_or("missing nested output")?;
+    assert_eq!(string_field(nested, "message"), Some("Runner manifest bug"));
+
+    Ok(())
+}
+
 #[test]
 fn native_skill_run_rejects_partial_continuation_shape() -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
@@ -959,6 +993,63 @@ runners:
       steps:
         - id: nested
           skill: ../child-echo
+          inputs:
+            message: $input.thread_title
+"#,
+    )?;
+    Ok(skill_dir)
+}
+
+#[cfg(feature = "cli-tool")]
+fn write_graph_nested_x_yaml_cli_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let child_dir = root.join("child-x-cli");
+    fs::create_dir_all(&child_dir)?;
+    fs::write(
+        child_dir.join("SKILL.md"),
+        "---\nname: child-x-cli\n---\n# Child X CLI\n",
+    )?;
+    fs::write(
+        child_dir.join("X.yaml"),
+        r#"
+skill: child-x-cli
+runners:
+  child-cli:
+    default: true
+    type: cli-tool
+    command: node
+    args:
+      - run.mjs
+    input_mode: stdin
+"#,
+    )?;
+    fs::write(
+        child_dir.join("run.mjs"),
+        r#"import fs from "node:fs";
+const raw = fs.readFileSync(0, "utf8");
+const input = raw.trim() ? JSON.parse(raw) : {};
+console.log(JSON.stringify({ nested: { message: input.message } }));
+"#,
+    )?;
+
+    let skill_dir = root.join("graph-nested-x-yaml-cli");
+    fs::create_dir_all(&skill_dir)?;
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: graph-nested-x-yaml-cli\n---\n# Graph Nested X YAML CLI\n",
+    )?;
+    fs::write(
+        skill_dir.join("X.yaml"),
+        r#"
+skill: graph-nested-x-yaml-cli
+runners:
+  graph:
+    default: true
+    type: graph
+    graph:
+      name: graph-nested-x-yaml-cli
+      steps:
+        - id: nested
+          skill: ../child-x-cli
           inputs:
             message: $input.thread_title
 "#,

@@ -62,10 +62,11 @@ Return the provided task id.
 
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
+    const receiptDir = path.join(tempDir, "receipts");
     const exitCode = await runCli(
       ["skill", skillDir, "--task-id", "abc-123", "--non-interactive", "--json"],
       { stdin: process.stdin, stdout, stderr },
-      { ...process.env, RUNX_CWD: process.cwd() },
+      { ...process.env, RUNX_CWD: process.cwd(), RUNX_RECEIPT_DIR: receiptDir },
     );
 
     expect(exitCode).toBe(0);
@@ -304,20 +305,29 @@ Return the provided task id.
     expect(stderr.contents()).toContain("runx skill <skill-ref|skill-dir|SKILL.md>");
   });
 
-  it("does not fall back to TS graph execution for sourcey", async () => {
+  it("routes sourcey through the native graph runner without TS fallback", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-sourcey-native-"));
+    tempDirs.push(tempDir);
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
 
     const exitCode = await runCli(
-      ["skill", "skills/sourcey"],
+      ["skill", "skills/sourcey", "--json"],
       { stdin: process.stdin, stdout, stderr },
-      { ...process.env, RUNX_CWD: process.cwd() },
+      { ...process.env, RUNX_CWD: process.cwd(), RUNX_RECEIPT_DIR: tempDir },
     );
 
-    expect(exitCode).toBe(1);
-    expect(stdout.contents()).toBe("");
-    expect(stderr.contents()).toContain("native runx skill");
-    expect(stderr.contents()).toContain("native execution only supports agent, agent-step, and cli-tool runners, got graph");
+    expect(exitCode).toBe(2);
+    expect(stderr.contents()).toBe("");
+    expect(JSON.parse(stdout.contents())).toMatchObject({
+      status: "needs_agent",
+      requests: [
+        {
+          id: "agent_step.sourcey-discover.output",
+          kind: "agent_act",
+        },
+      ],
+    });
   });
 
   it("keeps native needs-agent --json output machine-readable without progress lines", async () => {
@@ -364,13 +374,15 @@ Return the provided task id.
   });
 
   it("renders a sealed summary for simple skill runs", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-sealed-summary-"));
+    tempDirs.push(tempDir);
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
 
     const exitCode = await runCli(
       ["skill", "fixtures/skills/echo", "--message", "hello"],
       { stdin: process.stdin, stdout, stderr },
-      { ...process.env, RUNX_CWD: process.cwd() },
+      { ...process.env, RUNX_CWD: process.cwd(), RUNX_RECEIPT_DIR: path.join(tempDir, "receipts") },
     );
 
     expect(exitCode).toBe(0);
@@ -1133,7 +1145,7 @@ Answer the prompt directly.
     expect(stderr.contents()).toContain("Flat markdown files are not supported");
   });
 
-  it("surfaces native graph runner cutover instead of continuing sourcey through TS", async () => {
+  it("surfaces native graph runner needs-agent output instead of continuing sourcey through TS", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-continuation-"));
     tempDirs.push(tempDir);
     const stdout = createMemoryStream();
@@ -1145,9 +1157,17 @@ Answer the prompt directly.
       { ...process.env, RUNX_CWD: process.cwd(), RUNX_RECEIPT_DIR: tempDir },
     );
 
-    expect(firstExit).toBe(1);
-    expect(stdout.contents()).toBe("");
-    expect(stderr.contents()).toContain("native execution only supports agent, agent-step, and cli-tool runners, got graph");
+    expect(firstExit).toBe(2);
+    expect(stderr.contents()).toBe("");
+    expect(JSON.parse(stdout.contents())).toMatchObject({
+      status: "needs_agent",
+      requests: [
+        {
+          id: "agent_step.sourcey-discover.output",
+          kind: "agent_act",
+        },
+      ],
+    });
   });
 
 });

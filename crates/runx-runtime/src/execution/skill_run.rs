@@ -125,6 +125,8 @@ fn execute_agent_skill_run(
     )))
 }
 
+// rust-style-allow: long-function because graph-backed skill execution keeps
+// checkpoint hydration, host resolution, and final receipt sealing in one path.
 fn execute_graph_skill_run(
     request: &SkillRunRequest,
     signature_config: &RuntimeReceiptSignatureConfig,

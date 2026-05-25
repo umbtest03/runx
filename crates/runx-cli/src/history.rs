@@ -325,6 +325,9 @@ mod tests {
     use std::io;
 
     use super::*;
+    use runx_contracts::ReceiptIssuerType;
+    use runx_runtime::receipts::step_receipt_with_signature_policy;
+    use runx_runtime::{Ed25519ReceiptSigner, InvocationStatus, RuntimeError, SkillOutput};
 
     #[test]
     fn parses_history_args_without_comparing_against_runtime_constants() -> Result<(), io::Error> {
@@ -422,6 +425,57 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn history_json_reports_production_verified_receipts_when_verifier_env_is_configured()
+    -> Result<(), io::Error> {
+        let temp = tempfile_dir()?;
+        let receipt_dir = temp.join("receipts");
+        let signer = fixture_signer().map_err(|error| io::Error::other(error.to_string()))?;
+        let receipt = production_signed_receipt(&signer)
+            .map_err(|error| io::Error::other(error.to_string()))?;
+        let store = LocalReceiptStore::new(&receipt_dir);
+        let verifier = Ed25519ReceiptVerifier::new([signer.production_key()]);
+        store
+            .write_receipt_with_policy(
+                &receipt,
+                RuntimeReceiptSignaturePolicy::production(&verifier),
+            )
+            .map_err(|error| io::Error::other(error.to_string()))?;
+
+        let mut env = BTreeMap::new();
+        env.insert("RUNX_CWD".to_owned(), temp.to_string_lossy().to_string());
+        env.insert(
+            RUNX_RECEIPT_VERIFY_KID_ENV.to_owned(),
+            FIXTURE_KID.to_owned(),
+        );
+        env.insert(
+            RUNX_RECEIPT_VERIFY_ED25519_PUBLIC_KEY_BASE64_ENV.to_owned(),
+            base64_standard(signer.public_key()),
+        );
+
+        let result = run_history_command(
+            &[
+                "history".into(),
+                receipt.id.to_string().into(),
+                "--receipt-dir".into(),
+                receipt_dir.into_os_string(),
+                "--json".into(),
+            ],
+            &env,
+            &temp,
+        )
+        .map_err(|error| io::Error::other(error.to_string()))?;
+        let output: HistoryOutput = serde_json::from_str(&result.output)
+            .map_err(|error| io::Error::other(error.to_string()))?;
+        let first_receipt = output.receipts.first().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::InvalidData, "history output has no receipt")
+        })?;
+
+        assert_eq!(first_receipt.id, receipt.id.to_string());
+        assert_eq!(first_receipt.verification.status, "verified");
+        Ok(())
+    }
+
     #[derive(serde::Deserialize)]
     struct CliParityOracle {
         cases: Vec<CliParityCase>,
@@ -448,7 +502,19 @@ mod tests {
     #[derive(serde::Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct HistoryOutput {
+        receipts: Vec<HistoryReceipt>,
         pending_runs: Vec<HistoryPendingRun>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct HistoryReceipt {
+        id: String,
+        verification: HistoryReceiptVerification,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct HistoryReceiptVerification {
+        status: String,
     }
 
     #[derive(serde::Deserialize)]
@@ -470,5 +536,61 @@ mod tests {
         ));
         fs::create_dir_all(&path)?;
         Ok(path)
+    }
+
+    const FIXTURE_KID: &str = "runx-cli-prod-history-fixture-key";
+    const FIXTURE_SEED: [u8; 32] = [0x42; 32];
+
+    fn fixture_signer() -> Result<Ed25519ReceiptSigner, runx_runtime::RuntimeReceiptSigningError> {
+        Ed25519ReceiptSigner::from_seed(FIXTURE_KID, ReceiptIssuerType::Local, &FIXTURE_SEED)
+    }
+
+    fn production_signed_receipt(
+        signer: &Ed25519ReceiptSigner,
+    ) -> Result<runx_contracts::Receipt, RuntimeError> {
+        let verifier = Ed25519ReceiptVerifier::new([signer.production_key()]);
+        let output = SkillOutput {
+            status: InvocationStatus::Success,
+            stdout:
+                r#"{"artifact":{"artifact_id":"artifact_cli_history","artifact_type":"artifact"}}"#
+                    .to_owned(),
+            stderr: String::new(),
+            exit_code: Some(0),
+            duration_ms: 10,
+            metadata: BTreeMap::new(),
+        };
+        step_receipt_with_signature_policy(
+            "cli-history",
+            "production-verified",
+            1,
+            &output,
+            "2026-05-25T00:00:00Z",
+            RuntimeReceiptSignaturePolicy::production_signing(signer, &verifier),
+        )
+    }
+
+    fn base64_standard(bytes: &[u8]) -> String {
+        const TABLE: &[u8; 64] =
+            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
+        for chunk in bytes.chunks(3) {
+            let first = chunk[0];
+            let second = chunk.get(1).copied().unwrap_or(0);
+            let third = chunk.get(2).copied().unwrap_or(0);
+            let combined = ((first as u32) << 16) | ((second as u32) << 8) | third as u32;
+            encoded.push(TABLE[((combined >> 18) & 0x3f) as usize] as char);
+            encoded.push(TABLE[((combined >> 12) & 0x3f) as usize] as char);
+            if chunk.len() > 1 {
+                encoded.push(TABLE[((combined >> 6) & 0x3f) as usize] as char);
+            } else {
+                encoded.push('=');
+            }
+            if chunk.len() > 2 {
+                encoded.push(TABLE[(combined & 0x3f) as usize] as char);
+            } else {
+                encoded.push('=');
+            }
+        }
+        encoded
     }
 }

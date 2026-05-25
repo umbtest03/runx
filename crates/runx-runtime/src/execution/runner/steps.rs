@@ -10,7 +10,7 @@ use runx_contracts::{
 use runx_core::state_machine::StepAdmissionWitness;
 use runx_parser::{GraphStep, SkillSource, SourceKind};
 
-use super::super::graph::{load_skill, output_object, resolve_inputs, skill_dir};
+use super::super::graph::{load_step_skill, output_object, resolve_inputs};
 use super::authority::{
     StepPaymentReplay, attach_payment_supervisor_evidence_before_gate, authority_denied,
     enforce_step_authority_admission, enforce_step_authority_receipt_before_success,
@@ -78,15 +78,14 @@ where
         return run_tool_step(runtime, graph_dir, graph_name, step, attempt, inputs);
     }
 
-    let skill_dir = skill_dir(graph_dir, step)?;
-    let skill = load_skill(&skill_dir)?;
+    let skill = load_step_skill(graph_dir, step)?;
     let skill_name = skill.name.clone();
     let invocation = SkillInvocation {
         skill_name: skill.name,
         source: skill.source,
         inputs,
         resolved_inputs: JsonObject::new(),
-        skill_directory: skill_dir,
+        skill_directory: skill.directory,
         env: runtime.options.env.clone(),
         credential_delivery: crate::credentials::CredentialDelivery::none(),
     };
@@ -268,8 +267,7 @@ fn run_replayed_payment_step(
     attempt: u32,
     replay: StepPaymentReplay,
 ) -> Result<StepRun, RuntimeError> {
-    let skill_dir = skill_dir(graph_dir, step)?;
-    let skill = load_skill(&skill_dir)?;
+    let skill = load_step_skill(graph_dir, step)?;
     let skill_name = skill.name.clone();
     let output = replay_skill_output(step, &replay.outputs)?;
     if !output.succeeded() {
@@ -440,6 +438,8 @@ where
     }
 }
 
+// rust-style-allow: long-function because agent-step execution is one
+// request/resolve/seal trust-boundary path.
 fn run_agent_step<A>(
     runtime: &Runtime<A>,
     graph_dir: &Path,
@@ -622,6 +622,8 @@ fn agent_step_source(step: &GraphStep) -> Result<SkillSource, RuntimeError> {
     })
 }
 
+// rust-style-allow: long-function because tool execution keeps lookup,
+// invocation, and receipt sealing in one audited boundary.
 fn run_tool_step<A>(
     runtime: &Runtime<A>,
     graph_dir: &Path,

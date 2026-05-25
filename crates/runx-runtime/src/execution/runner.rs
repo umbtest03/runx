@@ -1,3 +1,5 @@
+// rust-style-allow: large-file because RuntimeOptions, checkpoint resume, and
+// the public graph runner surface are still audited as one Rust cutover unit.
 //! Native runtime engine for runx graphs.
 //!
 //! The public surface lives here: [`Runtime`], [`RuntimeOptions`], [`StepRun`],
@@ -46,19 +48,40 @@ pub struct RuntimeOptions {
 
 impl Default for RuntimeOptions {
     fn default() -> Self {
-        let env = safe_default_env();
-        let receipt_signature = RuntimeReceiptSignatureConfig::from_env(&env)
-            .unwrap_or_else(|_| RuntimeReceiptSignatureConfig::local_development());
-        Self {
-            created_at: crate::time::now_iso8601(),
-            env,
-            receipt_signature,
-            payment_supervisor: RuntimePaymentSupervisor::default(),
-        }
+        Self::local_development()
     }
 }
 
 impl RuntimeOptions {
+    #[must_use]
+    pub fn local_development() -> Self {
+        let env = safe_default_env();
+        Self {
+            created_at: crate::time::now_iso8601(),
+            env,
+            receipt_signature: RuntimeReceiptSignatureConfig::local_development(),
+            payment_supervisor: RuntimePaymentSupervisor::default(),
+        }
+    }
+
+    pub fn from_process_env() -> Result<Self, RuntimeError> {
+        Self::from_env(safe_default_env())
+    }
+
+    pub fn from_env(env: BTreeMap<String, String>) -> Result<Self, RuntimeError> {
+        let receipt_signature = RuntimeReceiptSignatureConfig::from_env(&env).map_err(|error| {
+            RuntimeError::ReceiptInvalid {
+                message: error.to_string(),
+            }
+        })?;
+        Ok(Self {
+            created_at: crate::time::now_iso8601(),
+            env,
+            receipt_signature,
+            payment_supervisor: RuntimePaymentSupervisor::default(),
+        })
+    }
+
     #[must_use]
     pub fn signature_policy(&self) -> RuntimeReceiptSignaturePolicy<'_> {
         self.receipt_signature.signature_policy()
@@ -327,7 +350,7 @@ where
 pub fn run_graph_file(graph_path: impl AsRef<Path>) -> Result<GraphRun, RuntimeError> {
     let runtime = Runtime::new(
         crate::adapters::cli_tool::CliToolAdapter,
-        RuntimeOptions::default(),
+        RuntimeOptions::from_process_env()?,
     );
     runtime.run_graph_file(graph_path.as_ref())
 }
@@ -335,8 +358,10 @@ pub fn run_graph_file(graph_path: impl AsRef<Path>) -> Result<GraphRun, RuntimeE
 #[cfg(test)]
 mod tests {
     use super::{
-        RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_KID_ENV, safe_default_env_from,
+        RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_KID_ENV, RuntimeOptions,
+        safe_default_env_from,
     };
+    use std::collections::BTreeMap;
 
     #[test]
     fn safe_default_env_preserves_receipt_signing_inputs() {
@@ -353,6 +378,40 @@ mod tests {
         assert_eq!(
             env.get(RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV),
             Some(&"seed".to_owned())
+        );
+    }
+
+    #[test]
+    fn runtime_options_reject_incomplete_production_signing_env() {
+        let env = [(RUNX_RECEIPT_SIGN_KID_ENV.to_owned(), "kid_prod".to_owned())]
+            .into_iter()
+            .collect::<BTreeMap<_, _>>();
+
+        let error = RuntimeOptions::from_env(env).expect_err("incomplete signing env must fail");
+        assert!(
+            error
+                .to_string()
+                .contains("production receipt signing requires")
+        );
+    }
+
+    #[test]
+    fn runtime_options_reject_malformed_production_signing_seed() {
+        let env = [
+            (RUNX_RECEIPT_SIGN_KID_ENV.to_owned(), "kid_prod".to_owned()),
+            (
+                RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV.to_owned(),
+                "not-base64".to_owned(),
+            ),
+        ]
+        .into_iter()
+        .collect::<BTreeMap<_, _>>();
+
+        let error = RuntimeOptions::from_env(env).expect_err("malformed signing env must fail");
+        assert!(
+            error
+                .to_string()
+                .contains("production receipt signer key material is malformed")
         );
     }
 }

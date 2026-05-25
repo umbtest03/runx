@@ -42,9 +42,12 @@ Use the id from the previous command as a history query:
 crates/target/debug/runx history <receipt-id> --json
 ```
 
-The history projection should show a verified `runx.harness_receipt.v1` receipt.
-That receipt is the durable evidence that runx executed the skill, recorded the
-input shape, and captured the output without relying on prose claims.
+The history projection should show a `runx.harness_receipt.v1` receipt. In
+local development that receipt is structurally checked but not
+production-verified, because the default deterministic pseudo signature is only
+for stable local fixtures. It is still durable evidence that runx executed the
+skill, recorded the input shape, and captured the output without relying on
+prose claims.
 
 ## Production Receipt Signing
 
@@ -59,8 +62,8 @@ export RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64="<32-byte-ed25519-seed-base64>"
 
 Both variables must be set together. When configured, the runtime signs each
 receipt body digest with Ed25519 and writes the matching public key hash in the
-issuer metadata. To inspect those receipts as production-verified, provide the
-public verification key to `runx history`:
+issuer metadata. To have `runx history` report those receipts as
+production-verified, provide the public verification key to the same command:
 
 ```bash
 export RUNX_RECEIPT_VERIFY_KID="local-prod-key"
