@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: rust-receipt-fixture-single-source
 created: '2026-05-24T00:00:00Z'
-updated: '2026-05-24T00:00:00Z'
-status: draft
+updated: '2026-05-25T16:51:19+10:00'
+status: completed
 harden_status: not_run
 size: medium
 risk_level: medium
@@ -13,10 +13,9 @@ risk_level: medium
 
 ## Current State
 
-Status: draft
-Current phase: implemented and fixture-check validated
-Next: keep `fixtures:harness:check` in the fast/CI gate while the broader
-runtime cutover lands.
+Status: completed
+Current phase: final
+Next: done
 Reason: `scripts/generate-rust-harness-fixtures.ts` now delegates to the Rust
 `runx-harness-fixture-oracles` binary (or builds/runs it through Cargo) instead
 of importing `canonicalJsonStringify` / `sha256Prefixed` and recomputing receipt
@@ -25,6 +24,9 @@ and the fast gate prebuilds/passes `RUNX_HARNESS_FIXTURE_ORACLE_BIN`. The
 fixture check passed, and this pass found no `fixtures/harness` digest/oracle
 diff.
 Blockers: none for this fixture single-source slice.
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-25T16:51:19+10:00
+Review gate: pass
 
 ## Summary
 

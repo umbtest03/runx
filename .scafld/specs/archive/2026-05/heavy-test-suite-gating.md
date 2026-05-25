@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: heavy-test-suite-gating
 created: '2026-05-24T00:00:00Z'
-updated: '2026-05-24T00:00:00Z'
-status: draft
+updated: '2026-05-25T16:51:19+10:00'
+status: completed
 harden_status: not_run
 size: small
 risk_level: low
@@ -13,9 +13,9 @@ risk_level: low
 
 ## Current State
 
-Status: draft
-Current phase: implemented and two-run heavy evidence recorded
-Next: keep the heavy graph and workspace cargo gates enforced in CI.
+Status: completed
+Current phase: final
+Next: done
 Reason: `scripts/verify-fast.mjs` now builds the Rust CLI and harness fixture
 oracle once, exports `RUNX_KERNEL_EVAL_BIN` / `RUNX_PARSER_EVAL_BIN` /
 `RUNX_RUST_CLI_BIN` / `RUNX_HARNESS_FIXTURE_ORACLE_BIN`, and includes
@@ -23,6 +23,9 @@ oracle once, exports `RUNX_KERNEL_EVAL_BIN` / `RUNX_PARSER_EVAL_BIN` /
 `cargo test --workspace --all-features`. Two consecutive heavy graph runs are
 recorded green after the eval-binary/oracle provisioning fix.
 Blockers: none for this gating slice.
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-25T16:51:19+10:00
+Review gate: pass
 
 ## Summary
 

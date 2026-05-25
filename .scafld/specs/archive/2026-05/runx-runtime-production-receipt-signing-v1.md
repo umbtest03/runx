@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: runx-runtime-production-receipt-signing-v1
 created: '2026-05-22T12:04:12+10:00'
-updated: '2026-05-22T12:04:12+10:00'
-status: draft
+updated: '2026-05-25T16:51:19+10:00'
+status: completed
 harden_status: not_run
 size: large
 risk_level: high
@@ -13,9 +13,9 @@ risk_level: high
 
 ## Current State
 
-Status: implemented
-Current phase: implementation complete, validation green
-Next: submit for review when the wider Rust rewrite batch is ready.
+Status: completed
+Current phase: final
+Next: done
 Reason: R2 from `runx-security-hardening-v1`. The signing/verification spine is
 landed and green; live runtime receipt-build sites now use a
 `RuntimeReceiptSignatureConfig` resolved from `RUNX_RECEIPT_SIGN_*` env, falling
@@ -38,11 +38,11 @@ Done (green, 2026-05-25):
 - dod8 docs: `docs/getting-started.md` documents production signing and history
   verification env.
 Blockers: none. Signer/verifier boundary settled (see Settled Architecture).
-Allowed follow-up command: `scafld harden runx-runtime-production-receipt-signing-v1`
+Allowed follow-up command: `none`
 Latest runner update: 2026-05-25 live runtime production-signing wiring landed;
 focused compile, signing, skill-run, receipt, history, format, and lint tests
 passed.
-Review gate: not_started
+Review gate: pass
 
 ## Settled Architecture
 

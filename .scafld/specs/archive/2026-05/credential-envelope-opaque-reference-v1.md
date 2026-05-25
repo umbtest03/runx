@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: credential-envelope-opaque-reference-v1
 created: '2026-05-22T03:18:00+10:00'
-updated: '2026-05-22T03:18:00+10:00'
-status: draft
+updated: '2026-05-25T16:51:19+10:00'
+status: completed
 harden_status: not_run
 size: medium
 risk_level: high
@@ -13,9 +13,9 @@ risk_level: high
 
 ## Current State
 
-Status: implemented
-Current phase: contract migration and boundary cleanup validated
-Next: keep the boundary guard in the normal validation profile.
+Status: completed
+Current phase: final
+Next: done
 Reason: Credential envelope and authority-proof contracts now use
 `provider_reference`, generated schemas require it, Rust and TypeScript contract
 tests reject the legacy `connection_id` wire key, and fixtures use
@@ -23,9 +23,9 @@ tests reject the legacy `connection_id` wire key, and fixtures use
 as a banned/guarded identifier and inventory term, not as an allowlist entry for
 retained MIT source.
 Blockers: none for this clean contract cutover.
-Allowed follow-up command: `scafld harden credential-envelope-opaque-reference-v1`
-Latest runner update: 2026-05-22T03:18:00+10:00
-Review gate: not_started
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-25T16:51:19+10:00
+Review gate: pass
 
 ## Summary
 
