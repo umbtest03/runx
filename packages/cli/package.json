@@ -36,13 +36,6 @@
       "nativePackagePattern": "@runxhq/cli-${platform}"
     }
   },
-  "optionalDependencies": {
-    "@runxhq/cli-darwin-arm64": "0.5.22",
-    "@runxhq/cli-darwin-x64": "0.5.22",
-    "@runxhq/cli-linux-arm64": "0.5.22",
-    "@runxhq/cli-linux-x64": "0.5.22",
-    "@runxhq/cli-win32-x64": "0.5.22"
-  },
   "devDependencies": {
     "yaml": "^2.8.3"
   },
