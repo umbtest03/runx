@@ -71,7 +71,7 @@ fn native_cli_smoke_runs_without_node_or_typescript_env() -> Result<(), Box<dyn 
     let harness = native_command()?
         .args([
             "harness",
-            "fixtures/harness/payment-approval-graph.yaml",
+            "fixtures/harness/sequential-graph.yaml",
             "--json",
         ])
         .output()?;

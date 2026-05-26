@@ -34,8 +34,7 @@ allow = [
 ]
 confidence-threshold = 0.8
 exceptions = [
-  { name = "aws-lc-rs", version = "=1.17.0", allow = ["ISC"] },
-  { name = "aws-lc-sys", version = "=0.41.0", allow = ["ISC", "MIT-0"] },
+  { name = "ring", version = "=0.17.14", allow = ["ISC"] },
   { name = "rustls-webpki", version = "=0.103.13", allow = ["ISC"] },
   { name = "untrusted", version = "=0.9.0", allow = ["ISC"] },
   { name = "webpki-root-certs", version = "=1.0.7", allow = ["CDLA-Permissive-2.0"] },

@@ -153,7 +153,7 @@ pub fn verify_registry_signed_manifest(
         return Err(RegistryManifestVerificationFailure::UnsupportedAlgorithm);
     }
     let key = trusted_keys
-        .into_iter()
+        .iter()
         .find(|key| key.key_id == manifest.signer.key_id)
         .ok_or(RegistryManifestVerificationFailure::UnknownKey)?;
     if key.public_key.len() != 32 {

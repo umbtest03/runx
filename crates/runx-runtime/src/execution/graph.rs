@@ -163,6 +163,10 @@ pub(crate) fn resolve_inputs(
 pub(crate) fn output_object(output: &SkillOutput) -> JsonObject {
     let mut object = JsonObject::new();
     if let Ok(parsed) = serde_json::from_str::<JsonValue>(&output.stdout) {
+        if let JsonValue::Object(fields) = &parsed {
+            object.extend(fields.clone());
+            object.insert("raw".to_owned(), JsonValue::String(output.stdout.clone()));
+        }
         object.insert("skill_claim".to_owned(), parsed);
     }
     object.insert(

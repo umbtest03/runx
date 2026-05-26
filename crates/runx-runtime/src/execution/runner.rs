@@ -382,21 +382,24 @@ mod tests {
     }
 
     #[test]
-    fn runtime_options_reject_incomplete_production_signing_env() {
+    fn runtime_options_reject_incomplete_production_signing_env() -> Result<(), String> {
         let env = [(RUNX_RECEIPT_SIGN_KID_ENV.to_owned(), "kid_prod".to_owned())]
             .into_iter()
             .collect::<BTreeMap<_, _>>();
 
-        let error = RuntimeOptions::from_env(env).expect_err("incomplete signing env must fail");
+        let error = RuntimeOptions::from_env(env)
+            .err()
+            .ok_or_else(|| "incomplete signing env unexpectedly succeeded".to_owned())?;
         assert!(
             error
                 .to_string()
                 .contains("production receipt signing requires")
         );
+        Ok(())
     }
 
     #[test]
-    fn runtime_options_reject_malformed_production_signing_seed() {
+    fn runtime_options_reject_malformed_production_signing_seed() -> Result<(), String> {
         let env = [
             (RUNX_RECEIPT_SIGN_KID_ENV.to_owned(), "kid_prod".to_owned()),
             (
@@ -407,11 +410,14 @@ mod tests {
         .into_iter()
         .collect::<BTreeMap<_, _>>();
 
-        let error = RuntimeOptions::from_env(env).expect_err("malformed signing env must fail");
+        let error = RuntimeOptions::from_env(env)
+            .err()
+            .ok_or_else(|| "malformed signing env unexpectedly succeeded".to_owned())?;
         assert!(
             error
                 .to_string()
                 .contains("production receipt signer key material is malformed")
         );
+        Ok(())
     }
 }

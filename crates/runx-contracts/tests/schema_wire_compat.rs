@@ -2225,8 +2225,14 @@ fn fingerprint() -> Value {
 }
 
 fn drop_field(mut value: Value, field: &str) -> Value {
-    value.as_object_mut().unwrap().remove(field);
+    remove_field(&mut value, field);
     value
+}
+
+fn remove_field(value: &mut Value, field: &str) {
+    if let Some(object) = value.as_object_mut() {
+        object.remove(field);
+    }
 }
 
 fn set_field(mut value: Value, field: &str, replacement: Value) -> Value {
@@ -3593,12 +3599,12 @@ fn decision_corpus() -> Vec<(&'static str, Value)> {
         }),
         ("missing required-but-nullable selected_act_id", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("selected_act_id");
+            remove_field(&mut v, "selected_act_id");
             v
         }),
         ("missing required-but-nullable closure", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("closure");
+            remove_field(&mut v, "closure");
             v
         }),
         ("missing required inputs.target_ref", {
@@ -3682,17 +3688,17 @@ fn verification_corpus() -> Vec<(&'static str, Value)> {
         ),
         ("missing status", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("status");
+            remove_field(&mut v, "status");
             v
         }),
         ("missing checks", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("checks");
+            remove_field(&mut v, "checks");
             v
         }),
         ("missing evidence_refs", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("evidence_refs");
+            remove_field(&mut v, "evidence_refs");
             v
         }),
         ("unknown status variant", {
@@ -3763,22 +3769,22 @@ fn signal_corpus() -> Vec<(&'static str, Value)> {
         ("full valid", full),
         ("missing schema", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("schema");
+            remove_field(&mut v, "schema");
             v
         }),
         ("missing signal_id", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("signal_id");
+            remove_field(&mut v, "signal_id");
             v
         }),
         ("missing signal_type", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("signal_type");
+            remove_field(&mut v, "signal_type");
             v
         }),
         ("missing title", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("title");
+            remove_field(&mut v, "title");
             v
         }),
         ("empty signal_id", {
@@ -3839,12 +3845,12 @@ fn external_adapter_response_corpus() -> Vec<(&'static str, Value)> {
         ("full valid", full),
         ("missing status", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("status");
+            remove_field(&mut v, "status");
             v
         }),
         ("missing invocation_id", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("invocation_id");
+            remove_field(&mut v, "invocation_id");
             v
         }),
         ("unknown status variant", {
@@ -4006,12 +4012,12 @@ fn redaction_corpus() -> Vec<(&'static str, Value)> {
         ),
         ("missing schema", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("schema");
+            remove_field(&mut v, "schema");
             v
         }),
         ("missing redaction_id", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("redaction_id");
+            remove_field(&mut v, "redaction_id");
             v
         }),
         ("empty redaction_id", {
@@ -4070,17 +4076,17 @@ fn artifact_corpus() -> Vec<(&'static str, Value)> {
         }),
         ("missing schema", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("schema");
+            remove_field(&mut v, "schema");
             v
         }),
         ("missing artifact_id", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("artifact_id");
+            remove_field(&mut v, "artifact_id");
             v
         }),
         ("missing hash", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("hash");
+            remove_field(&mut v, "hash");
             v
         }),
         ("empty artifact_id", {

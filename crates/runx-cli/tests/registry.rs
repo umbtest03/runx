@@ -111,13 +111,9 @@ fn registry_local_publish_search_resolve_install_json() -> Result<(), Box<dyn st
 
 #[test]
 fn registry_install_reports_typed_trust_anchor_errors() -> Result<(), Box<dyn std::error::Error>> {
-    let cases: [(&str, fn(&mut serde_json::Value)); 4] = [
-        ("unsigned_manifest", |version| {
-            version
-                .as_object_mut()
-                .expect("registry version should be an object")
-                .remove("signed_manifest");
-        }),
+    type VersionMutator = fn(&mut serde_json::Value);
+    let cases: [(&str, VersionMutator); 4] = [
+        ("unsigned_manifest", remove_signed_manifest),
         ("unknown_key", |version| {
             version["signed_manifest"]["signer"]["key_id"] =
                 serde_json::Value::String("unknown-key".to_owned());
@@ -159,6 +155,12 @@ fn registry_install_reports_typed_trust_anchor_errors() -> Result<(), Box<dyn st
     }
 
     Ok(())
+}
+
+fn remove_signed_manifest(version: &mut serde_json::Value) {
+    if let Some(object) = version.as_object_mut() {
+        object.remove("signed_manifest");
+    }
 }
 
 fn publish_registry_fixture(root: &std::path::Path) -> Result<PathBuf, Box<dyn std::error::Error>> {

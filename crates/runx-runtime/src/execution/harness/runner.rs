@@ -37,6 +37,12 @@ use crate::payment::state::{
     RUNX_PAYMENT_STATE_PATH_ENV, RailMutationStatus,
 };
 #[cfg(feature = "cli-tool")]
+use crate::payment::supervisor::{
+    PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID, PaymentRailSupervisor, PaymentSupervisorError,
+    PaymentSupervisorSettlementEvidence, PaymentSupervisorSettlementRequest,
+    RuntimePaymentSupervisor,
+};
+#[cfg(feature = "cli-tool")]
 use crate::receipts::RuntimeReceiptSignaturePolicy;
 use crate::receipts::paths::{RUNX_RECEIPT_DIR_ENV, ReceiptPathInputs, resolve_receipt_path};
 use crate::receipts::{
@@ -117,8 +123,45 @@ pub fn run_harness_fixture_cli_tool(
 fn fixture_runtime_options() -> Result<RuntimeOptions, HarnessReplayError> {
     Ok(RuntimeOptions {
         created_at: crate::time::DEFAULT_CREATED_AT.to_owned(),
+        payment_supervisor: RuntimePaymentSupervisor::from_supervisor(FixturePaymentSupervisor),
         ..RuntimeOptions::from_process_env()?
     })
+}
+
+#[cfg(feature = "cli-tool")]
+#[derive(Clone, Debug)]
+struct FixturePaymentSupervisor;
+
+#[cfg(feature = "cli-tool")]
+impl PaymentRailSupervisor for FixturePaymentSupervisor {
+    fn settlement_evidence(
+        &self,
+        request: PaymentSupervisorSettlementRequest<'_>,
+    ) -> Result<PaymentSupervisorSettlementEvidence, PaymentSupervisorError> {
+        match request.proof_ref {
+            "receipt-proof:mock:x402-pay-approval-001"
+            | "receipt-proof:mock:paid-echo-001"
+            | "receipt-proof:stripe-spt:demo-search-001" => {
+                Ok(PaymentSupervisorSettlementEvidence {
+                    verifier_id: PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID.to_owned(),
+                    proof_ref: request.proof_ref.to_owned(),
+                    rail: request.rail.to_owned(),
+                    counterparty: request.counterparty.to_owned(),
+                    amount_minor: request.amount_minor,
+                    currency: request.currency.to_owned(),
+                    idempotency_key: request.idempotency_key.to_owned(),
+                    settlement_status: Some("fulfilled".to_owned()),
+                    provider_event_ref: Some(format!("fixture:event:{}", request.proof_ref)),
+                })
+            }
+            _ => Err(PaymentSupervisorError::InvalidSupervisorEvidence {
+                message: format!(
+                    "fixture supervisor has no settlement for {}",
+                    request.proof_ref
+                ),
+            }),
+        }
+    }
 }
 
 pub fn run_harness_fixture_with_adapter<A>(
@@ -278,9 +321,11 @@ fn run_x402_idempotency_sequence_fixture(
                 &options.created_at,
                 options.signature_policy(),
                 HarnessExpectedStatus::PolicyDenied,
-                ClosureDisposition::Blocked,
-                "x402_idempotency_capability_reuse_blocked",
-                "second spend capability use denied before rail",
+                GraphClosure {
+                    disposition: ClosureDisposition::Blocked,
+                    reason_code: "x402_idempotency_capability_reuse_blocked".to_owned(),
+                    summary: "second spend capability use denied before rail".to_owned(),
+                },
             )?
         }
         "crash_recovery" => {
@@ -307,9 +352,11 @@ fn run_x402_idempotency_sequence_fixture(
                 &options.created_at,
                 options.signature_policy(),
                 HarnessExpectedStatus::Escalated,
-                ClosureDisposition::Deferred,
-                "x402_idempotency_recovery_escalated",
-                "partial rail mutation recovery escalated before retry",
+                GraphClosure {
+                    disposition: ClosureDisposition::Deferred,
+                    reason_code: "x402_idempotency_recovery_escalated".to_owned(),
+                    summary: "partial rail mutation recovery escalated before retry".to_owned(),
+                },
             )?
         }
         other => {
@@ -532,9 +579,7 @@ fn sequence_error_output(
     created_at: &str,
     signature_policy: RuntimeReceiptSignaturePolicy<'_>,
     status: HarnessExpectedStatus,
-    disposition: ClosureDisposition,
-    reason_code: &str,
-    summary: &str,
+    closure: GraphClosure,
 ) -> Result<HarnessReplayOutput, HarnessReplayError> {
     let mut steps = graph_run.steps;
     sequence_output_from_steps(
@@ -543,9 +588,7 @@ fn sequence_error_output(
         created_at,
         signature_policy,
         status,
-        disposition,
-        reason_code,
-        summary,
+        closure,
     )
 }
 
@@ -555,9 +598,7 @@ fn empty_sequence_error_output(
     created_at: &str,
     signature_policy: RuntimeReceiptSignaturePolicy<'_>,
     status: HarnessExpectedStatus,
-    disposition: ClosureDisposition,
-    reason_code: &str,
-    summary: &str,
+    closure: GraphClosure,
 ) -> Result<HarnessReplayOutput, HarnessReplayError> {
     let mut steps = Vec::new();
     sequence_output_from_steps(
@@ -566,9 +607,7 @@ fn empty_sequence_error_output(
         created_at,
         signature_policy,
         status,
-        disposition,
-        reason_code,
-        summary,
+        closure,
     )
 }
 
@@ -579,20 +618,14 @@ fn sequence_output_from_steps(
     created_at: &str,
     signature_policy: RuntimeReceiptSignaturePolicy<'_>,
     status: HarnessExpectedStatus,
-    disposition: ClosureDisposition,
-    reason_code: &str,
-    summary: &str,
+    closure: GraphClosure,
 ) -> Result<HarnessReplayOutput, HarnessReplayError> {
     let receipt = graph_receipt_with_disposition_and_policy(
         &fixture.name,
         steps,
         Vec::new(),
         created_at,
-        GraphClosure {
-            disposition,
-            reason_code: reason_code.to_owned(),
-            summary: summary.to_owned(),
-        },
+        closure,
         signature_policy,
     )?;
     let step_receipts = steps
@@ -964,9 +997,11 @@ mod tests {
             CREATED_AT,
             signature_policy,
             HarnessExpectedStatus::PolicyDenied,
-            ClosureDisposition::Blocked,
-            "x402_idempotency_capability_reuse_blocked",
-            "second spend capability use denied before rail",
+            GraphClosure {
+                disposition: ClosureDisposition::Blocked,
+                reason_code: "x402_idempotency_capability_reuse_blocked".to_owned(),
+                summary: "second spend capability use denied before rail".to_owned(),
+            },
         )?;
 
         assert!(output.receipt.signature.value.starts_with("base64:"));

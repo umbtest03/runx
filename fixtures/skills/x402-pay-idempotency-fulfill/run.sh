@@ -13,13 +13,9 @@ key=${RUNX_X402_IDEMPOTENCY_KEY:-payment:paid-echo-001}
 mode=${RUNX_X402_RAIL_MODE:-sealed}
 
 if [ "$mode" = "partial" ]; then
-  cat <<JSON
-{"payment_rail_packet":{"data":{"rail_result":{"status":"partial","rail":"mock","amount_minor":125,"currency":"USD","counterparty":"merchant:paid-echo"},"recovery_hint":{"status":"partial","idempotency_key":"${key}","next_action":"recover_by_idempotency_key"}}}}
-JSON
+  printf '%s\n' '{"payment_rail_packet":{"data":{"rail_result":{"status":"partial","rail":"mock","amount_minor":125,"currency":"USD","counterparty":"merchant:paid-echo"},"recovery_hint":{"status":"partial","idempotency_key":"'"${key}"'","next_action":"recover_by_idempotency_key"}}}}'
   printf '%s\n' "partial rail mutation for ${key}" >&2
   exit 1
 fi
 
-cat <<JSON
-{"payment_rail_packet":{"data":{"rail_result":{"status":"fulfilled","rail":"mock","amount_minor":125,"currency":"USD","counterparty":"merchant:paid-echo"},"credential_envelope":{"form":"paid_tool_credential","credential_ref":"credential:mock:paid-echo-001"},"redactions":["rail_session_material"],"recovery_hint":{"status":"sealed"},"rail_proof":{"proof_ref":"receipt-proof:mock:paid-echo-001","idempotency_key":"${key}","rail_session_material_ref":"rail-session-material:mock:paid-echo-001"}}}}
-JSON
+printf '%s\n' '{"payment_rail_packet":{"data":{"rail_result":{"status":"fulfilled","rail":"mock","amount_minor":125,"currency":"USD","counterparty":"merchant:paid-echo"},"credential_envelope":{"form":"paid_tool_credential","credential_ref":"credential:mock:paid-echo-001"},"redactions":["rail_session_material"],"recovery_hint":{"status":"sealed"},"rail_proof":{"proof_ref":"receipt-proof:mock:paid-echo-001","idempotency_key":"'"${key}"'","rail_session_material_ref":"rail-session-material:mock:paid-echo-001"}}}}'

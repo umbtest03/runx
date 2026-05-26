@@ -53,7 +53,7 @@ describe("run replay cutover", () => {
     }
   });
 
-  it("surfaces native graph runner cutover instead of replaying graph runs through TypeScript", async () => {
+  it("runs graph skills natively without synthesizing a TypeScript replay path", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-replay-graph-"));
     const runxHome = path.join(tempDir, "home");
 
@@ -67,9 +67,11 @@ describe("run replay cutover", () => {
           RUNX_HOME: runxHome,
         }),
       );
-      expect(exitCode).toBe(1);
-      expect(stdout.contents()).toBe("");
-      expect(stderr.contents()).toContain("native execution only supports agent, agent-step, and cli-tool runners, got graph");
+      expect(exitCode).toBe(2);
+      expect(stderr.contents()).toBe("");
+      const response = JSON.parse(stdout.contents()) as { readonly status: string; readonly requests: unknown[] };
+      expect(response.status).toBe("needs_agent");
+      expect(response.requests.length).toBeGreaterThan(0);
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

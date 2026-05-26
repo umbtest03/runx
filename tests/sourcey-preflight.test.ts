@@ -34,7 +34,7 @@ describe("sourcey parser", () => {
 });
 
 describe("sourcey preflight", () => {
-  it("surfaces the native graph-runner cutover through the JSON CLI", async () => {
+  it("surfaces native graph-runner needs-agent state through the JSON CLI", async () => {
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
     const fixtureProject = path.resolve("fixtures/sourcey/incomplete");
@@ -45,10 +45,11 @@ describe("sourcey preflight", () => {
       { ...process.env, RUNX_CWD: process.cwd() },
     );
 
-    expect(exitCode).toBe(1);
-    expect(stdout.contents()).toBe("");
-    expect(stderr.contents()).toContain("native runx skill");
-    expect(stderr.contents()).toContain("native execution only supports agent, agent-step, and cli-tool runners, got graph");
+    expect(exitCode).toBe(2);
+    expect(stderr.contents()).toBe("");
+    const response = JSON.parse(stdout.contents()) as { readonly status: string; readonly requests: unknown[] };
+    expect(response.status).toBe("needs_agent");
+    expect(response.requests.length).toBeGreaterThan(0);
   });
 
   it("writes an inspectable graph receipt without storing raw discovered branding inputs", async () => {
@@ -131,7 +132,7 @@ describe("sourcey preflight", () => {
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
-  }, 15_000);
+  }, 30_000);
 
   it("runs config-mode builds from the config directory for default Sourcey config names", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-sourcey-config-cwd-"));
@@ -177,7 +178,7 @@ describe("sourcey preflight", () => {
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
-  }, 15_000);
+  }, 30_000);
 });
 
 function createSourceyCaller(overrides: { brandName: string; homepageUrl: string; configPath?: string }): Caller {

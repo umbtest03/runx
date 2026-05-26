@@ -66,9 +66,9 @@ export function renderConnectResult(
   if (action === "list") {
     const grants = isRecord(result) && Array.isArray(result.grants) ? result.grants.filter(isRecord) : [];
     if (grants.length === 0) {
-      return `\n  ${t.dim}No connections yet.${t.reset}\n  ${t.dim}start${t.reset}  runx connect github\n\n`;
+      return `\n  ${t.dim}No provider references yet.${t.reset}\n  ${t.dim}start${t.reset}  runx connect github\n\n`;
     }
-    const lines = ["", `  ${t.bold}connections${t.reset}  ${t.dim}${grants.length} grant(s)${t.reset}`, ""];
+    const lines = ["", `  ${t.bold}provider references${t.reset}  ${t.dim}${grants.length} grant(s)${t.reset}`, ""];
     for (const grant of grants) {
       const grantId = typeof grant.grant_id === "string" ? grant.grant_id : "unknown";
       const provider = typeof grant.provider === "string" ? grant.provider : "unknown";
@@ -98,7 +98,7 @@ export function renderConnectResult(
   const targetLocator = typeof grant?.target_locator === "string" ? grant.target_locator : undefined;
   const status = isRecord(result) && typeof result.status === "string" ? result.status : "success";
   return renderKeyValue(
-    action === "revoke" ? "connection revoked" : "connection ready",
+    action === "revoke" ? "provider reference revoked" : "provider reference ready",
     status === "revoked" || status === "created" || status === "unchanged" ? "success" : status,
     [
       ["provider", provider],

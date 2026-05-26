@@ -1165,7 +1165,7 @@ fn write_graph_tool_skill_under_skills(root: &Path) -> Result<PathBuf, Box<dyn s
 
 #[cfg(feature = "catalog")]
 fn write_graph_tool_skill_at(skill_dir: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    fs::create_dir_all(&skill_dir)?;
+    fs::create_dir_all(skill_dir)?;
     fs::write(
         skill_dir.join("SKILL.md"),
         "---\nname: graph-tool\n---\n# Graph Tool\n",
@@ -1268,7 +1268,7 @@ fn write_echo_tool(root: &Path) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(feature = "catalog")]
 fn write_echo_tool_at(tool_dir: &Path, message: &str) -> Result<(), Box<dyn std::error::Error>> {
-    fs::create_dir_all(&tool_dir)?;
+    fs::create_dir_all(tool_dir)?;
     fs::write(
         tool_dir.join("manifest.json"),
         r#"{

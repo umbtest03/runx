@@ -1079,7 +1079,7 @@ Answer the prompt directly.
 
     const listExit = await runCli(["connect", "list"], { stdin: process.stdin, stdout, stderr }, process.env, { connect });
     expect(listExit).toBe(0);
-    expect(stdout.contents()).toContain("connections");
+    expect(stdout.contents()).toContain("provider references");
     expect(stdout.contents()).toContain("github");
     expect(stdout.contents()).toContain("repo:read, user:read");
     expect(stdout.contents()).toContain("runxhq/aster");
@@ -1093,7 +1093,7 @@ Answer the prompt directly.
       { connect },
     );
     expect(preprovisionExit).toBe(0);
-    expect(stdout.contents()).toContain("connection ready");
+    expect(stdout.contents()).toContain("provider reference ready");
     expect(stdout.contents()).toContain("grant_github_1");
     expect(stdout.contents()).toContain("github_repo");
     expect(stdout.contents()).toContain("runxhq/aster");
@@ -1108,7 +1108,7 @@ Answer the prompt directly.
       { connect },
     );
     expect(revokeExit).toBe(0);
-    expect(stdout.contents()).toContain("connection revoked");
+    expect(stdout.contents()).toContain("provider reference revoked");
     expect(stdout.contents()).toContain("grant_github_1");
     expect(stdout.contents()).toContain("runx connect github");
   });
@@ -1126,7 +1126,7 @@ Answer the prompt directly.
 
     expect(exitCode).toBe(0);
     expect(stderr.contents()).toBe("");
-    expect(stdout.contents()).toContain("No connections yet.");
+    expect(stdout.contents()).toContain("No provider references yet.");
     expect(stdout.contents()).toContain("runx connect github");
   });
 

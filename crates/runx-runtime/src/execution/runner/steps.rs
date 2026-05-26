@@ -42,6 +42,12 @@ const EXTERNAL_ADAPTER_HOST_RESOLUTION_REQUEST_METADATA: &str =
 const EXTERNAL_ADAPTER_HOST_RESOLUTION_RESPONSE_METADATA: &str =
     "external_adapter_host_resolution_response";
 
+struct AgentSkillStepInvocation {
+    skill_name: String,
+    invocation: SkillInvocation,
+    source_type: AgentActInvocationSourceType,
+}
+
 pub(super) fn output_error(run: &StepRun) -> String {
     if run.output.stderr.is_empty() {
         "cli-tool failed without stderr".to_owned()
@@ -95,9 +101,11 @@ where
             graph_name,
             step,
             attempt,
-            skill_name,
-            invocation,
-            source_type,
+            AgentSkillStepInvocation {
+                skill_name,
+                invocation,
+                source_type,
+            },
             host,
         );
     }
@@ -513,14 +521,17 @@ fn run_agent_skill_step<A>(
     graph_name: &str,
     step: &GraphStep,
     attempt: u32,
-    skill_name: String,
-    invocation: SkillInvocation,
-    source_type: AgentActInvocationSourceType,
+    agent_step: AgentSkillStepInvocation,
     host: &mut dyn Host,
 ) -> Result<StepRun, RuntimeError>
 where
     A: SkillAdapter,
 {
+    let AgentSkillStepInvocation {
+        skill_name,
+        invocation,
+        source_type,
+    } = agent_step;
     let request_id = agent_act_invocation_id(&invocation, source_type);
     let request = agent_act_resolution_request(&invocation, source_type)?;
     host.report(ExecutionEvent::ResolutionRequested {

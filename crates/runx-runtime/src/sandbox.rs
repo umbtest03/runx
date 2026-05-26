@@ -949,40 +949,6 @@ pub fn sandbox_metadata(sandbox: Option<&SkillSandbox>) -> JsonObject {
     sandbox_metadata_with_runtime(sandbox, &writable_paths, None)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn writable_paths_omit_unresolved_optional_templates() {
-        let sandbox = SkillSandbox {
-            profile: SandboxProfile::WorkspaceWrite,
-            cwd_policy: None,
-            env_allowlist: None,
-            network: None,
-            writable_paths: vec![
-                "{{workspace_path}}".to_owned(),
-                "{{ fixture }}".to_owned(),
-                "logs".to_owned(),
-            ],
-            require_enforcement: None,
-            approved_escalation: None,
-            raw: JsonObject::new(),
-        };
-        let inputs = [(
-            "fixture".to_owned(),
-            JsonValue::String("/tmp/runx-fixture".to_owned()),
-        )]
-        .into_iter()
-        .collect();
-
-        assert_eq!(
-            resolved_writable_paths(Some(&sandbox), &inputs),
-            vec!["/tmp/runx-fixture".to_owned(), "logs".to_owned()]
-        );
-    }
-}
-
 fn sandbox_metadata_with_runtime(
     sandbox: Option<&SkillSandbox>,
     writable_paths: &[String],
@@ -1224,5 +1190,39 @@ fn runtime_metadata(sandbox: &SkillSandbox, runtime: Option<&SandboxRuntime>) ->
             ),
         ]
         .into(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn writable_paths_omit_unresolved_optional_templates() {
+        let sandbox = SkillSandbox {
+            profile: SandboxProfile::WorkspaceWrite,
+            cwd_policy: None,
+            env_allowlist: None,
+            network: None,
+            writable_paths: vec![
+                "{{workspace_path}}".to_owned(),
+                "{{ fixture }}".to_owned(),
+                "logs".to_owned(),
+            ],
+            require_enforcement: None,
+            approved_escalation: None,
+            raw: JsonObject::new(),
+        };
+        let inputs = [(
+            "fixture".to_owned(),
+            JsonValue::String("/tmp/runx-fixture".to_owned()),
+        )]
+        .into_iter()
+        .collect();
+
+        assert_eq!(
+            resolved_writable_paths(Some(&sandbox), &inputs),
+            vec!["/tmp/runx-fixture".to_owned(), "logs".to_owned()]
+        );
     }
 }

@@ -1024,8 +1024,8 @@ mod tests {
             comparison_algorithm: "runx.payment-authority-subset.v1".into(),
             result: AuthoritySubsetResult::Subset,
             compared_terms: vec![AuthoritySubsetComparison {
-                child_term_id: child.term_id.clone().into(),
-                parent_term_id: parent.term_id.clone().into(),
+                child_term_id: child.term_id.clone(),
+                parent_term_id: parent.term_id.clone(),
                 relation: AuthoritySubsetRelation::Subset,
             }],
             proof_ref: None,
