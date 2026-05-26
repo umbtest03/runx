@@ -138,9 +138,17 @@ fn public_observation_metadata_serializes_without_secret_material()
 
     assert_eq!(observation.provider.as_str(), "github");
     assert_eq!(observation.credential_refs.len(), 1);
-    assert_eq!(
-        observation.credential_refs[0].uri.as_str(),
-        "runx:credential:local://github/main"
+    assert!(
+        observation.credential_refs[0]
+            .uri
+            .as_str()
+            .starts_with("runx:credential:local:")
+    );
+    assert!(
+        !observation.credential_refs[0]
+            .uri
+            .as_str()
+            .contains("local://github/main")
     );
     assert!(
         observation
@@ -155,6 +163,7 @@ fn public_observation_metadata_serializes_without_secret_material()
     assert!(serialized.contains("credential_delivery_observations"));
     assert!(!serialized.contains(secret));
     assert!(!serialized.contains("GITHUB_TOKEN"));
+    assert!(!serialized.contains("local://github/main"));
     Ok(())
 }
 

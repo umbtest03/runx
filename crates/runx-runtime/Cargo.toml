@@ -49,9 +49,14 @@ url = "2.5.7"
 wait-timeout = "0.2.1"
 
 [dev-dependencies]
+criterion = "0.5.1"
 proptest = { version = "1.11.0", default-features = false, features = ["std"] }
 tempfile = "3.23.0"
 
 [lib]
 name = "runx_runtime"
 path = "src/lib.rs"
+
+[[bench]]
+name = "graph_throughput"
+harness = false

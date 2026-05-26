@@ -5,6 +5,26 @@ Sentry, GitHub, file, and API adapters may submit source events, but every
 accepted event must become one `runx.receipt.v1` packet with an explicit
 state, dedupe fingerprint, triage action, and source-thread locator.
 
+## Source Command Normalization
+
+Use `@runxhq/core/source` at the adapter edge before calling `issue-intake`.
+It parses GitHub, Slack, Sentry, file, API, and manual source references into a
+provider-neutral command shape:
+
+- canonical `source_locator` and, when available, `thread_locator`
+- target repo hint from concrete GitHub URLs
+- stable source dedupe key
+- `source_event` input for `issue-intake`
+- operational-policy admission request fields
+- chat-safe command response text for accepted, blocked, unsupported, or failed
+  command paths
+
+This helper does not fetch Slack threads, Sentry packets, GitHub bodies, or
+support tickets. Hydration, redaction, channel/project filters, owner routing,
+credentials, and provider mutation stay in the consuming adapter. If the source
+needs provider context and no adapter supplied it, the command should stop at a
+visible blocked response rather than pretending mutation was dispatched.
+
 ## Admission Policy
 
 Adapters must evaluate source policy before invoking `issue-intake`. A message

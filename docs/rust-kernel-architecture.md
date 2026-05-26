@@ -499,8 +499,8 @@ than kernel parity. It includes `skill`, `evolve`, `resume`, `replay`, `diff`,
 `connect`, `config`, `new`, `init`, `harness`, `list`, `doctor`, `dev`,
 `mcp serve`, `tool search`, `tool inspect`, and `tool build`, plus any
 pre-existing aliases that the matrix explicitly preserves and JSON/non-JSON
-modes. `export-receipts --trainable` remains a TypeScript compatibility surface
-until a native export is explicitly promoted. New payment/x402 surfaces use
+modes. `export-receipts --trainable` remains a TypeScript-maintained projection
+command until a native export is explicitly promoted. New payment/x402 surfaces use
 clean cutover names only; `x402-pay` is canonical and does not gain
 `x402-charge`, `x402-refund`, or other runtime aliases. The localhost registry
 and checked-in catalog publish the same current payment shape (`pay-*`,

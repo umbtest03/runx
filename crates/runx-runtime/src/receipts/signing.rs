@@ -1,3 +1,5 @@
+// rust-style-allow: large-file because signer material parsing, production
+// validation, and verifier behavior are audited as one receipt boundary.
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -15,6 +17,7 @@ use super::seal::RuntimeReceiptSignaturePolicy;
 pub const RECEIPT_SIGNATURE_BASE64_PREFIX: &str = "base64:";
 pub const RUNX_RECEIPT_SIGN_KID_ENV: &str = "RUNX_RECEIPT_SIGN_KID";
 pub const RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV: &str = "RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64";
+pub const RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV: &str = "RUNX_RECEIPT_SIGN_ISSUER_TYPE";
 
 pub trait RuntimeReceiptSigner {
     fn issuer(&self) -> ReceiptIssuer;
@@ -36,6 +39,10 @@ pub enum RuntimeReceiptSigningError {
     MissingPublicKeySha256,
     #[error("production receipt signer public key hash is malformed")]
     MalformedPublicKeySha256,
+    #[error("production receipt signer issuer type is missing")]
+    MissingIssuerType,
+    #[error("production receipt signer issuer type is unsupported")]
+    UnsupportedIssuerType,
     #[error("production receipt signer returned an unsupported signature algorithm")]
     UnsupportedAlgorithm,
     #[error("production receipt signer returned a local pseudo signature")]
@@ -45,9 +52,13 @@ pub enum RuntimeReceiptSigningError {
     #[error("production receipt verifier key material is malformed")]
     MalformedVerifierKey,
     #[error(
-        "production receipt signing requires {RUNX_RECEIPT_SIGN_KID_ENV} and {RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV} to be set together"
+        "production receipt signing requires {RUNX_RECEIPT_SIGN_KID_ENV}, {RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV}, and {RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV} to be set together"
     )]
     IncompleteSigningEnv,
+    #[error(
+        "governed runtime receipt signing requires {RUNX_RECEIPT_SIGN_KID_ENV}, {RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV}, and {RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV}"
+    )]
+    MissingSigningEnv,
     #[error("production receipt signature did not verify: {0:?}")]
     SignatureVerification(SignatureVerificationFailure),
 }
@@ -92,14 +103,16 @@ impl RuntimeReceiptSignatureConfig {
     pub fn from_env(env: &BTreeMap<String, String>) -> Result<Self, RuntimeReceiptSigningError> {
         let kid = non_empty_env(env, RUNX_RECEIPT_SIGN_KID_ENV);
         let seed = non_empty_env(env, RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV);
-        match (kid, seed) {
-            (None, None) => Ok(Self::local_development()),
-            (Some(kid), Some(seed)) => {
-                let signer =
-                    Ed25519ReceiptSigner::from_seed_base64(kid, ReceiptIssuerType::Local, seed)?;
+        let issuer_type = non_empty_env(env, RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV);
+        match (kid, seed, issuer_type) {
+            (None, None, None) => Err(RuntimeReceiptSigningError::MissingSigningEnv),
+            (Some(kid), Some(seed), Some(issuer_type)) => {
+                let issuer_type = parse_production_issuer_type(issuer_type)?;
+                let signer = Ed25519ReceiptSigner::from_seed_base64(kid, issuer_type, seed)?;
                 let verifier = Ed25519ReceiptVerifier::new([signer.production_key()]);
                 Ok(Self::production_signing(signer, verifier))
             }
+            (Some(_), Some(_), None) => Err(RuntimeReceiptSigningError::MissingIssuerType),
             _ => Err(RuntimeReceiptSigningError::IncompleteSigningEnv),
         }
     }
@@ -251,6 +264,12 @@ impl Ed25519ReceiptVerifier {
         &self,
         issuer: &ReceiptIssuer,
     ) -> Result<&ProductionReceiptKey, SignatureVerificationFailure> {
+        if matches!(
+            issuer.issuer_type,
+            ReceiptIssuerType::Local | ReceiptIssuerType::Verifier
+        ) {
+            return Err(SignatureVerificationFailure::UnsupportedIssuer);
+        }
         if issuer.kid.trim().is_empty() {
             return Err(SignatureVerificationFailure::MissingKey);
         }
@@ -288,6 +307,12 @@ impl SignatureVerifier for Ed25519ReceiptVerifier {
 pub(crate) fn validate_production_issuer(
     issuer: &ReceiptIssuer,
 ) -> Result<(), RuntimeReceiptSigningError> {
+    if matches!(
+        issuer.issuer_type,
+        ReceiptIssuerType::Local | ReceiptIssuerType::Verifier
+    ) {
+        return Err(RuntimeReceiptSigningError::UnsupportedIssuerType);
+    }
     if issuer.kid.trim().is_empty() {
         return Err(RuntimeReceiptSigningError::MissingKeyId);
     }
@@ -298,6 +323,17 @@ pub(crate) fn validate_production_issuer(
         return Err(RuntimeReceiptSigningError::MalformedPublicKeySha256);
     }
     Ok(())
+}
+
+fn parse_production_issuer_type(
+    value: &str,
+) -> Result<ReceiptIssuerType, RuntimeReceiptSigningError> {
+    match value {
+        "hosted" => Ok(ReceiptIssuerType::Hosted),
+        "ci" => Ok(ReceiptIssuerType::Ci),
+        "local" | "verifier" => Err(RuntimeReceiptSigningError::UnsupportedIssuerType),
+        _ => Err(RuntimeReceiptSigningError::UnsupportedIssuerType),
+    }
 }
 
 pub(crate) fn is_local_pseudo_signature(value: &str) -> bool {

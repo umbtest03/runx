@@ -5,16 +5,17 @@ use std::path::{Path, PathBuf};
 use runx_contracts::JsonValue;
 use runx_runtime::{
     LocalOrchestrator, LocalReceiptStore, RUNX_RECEIPT_DIR_ENV,
-    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_KID_ENV, RunResult,
-    RuntimeOptions, RuntimeReceiptSignatureConfig, SkillRunRequest,
+    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV,
+    RUNX_RECEIPT_SIGN_KID_ENV, RunResult, RuntimeOptions, RuntimeReceiptSignatureConfig,
+    SkillRunRequest,
 };
 use tempfile::tempdir;
 
 const FIXTURE_CREATED_AT: &str = "2026-05-18T00:00:00Z";
 
 #[test]
-fn runtime_options_default_uses_live_timestamp() {
-    let options = RuntimeOptions::default();
+fn runtime_options_local_development_uses_live_timestamp() {
+    let options = RuntimeOptions::local_development();
 
     assert_ne!(options.created_at, FIXTURE_CREATED_AT);
     assert!(options.created_at.ends_with('Z'));
@@ -324,18 +325,7 @@ fn native_skill_run_uses_production_receipt_signing_env() -> Result<(), Box<dyn 
         })
         .to_string(),
     )?;
-    let env = [
-        (
-            RUNX_RECEIPT_SIGN_KID_ENV.to_owned(),
-            "runx-runtime-prod-fixture-key".to_owned(),
-        ),
-        (
-            RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV.to_owned(),
-            "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=".to_owned(),
-        ),
-    ]
-    .into_iter()
-    .collect::<BTreeMap<_, _>>();
+    let env = test_signing_env();
 
     let result = run_skill(SkillRunRequest {
         skill_path: skill_dir,
@@ -357,6 +347,32 @@ fn native_skill_run_uses_production_receipt_signing_env() -> Result<(), Box<dyn 
     assert!(receipt.signature.value.starts_with("base64:"));
     assert!(!receipt.signature.value.starts_with("sig:"));
 
+    Ok(())
+}
+
+#[test]
+fn native_skill_run_rejects_missing_production_receipt_signing_env()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let skill_dir = write_agent_step_skill(temp.path())?;
+    let error = LocalOrchestrator
+        .run_skill(&SkillRunRequest {
+            skill_path: skill_dir,
+            receipt_dir: None,
+            run_id: None,
+            answers_path: None,
+            inputs: BTreeMap::new(),
+            env: BTreeMap::new(),
+            cwd: temp.path().to_path_buf(),
+            local_credential: None,
+        })
+        .err()
+        .ok_or("missing signing env unexpectedly succeeded")?;
+    assert!(
+        error
+            .to_string()
+            .contains("governed runtime receipt signing")
+    );
     Ok(())
 }
 
@@ -1040,13 +1056,13 @@ fn native_graph_skill_run_omits_missing_optional_graph_input_references()
 
 #[cfg(feature = "catalog")]
 #[test]
-fn native_graph_skill_run_prefers_built_cli_tool_root() -> Result<(), Box<dyn std::error::Error>> {
+fn native_graph_skill_run_uses_canonical_tool_root() -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
     let skill_dir = write_graph_tool_skill_under_skills(temp.path())?;
     write_echo_tool_at(&temp.path().join("tools/test/echo"), "root tools")?;
     write_echo_tool_at(
         &temp.path().join("packages/cli/tools/test/echo"),
-        "package cli tools",
+        "stale copy",
     )?;
     let receipt_dir = temp.path().join("receipts");
     let inputs = [(
@@ -1072,7 +1088,7 @@ fn native_graph_skill_run_prefers_built_cli_tool_root() -> Result<(), Box<dyn st
     let payload = object_field(output, "payload").ok_or("missing payload")?;
     let echo_claim = step_claim(payload, "echo").ok_or("missing echo skill claim")?;
     let echo = object_field(echo_claim, "echo").ok_or("missing echo")?;
-    assert_eq!(string_field(echo, "message"), Some("package cli tools"));
+    assert_eq!(string_field(echo, "message"), Some("root tools"));
 
     Ok(())
 }
@@ -1202,9 +1218,36 @@ fn native_skill_run_rejects_partial_continuation_shape() -> Result<(), Box<dyn s
 }
 
 fn run_skill(request: SkillRunRequest) -> Result<RunResult, Box<dyn std::error::Error>> {
+    let request = with_test_signing_env(request);
     LocalOrchestrator
         .run_skill(&request)
         .map_err(|error| error.into())
+}
+
+fn with_test_signing_env(mut request: SkillRunRequest) -> SkillRunRequest {
+    for (key, value) in test_signing_env() {
+        request.env.entry(key).or_insert(value);
+    }
+    request
+}
+
+fn test_signing_env() -> BTreeMap<String, String> {
+    [
+        (
+            RUNX_RECEIPT_SIGN_KID_ENV.to_owned(),
+            "runx-runtime-prod-fixture-key".to_owned(),
+        ),
+        (
+            RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV.to_owned(),
+            "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=".to_owned(),
+        ),
+        (
+            RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV.to_owned(),
+            "hosted".to_owned(),
+        ),
+    ]
+    .into_iter()
+    .collect()
 }
 
 fn write_agent_step_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {

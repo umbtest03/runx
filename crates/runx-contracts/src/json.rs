@@ -35,6 +35,60 @@ pub enum JsonValue {
     Object(JsonObject),
 }
 
+impl JsonValue {
+    #[must_use]
+    pub fn as_object(&self) -> Option<&JsonObject> {
+        match self {
+            Self::Object(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Self::String(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            Self::Bool(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn as_array(&self) -> Option<&Vec<JsonValue>> {
+        match self {
+            Self::Array(value) => Some(value),
+            _ => None,
+        }
+    }
+}
+
+#[must_use]
+pub fn json_object(value: Option<&JsonValue>) -> Option<&JsonObject> {
+    value.and_then(JsonValue::as_object)
+}
+
+#[must_use]
+pub fn json_object_field<'a>(object: &'a JsonObject, field: &str) -> Option<&'a JsonObject> {
+    object.get(field).and_then(JsonValue::as_object)
+}
+
+#[must_use]
+pub fn json_string_field<'a>(object: &'a JsonObject, field: &str) -> Option<&'a str> {
+    object.get(field).and_then(JsonValue::as_str)
+}
+
+#[must_use]
+pub fn json_bool_field(object: &JsonObject, field: &str) -> Option<bool> {
+    object.get(field).and_then(JsonValue::as_bool)
+}
+
 /// Strict JSON number representation for public serde boundaries.
 ///
 /// Public serialization rejects non-finite floats. Act assignment idempotency

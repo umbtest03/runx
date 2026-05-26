@@ -13,14 +13,16 @@ use runx_contracts::JsonValue;
 use wait_timeout::ChildExt;
 
 use crate::RuntimeError;
-use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
+use crate::adapter::{
+    FanoutExecutionMode, InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput,
+};
 use crate::credentials::CredentialDelivery;
 use crate::sandbox::{SandboxPlan, prepare_process_sandbox};
 
 const OUTPUT_LIMIT_BYTES: usize = 1024 * 1024;
 const FORCE_KILL_GRACE: Duration = Duration::from_millis(100);
 
-#[derive(Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct CliToolAdapter;
 
 impl SkillAdapter for CliToolAdapter {
@@ -62,6 +64,18 @@ impl SkillAdapter for CliToolAdapter {
             );
         }
         Ok(output)
+    }
+
+    fn fanout_execution_mode(&self, source: &runx_parser::SkillSource) -> FanoutExecutionMode {
+        if source.source_type == runx_parser::SourceKind::CliTool {
+            FanoutExecutionMode::IsolatedParallel
+        } else {
+            FanoutExecutionMode::Serial
+        }
+    }
+
+    fn clone_for_fanout(&self) -> Option<Box<dyn SkillAdapter + Send + Sync>> {
+        Some(Box::new(*self))
     }
 }
 

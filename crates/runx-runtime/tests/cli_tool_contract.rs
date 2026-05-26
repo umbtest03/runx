@@ -203,10 +203,23 @@ fn oversized_inputs_spill_to_path_and_omit_inline_json() -> Result<(), Box<dyn s
     let inputs_path = plan
         .env
         .get("RUNX_INPUTS_PATH")
+        .cloned()
         .ok_or("missing RUNX_INPUTS_PATH")?;
     assert!(inputs_path.starts_with(path_string(&temp_dir)?.as_str()));
     let parsed: JsonObject = serde_json::from_str(&fs::read_to_string(inputs_path)?)?;
     assert_eq!(parsed.get("message"), Some(&JsonValue::String(large)));
+    let input_dir = plan
+        .cleanup_paths
+        .iter()
+        .find(|path| path.starts_with(&temp_dir))
+        .cloned()
+        .ok_or("missing input temp cleanup path")?;
+    assert!(input_dir.exists());
+    drop(plan);
+    assert!(
+        !input_dir.exists(),
+        "oversized input temp directory was not cleaned up"
+    );
     Ok(())
 }
 
@@ -543,9 +556,7 @@ fn platform_sandbox_backend_available() -> bool {
     }
     #[cfg(target_os = "linux")]
     {
-        std::env::var_os("PATH").is_some_and(|paths| {
-            std::env::split_paths(&paths).any(|path| path.join("bwrap").exists())
-        })
+        Path::new("/usr/bin/bwrap").exists() || Path::new("/bin/bwrap").exists()
     }
 }
 

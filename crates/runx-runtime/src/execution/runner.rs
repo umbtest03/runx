@@ -25,18 +25,21 @@ use crate::journal::ExecutionJournal;
 use crate::payment::supervisor::RuntimePaymentSupervisor;
 use crate::receipts::paths::{RUNX_CWD_ENV, RUNX_PROJECT_DIR_ENV, RUNX_RECEIPT_DIR_ENV};
 use crate::receipts::{
-    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_KID_ENV,
-    RuntimeReceiptSignatureConfig, RuntimeReceiptSignaturePolicy,
+    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV,
+    RUNX_RECEIPT_SIGN_KID_ENV, RuntimeReceiptSignatureConfig, RuntimeReceiptSignaturePolicy,
     graph_receipt_with_disposition_and_policy, graph_receipt_with_signature_policy,
 };
 
 mod authority;
 mod execution;
 mod inputs;
+mod scheduler;
 mod steps;
 mod sync;
 
 use execution::GraphExecution;
+
+pub const RUNX_MAX_FANOUT_CONCURRENCY_ENV: &str = "RUNX_MAX_FANOUT_CONCURRENCY";
 
 #[derive(Clone, Debug)]
 pub struct RuntimeOptions {
@@ -44,12 +47,6 @@ pub struct RuntimeOptions {
     pub env: BTreeMap<String, String>,
     pub receipt_signature: RuntimeReceiptSignatureConfig,
     pub payment_supervisor: RuntimePaymentSupervisor,
-}
-
-impl Default for RuntimeOptions {
-    fn default() -> Self {
-        Self::local_development()
-    }
 }
 
 impl RuntimeOptions {
@@ -102,6 +99,8 @@ fn safe_default_env_from(
         RUNX_RECEIPT_DIR_ENV,
         RUNX_RECEIPT_SIGN_KID_ENV,
         RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV,
+        RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV,
+        RUNX_MAX_FANOUT_CONCURRENCY_ENV,
         RUNX_PROJECT_DIR_ENV,
         RUNX_CWD_ENV,
     ];
@@ -358,8 +357,8 @@ pub fn run_graph_file(graph_path: impl AsRef<Path>) -> Result<GraphRun, RuntimeE
 #[cfg(test)]
 mod tests {
     use super::{
-        RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_KID_ENV, RuntimeOptions,
-        safe_default_env_from,
+        RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV,
+        RUNX_RECEIPT_SIGN_KID_ENV, RuntimeOptions, safe_default_env_from,
     };
     use std::collections::BTreeMap;
 
@@ -368,6 +367,7 @@ mod tests {
         let env = safe_default_env_from(|key| match key {
             RUNX_RECEIPT_SIGN_KID_ENV => Some("kid_prod".to_owned()),
             RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV => Some("seed".to_owned()),
+            RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV => Some("hosted".to_owned()),
             _ => None,
         });
 
@@ -378,6 +378,10 @@ mod tests {
         assert_eq!(
             env.get(RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV),
             Some(&"seed".to_owned())
+        );
+        assert_eq!(
+            env.get(RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV),
+            Some(&"hosted".to_owned())
         );
     }
 
@@ -399,12 +403,29 @@ mod tests {
     }
 
     #[test]
+    fn runtime_options_reject_missing_production_signing_env() -> Result<(), String> {
+        let error = RuntimeOptions::from_env(BTreeMap::new())
+            .err()
+            .ok_or_else(|| "missing signing env unexpectedly succeeded".to_owned())?;
+        assert!(
+            error
+                .to_string()
+                .contains("governed runtime receipt signing")
+        );
+        Ok(())
+    }
+
+    #[test]
     fn runtime_options_reject_malformed_production_signing_seed() -> Result<(), String> {
         let env = [
             (RUNX_RECEIPT_SIGN_KID_ENV.to_owned(), "kid_prod".to_owned()),
             (
                 RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV.to_owned(),
                 "not-base64".to_owned(),
+            ),
+            (
+                RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV.to_owned(),
+                "hosted".to_owned(),
             ),
         ]
         .into_iter()

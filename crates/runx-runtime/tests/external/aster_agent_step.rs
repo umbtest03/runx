@@ -100,7 +100,7 @@ fn run_case() -> Result<HarnessReplayOutput, runx_runtime::HarnessReplayError> {
         NoopAdapter,
         RuntimeOptions {
             created_at: FIXTURE_CREATED_AT.to_owned(),
-            ..RuntimeOptions::default()
+            ..RuntimeOptions::local_development()
         },
     )
 }

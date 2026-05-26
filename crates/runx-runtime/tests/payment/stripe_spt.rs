@@ -100,7 +100,7 @@ fn stripe_spt_payment_decline_returns_governed_error_without_sealing_success()
     let fixture = StripeSptFixture::new()?;
     let adapter = StripeSptAdapter::new(StripeSptScenario::Declined);
     let invocations = adapter.invocations();
-    let runtime = Runtime::new(adapter, RuntimeOptions::default());
+    let runtime = Runtime::new(adapter, RuntimeOptions::local_development());
     let mut host = ApprovalHost::approved(true);
 
     let result = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host);
@@ -139,7 +139,7 @@ fn stripe_spt_payment_timeout_preserves_idempotency_for_recovery()
     let fixture = StripeSptFixture::new()?;
     let adapter = StripeSptAdapter::new(StripeSptScenario::Timeout);
     let invocations = adapter.invocations();
-    let runtime = Runtime::new(adapter, RuntimeOptions::default());
+    let runtime = Runtime::new(adapter, RuntimeOptions::local_development());
     let mut host = ApprovalHost::approved(true);
 
     let result = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host);
@@ -194,7 +194,7 @@ fn runtime_options_with_payment_supervisor(
         payment_supervisor: RuntimePaymentSupervisor::from_supervisor(
             ExpectedPaymentSupervisor::new(evidence),
         ),
-        ..RuntimeOptions::default()
+        ..RuntimeOptions::local_development()
     }
 }
 

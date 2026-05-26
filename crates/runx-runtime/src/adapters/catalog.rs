@@ -5,7 +5,9 @@ use runx_contracts::{JsonNumber, JsonObject, JsonValue, sha256_hex};
 use runx_parser::{SkillArtifactContract, SkillSource};
 
 use crate::RuntimeError;
-use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
+use crate::adapter::{
+    FanoutExecutionMode, InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput,
+};
 use crate::adapters::cli_tool::CliToolAdapter;
 use crate::tool_catalogs::search::{FixtureTool, fixture_tool};
 use crate::tool_catalogs::{ToolCatalogError, ToolInspectOptions, resolve_local_tool};
@@ -57,6 +59,18 @@ impl SkillAdapter for CatalogAdapter {
         };
 
         Ok(invoke_fixture_tool(&tool, &request.inputs, started))
+    }
+
+    fn fanout_execution_mode(&self, source: &SkillSource) -> FanoutExecutionMode {
+        if source.source_type == runx_parser::SourceKind::Catalog {
+            FanoutExecutionMode::IsolatedParallel
+        } else {
+            FanoutExecutionMode::Serial
+        }
+    }
+
+    fn clone_for_fanout(&self) -> Option<Box<dyn SkillAdapter + Send + Sync>> {
+        Some(Box::new(self.clone()))
     }
 }
 

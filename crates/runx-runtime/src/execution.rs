@@ -11,8 +11,10 @@
 
 pub(crate) mod fanout;
 pub(crate) mod graph;
+pub(crate) mod graph_index;
 pub mod harness;
 pub mod orchestrator;
+pub(crate) mod output_projection;
 pub mod runner;
 pub mod skill_run;
 pub mod target_runner;

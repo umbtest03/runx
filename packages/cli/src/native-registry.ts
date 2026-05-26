@@ -1,5 +1,5 @@
 import type { SkillSearchResult } from "@runxhq/core/registry";
-import { asRecord, errorMessage, firstNonEmpty } from "@runxhq/core/util";
+import { asRecord, errorMessage, firstNonEmpty, parsePositiveInt, stringField } from "@runxhq/core/util";
 
 import { runNativeRunx } from "./native-runx.js";
 
@@ -85,15 +85,4 @@ function normalizeRustRegistrySearchResult(value: unknown): SkillSearchResult {
     ...result,
     add_command: addCommand,
   } as unknown as SkillSearchResult;
-}
-
-function parsePositiveInt(value: string | undefined): number | undefined {
-  if (!value) return undefined;
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-}
-
-function stringField(value: Readonly<Record<string, unknown>> | undefined, key: string): string | undefined {
-  const field = value?.[key];
-  return typeof field === "string" ? field : undefined;
 }

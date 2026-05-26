@@ -1,0 +1,37 @@
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use runx_contracts::Receipt;
+use runx_receipts::{
+    canonical_receipt_body_digest, canonical_receipt_body_json, canonical_receipt_json,
+};
+use serde::Deserialize;
+
+const SUCCESS_RECEIPT: &str =
+    include_str!("../../../fixtures/contracts/harness-spine/receipt-success.json");
+
+#[derive(Debug, Deserialize)]
+struct Fixture {
+    expected: Receipt,
+}
+
+fn bench_receipt_canonicalization(c: &mut Criterion) {
+    let receipt = fixture_receipt();
+
+    c.bench_function("receipt_canonicalization", |b| {
+        b.iter(|| canonical_receipt_body_digest(black_box(&receipt)))
+    });
+    c.bench_function("receipt_body_json", |b| {
+        b.iter(|| canonical_receipt_body_json(black_box(&receipt)))
+    });
+    c.bench_function("receipt_full_json", |b| {
+        b.iter(|| canonical_receipt_json(black_box(&receipt)))
+    });
+}
+
+fn fixture_receipt() -> Receipt {
+    serde_json::from_str::<Fixture>(SUCCESS_RECEIPT)
+        .map(|fixture| fixture.expected)
+        .unwrap_or_else(|error| panic!("receipt fixture must parse: {error}"))
+}
+
+criterion_group!(benches, bench_receipt_canonicalization);
+criterion_main!(benches);

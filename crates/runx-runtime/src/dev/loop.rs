@@ -9,9 +9,13 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use runx_contracts::{DoctorStatus, JsonObject, JsonValue};
+use runx_contracts::{
+    DoctorStatus, JsonObject, JsonValue, json_object_field as object_field,
+    json_string_field as string_field,
+};
 
 use super::skill::run_skill_or_graph_fixture;
+use super::support::elapsed_ms;
 use super::tool::{materialize_fixture_string, materialize_fixture_value, run_tool_fixture};
 use super::types::{
     DevError, DevFixtureAssertion, DevFixtureAssertionKind, DevFixtureExecutionRoots,
@@ -698,20 +702,6 @@ fn normalize_path(path: &Path) -> PathBuf {
     normalized
 }
 
-fn string_field<'a>(object: &'a JsonObject, field: &str) -> Option<&'a str> {
-    match object.get(field) {
-        Some(JsonValue::String(value)) => Some(value),
-        _ => None,
-    }
-}
-
-fn object_field<'a>(object: &'a JsonObject, field: &str) -> Option<&'a JsonObject> {
-    match object.get(field) {
-        Some(JsonValue::Object(value)) => Some(value),
-        _ => None,
-    }
-}
-
 fn path_stem(path: &Path) -> String {
     path.file_stem()
         .and_then(|value| value.to_str())
@@ -725,10 +715,6 @@ fn is_yaml_file(path: &Path) -> bool {
         .is_some_and(|extension| {
             extension.eq_ignore_ascii_case("yaml") || extension.eq_ignore_ascii_case("yml")
         })
-}
-
-fn elapsed_ms(started: Instant) -> u64 {
-    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
 #[cfg(test)]

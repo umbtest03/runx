@@ -56,17 +56,20 @@ For production-trusted receipts, configure an Ed25519 signing key before running
 skills, graphs, harness replay, or MCP server calls:
 
 ```bash
-export RUNX_RECEIPT_SIGN_KID="local-prod-key"
+export RUNX_RECEIPT_SIGN_KID="hosted-prod-key"
 export RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64="<32-byte-ed25519-seed-base64>"
+export RUNX_RECEIPT_SIGN_ISSUER_TYPE="hosted"
 ```
 
-Both variables must be set together. When configured, the runtime signs each
-receipt body digest with Ed25519 and writes the matching public key hash in the
-issuer metadata. To have `runx history` report those receipts as
-production-verified, provide the public verification key to the same command:
+All three variables must be set together. `RUNX_RECEIPT_SIGN_ISSUER_TYPE` must
+be `hosted` or `ci`; production receipts are never stamped as local issuers.
+When configured, the runtime signs each receipt body digest with Ed25519 and
+writes the matching public key hash in the issuer metadata. To have
+`runx history` report those receipts as production-verified, provide the public
+verification key to the same command:
 
 ```bash
-export RUNX_RECEIPT_VERIFY_KID="local-prod-key"
+export RUNX_RECEIPT_VERIFY_KID="hosted-prod-key"
 export RUNX_RECEIPT_VERIFY_ED25519_PUBLIC_KEY_BASE64="<32-byte-ed25519-public-key-base64>"
 crates/target/debug/runx history <receipt-id> --json
 ```

@@ -28,8 +28,9 @@ fn cli_rejects_local_credential_for_cli_tool_before_spawn() -> Result<(), Box<dy
         .arg("--credential")
         .arg("github:bearer:local://github/main:repo")
         .arg("--secret-env")
-        .arg(format!("GITHUB_TOKEN={SECRET}"))
+        .arg("GITHUB_TOKEN")
         .arg("--json")
+        .env("GITHUB_TOKEN", SECRET)
         .output()?;
 
     assert!(
@@ -65,8 +66,9 @@ fn cli_rejects_secret_env_without_credential() -> Result<(), Box<dyn std::error:
         .arg("skill")
         .arg(&skill_dir)
         .arg("--secret-env")
-        .arg(format!("GITHUB_TOKEN={SECRET}"))
+        .arg("GITHUB_TOKEN")
         .arg("--json")
+        .env("GITHUB_TOKEN", SECRET)
         .output()?;
 
     assert!(
@@ -98,8 +100,9 @@ fn cli_rejects_empty_secret_value() -> Result<(), Box<dyn std::error::Error>> {
         .arg("--credential")
         .arg("github:bearer:local://github/main:repo")
         .arg("--secret-env")
-        .arg("GITHUB_TOKEN=")
+        .arg("GITHUB_TOKEN")
         .arg("--json")
+        .env("GITHUB_TOKEN", "")
         .output()?;
 
     assert!(
@@ -110,6 +113,39 @@ fn cli_rejects_empty_secret_value() -> Result<(), Box<dyn std::error::Error>> {
     assert!(
         stderr.contains("non-empty secret value"),
         "expected an error about the empty secret value, got: {stderr}"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn cli_rejects_secret_env_value_on_argv() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = temp_root("runx-cli-local-credential-argv-secret");
+    fs::create_dir_all(&temp)?;
+    let skill_dir = write_echo_token_skill(&temp)?;
+
+    let output = native_command()?
+        .arg("skill")
+        .arg(&skill_dir)
+        .arg("--credential")
+        .arg("github:bearer:local://github/main:repo")
+        .arg("--secret-env")
+        .arg(format!("GITHUB_TOKEN={SECRET}"))
+        .arg("--json")
+        .output()?;
+
+    assert!(
+        !output.status.success(),
+        "expected argv secret material to be rejected"
+    );
+    let stderr = String::from_utf8(output.stderr)?;
+    assert!(
+        stderr.contains("not an inline value"),
+        "expected an error about argv secret material, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains(SECRET),
+        "raw secret leaked into the error output"
     );
 
     Ok(())

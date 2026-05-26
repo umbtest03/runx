@@ -68,6 +68,26 @@ export {
 } from "./feed-entry.js";
 
 export {
+  type ThreadStorySectionId,
+  type ThreadStoryLink,
+  type ThreadStorySection,
+  type BuildThreadStoryMarkdownOptions,
+  type BuildThreadStoryMessageOutboxEntryOptions,
+  type ThreadStatusTriageSummary,
+  type BuildThreadStatusMarkdownOptions,
+  type BuildThreadMilestoneNotificationTextOptions,
+  type BuildThreadPullRequestReviewerPacketMarkdownOptions,
+  THREAD_STORY_CONTROL_SCHEMA_VERSION,
+  THREAD_STORY_MESSAGE_SCHEMA_VERSION,
+  sanitizeThreadStoryText,
+  buildThreadStoryMarkdown,
+  buildThreadStatusMarkdown,
+  buildThreadMilestoneNotificationText,
+  buildThreadPullRequestReviewerPacketMarkdown,
+  buildThreadStoryMessageOutboxEntry,
+} from "./thread-story.js";
+
+export {
   type HandoffSignal,
   type HandoffState,
   type SuppressionRecord,

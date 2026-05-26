@@ -511,4 +511,63 @@ steps:
       exit_code: 7,
     });
   });
+
+  it("rejects shell exec cwd escapes", () => {
+    const result = spawnSync(process.execPath, [path.resolve("tools/shell/exec/run.mjs")], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        RUNX_INPUTS_JSON: JSON.stringify({
+          command: process.execPath,
+          args: ["-e", ""],
+          repo_root: process.cwd(),
+          cwd: path.dirname(process.cwd()),
+        }),
+      },
+      shell: false,
+    });
+
+    expect(result.status).toBe(1);
+    expect(JSON.parse(result.stderr)).toMatchObject({
+      error: {
+        message: expect.stringContaining("outside repo_root"),
+      },
+    });
+  });
+
+  it("terminates shell exec process groups on timeout", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-shell-timeout-"));
+    const sentinelPath = path.join(tempDir, "descendant-survived");
+    const descendantScript = `setTimeout(() => require("node:fs").writeFileSync(${JSON.stringify(sentinelPath)}, "x"), 500)`;
+    const parentScript = [
+      "const { spawn } = require('node:child_process');",
+      `spawn(process.execPath, ['-e', ${JSON.stringify(descendantScript)}], { stdio: 'ignore' });`,
+      "setTimeout(() => {}, 2000);",
+    ].join("");
+
+    try {
+      const result = spawnSync(process.execPath, [path.resolve("tools/shell/exec/run.mjs")], {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          RUNX_INPUTS_JSON: JSON.stringify({
+            command: process.execPath,
+            args: ["-e", parentScript],
+            repo_root: tempDir,
+            timeout_ms: 100,
+          }),
+        },
+        shell: false,
+      });
+
+      expect(result.status).toBe(1);
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        timed_out: true,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      await expect(readFile(sentinelPath, "utf8")).rejects.toThrow();
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
 });

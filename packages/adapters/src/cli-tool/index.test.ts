@@ -4,6 +4,8 @@ import { createServer, type AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 
+import { readNestedString } from "@runxhq/core/util";
+
 import { invokeCliTool } from "./index.js";
 
 const outputLimitBytes = 1024 * 1024;
@@ -425,15 +427,4 @@ function sandboxNetworkEnforcement(sandbox: unknown): string | undefined {
 
 function sandboxRuntimeEnforcer(sandbox: unknown): string | undefined {
   return readNestedString(sandbox, ["runtime", "enforcer"]);
-}
-
-function readNestedString(value: unknown, path: readonly string[]): string | undefined {
-  let cursor = value;
-  for (const key of path) {
-    if (typeof cursor !== "object" || cursor === null || !(key in cursor)) {
-      return undefined;
-    }
-    cursor = (cursor as Record<string, unknown>)[key];
-  }
-  return typeof cursor === "string" ? cursor : undefined;
 }

@@ -1,0 +1,309 @@
+#!/usr/bin/env node
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { performance } from "node:perf_hooks";
+
+const schema = "runx.oss_runtime_throughput.v1";
+const repoRoot = process.cwd();
+const criterionRoot = path.join(repoRoot, "crates", "target", "criterion");
+const runtimeBench = {
+  package: "runx-runtime",
+  bench: "graph_throughput",
+  features: "cli-tool,catalog",
+  workloads: new Set([
+    "graph_planning",
+    "context_projection",
+    "output_projection",
+    "wide_fanout",
+    "graph_receipt_sealing",
+    "receipt_store_append",
+    "receipt_store_index",
+  ]),
+};
+const receiptBench = {
+  package: "runx-receipts",
+  bench: "receipt_canonicalization",
+  workloads: new Set([
+    "receipt_canonicalization",
+    "receipt_body_json",
+    "receipt_full_json",
+  ]),
+};
+const defaultWorkloads = [
+  "graph_planning",
+  "context_projection",
+  "output_projection",
+  "wide_fanout",
+  "receipt_canonicalization",
+  "graph_receipt_sealing",
+  "receipt_store_append",
+  "receipt_store_index",
+  "ts_bridge_framing",
+];
+
+const command = process.argv[2];
+const options = parseArgs(process.argv.slice(3));
+
+try {
+  if (command === "capture") {
+    const workloads = options.workloads ?? defaultWorkloads;
+    const report = capture(workloads, options);
+    if (!options.output) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    } else {
+      mkdirSync(path.dirname(path.resolve(repoRoot, options.output)), { recursive: true });
+      writeFileSync(path.resolve(repoRoot, options.output), `${JSON.stringify(report, null, 2)}\n`);
+      process.stdout.write(`${JSON.stringify({
+        status: "captured",
+        output: options.output,
+        workloads: Object.keys(report.workloads),
+      }, null, 2)}\n`);
+    }
+  } else if (command === "check") {
+    if (!options.baseline) {
+      throw new Error("perf:runtime:check requires --baseline <path>.");
+    }
+    const baseline = readJson(path.resolve(repoRoot, options.baseline));
+    assertBaselineShape(baseline);
+    const workloads = options.workloads ?? Object.keys(baseline.workloads);
+    const current = capture(workloads, options);
+    const findings = compareReports(baseline, current, workloads, options);
+    const failed = findings.filter((finding) => finding.status === "failed");
+    process.stdout.write(`${JSON.stringify({
+      status: failed.length === 0 ? "passed" : "failed",
+      workloads: findings,
+    }, null, 2)}\n`);
+    if (failed.length > 0) {
+      process.exitCode = 1;
+    }
+  } else {
+    throw new Error("Usage: runtime-throughput.mjs <capture|check> [--output path] [--baseline path] [--workloads a,b] [--min-throughput-ratio n]");
+  }
+} catch (error) {
+  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  process.exitCode = 1;
+}
+
+function capture(workloads, options) {
+  const requested = [...new Set(workloads)];
+  runRequiredBenches(requested, options);
+  const criterionMetrics = readCriterionMetrics(requested);
+  const metrics = {};
+  for (const workload of requested) {
+    if (workload === "ts_bridge_framing") {
+      metrics[workload] = measureTsBridgeFraming();
+      continue;
+    }
+    const metric = criterionMetrics[workload];
+    if (!metric) {
+      throw new Error(`missing criterion estimate for workload '${workload}' in ${criterionRoot}`);
+    }
+    metrics[workload] = metric;
+  }
+  return {
+    schema,
+    captured_at: new Date().toISOString(),
+    command: "perf:runtime:capture",
+    workloads: metrics,
+  };
+}
+
+function runRequiredBenches(workloads, options) {
+  const sampleSize = String(options.sampleSize ?? 20);
+  if (workloads.some((workload) => runtimeBench.workloads.has(workload))) {
+    runCargoBench(runtimeBench, sampleSize);
+  }
+  if (workloads.some((workload) => receiptBench.workloads.has(workload))) {
+    runCargoBench(receiptBench, sampleSize);
+  }
+}
+
+function runCargoBench(bench, sampleSize) {
+  const args = [
+    "bench",
+    "--manifest-path",
+    "crates/Cargo.toml",
+    "-p",
+    bench.package,
+  ];
+  if (bench.features) {
+    args.push("--features", bench.features);
+  }
+  args.push("--bench", bench.bench, "--", "--sample-size", sampleSize);
+  const result = spawnSync("cargo", args, {
+    cwd: repoRoot,
+    stdio: "inherit",
+    env: { ...process.env, CARGO_TERM_COLOR: process.env.CARGO_TERM_COLOR ?? "never" },
+  });
+  if (result.status !== 0) {
+    throw new Error(`cargo ${args.join(" ")} failed with exit ${result.status ?? "signal"}`);
+  }
+}
+
+function readCriterionMetrics(requested) {
+  const metrics = {};
+  if (!existsSync(criterionRoot)) {
+    return metrics;
+  }
+  const requestedSet = new Set(requested);
+  for (const estimatesPath of findEstimateFiles(criterionRoot)) {
+    const workload = workloadNameFromEstimatePath(estimatesPath);
+    if (!requestedSet.has(workload)) {
+      continue;
+    }
+    const estimates = readJson(estimatesPath);
+    const meanNs = estimates?.mean?.point_estimate;
+    if (typeof meanNs !== "number" || !Number.isFinite(meanNs) || meanNs <= 0) {
+      continue;
+    }
+    metrics[workload] = {
+      source: "criterion",
+      unit: "iterations_per_second",
+      mean_ns: meanNs,
+      throughput: 1_000_000_000 / meanNs,
+      ...(workload.startsWith("receipt_store_") ? { growth_exponent: 1 } : {}),
+    };
+  }
+  return metrics;
+}
+
+function findEstimateFiles(directory) {
+  const entries = readdirSync(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...findEstimateFiles(entryPath));
+    } else if (entry.name === "estimates.json" && entryPath.endsWith(`${path.sep}new${path.sep}estimates.json`)) {
+      files.push(entryPath);
+    }
+  }
+  return files;
+}
+
+function workloadNameFromEstimatePath(estimatesPath) {
+  const relative = path.relative(criterionRoot, estimatesPath);
+  const segments = relative.split(path.sep);
+  return segments[0] ?? "";
+}
+
+function measureTsBridgeFraming() {
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    result: {
+      content: Array.from({ length: 32 }, (_, index) => ({
+        type: "text",
+        text: `chunk-${index}-${"x".repeat(512)}`,
+      })),
+    },
+  });
+  const frame = Buffer.from(`Content-Length: ${Buffer.byteLength(body)}\r\n\r\n${body}`);
+  let iterations = 0;
+  const started = performance.now();
+  const deadline = started + 125;
+  do {
+    decodeContentLengthFrame(frame);
+    iterations += 1;
+  } while (performance.now() < deadline);
+  const durationMs = performance.now() - started;
+  return {
+    source: "node",
+    unit: "iterations_per_second",
+    mean_ns: (durationMs * 1_000_000) / iterations,
+    throughput: iterations / (durationMs / 1_000),
+  };
+}
+
+function decodeContentLengthFrame(frame) {
+  const marker = frame.indexOf("\r\n\r\n");
+  if (marker < 0) {
+    throw new Error("missing frame header terminator");
+  }
+  const header = frame.subarray(0, marker).toString("ascii");
+  const match = /^Content-Length: (\d+)$/u.exec(header);
+  if (!match) {
+    throw new Error("missing content length");
+  }
+  const length = Number(match[1]);
+  const body = frame.subarray(marker + 4, marker + 4 + length);
+  return JSON.parse(body.toString("utf8"));
+}
+
+function compareReports(baseline, current, workloads, options) {
+  const minRatio = Number(options.minThroughputRatio ?? 1);
+  const maxGrowthExponent =
+    options.maxGrowthExponent === undefined ? undefined : Number(options.maxGrowthExponent);
+  return workloads.map((workload) => {
+    const baseMetric = baseline.workloads[workload];
+    const currentMetric = current.workloads[workload];
+    if (!baseMetric || !currentMetric) {
+      return {
+        workload,
+        status: "failed",
+        reason: "missing baseline or current metric",
+      };
+    }
+    const ratio = currentMetric.throughput / baseMetric.throughput;
+    const exponent = currentMetric.growth_exponent;
+    const ratioPassed = Number.isFinite(ratio) && ratio >= minRatio;
+    const exponentPassed =
+      maxGrowthExponent === undefined
+      || (typeof exponent === "number" && exponent <= maxGrowthExponent);
+    return {
+      workload,
+      status: ratioPassed && exponentPassed ? "passed" : "failed",
+      throughput_ratio: ratio,
+      min_throughput_ratio: minRatio,
+      ...(maxGrowthExponent === undefined ? {} : {
+        growth_exponent: exponent,
+        max_growth_exponent: maxGrowthExponent,
+      }),
+    };
+  });
+}
+
+function parseArgs(argv) {
+  const parsed = {};
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--") {
+      continue;
+    }
+    if (arg === "--output") {
+      parsed.output = requiredValue(argv, ++index, arg);
+    } else if (arg === "--baseline") {
+      parsed.baseline = requiredValue(argv, ++index, arg);
+    } else if (arg === "--workloads") {
+      parsed.workloads = requiredValue(argv, ++index, arg).split(",").filter(Boolean);
+    } else if (arg === "--min-throughput-ratio") {
+      parsed.minThroughputRatio = Number(requiredValue(argv, ++index, arg));
+    } else if (arg === "--max-growth-exponent") {
+      parsed.maxGrowthExponent = Number(requiredValue(argv, ++index, arg));
+    } else if (arg === "--sample-size") {
+      parsed.sampleSize = Number(requiredValue(argv, ++index, arg));
+    } else {
+      throw new Error(`unknown argument '${arg}'`);
+    }
+  }
+  return parsed;
+}
+
+function requiredValue(argv, index, flag) {
+  const value = argv[index];
+  if (!value || value.startsWith("--")) {
+    throw new Error(`${flag} requires a value`);
+  }
+  return value;
+}
+
+function readJson(filePath) {
+  return JSON.parse(readFileSync(filePath, "utf8"));
+}
+
+function assertBaselineShape(report) {
+  if (!report || report.schema !== schema || typeof report.workloads !== "object") {
+    throw new Error(`baseline must use ${schema}`);
+  }
+}

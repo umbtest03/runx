@@ -3,26 +3,30 @@
 // the parity implementation for the existing execution contract.
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::thread;
 
 use runx_contracts::{ExecutionEvent, FanoutReceiptSyncPoint, JsonValue};
 use runx_core::state_machine::{
-    FanoutBranchResult, FanoutGroupPolicy, FanoutSyncDecision, FanoutSyncOutcome, GraphStepStatus,
-    SequentialGraphEvent, SequentialGraphPlan, SequentialGraphState, SequentialGraphStepDefinition,
-    create_sequential_graph_state, evaluate_fanout_sync, plan_sequential_graph_transition,
-    transition_sequential_graph,
+    FanoutBranchResult, FanoutGroupPolicy, FanoutSyncDecision, FanoutSyncOutcome,
+    SequentialGraphEvent, SequentialGraphPlan, SequentialGraphState, apply_sequential_graph_event,
+    create_sequential_graph_state, evaluate_fanout_sync,
 };
 use runx_parser::{ExecutionGraph, GraphStep};
 
 use super::super::fanout::fanout_policies;
 use super::super::graph::find_step;
-use super::steps::{output_error, run_step, runtime_error_step_run};
+use super::super::graph_index::{ExecutionGraphIndex, PriorRunIndex};
+use super::scheduler::{
+    FanoutSchedule, FanoutScheduler, ParallelFanoutSchedule, ScheduledFanoutStep,
+};
+use super::steps::{output_error, run_step, run_step_with_index, runtime_error_step_run};
 use super::sync::{
     completed_event, failed_event, fanout_sync_point, latest_fanout_receipt_ids, started_event,
 };
-use super::{GraphCheckpoint, GraphRun, Runtime, StepRun};
+use super::{GraphCheckpoint, GraphRun, Runtime, RuntimeOptions, StepRun};
 use crate::RuntimeError;
 use crate::adapter::SkillAdapter;
-use crate::host::Host;
+use crate::host::{Host, NoopHost};
 use crate::journal::ExecutionJournal;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -32,10 +36,10 @@ pub(super) enum StepFailureMode {
 }
 
 pub(super) struct GraphExecution {
-    definitions: Vec<SequentialGraphStepDefinition>,
-    step_indexes: BTreeMap<String, usize>,
+    graph_index: ExecutionGraphIndex,
     state: SequentialGraphState,
     pub(super) runs: Vec<StepRun>,
+    run_positions: BTreeMap<String, usize>,
     pub(super) sync_points: Vec<FanoutReceiptSyncPoint>,
     journal: ExecutionJournal,
 }
@@ -46,20 +50,32 @@ pub(super) struct FanoutRunPlan {
     attempts: BTreeMap<String, u32>,
 }
 
+struct ParallelStepRun {
+    sequence: usize,
+    step_id: String,
+    attempt: u32,
+    run: StepRun,
+}
+
+#[derive(Clone, Copy)]
 pub(super) struct StepExecutionPlan<'a> {
     step_id: &'a str,
     attempt: u32,
     failure_mode: StepFailureMode,
 }
 
+const DISABLE_RUNTIME_INDEXES_ENV: &str = "RUNX_RUNTIME_DISABLE_INDEXES";
+
 impl GraphExecution {
     pub(super) fn new(graph: &ExecutionGraph) -> Self {
         let definitions = super::super::graph::step_definitions(graph);
+        let state = create_sequential_graph_state(graph.name.clone(), &definitions);
+        let graph_index = ExecutionGraphIndex::new(graph, definitions);
         Self {
-            state: create_sequential_graph_state(graph.name.clone(), &definitions),
-            step_indexes: step_indexes(graph),
-            definitions,
+            graph_index,
+            state,
             runs: Vec::new(),
+            run_positions: BTreeMap::new(),
             sync_points: Vec::new(),
             journal: ExecutionJournal::default(),
         }
@@ -75,11 +91,14 @@ impl GraphExecution {
                 graph: graph.name.clone(),
             });
         }
+        let definitions = super::super::graph::step_definitions(graph);
+        let graph_index = ExecutionGraphIndex::new(graph, definitions);
+        let run_positions = run_positions(&checkpoint.steps);
         Ok(Self {
-            definitions: super::super::graph::step_definitions(graph),
-            step_indexes: step_indexes(graph),
+            graph_index,
             state: checkpoint.state,
             runs: checkpoint.steps,
+            run_positions,
             sync_points: checkpoint.sync_points,
             journal: checkpoint.journal,
         })
@@ -102,12 +121,9 @@ impl GraphExecution {
             if reached_step_limit(initial_step_count, self.runs.len(), max_new_steps) {
                 return Ok(());
             }
-            let plan = plan_sequential_graph_transition(
-                &self.state,
-                &self.definitions,
-                &fanout_policies,
-                None,
-            );
+            let plan = self
+                .graph_index
+                .plan_transition(&self.state, &fanout_policies);
             if self.apply_plan(runtime, graph_dir, graph, host, &fanout_policies, plan)? {
                 break;
             }
@@ -192,7 +208,7 @@ impl GraphExecution {
     }
 
     pub(super) fn complete_graph(&mut self) -> bool {
-        self.state = transition_sequential_graph(&self.state, &SequentialGraphEvent::Complete);
+        apply_sequential_graph_event(&mut self.state, &SequentialGraphEvent::Complete);
         true
     }
 
@@ -208,21 +224,202 @@ impl GraphExecution {
     where
         A: SkillAdapter,
     {
-        for step_id in plan.step_ids {
-            let attempt = plan.attempts.get(&step_id).copied().unwrap_or(1);
+        if runtime
+            .options
+            .env
+            .contains_key(DISABLE_RUNTIME_INDEXES_ENV)
+        {
+            self.run_serial_fanout_steps(
+                runtime,
+                graph_dir,
+                graph,
+                host,
+                &plan.step_ids,
+                &plan.attempts,
+            )?;
+            return self.record_proceeding_fanout_sync_point(
+                graph,
+                fanout_policies,
+                &plan.group_id,
+            );
+        }
+
+        let scheduler = FanoutScheduler::from_env(&runtime.options.env);
+        match scheduler.schedule(
+            &runtime.adapter,
+            graph_dir,
+            graph,
+            &plan.step_ids,
+            &plan.attempts,
+        )? {
+            FanoutSchedule::Serial(steps) => {
+                self.run_scheduled_fanout_steps(runtime, graph_dir, graph, host, steps)?;
+            }
+            FanoutSchedule::Parallel(schedule) => {
+                self.run_parallel_fanout_steps(runtime, graph_dir, graph, host, schedule)?;
+            }
+        }
+        self.record_proceeding_fanout_sync_point(graph, fanout_policies, &plan.group_id)
+    }
+
+    fn run_serial_fanout_steps<A>(
+        &mut self,
+        runtime: &Runtime<A>,
+        graph_dir: &Path,
+        graph: &ExecutionGraph,
+        host: &mut dyn Host,
+        step_ids: &[String],
+        attempts: &BTreeMap<String, u32>,
+    ) -> Result<(), RuntimeError>
+    where
+        A: SkillAdapter,
+    {
+        let steps = step_ids
+            .iter()
+            .map(|step_id| ScheduledFanoutStep {
+                step_id,
+                attempt: attempts.get(step_id).copied().unwrap_or(1),
+            })
+            .collect();
+        self.run_scheduled_fanout_steps(runtime, graph_dir, graph, host, steps)
+    }
+
+    fn run_scheduled_fanout_steps<A>(
+        &mut self,
+        runtime: &Runtime<A>,
+        graph_dir: &Path,
+        graph: &ExecutionGraph,
+        host: &mut dyn Host,
+        steps: Vec<ScheduledFanoutStep<'_>>,
+    ) -> Result<(), RuntimeError>
+    where
+        A: SkillAdapter,
+    {
+        for step in steps {
             self.run_one_step_with_mode(
                 runtime,
                 graph_dir,
                 graph,
                 host,
                 StepExecutionPlan {
-                    step_id: &step_id,
-                    attempt,
+                    step_id: step.step_id,
+                    attempt: step.attempt,
                     failure_mode: StepFailureMode::RecordAndContinue,
                 },
             )?;
         }
-        self.record_proceeding_fanout_sync_point(graph, fanout_policies, &plan.group_id)
+        Ok(())
+    }
+
+    fn run_parallel_fanout_steps<A>(
+        &mut self,
+        runtime: &Runtime<A>,
+        graph_dir: &Path,
+        graph: &ExecutionGraph,
+        host: &mut dyn Host,
+        schedule: ParallelFanoutSchedule<'_>,
+    ) -> Result<(), RuntimeError>
+    where
+        A: SkillAdapter,
+    {
+        for scheduled in &schedule.steps {
+            let step = self.find_step(graph, scheduled.step_id)?;
+            enforce_transition_gates(graph, step, &self.runs)?;
+        }
+        for scheduled in &schedule.steps {
+            self.record(host, started_event(scheduled.step_id))?;
+            self.start_step(runtime, scheduled.step_id);
+        }
+
+        let results = self.execute_parallel_fanout_steps(
+            runtime,
+            graph_dir,
+            graph,
+            &schedule.steps,
+            schedule.max_concurrency,
+        )?;
+        for result in results {
+            self.commit_step_run(
+                runtime,
+                host,
+                StepExecutionPlan {
+                    step_id: &result.step_id,
+                    attempt: result.attempt,
+                    failure_mode: StepFailureMode::RecordAndContinue,
+                },
+                result.run,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn execute_parallel_fanout_steps<A>(
+        &self,
+        runtime: &Runtime<A>,
+        graph_dir: &Path,
+        graph: &ExecutionGraph,
+        steps: &[ScheduledFanoutStep<'_>],
+        max_concurrency: usize,
+    ) -> Result<Vec<ParallelStepRun>, RuntimeError>
+    where
+        A: SkillAdapter,
+    {
+        let mut results = Vec::with_capacity(steps.len());
+        let chunk_size = max_concurrency.max(1);
+        for (chunk_index, chunk) in steps.chunks(chunk_size).enumerate() {
+            let chunk_start = chunk_index * chunk_size;
+            let mut chunk_results = thread::scope(|scope| -> Result<Vec<_>, RuntimeError> {
+                let mut handles = Vec::with_capacity(chunk.len());
+                for (offset, scheduled) in chunk.iter().enumerate() {
+                    let sequence = chunk_start + offset;
+                    let adapter = runtime.adapter.clone_for_fanout().ok_or_else(|| {
+                        RuntimeError::UnsupportedAdapter {
+                            adapter_type: format!(
+                                "{} parallel fanout",
+                                runtime.adapter.adapter_type()
+                            ),
+                        }
+                    })?;
+                    let options = runtime.options.clone();
+                    let graph_name = graph.name.as_str();
+                    let step = self.find_step(graph, scheduled.step_id)?;
+                    let step_id = scheduled.step_id.to_owned();
+                    let attempt = scheduled.attempt;
+                    let runs = &self.runs;
+                    let run_positions = &self.run_positions;
+                    handles.push(scope.spawn(move || {
+                        let run = execute_parallel_fanout_step(
+                            adapter,
+                            options,
+                            graph_dir,
+                            graph_name,
+                            step,
+                            attempt,
+                            runs,
+                            run_positions,
+                        )?;
+                        Ok::<ParallelStepRun, RuntimeError>(ParallelStepRun {
+                            sequence,
+                            step_id,
+                            attempt,
+                            run,
+                        })
+                    }));
+                }
+
+                let mut results = Vec::with_capacity(handles.len());
+                for handle in handles {
+                    results.push(handle.join().map_err(|_| RuntimeError::SkillFailed {
+                        skill_name: "fanout".to_owned(),
+                        message: "parallel fanout worker panicked".to_owned(),
+                    })??);
+                }
+                Ok(results)
+            })?;
+            results.append(&mut chunk_results);
+        }
+        results.sort_by_key(|result| result.sequence);
+        Ok(results)
     }
 
     pub(super) fn block_graph(
@@ -248,8 +445,8 @@ impl GraphExecution {
         if let Some(sync_decision) = sync_decision {
             self.push_sync_point(graph, &sync_decision)?;
         }
-        self.state = transition_sequential_graph(
-            &self.state,
+        apply_sequential_graph_event(
+            &mut self.state,
             &SequentialGraphEvent::FailGraph {
                 error: reason.clone(),
             },
@@ -263,8 +460,8 @@ impl GraphExecution {
         reason: String,
         sync_decision: runx_core::state_machine::FanoutSyncDecision,
     ) -> Result<bool, RuntimeError> {
-        self.state = transition_sequential_graph(
-            &self.state,
+        apply_sequential_graph_event(
+            &mut self.state,
             &SequentialGraphEvent::PauseGraph {
                 reason: reason.clone(),
             },
@@ -293,8 +490,8 @@ impl GraphExecution {
         reason: String,
         sync_decision: runx_core::state_machine::FanoutSyncDecision,
     ) -> Result<bool, RuntimeError> {
-        self.state = transition_sequential_graph(
-            &self.state,
+        apply_sequential_graph_event(
+            &mut self.state,
             &SequentialGraphEvent::EscalateGraph {
                 reason: reason.clone(),
             },
@@ -357,31 +554,77 @@ impl GraphExecution {
         enforce_transition_gates(graph, step, &self.runs)?;
         self.record(host, started_event(plan.step_id))?;
         self.start_step(runtime, plan.step_id);
-        let run = match run_step(
-            runtime,
-            graph_dir,
-            &graph.name,
-            step,
-            plan.attempt,
-            &self.runs,
-            host,
-        ) {
+        let run = self.execute_step_plan(runtime, graph_dir, graph, step, host, plan)?;
+        self.commit_step_run(runtime, host, plan, run)
+    }
+
+    fn execute_step_plan<A>(
+        &self,
+        runtime: &Runtime<A>,
+        graph_dir: &Path,
+        graph: &ExecutionGraph,
+        step: &GraphStep,
+        host: &mut dyn Host,
+        plan: StepExecutionPlan<'_>,
+    ) -> Result<StepRun, RuntimeError>
+    where
+        A: SkillAdapter,
+    {
+        let run_result = if runtime
+            .options
+            .env
+            .contains_key(DISABLE_RUNTIME_INDEXES_ENV)
+        {
+            run_step(
+                runtime,
+                graph_dir,
+                &graph.name,
+                step,
+                plan.attempt,
+                &self.runs,
+                host,
+            )
+        } else {
+            let prior_run_index = PriorRunIndex::from_positions(&self.runs, &self.run_positions);
+            run_step_with_index(
+                runtime,
+                graph_dir,
+                &graph.name,
+                step,
+                plan.attempt,
+                &prior_run_index,
+                host,
+            )
+        };
+        Ok(match run_result {
             Ok(run) => run,
             Err(error) if plan.failure_mode == StepFailureMode::RecordAndContinue => {
                 runtime_error_step_run(runtime, &graph.name, step, plan.attempt, error)?
             }
             Err(error) => return Err(error),
-        };
+        })
+    }
+
+    fn commit_step_run<A>(
+        &mut self,
+        runtime: &Runtime<A>,
+        host: &mut dyn Host,
+        plan: StepExecutionPlan<'_>,
+        run: StepRun,
+    ) -> Result<(), RuntimeError>
+    where
+        A: SkillAdapter,
+    {
         if run.output.succeeded() {
             self.succeed_step(runtime, plan.step_id, &run);
-            self.runs.push(run);
+            self.push_run(run);
             self.record(host, completed_event(plan.step_id))
         } else {
             self.fail_step(runtime, plan.step_id, &run);
             host.log(format!("step {} failed", plan.step_id))?;
             self.record(host, failed_event(plan.step_id))?;
             if plan.failure_mode == StepFailureMode::RecordAndContinue {
-                self.runs.push(run);
+                self.push_run(run);
                 Ok(())
             } else {
                 Err(RuntimeError::SkillFailed {
@@ -392,9 +635,17 @@ impl GraphExecution {
         }
     }
 
+    fn push_run(&mut self, run: StepRun) {
+        let index = self.runs.len();
+        self.run_positions
+            .entry(run.step_id.clone())
+            .or_insert(index);
+        self.runs.push(run);
+    }
+
     pub(super) fn start_step<A>(&mut self, runtime: &Runtime<A>, step_id: &str) {
-        self.state = transition_sequential_graph(
-            &self.state,
+        apply_sequential_graph_event(
+            &mut self.state,
             &SequentialGraphEvent::StartStep {
                 step_id: step_id.to_owned(),
                 at: runtime.options.created_at.clone(),
@@ -403,8 +654,8 @@ impl GraphExecution {
     }
 
     pub(super) fn succeed_step<A>(&mut self, runtime: &Runtime<A>, step_id: &str, run: &StepRun) {
-        self.state = transition_sequential_graph(
-            &self.state,
+        apply_sequential_graph_event(
+            &mut self.state,
             &SequentialGraphEvent::StepSucceeded {
                 step_id: step_id.to_owned(),
                 at: runtime.options.created_at.clone(),
@@ -416,8 +667,8 @@ impl GraphExecution {
     }
 
     pub(super) fn fail_step<A>(&mut self, runtime: &Runtime<A>, step_id: &str, run: &StepRun) {
-        self.state = transition_sequential_graph(
-            &self.state,
+        apply_sequential_graph_event(
+            &mut self.state,
             &SequentialGraphEvent::StepFailed {
                 step_id: step_id.to_owned(),
                 at: runtime.options.created_at.clone(),
@@ -466,8 +717,9 @@ impl GraphExecution {
         fanout_policies: &BTreeMap<String, FanoutGroupPolicy>,
         group_id: &str,
     ) -> Result<(), RuntimeError> {
-        let follow_up =
-            plan_sequential_graph_transition(&self.state, &self.definitions, fanout_policies, None);
+        let follow_up = self
+            .graph_index
+            .plan_transition(&self.state, fanout_policies);
         if matches!(
             follow_up,
             SequentialGraphPlan::RunFanout {
@@ -518,27 +770,8 @@ impl GraphExecution {
         group_id: &str,
         include_outputs: bool,
     ) -> Vec<FanoutBranchResult> {
-        graph
-            .steps
-            .iter()
-            .filter(|step| step.fanout_group.as_deref() == Some(group_id))
-            .map(|step| {
-                let state = self
-                    .state
-                    .steps
-                    .iter()
-                    .find(|candidate| candidate.step_id == step.id);
-                FanoutBranchResult {
-                    step_id: step.id.clone(),
-                    status: state.map_or(GraphStepStatus::Failed, |state| state.status.clone()),
-                    outputs: if include_outputs {
-                        state.and_then(|state| state.outputs.clone())
-                    } else {
-                        None
-                    },
-                }
-            })
-            .collect()
+        self.graph_index
+            .branch_results(graph, &self.state, group_id, include_outputs)
     }
 
     fn find_step<'a>(
@@ -546,25 +779,45 @@ impl GraphExecution {
         graph: &'a ExecutionGraph,
         step_id: &str,
     ) -> Result<&'a GraphStep, RuntimeError> {
-        if let Some(step) = self
-            .step_indexes
-            .get(step_id)
-            .and_then(|index| graph.steps.get(*index))
-            .filter(|step| step.id == step_id)
-        {
-            return Ok(step);
-        }
-        find_step(graph, step_id)
+        self.graph_index
+            .find_step(graph, step_id)
+            .or_else(|_| find_step(graph, step_id))
     }
 }
 
-fn step_indexes(graph: &ExecutionGraph) -> BTreeMap<String, usize> {
-    graph
-        .steps
-        .iter()
-        .enumerate()
-        .map(|(index, step)| (step.id.clone(), index))
-        .collect()
+fn execute_parallel_fanout_step(
+    adapter: Box<dyn SkillAdapter + Send + Sync>,
+    options: RuntimeOptions,
+    graph_dir: &Path,
+    graph_name: &str,
+    step: &GraphStep,
+    attempt: u32,
+    prior_runs: &[StepRun],
+    run_positions: &BTreeMap<String, usize>,
+) -> Result<StepRun, RuntimeError> {
+    let runtime = Runtime::new(adapter, options);
+    let prior_run_index = PriorRunIndex::from_positions(prior_runs, run_positions);
+    let mut host = NoopHost;
+    match run_step_with_index(
+        &runtime,
+        graph_dir,
+        graph_name,
+        step,
+        attempt,
+        &prior_run_index,
+        &mut host,
+    ) {
+        Ok(run) => Ok(run),
+        Err(error) => runtime_error_step_run(&runtime, graph_name, step, attempt, error),
+    }
+}
+
+fn run_positions(runs: &[StepRun]) -> BTreeMap<String, usize> {
+    let mut positions = BTreeMap::new();
+    for (index, run) in runs.iter().enumerate() {
+        positions.entry(run.step_id.clone()).or_insert(index);
+    }
+    positions
 }
 
 fn fanout_policy_requires_outputs(policy: &FanoutGroupPolicy) -> bool {

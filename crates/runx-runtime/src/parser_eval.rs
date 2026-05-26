@@ -1,6 +1,6 @@
 use std::fmt;
 
-use runx_contracts::{JsonObject, JsonValue};
+use runx_contracts::{JsonObject, JsonValue, json_string_field};
 use runx_parser::{
     ParseError, SkillInstallError, SkillInstallOrigin, ValidateSkillMode, ValidateSkillOptions,
     ValidationError, extract_skill_quality_profile, parse_graph_yaml, parse_runner_manifest_yaml,
@@ -95,13 +95,6 @@ fn parser_document_kind(document: &JsonValue) -> Option<&str> {
     match fields.get("input") {
         Some(JsonValue::Object(input)) => json_string_field(input, "kind"),
         _ => json_string_field(fields, "kind"),
-    }
-}
-
-fn json_string_field<'a>(fields: &'a JsonObject, key: &str) -> Option<&'a str> {
-    match fields.get(key) {
-        Some(JsonValue::String(value)) => Some(value.as_str()),
-        _ => None,
     }
 }
 

@@ -380,14 +380,11 @@ fn inferred_tool_roots(skill_dir: &Path) -> Option<String> {
         .parent()
         .filter(|parent| parent.file_name().and_then(|name| name.to_str()) == Some("skills"))
         .and_then(Path::parent)?;
-    let roots = [root.join("packages/cli/tools"), root.join("tools")]
-        .into_iter()
-        .filter(|path| path.is_dir())
-        .collect::<Vec<_>>();
-    if roots.is_empty() {
+    let tools_root = root.join("tools");
+    if !tools_root.is_dir() {
         return None;
     }
-    std::env::join_paths(roots)
+    std::env::join_paths([tools_root])
         .ok()
         .map(|value| value.to_string_lossy().into_owned())
 }
@@ -936,11 +933,12 @@ fn seal_skill_output(
 }
 
 fn answer_disposition(answer: &JsonValue) -> ClosureDisposition {
-    match json_object(answer)
+    match answer
+        .as_object()
         .and_then(|object| object.get("closure"))
-        .and_then(json_object)
+        .and_then(JsonValue::as_object)
         .and_then(|closure| closure.get("disposition"))
-        .and_then(json_string)
+        .and_then(JsonValue::as_str)
     {
         Some("deferred") => ClosureDisposition::Deferred,
         Some("superseded") => ClosureDisposition::Superseded,
@@ -950,20 +948,6 @@ fn answer_disposition(answer: &JsonValue) -> ClosureDisposition {
         Some("killed") => ClosureDisposition::Killed,
         Some("timed_out") => ClosureDisposition::TimedOut,
         _ => ClosureDisposition::Closed,
-    }
-}
-
-fn json_object(value: &JsonValue) -> Option<&JsonObject> {
-    match value {
-        JsonValue::Object(object) => Some(object),
-        _ => None,
-    }
-}
-
-fn json_string(value: &JsonValue) -> Option<&str> {
-    match value {
-        JsonValue::String(value) => Some(value),
-        _ => None,
     }
 }
 

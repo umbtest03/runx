@@ -5,8 +5,8 @@
 //! identity (`$id`, `x-runx-schema`) and agree with the committed
 //! `oss/schemas/*.json` on accept/reject for every corpus value. The schema
 //! *document* shape may differ from the committed one; only the validated value
-//! domain must match (dod1). The committed TypeBox-generated schemas remain the
-//! source of truth until the pipeline inversion flips.
+//! domain must match (dod1). Rust contract types are now the source of truth;
+//! the committed schema documents are generated artifacts checked for freshness.
 
 use std::path::PathBuf;
 

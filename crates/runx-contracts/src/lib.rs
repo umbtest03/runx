@@ -131,7 +131,10 @@ pub use host_protocol::{
     HostRunVerificationStatus, HostTerminalState, Question, ResolutionRequest, ResolutionResponse,
     ResolutionResponseActor,
 };
-pub use json::{JsonNumber, JsonObject, JsonValue};
+pub use json::{
+    JsonNumber, JsonObject, JsonValue, json_bool_field, json_object, json_object_field,
+    json_string_field,
+};
 pub use ledger::{
     LedgerCanonicalization, LedgerChain, LedgerChainVersion, LedgerEntry, LedgerEntryMeta,
     LedgerEntrySchemaVersion, LedgerHashAlgorithm, LedgerPayload, LedgerPayloadVersion,

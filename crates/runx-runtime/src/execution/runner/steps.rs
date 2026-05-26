@@ -12,7 +12,9 @@ use runx_parser::{GraphStep, SkillSource, SourceKind};
 
 use super::super::graph::{
     load_step_skill, output_object, output_object_with_claim, resolve_inputs,
+    resolve_inputs_with_index,
 };
+use super::super::graph_index::PriorRunIndex;
 use super::authority::{
     StepPaymentReplay, attach_payment_supervisor_evidence_before_gate, authority_denied,
     enforce_step_authority_admission, enforce_step_authority_receipt_before_success,
@@ -58,8 +60,6 @@ pub(super) fn output_error(run: &StepRun) -> String {
     }
 }
 
-// rust-style-allow: long-function - step execution is one linear admit/run/seal sequence; splitting
-// it would scatter the ordering invariants between admission, invocation, and receipt sealing.
 pub(super) fn run_step<A>(
     runtime: &Runtime<A>,
     graph_dir: &Path,
@@ -73,6 +73,39 @@ where
     A: SkillAdapter,
 {
     let inputs = resolve_inputs(step, prior_runs)?;
+    run_step_with_inputs(runtime, graph_dir, graph_name, step, attempt, inputs, host)
+}
+
+pub(super) fn run_step_with_index<A>(
+    runtime: &Runtime<A>,
+    graph_dir: &Path,
+    graph_name: &str,
+    step: &GraphStep,
+    attempt: u32,
+    prior_run_index: &PriorRunIndex<'_>,
+    host: &mut dyn Host,
+) -> Result<StepRun, RuntimeError>
+where
+    A: SkillAdapter,
+{
+    let inputs = resolve_inputs_with_index(step, prior_run_index)?;
+    run_step_with_inputs(runtime, graph_dir, graph_name, step, attempt, inputs, host)
+}
+
+// rust-style-allow: long-function - step execution is one linear admit/run/seal sequence; splitting
+// it would scatter the ordering invariants between admission, invocation, and receipt sealing.
+fn run_step_with_inputs<A>(
+    runtime: &Runtime<A>,
+    graph_dir: &Path,
+    graph_name: &str,
+    step: &GraphStep,
+    attempt: u32,
+    inputs: JsonObject,
+    host: &mut dyn Host,
+) -> Result<StepRun, RuntimeError>
+where
+    A: SkillAdapter,
+{
     if let Some(replay) = sealed_payment_replay(step, &inputs, &runtime.options.env, graph_dir)? {
         return run_replayed_payment_step(runtime, graph_dir, graph_name, step, attempt, replay);
     }
@@ -488,7 +521,7 @@ fn expose_declared_artifacts(
         return Ok(());
     }
 
-    if let Some(wrap_as) = artifacts.get("wrap_as").and_then(json_string) {
+    if let Some(wrap_as) = artifacts.get("wrap_as").and_then(JsonValue::as_str) {
         reject_reserved_step_output_name(step, wrap_as, "artifact output")?;
         let value = declared_claim_value(claim, wrap_as).unwrap_or_else(|| {
             let mut wrapper = JsonObject::new();
@@ -931,7 +964,10 @@ fn resolution_event_data(
 }
 
 fn optional_string(object: &JsonObject, field: &str) -> Option<String> {
-    object.get(field).and_then(json_string).map(str::to_owned)
+    object
+        .get(field)
+        .and_then(JsonValue::as_str)
+        .map(str::to_owned)
 }
 
 fn optional_object(object: &JsonObject, field: &str) -> Option<JsonObject> {
@@ -941,19 +977,13 @@ fn optional_object(object: &JsonObject, field: &str) -> Option<JsonObject> {
     }
 }
 
-fn json_string(value: &JsonValue) -> Option<&str> {
-    match value {
-        JsonValue::String(value) => Some(value),
-        _ => None,
-    }
-}
-
 fn agent_answer_disposition_value(answer: &JsonValue) -> ClosureDisposition {
-    match json_object(answer)
+    match answer
+        .as_object()
         .and_then(|object| object.get("closure"))
-        .and_then(json_object)
+        .and_then(JsonValue::as_object)
         .and_then(|closure| closure.get("disposition"))
-        .and_then(json_string)
+        .and_then(JsonValue::as_str)
     {
         Some("deferred") => ClosureDisposition::Deferred,
         Some("superseded") => ClosureDisposition::Superseded,
@@ -963,13 +993,6 @@ fn agent_answer_disposition_value(answer: &JsonValue) -> ClosureDisposition {
         Some("killed") => ClosureDisposition::Killed,
         Some("timed_out") => ClosureDisposition::TimedOut,
         _ => ClosureDisposition::Closed,
-    }
-}
-
-fn json_object(value: &JsonValue) -> Option<&JsonObject> {
-    match value {
-        JsonValue::Object(object) => Some(object),
-        _ => None,
     }
 }
 

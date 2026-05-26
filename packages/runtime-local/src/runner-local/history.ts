@@ -16,7 +16,7 @@ import {
   SYSTEM_ARTIFACT_TYPES,
   readLedgerEntries,
 } from "@runxhq/core/artifacts";
-import { errorMessage, isNotFound, isRecord, stableStringify } from "@runxhq/core/util";
+import { errorMessage, isNotFound, isRecord, readNestedString, stableStringify } from "@runxhq/core/util";
 import { defaultReceiptDir } from "./receipt-paths.js";
 import { readPendingRunState, type PendingRunState } from "./inputs.js";
 import {
@@ -892,17 +892,6 @@ function compactFieldDiff(
 
 function stableDiffValue(value: unknown): string {
   return JSON.stringify(value ?? null);
-}
-
-function readNestedString(value: Readonly<Record<string, unknown>>, path: readonly string[]): string | undefined {
-  let current: unknown = value;
-  for (const key of path) {
-    if (!isRecord(current) || !(key in current)) {
-      return undefined;
-    }
-    current = current[key];
-  }
-  return typeof current === "string" ? current : undefined;
 }
 
 async function readRuntimeReceipt(receiptDir: string, id: string): Promise<RuntimeReceipt> {

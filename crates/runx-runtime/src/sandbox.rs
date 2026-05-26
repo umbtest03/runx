@@ -65,7 +65,7 @@ pub fn prepare_process_sandbox(
     let mut cleanup_paths = Vec::new();
     let mut sandbox_base_env = base_env.clone();
     prepare_enforced_env(&runtime, &mut sandbox_base_env, &mut cleanup_paths)?;
-    let env = match child_env(sandbox, &sandbox_base_env, inputs) {
+    let env = match child_env(sandbox, &sandbox_base_env, inputs, &mut cleanup_paths) {
         Ok(env) => env,
         Err(error) => {
             cleanup_paths_quietly(&cleanup_paths);
@@ -218,13 +218,16 @@ fn validate_cwd_policy(
     if profile == "unrestricted-local-dev" {
         return Ok(());
     }
-    let cwd = normalize_path(cwd);
-    let skill_directory = normalize_path(skill_directory);
+    let cwd = containment_path(cwd, "resolving sandbox cwd")?;
+    let skill_directory = containment_path(skill_directory, "resolving sandbox skill directory")?;
     let workspace_root = match workspace_cwd {
-        Some(workspace_cwd) => normalize_path(workspace_cwd),
-        None => normalize_path(&std::env::current_dir().map_err(|source| {
-            RuntimeError::io("resolving workspace cwd for sandbox policy", source)
-        })?),
+        Some(workspace_cwd) => containment_path(workspace_cwd, "resolving sandbox workspace")?,
+        None => containment_path(
+            &std::env::current_dir().map_err(|source| {
+                RuntimeError::io("resolving workspace cwd for sandbox policy", source)
+            })?,
+            "resolving sandbox workspace",
+        )?,
     };
     match policy {
         "unrestricted-local-dev" => Ok(()),
@@ -288,15 +291,15 @@ fn child_env(
     sandbox: Option<&SkillSandbox>,
     base_env: &BTreeMap<String, String>,
     inputs: &JsonObject,
+    cleanup_paths: &mut Vec<PathBuf>,
 ) -> Result<BTreeMap<String, String>, RuntimeError> {
     let mut env = child_base_env(sandbox, base_env)?;
     let serialized = serde_json::to_string(inputs)
         .map_err(|source| RuntimeError::json("serializing runtime inputs", source))?;
     if serialized.len() > MAX_INLINE_INPUTS_BYTES {
-        env.insert(
-            "RUNX_INPUTS_PATH".to_owned(),
-            write_inputs_file(base_env, &serialized)?,
-        );
+        let (inputs_path, cleanup_path) = write_inputs_file(base_env, &serialized)?;
+        env.insert("RUNX_INPUTS_PATH".to_owned(), inputs_path);
+        cleanup_paths.push(cleanup_path);
     } else {
         env.insert("RUNX_INPUTS_JSON".to_owned(), serialized);
     }
@@ -341,7 +344,7 @@ fn workspace_root(base_env: &BTreeMap<String, String>) -> Result<PathBuf, Runtim
 fn write_inputs_file(
     base_env: &BTreeMap<String, String>,
     serialized: &str,
-) -> Result<String, RuntimeError> {
+) -> Result<(String, PathBuf), RuntimeError> {
     let temp_root = base_env
         .get("TMPDIR")
         .or_else(|| base_env.get("TMP"))
@@ -359,7 +362,7 @@ fn write_inputs_file(
         .map_err(|source| RuntimeError::io("creating inputs temp file", source))?;
     file.write_all(serialized.as_bytes())
         .map_err(|source| RuntimeError::io("writing inputs temp file", source))?;
-    Ok(path.to_string_lossy().into_owned())
+    Ok((path.to_string_lossy().into_owned(), dir))
 }
 
 fn allowed_base_env(
@@ -423,14 +426,21 @@ fn validate_writable_paths(
         return Ok(());
     }
     let workspace_root = match workspace_cwd {
-        Some(workspace_cwd) => normalize_path(workspace_cwd),
-        None => normalize_path(&std::env::current_dir().map_err(|source| {
-            RuntimeError::io("resolving workspace cwd for sandbox writable paths", source)
-        })?),
+        Some(workspace_cwd) => {
+            containment_path(workspace_cwd, "resolving sandbox writable workspace")?
+        }
+        None => containment_path(
+            &std::env::current_dir().map_err(|source| {
+                RuntimeError::io("resolving workspace cwd for sandbox writable paths", source)
+            })?,
+            "resolving sandbox writable workspace",
+        )?,
     };
     let escaped = writable_paths
         .iter()
-        .map(|path| normalize_path(&resolve_path(cwd, path)))
+        .map(|path| containment_path(&resolve_path(cwd, path), "resolving sandbox writable path"))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
         .filter(|path| !is_within_path(path, &workspace_root))
         .collect::<Vec<_>>();
     if escaped.is_empty() {
@@ -444,6 +454,24 @@ fn validate_writable_paths(
             .collect::<Vec<_>>()
             .join(", ")
     )))
+}
+
+fn containment_path(path: &Path, operation: &'static str) -> Result<PathBuf, RuntimeError> {
+    if path.exists() {
+        return fs::canonicalize(path).map_err(|source| RuntimeError::io(operation, source));
+    }
+    let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    else {
+        return Ok(normalize_path(path));
+    };
+    let canonical_parent =
+        fs::canonicalize(parent).map_err(|source| RuntimeError::io(operation, source))?;
+    Ok(path
+        .file_name()
+        .map(|file_name| canonical_parent.join(file_name))
+        .unwrap_or(canonical_parent))
 }
 
 fn validate_readonly_sandbox(sandbox: &SkillSandbox) -> Result<(), RuntimeError> {
@@ -498,15 +526,13 @@ impl SandboxRuntime {
 
 fn resolve_sandbox_runtime(
     sandbox: Option<&SkillSandbox>,
-    base_env: &BTreeMap<String, String>,
+    _base_env: &BTreeMap<String, String>,
 ) -> Result<Option<SandboxRuntime>, RuntimeError> {
     let Some(sandbox) = sandbox else {
         return Ok(None);
     };
     if sandbox.profile == SandboxProfile::UnrestrictedLocalDev {
-        if sandbox.require_enforcement == Some(true)
-            || sandbox_enforcement_required_by_env(base_env)
-        {
+        if sandbox.require_enforcement == Some(true) {
             return Err(sandbox_violation(
                 "unrestricted-local-dev cannot satisfy required sandbox enforcement",
             ));
@@ -514,8 +540,8 @@ fn resolve_sandbox_runtime(
         return Ok(Some(SandboxRuntime::Direct));
     }
 
-    let runtime = platform_sandbox_runtime(sandbox.profile.as_str(), base_env);
-    if runtime.enforces() || !requires_enforcement(sandbox, base_env) {
+    let runtime = platform_sandbox_runtime(sandbox.profile.as_str());
+    if runtime.enforces() {
         return Ok(Some(runtime));
     }
     let reason = match runtime {
@@ -530,23 +556,10 @@ fn resolve_sandbox_runtime(
     Err(sandbox_violation(reason))
 }
 
-fn requires_enforcement(sandbox: &SkillSandbox, base_env: &BTreeMap<String, String>) -> bool {
-    sandbox.require_enforcement == Some(true) || sandbox_enforcement_required_by_env(base_env)
-}
-
-fn sandbox_enforcement_required_by_env(base_env: &BTreeMap<String, String>) -> bool {
-    matches!(
-        base_env
-            .get("RUNX_SANDBOX_REQUIRE_ENFORCEMENT")
-            .map(String::as_str),
-        Some("1" | "true")
-    )
-}
-
-fn platform_sandbox_runtime(profile: &str, base_env: &BTreeMap<String, String>) -> SandboxRuntime {
+fn platform_sandbox_runtime(profile: &str) -> SandboxRuntime {
     #[cfg(target_os = "linux")]
     {
-        if let Some(path) = find_executable("bwrap", base_env.get("PATH")) {
+        if let Some(path) = find_trusted_executable("bwrap") {
             return SandboxRuntime::Bubblewrap { path };
         }
         return SandboxRuntime::DeclaredPolicyOnly {
@@ -558,7 +571,7 @@ fn platform_sandbox_runtime(profile: &str, base_env: &BTreeMap<String, String>) 
 
     #[cfg(target_os = "macos")]
     {
-        if let Some(path) = find_executable("sandbox-exec", base_env.get("PATH")) {
+        if let Some(path) = find_trusted_executable("sandbox-exec") {
             return SandboxRuntime::SandboxExec { path };
         }
         SandboxRuntime::DeclaredPolicyOnly {
@@ -570,7 +583,6 @@ fn platform_sandbox_runtime(profile: &str, base_env: &BTreeMap<String, String>) 
 
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     {
-        let _ = base_env;
         SandboxRuntime::DeclaredPolicyOnly {
             reason: format!(
                 "local sandbox profile '{profile}' requires Linux bubblewrap or macOS sandbox-exec for filesystem and network enforcement"
@@ -579,15 +591,11 @@ fn platform_sandbox_runtime(profile: &str, base_env: &BTreeMap<String, String>) 
     }
 }
 
-fn find_executable(command: &str, search_path: Option<&String>) -> Option<PathBuf> {
-    let search_paths = search_path
-        .map(|path| std::env::split_paths(path).collect::<Vec<_>>())
-        .unwrap_or_default();
-    search_paths
+fn find_trusted_executable(command: &str) -> Option<PathBuf> {
+    default_executable_search_paths(command)
         .into_iter()
-        .chain(default_executable_search_paths(command))
         .map(|dir| dir.join(command))
-        .find(|candidate| candidate.exists())
+        .find(|candidate| candidate.is_file())
 }
 
 fn default_executable_search_paths(command: &str) -> Vec<PathBuf> {
@@ -1224,5 +1232,48 @@ mod tests {
             resolved_writable_paths(Some(&sandbox), &inputs),
             vec!["/tmp/runx-fixture".to_owned(), "logs".to_owned()]
         );
+    }
+
+    #[test]
+    fn trusted_enforcer_lookup_ignores_caller_path() {
+        let trusted = find_trusted_executable("runx-test-enforcer-that-should-not-exist");
+        assert!(trusted.is_none());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn workspace_write_rejects_symlink_escape() -> Result<(), String> {
+        let temp = tempfile::tempdir().map_err(|source| source.to_string())?;
+        let workspace = temp.path().join("workspace");
+        let outside = temp.path().join("outside");
+        fs::create_dir_all(&workspace).map_err(|source| source.to_string())?;
+        fs::create_dir_all(&outside).map_err(|source| source.to_string())?;
+        std::os::unix::fs::symlink(&outside, workspace.join("link"))
+            .map_err(|source| source.to_string())?;
+        let sandbox = SkillSandbox {
+            profile: SandboxProfile::WorkspaceWrite,
+            cwd_policy: None,
+            env_allowlist: None,
+            network: None,
+            writable_paths: Vec::new(),
+            require_enforcement: None,
+            approved_escalation: None,
+            raw: JsonObject::new(),
+        };
+
+        let error = validate_writable_paths(
+            Some(&sandbox),
+            &["link/escape.txt".to_owned()],
+            &workspace,
+            Some(&workspace),
+        )
+        .err()
+        .ok_or_else(|| "symlink escape unexpectedly passed".to_owned())?;
+
+        assert!(
+            error.to_string().contains("outside workspace"),
+            "unexpected error: {error}"
+        );
+        Ok(())
     }
 }

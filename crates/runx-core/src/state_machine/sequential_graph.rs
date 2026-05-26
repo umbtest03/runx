@@ -41,8 +41,96 @@ pub fn plan_sequential_graph_transition(
     fanout_policies: &BTreeMap<String, FanoutGroupPolicy>,
     resolved_fanout_gate_keys: Option<&BTreeSet<String>>,
 ) -> SequentialGraphPlan {
-    let step_states = step_state_index(state);
+    let step_index = SequentialGraphStepIndex::new(steps);
+    plan_sequential_graph_transition_indexed(
+        state,
+        steps,
+        &step_index,
+        fanout_policies,
+        resolved_fanout_gate_keys,
+    )
+}
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SequentialGraphStepIndex {
+    positions: BTreeMap<String, usize>,
+    context_positions: Vec<Vec<ContextSourcePosition>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ContextSourcePosition {
+    step_id: String,
+    position: Option<usize>,
+}
+
+impl SequentialGraphStepIndex {
+    #[must_use]
+    pub fn new(steps: &[SequentialGraphStepDefinition]) -> Self {
+        let positions = steps
+            .iter()
+            .enumerate()
+            .map(|(index, step)| (step.id.clone(), index))
+            .collect::<BTreeMap<_, _>>();
+        let context_positions = steps
+            .iter()
+            .map(|step| {
+                step.context_from
+                    .as_deref()
+                    .unwrap_or(&[])
+                    .iter()
+                    .map(|step_id| ContextSourcePosition {
+                        step_id: step_id.clone(),
+                        position: positions.get(step_id).copied(),
+                    })
+                    .collect()
+            })
+            .collect();
+        Self {
+            positions,
+            context_positions,
+        }
+    }
+
+    fn state_for<'a>(
+        &self,
+        state: &'a SequentialGraphState,
+        step_id: &str,
+    ) -> Option<&'a SequentialGraphStepState> {
+        self.positions
+            .get(step_id)
+            .and_then(|index| state.steps.get(*index))
+            .filter(|step| step.step_id == step_id)
+    }
+
+    fn state_at<'a>(
+        &self,
+        state: &'a SequentialGraphState,
+        position: usize,
+        step_id: &str,
+    ) -> Option<&'a SequentialGraphStepState> {
+        state
+            .steps
+            .get(position)
+            .filter(|step| step.step_id == step_id)
+            .or_else(|| self.state_for(state, step_id))
+    }
+}
+
+#[must_use]
+pub fn create_sequential_graph_step_index(
+    steps: &[SequentialGraphStepDefinition],
+) -> SequentialGraphStepIndex {
+    SequentialGraphStepIndex::new(steps)
+}
+
+#[must_use]
+pub fn plan_sequential_graph_transition_indexed(
+    state: &SequentialGraphState,
+    steps: &[SequentialGraphStepDefinition],
+    step_index: &SequentialGraphStepIndex,
+    fanout_policies: &BTreeMap<String, FanoutGroupPolicy>,
+    resolved_fanout_gate_keys: Option<&BTreeSet<String>>,
+) -> SequentialGraphPlan {
     if let Some(running_step) = state
         .steps
         .iter()
@@ -61,7 +149,9 @@ pub fn plan_sequential_graph_transition(
         if let Some(group_id) = fanout_group_id(step_definition) {
             let group_steps = contiguous_fanout_group(steps, index, group_id);
             match plan_fanout_group(
-                &step_states,
+                state,
+                step_index,
+                index,
                 group_steps,
                 fanout_policies.get(group_id),
                 resolved_fanout_gate_keys,
@@ -74,7 +164,7 @@ pub fn plan_sequential_graph_transition(
             }
         }
 
-        if let Some(plan) = plan_step(&step_states, step_definition) {
+        if let Some(plan) = plan_step(state, step_index, index, step_definition) {
             return plan;
         }
         index += 1;
@@ -88,48 +178,45 @@ pub fn transition_sequential_graph(
     state: &SequentialGraphState,
     event: &SequentialGraphEvent,
 ) -> SequentialGraphState {
+    let mut next = state.clone();
+    apply_sequential_graph_event(&mut next, event);
+    next
+}
+
+pub fn apply_sequential_graph_event(
+    state: &mut SequentialGraphState,
+    event: &SequentialGraphEvent,
+) {
     match event {
-        SequentialGraphEvent::StartStep { step_id, at } => update_step(
-            state,
-            step_id,
-            |step| start_step(step, at),
-            GraphStatus::Running,
-        ),
+        SequentialGraphEvent::StartStep { step_id, at } => {
+            update_step_in_place(state, step_id, |step| start_step_in_place(step, at));
+            state.status = GraphStatus::Running;
+        }
         SequentialGraphEvent::StepSucceeded {
             step_id,
             at,
             receipt_id,
             admission_witness,
             outputs,
-        } => update_step(
-            state,
-            step_id,
-            |step| succeed_step(step, at, receipt_id, admission_witness, outputs.clone()),
-            state.status.clone(),
-        ),
-        SequentialGraphEvent::StepFailed { step_id, at, error } => update_step(
-            state,
-            step_id,
-            |step| fail_step(step, at, error),
-            state.status.clone(),
-        ),
-        SequentialGraphEvent::Complete if is_graph_complete(state) => SequentialGraphState {
-            status: GraphStatus::Succeeded,
-            ..state.clone()
-        },
-        SequentialGraphEvent::Complete => state.clone(),
-        SequentialGraphEvent::PauseGraph { .. } => SequentialGraphState {
-            status: GraphStatus::Paused,
-            ..state.clone()
-        },
-        SequentialGraphEvent::EscalateGraph { .. } => SequentialGraphState {
-            status: GraphStatus::Escalated,
-            ..state.clone()
-        },
-        SequentialGraphEvent::FailGraph { .. } => SequentialGraphState {
-            status: GraphStatus::Failed,
-            ..state.clone()
-        },
+        } => update_step_in_place(state, step_id, |step| {
+            succeed_step_in_place(step, at, receipt_id, admission_witness, outputs.clone())
+        }),
+        SequentialGraphEvent::StepFailed { step_id, at, error } => {
+            update_step_in_place(state, step_id, |step| fail_step_in_place(step, at, error));
+        }
+        SequentialGraphEvent::Complete if is_graph_complete(state) => {
+            state.status = GraphStatus::Succeeded;
+        }
+        SequentialGraphEvent::Complete => {}
+        SequentialGraphEvent::PauseGraph { .. } => {
+            state.status = GraphStatus::Paused;
+        }
+        SequentialGraphEvent::EscalateGraph { .. } => {
+            state.status = GraphStatus::Escalated;
+        }
+        SequentialGraphEvent::FailGraph { .. } => {
+            state.status = GraphStatus::Failed;
+        }
     }
 }
 
@@ -150,10 +237,12 @@ enum NonProceedFanoutDecision {
 }
 
 fn plan_step(
-    step_states: &StepStateIndex<'_>,
+    state: &SequentialGraphState,
+    step_index: &SequentialGraphStepIndex,
+    definition_index: usize,
     step_definition: &SequentialGraphStepDefinition,
 ) -> Option<SequentialGraphPlan> {
-    let Some(step_state) = find_step_state(step_states, &step_definition.id) else {
+    let Some(step_state) = step_index.state_at(state, definition_index, &step_definition.id) else {
         return Some(SequentialGraphPlan::Failed {
             step_id: step_definition.id.clone(),
             reason: "step state is missing".to_owned(),
@@ -171,7 +260,9 @@ fn plan_step(
             sync_decision: None,
         });
     }
-    if let Some(missing_context) = missing_context(step_states, step_definition) {
+    if let Some(missing_context) =
+        missing_context_at(state, step_index, definition_index, step_definition)
+    {
         return Some(SequentialGraphPlan::Blocked {
             step_id: step_definition.id.clone(),
             reason: format!("waiting for context from {missing_context}"),
@@ -187,7 +278,9 @@ fn plan_step(
 }
 
 fn plan_fanout_group(
-    step_states: &StepStateIndex<'_>,
+    state: &SequentialGraphState,
+    step_index: &SequentialGraphStepIndex,
+    start_index: usize,
     group_steps: &[SequentialGraphStepDefinition],
     policy: Option<&FanoutGroupPolicy>,
     resolved_fanout_gate_keys: Option<&BTreeSet<String>>,
@@ -207,7 +300,7 @@ fn plan_fanout_group(
         }));
     };
 
-    match plan_fanout_candidates(step_states, group_steps, group_id) {
+    match plan_fanout_candidates(state, step_index, start_index, group_steps, group_id) {
         FanoutCandidatePlan::Plan(plan) => return FanoutGroupPlan::Plan(plan),
         FanoutCandidatePlan::ProceedToSync => {}
     }
@@ -216,7 +309,9 @@ fn plan_fanout_group(
         .cloned()
         .unwrap_or_else(|| default_fanout_policy(group_id));
     let results = fanout_results(
-        step_states,
+        state,
+        step_index,
+        start_index,
         group_steps,
         fanout_policy_requires_outputs(&fanout_policy),
     );
@@ -232,7 +327,9 @@ fn plan_fanout_group(
 }
 
 fn plan_fanout_candidates(
-    step_states: &StepStateIndex<'_>,
+    state: &SequentialGraphState,
+    step_index: &SequentialGraphStepIndex,
+    start_index: usize,
     group_steps: &[SequentialGraphStepDefinition],
     group_id: &str,
 ) -> FanoutCandidatePlan {
@@ -240,8 +337,10 @@ fn plan_fanout_candidates(
     let mut attempts = BTreeMap::new();
     let mut context_from = BTreeMap::new();
 
-    for step_definition in group_steps {
-        let Some(step_state) = find_step_state(step_states, &step_definition.id) else {
+    for (offset, step_definition) in group_steps.iter().enumerate() {
+        let definition_index = start_index + offset;
+        let Some(step_state) = step_index.state_at(state, definition_index, &step_definition.id)
+        else {
             return FanoutCandidatePlan::Plan(Box::new(SequentialGraphPlan::Failed {
                 step_id: step_definition.id.clone(),
                 reason: "step state is missing".to_owned(),
@@ -253,7 +352,9 @@ fn plan_fanout_candidates(
         {
             continue;
         }
-        if let Some(missing_context) = missing_context(step_states, step_definition) {
+        if let Some(missing_context) =
+            missing_context_at(state, step_index, definition_index, step_definition)
+        {
             return FanoutCandidatePlan::Plan(Box::new(SequentialGraphPlan::Blocked {
                 step_id: step_definition.id.clone(),
                 reason: format!("waiting for context from {missing_context}"),
@@ -331,14 +432,17 @@ fn fanout_group_id(step: &SequentialGraphStepDefinition) -> Option<&str> {
 }
 
 fn fanout_results(
-    step_states: &StepStateIndex<'_>,
+    state: &SequentialGraphState,
+    step_index: &SequentialGraphStepIndex,
+    start_index: usize,
     group_steps: &[SequentialGraphStepDefinition],
     include_outputs: bool,
 ) -> Vec<FanoutBranchResult> {
     group_steps
         .iter()
-        .map(|step| {
-            let step_state = find_step_state(step_states, &step.id);
+        .enumerate()
+        .map(|(offset, step)| {
+            let step_state = step_index.state_at(state, start_index + offset, &step.id);
             FanoutBranchResult {
                 step_id: step.id.clone(),
                 status: step_state.map_or(GraphStepStatus::Failed, |state| state.status.clone()),
@@ -363,80 +467,58 @@ fn fanout_policy_requires_outputs(policy: &FanoutGroupPolicy) -> bool {
             .is_some_and(|gates| !gates.is_empty())
 }
 
-fn start_step(step: &SequentialGraphStepState, at: &str) -> SequentialGraphStepState {
+fn start_step_in_place(step: &mut SequentialGraphStepState, at: &str) {
     if matches!(
         step.status,
         GraphStepStatus::Running | GraphStepStatus::Succeeded
     ) {
-        return step.clone();
+        return;
     }
-    SequentialGraphStepState {
-        status: GraphStepStatus::Running,
-        attempts: step.attempts + 1,
-        started_at: Some(at.to_owned()),
-        completed_at: None,
-        outputs: None,
-        error: None,
-        ..step.clone()
-    }
+    step.status = GraphStepStatus::Running;
+    step.attempts += 1;
+    step.started_at = Some(at.to_owned());
+    step.completed_at = None;
+    step.outputs = None;
+    step.error = None;
 }
 
-fn succeed_step(
-    step: &SequentialGraphStepState,
+fn succeed_step_in_place(
+    step: &mut SequentialGraphStepState,
     at: &str,
     receipt_id: &str,
     admission_witness: &super::types::StepAdmissionWitness,
     outputs: Option<runx_contracts::JsonObject>,
-) -> SequentialGraphStepState {
+) {
     if step.status != GraphStepStatus::Running {
-        return step.clone();
+        return;
     }
     if !admission_witness.matches_step_receipt(&step.step_id, receipt_id) {
-        return step.clone();
+        return;
     }
-    SequentialGraphStepState {
-        status: GraphStepStatus::Succeeded,
-        completed_at: Some(at.to_owned()),
-        receipt_id: Some(receipt_id.to_owned()),
-        outputs,
-        error: None,
-        ..step.clone()
-    }
+    step.status = GraphStepStatus::Succeeded;
+    step.completed_at = Some(at.to_owned());
+    step.receipt_id = Some(receipt_id.to_owned());
+    step.outputs = outputs;
+    step.error = None;
 }
 
-fn fail_step(step: &SequentialGraphStepState, at: &str, error: &str) -> SequentialGraphStepState {
+fn fail_step_in_place(step: &mut SequentialGraphStepState, at: &str, error: &str) {
     if step.status != GraphStepStatus::Running {
-        return step.clone();
+        return;
     }
-    SequentialGraphStepState {
-        status: GraphStepStatus::Failed,
-        completed_at: Some(at.to_owned()),
-        outputs: None,
-        error: Some(error.to_owned()),
-        ..step.clone()
-    }
+    step.status = GraphStepStatus::Failed;
+    step.completed_at = Some(at.to_owned());
+    step.outputs = None;
+    step.error = Some(error.to_owned());
 }
 
-fn update_step(
-    state: &SequentialGraphState,
+fn update_step_in_place(
+    state: &mut SequentialGraphState,
     step_id: &str,
-    update: impl Fn(&SequentialGraphStepState) -> SequentialGraphStepState,
-    next_status: GraphStatus,
-) -> SequentialGraphState {
-    SequentialGraphState {
-        graph_id: state.graph_id.clone(),
-        status: next_status,
-        steps: state
-            .steps
-            .iter()
-            .map(|step| {
-                if step.step_id == step_id {
-                    update(step)
-                } else {
-                    step.clone()
-                }
-            })
-            .collect(),
+    update: impl FnOnce(&mut SequentialGraphStepState),
+) {
+    if let Some(step) = state.steps.iter_mut().find(|step| step.step_id == step_id) {
+        update(step);
     }
 }
 
@@ -464,7 +546,8 @@ fn retry_budget_exhausted(
 }
 
 fn missing_context(
-    step_states: &StepStateIndex<'_>,
+    state: &SequentialGraphState,
+    step_index: &SequentialGraphStepIndex,
     step_definition: &SequentialGraphStepDefinition,
 ) -> Option<String> {
     step_definition
@@ -473,10 +556,35 @@ fn missing_context(
         .unwrap_or(&[])
         .iter()
         .find(|step_id| {
-            find_step_state(step_states, step_id)
+            step_index
+                .state_for(state, step_id)
                 .is_none_or(|step| step.status != GraphStepStatus::Succeeded)
         })
         .cloned()
+}
+
+fn missing_context_at(
+    state: &SequentialGraphState,
+    step_index: &SequentialGraphStepIndex,
+    definition_index: usize,
+    step_definition: &SequentialGraphStepDefinition,
+) -> Option<String> {
+    let Some(context_sources) = step_index.context_positions.get(definition_index) else {
+        return missing_context(state, step_index, step_definition);
+    };
+    if context_sources.is_empty() {
+        return None;
+    }
+    context_sources
+        .iter()
+        .find(|source| {
+            source
+                .position
+                .and_then(|position| state.steps.get(position))
+                .filter(|step| step.step_id == source.step_id)
+                .is_none_or(|step| step.status != GraphStepStatus::Succeeded)
+        })
+        .map(|source| source.step_id.clone())
 }
 
 fn is_graph_complete(state: &SequentialGraphState) -> bool {
@@ -486,21 +594,4 @@ fn is_graph_complete(state: &SequentialGraphState) -> bool {
             GraphStepStatus::Pending | GraphStepStatus::Running
         )
     })
-}
-
-type StepStateIndex<'a> = BTreeMap<&'a str, &'a SequentialGraphStepState>;
-
-fn step_state_index(state: &SequentialGraphState) -> StepStateIndex<'_> {
-    state
-        .steps
-        .iter()
-        .map(|step| (step.step_id.as_str(), step))
-        .collect()
-}
-
-fn find_step_state<'a>(
-    step_states: &StepStateIndex<'a>,
-    step_id: &str,
-) -> Option<&'a SequentialGraphStepState> {
-    step_states.get(step_id).copied()
 }

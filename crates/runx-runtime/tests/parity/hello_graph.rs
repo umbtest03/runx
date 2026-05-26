@@ -29,7 +29,7 @@ fn hello_graph_matches_post_cutover_fixture() -> Result<(), Box<dyn std::error::
         CliToolAdapter,
         RuntimeOptions {
             created_at: expected.created_at.clone(),
-            ..RuntimeOptions::default()
+            ..RuntimeOptions::local_development()
         },
     );
     let run = runtime.run_graph_file(Path::new("../../examples/hello-graph/graph.yaml"))?;

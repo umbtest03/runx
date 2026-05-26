@@ -3,7 +3,7 @@
 //!
 //! A contract type that derives [`RunxSchema`] emits its own wire-compatible
 //! JSON Schema document, so the Rust type is the single source of truth and the
-//! hand-mirrored TypeBox schemas can be deleted. The emitted document
+//! parallel TypeScript schema sources stay deleted. The emitted document
 //! reproduces the committed shape: fully inlined, closed string enums as
 //! `anyOf` of `const`, `additionalProperties: false`, and the `$id` /
 //! `x-runx-schema` identity.

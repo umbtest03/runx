@@ -46,7 +46,43 @@ impl SkillOutput {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FanoutExecutionMode {
+    Serial,
+    IsolatedParallel,
+}
+
 pub trait SkillAdapter {
     fn adapter_type(&self) -> &'static str;
     fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, RuntimeError>;
+
+    fn fanout_execution_mode(&self, source: &SkillSource) -> FanoutExecutionMode {
+        let _ = source;
+        FanoutExecutionMode::Serial
+    }
+
+    fn clone_for_fanout(&self) -> Option<Box<dyn SkillAdapter + Send + Sync>> {
+        None
+    }
+}
+
+impl<A> SkillAdapter for Box<A>
+where
+    A: SkillAdapter + ?Sized,
+{
+    fn adapter_type(&self) -> &'static str {
+        self.as_ref().adapter_type()
+    }
+
+    fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
+        self.as_ref().invoke(request)
+    }
+
+    fn fanout_execution_mode(&self, source: &SkillSource) -> FanoutExecutionMode {
+        self.as_ref().fanout_execution_mode(source)
+    }
+
+    fn clone_for_fanout(&self) -> Option<Box<dyn SkillAdapter + Send + Sync>> {
+        self.as_ref().clone_for_fanout()
+    }
 }

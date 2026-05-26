@@ -29,6 +29,12 @@
       "type": "string",
       "required": false,
       "description": "Optional repository root used when cwd is not supplied."
+    },
+    "timeout_ms": {
+      "type": "number",
+      "required": false,
+      "default": 30000,
+      "description": "Maximum execution time in milliseconds."
     }
   },
   "output": {
@@ -49,7 +55,7 @@
       "./run.mjs"
     ]
   },
-  "source_hash": "sha256:bf433ab9a687d7490565f8ee33ff7c6184df252b84d6ab386e75b231fe710221",
-  "schema_hash": "sha256:6b798dd3ccd5d80d23c70ee8278f165ddc974eed45b3a056431310890f634371",
+  "source_hash": "sha256:739bd46a5b8ac2d984ef7a047e0043e8a9e7bedac3c9727bcd9a73917eebeec3",
+  "schema_hash": "sha256:cbc74586027247f3aaf6f24ebc93c9e2b1862a774f9985f910df4557dfd8943e",
   "toolkit_version": "0.1.4"
 }

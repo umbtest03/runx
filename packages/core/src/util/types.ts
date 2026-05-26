@@ -20,9 +20,34 @@ export function recordField(value: unknown, key: string): Readonly<Record<string
   return asRecord(readField(value, key));
 }
 
+/** Read `value[key]` and return it only when it is a string. */
+export function stringField(value: unknown, key: string): string | undefined {
+  const field = readField(value, key);
+  return typeof field === "string" ? field : undefined;
+}
+
+/** Follow a record path and return the final value only when it is a string. */
+export function readNestedString(value: unknown, path: readonly string[]): string | undefined {
+  let current = value;
+  for (const key of path) {
+    if (!isRecord(current) || !(key in current)) {
+      return undefined;
+    }
+    current = current[key];
+  }
+  return typeof current === "string" ? current : undefined;
+}
+
 /** Narrow an unknown to a string, returning undefined otherwise (no throw). */
 export function stringValue(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
+}
+
+/** Parse a positive integer option, returning undefined for absent or invalid values. */
+export function parsePositiveInt(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 /** Return the value when it is an array, otherwise an empty array. */

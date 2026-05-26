@@ -331,7 +331,7 @@ expect:
 fn fixture_runtime_options() -> RuntimeOptions {
     RuntimeOptions {
         created_at: FIXTURE_CREATED_AT.to_owned(),
-        ..RuntimeOptions::default()
+        ..RuntimeOptions::local_development()
     }
 }
 

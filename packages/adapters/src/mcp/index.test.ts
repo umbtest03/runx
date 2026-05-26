@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { readNestedString } from "@runxhq/core/util";
+
 import { invokeMcp } from "./index.js";
 
 const fixtureServer = {
@@ -187,15 +189,4 @@ describe("invokeMcp", () => {
 
 function sandboxFilesystemEnforcement(sandbox: unknown): string | undefined {
   return readNestedString(sandbox, ["filesystem", "enforcement"]);
-}
-
-function readNestedString(value: unknown, path: readonly string[]): string | undefined {
-  let cursor = value;
-  for (const key of path) {
-    if (typeof cursor !== "object" || cursor === null || !(key in cursor)) {
-      return undefined;
-    }
-    cursor = (cursor as Record<string, unknown>)[key];
-  }
-  return typeof cursor === "string" ? cursor : undefined;
 }

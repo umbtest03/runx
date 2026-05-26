@@ -7,7 +7,7 @@ The package manifests are authoritative; regenerate this page with `pnpm docs:ap
 
 ## @runxhq/adapters
 
-Sunset TypeScript compatibility adapters while trusted local adapter execution moves to runx-runtime.
+Runx adapter implementations for CLI tools, MCP, agent, A2A, runtime, and catalogs.
 
 Version: `0.1.5`
 
@@ -102,7 +102,7 @@ Version: `0.1.2`
 
 ## @runxhq/runtime-local
 
-Sunset TypeScript compatibility surface for local runtime wrappers while canonical local orchestration moves to Rust.
+Runx local runtime support for harness replay, receipt history, SDK bindings, MCP, and tool catalogs.
 
 Version: `0.1.2`
 
