@@ -81,12 +81,12 @@ pub use authority::{
     PaymentCredentialForm,
 };
 pub use credential_delivery::{
-    CredentialDeliveryBrokerResponse, CredentialDeliveryBrokerResponseSchema,
     CredentialDeliveryEnvBinding, CredentialDeliveryHandle, CredentialDeliveryMode,
     CredentialDeliveryObservation, CredentialDeliveryObservationSchema,
     CredentialDeliveryObservationStatus, CredentialDeliveryProfile,
     CredentialDeliveryProfileSchema, CredentialDeliveryPurpose, CredentialDeliveryRequest,
-    CredentialDeliveryRequestSchema, CredentialDeliveryStatus, CredentialMaterialRole,
+    CredentialDeliveryRequestSchema, CredentialDeliveryResponse, CredentialDeliveryResponseSchema,
+    CredentialDeliveryStatus, CredentialMaterialRole,
 };
 pub use decision::{
     Closure, ClosureDisposition, Decision, DecisionChoice, DecisionInputs, DecisionJustification,

@@ -42,17 +42,17 @@ export {
   credentialDeliveryProfileV1Schema,
   credentialDeliveryRequestV1Schema,
   credentialDeliveryHandleSchema,
-  credentialDeliveryBrokerResponseV1Schema,
+  credentialDeliveryResponseV1Schema,
   credentialDeliveryObservationV1Schema,
   validateCredentialDeliveryProfileContract,
   validateCredentialDeliveryRequestContract,
-  validateCredentialDeliveryBrokerResponseContract,
+  validateCredentialDeliveryResponseContract,
   validateCredentialDeliveryObservationContract,
   type CredentialDeliveryEnvBindingContract,
   type CredentialDeliveryProfileContract,
   type CredentialDeliveryRequestContract,
   type CredentialDeliveryHandleContract,
-  type CredentialDeliveryBrokerResponseContract,
+  type CredentialDeliveryResponseContract,
   type CredentialDeliveryObservationContract,
 } from "./schemas/credential-delivery.js";
 
@@ -536,7 +536,7 @@ import { agentContextEnvelopeSchema } from "./schemas/context.js";
 import { agentActInvocationSchema, approvalGateSchema, questionSchema } from "./schemas/agent-act.js";
 import { credentialEnvelopeSchema, scopeAdmissionSchema, authorityProofSchema } from "./schemas/credentials.js";
 import {
-  credentialDeliveryBrokerResponseV1Schema,
+  credentialDeliveryResponseV1Schema,
   credentialDeliveryObservationV1Schema,
   credentialDeliveryProfileV1Schema,
   credentialDeliveryRequestV1Schema,
@@ -605,7 +605,7 @@ export const runxContractSchemas = {
   authorityProof: runxSchemaArtifacts["authority-proof.schema.json"],
   credentialDeliveryProfile: runxSchemaArtifacts["credential-delivery-profile.schema.json"],
   credentialDeliveryRequest: runxSchemaArtifacts["credential-delivery-request.schema.json"],
-  credentialDeliveryBrokerResponse: runxSchemaArtifacts["credential-delivery-broker-response.schema.json"],
+  credentialDeliveryResponse: runxSchemaArtifacts["credential-delivery-response.schema.json"],
   credentialDeliveryObservation: runxSchemaArtifacts["credential-delivery-observation.schema.json"],
   threadOutboxProviderManifest: runxSchemaArtifacts["thread-outbox-provider-manifest.schema.json"],
   threadOutboxProviderPush: runxSchemaArtifacts["thread-outbox-provider-push.schema.json"],
@@ -657,9 +657,3 @@ export const runxAuxiliarySchemas = {
 } as const;
 
 export const runxGeneratedSchemaArtifacts = runxSchemaArtifacts;
-
-export {
-  buildHostedOpenApiPublicSchemas,
-} from "./openapi-public.js";
-export { buildHostedOpenApiRuntimeSchemas } from "./openapi-runtime.js";
-export { buildHostedOpenApiSchemas } from "./openapi.js";

@@ -1,11 +1,76 @@
+#!/usr/bin/env node
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const workspaceRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
+const boundaryGuardPath = path.resolve(fileURLToPath(import.meta.url));
 
 const sourceExtensions = new Set([".ts", ".tsx", ".mts", ".cts"]);
+const activeTypeScriptJavaScriptExtensions = new Set([
+  ".ts",
+  ".tsx",
+  ".mts",
+  ".cts",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+]);
+const activeCredentialContractExtensions = new Set([
+  ".ts",
+  ".tsx",
+  ".mts",
+  ".cts",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  ".rs",
+  ".json",
+]);
 const ignoredDirectoryNames = new Set(["node_modules", "dist", ".build", "coverage", "target"]);
+const hostedConnectBrokerageScanRoots = ["packages", "plugins", "scripts", "tests"];
+const generatedHostedConnectBrokerageScanRoots = [".build/runtime"];
+const hostedCredentialContractScanRoots = [
+  "packages",
+  "plugins",
+  "scripts",
+  "tests",
+  "fixtures/contracts",
+  "schemas",
+  "crates/runx-contracts/src",
+  "crates/runx-contracts/tests",
+  "crates/runx-runtime/src",
+  "crates/runx-core/src",
+];
+const literalName = (...parts) => parts.join("");
+const literalPattern = (...parts) => new RegExp(literalName(...parts));
+const privateProviderGatewayUpstreamPattern = new RegExp("nan" + "go", "i");
+const legacyRunxConnectPrivateUpstreamEnvPattern = new RegExp(`RUNX_CONNECT_${"NAN"}${"GO"}`);
+const hostedOAuthAuthModePattern = /["']?auth_mode["']?\s*[:=]\s*["']oauth(?:_bearer)?["']/;
+const forbiddenHostedConnectBrokerageTerms = [
+  { name: "private provider gateway upstream", pattern: privateProviderGatewayUpstreamPattern },
+  { name: literalName("oauth", "_required"), pattern: literalPattern("oauth", "_required") },
+  { name: literalName("authorize", "_url"), pattern: literalPattern("authorize", "_url") },
+  { name: literalName("Connect", "Session"), pattern: literalPattern("Connect", "Session") },
+  { name: literalName("Hosted", "Provider", "Reference"), pattern: literalPattern("Hosted", "Provider", "Reference") },
+  { name: literalName("connect", "-http"), pattern: literalPattern("connect", "-http") },
+  { name: literalName("create", "Http", "Connect", "Service"), pattern: literalPattern("create", "Http", "Connect", "Service") },
+  { name: "legacy private provider gateway env", pattern: legacyRunxConnectPrivateUpstreamEnvPattern },
+  {
+    name: literalName("RUNX_CONNECT_PROVIDER", "_GATEWAY"),
+    pattern: literalPattern("RUNX_CONNECT_PROVIDER", "_GATEWAY"),
+  },
+];
+const forbiddenHostedCredentialContractTerms = [
+  { name: "hosted OAuth auth_mode", pattern: hostedOAuthAuthModePattern },
+  { name: literalName("opaque", "_connection"), pattern: literalPattern("opaque", "_connection") },
+  { name: literalName("credential_delivery", ".broker", "_response"), pattern: literalPattern("credential_delivery", "\\.broker", "_response") },
+  { name: literalName("credential_delivery", "_broker", "_response"), pattern: literalPattern("credential_delivery", "_broker", "_response") },
+  { name: literalName("credential-delivery", "-broker", "-response"), pattern: literalPattern("credential-delivery", "-broker", "-response") },
+  { name: literalName("CredentialDelivery", "Broker", "Response"), pattern: literalPattern("CredentialDelivery", "Broker", "Response") },
+];
 const removedCoreRuntimeSubpaths = [
   "@runxhq/core/runner-local",
   "@runxhq/core/harness",
@@ -131,6 +196,9 @@ await checkPackageExports();
 await checkForbiddenCompatibilityPackages();
 await checkForbiddenCompatibilityAliases();
 await checkForbiddenCoreRuntimeDirectories();
+await checkForbiddenHostedConnectBrokerage();
+await checkGeneratedHostedConnectBrokerage();
+await checkForbiddenHostedCredentialContracts();
 for (const filePath of await findSourceFiles(workspaceRoot)) {
   await checkSourceFile(filePath);
 }
@@ -278,6 +346,77 @@ async function checkForbiddenCoreRuntimeDirectories() {
     const entry = await statIfExists(directoryPath);
     if (entry?.isDirectory()) {
       findings.push(`packages/core/src/${directoryName} still exists; this TypeScript kernel domain has been deleted.`);
+    }
+  }
+}
+
+async function checkForbiddenHostedConnectBrokerage() {
+  for (const rootName of hostedConnectBrokerageScanRoots) {
+    const rootPath = path.join(workspaceRoot, rootName);
+    const entry = await statIfExists(rootPath);
+    if (!entry?.isDirectory()) {
+      continue;
+    }
+
+    for (const filePath of await findActiveTypeScriptJavaScriptFiles(rootPath)) {
+      const rel = toPosix(path.relative(workspaceRoot, filePath));
+      checkForbiddenHostedConnectBrokerageInText(rel, rel, "path");
+      const source = await readFile(filePath, "utf8");
+      checkForbiddenHostedConnectBrokerageInSource(rel, source);
+    }
+  }
+}
+
+async function checkGeneratedHostedConnectBrokerage() {
+  for (const rootName of generatedHostedConnectBrokerageScanRoots) {
+    const rootPath = path.join(workspaceRoot, rootName);
+    const entry = await statIfExists(rootPath);
+    if (!entry?.isDirectory()) {
+      continue;
+    }
+
+    for (const filePath of await findActiveTypeScriptJavaScriptFiles(rootPath)) {
+      const rel = toPosix(path.relative(workspaceRoot, filePath));
+      const source = await readFile(filePath, "utf8");
+      checkForbiddenHostedConnectBrokerageInSource(rel, source);
+    }
+  }
+}
+
+function checkForbiddenHostedConnectBrokerageInSource(rel, source) {
+  const lines = source.split(/\r?\n/);
+  for (const [index, line] of lines.entries()) {
+    checkForbiddenHostedConnectBrokerageInText(rel, line, `line ${index + 1}`);
+  }
+}
+
+function checkForbiddenHostedConnectBrokerageInText(rel, text, location) {
+  for (const term of forbiddenHostedConnectBrokerageTerms) {
+    if (term.pattern.test(text)) {
+      findings.push(`${rel} contains forbidden hosted connect/OAuth brokerage term ${term.name} in ${location}.`);
+    }
+  }
+}
+
+async function checkForbiddenHostedCredentialContracts() {
+  for (const rootName of hostedCredentialContractScanRoots) {
+    const rootPath = path.join(workspaceRoot, rootName);
+    const entry = await statIfExists(rootPath);
+    if (!entry?.isDirectory()) {
+      continue;
+    }
+
+    for (const filePath of await findActiveCredentialContractFiles(rootPath)) {
+      const rel = toPosix(path.relative(workspaceRoot, filePath));
+      const source = await readFile(filePath, "utf8");
+      const lines = source.split(/\r?\n/);
+      for (const [index, line] of lines.entries()) {
+        for (const term of forbiddenHostedCredentialContractTerms) {
+          if (term.pattern.test(line)) {
+            findings.push(`${rel} contains forbidden hosted OAuth credential contract term ${term.name} in line ${index + 1}.`);
+          }
+        }
+      }
     }
   }
 }
@@ -512,6 +651,56 @@ async function findSourceFiles(root) {
   const files = [];
   await walk(root, files);
   return files;
+}
+
+async function findActiveTypeScriptJavaScriptFiles(root) {
+  const files = [];
+  await walkActiveTypeScriptJavaScript(root, files);
+  return files;
+}
+
+async function findActiveCredentialContractFiles(root) {
+  const files = [];
+  await walkActiveCredentialContract(root, files);
+  return files;
+}
+
+async function walkActiveTypeScriptJavaScript(directory, files) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (!ignoredDirectoryNames.has(entry.name)) {
+        await walkActiveTypeScriptJavaScript(path.join(directory, entry.name), files);
+      }
+      continue;
+    }
+    if (!entry.isFile() || !activeTypeScriptJavaScriptExtensions.has(path.extname(entry.name))) {
+      continue;
+    }
+    const filePath = path.join(directory, entry.name);
+    if (path.resolve(filePath) === boundaryGuardPath) {
+      continue;
+    }
+    files.push(filePath);
+  }
+}
+
+async function walkActiveCredentialContract(directory, files) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (!ignoredDirectoryNames.has(entry.name)) {
+        await walkActiveCredentialContract(path.join(directory, entry.name), files);
+      }
+      continue;
+    }
+    if (!entry.isFile() || !activeCredentialContractExtensions.has(path.extname(entry.name))) {
+      continue;
+    }
+    const filePath = path.join(directory, entry.name);
+    if (path.resolve(filePath) === boundaryGuardPath) {
+      continue;
+    }
+    files.push(filePath);
+  }
 }
 
 async function walk(directory, files) {

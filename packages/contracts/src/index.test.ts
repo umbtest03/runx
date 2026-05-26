@@ -5,14 +5,13 @@ import {
   RUNX_AUXILIARY_SCHEMA_IDS,
   RUNX_CONTROL_SCHEMA_REFS,
   RUNX_LOGICAL_SCHEMAS,
-  buildHostedOpenApiSchemas,
   agentContextEnvelopeSchema,
   agentActInvocationSchema,
   approvalGateSchema,
   actReceiptEnvelopeSchema,
   actAssignmentV1Schema,
   authorityProofSchema,
-  credentialDeliveryBrokerResponseV1Schema,
+  credentialDeliveryResponseV1Schema,
   credentialDeliveryObservationV1Schema,
   credentialDeliveryProfileV1Schema,
   credentialDeliveryRequestV1Schema,
@@ -115,7 +114,7 @@ describe("@runxhq/contracts", () => {
     expect(authorityProofSchema).toBe(runxContractSchemas.authorityProof);
     expect(credentialDeliveryProfileV1Schema).toBe(runxContractSchemas.credentialDeliveryProfile);
     expect(credentialDeliveryRequestV1Schema).toBe(runxContractSchemas.credentialDeliveryRequest);
-    expect(credentialDeliveryBrokerResponseV1Schema).toBe(runxContractSchemas.credentialDeliveryBrokerResponse);
+    expect(credentialDeliveryResponseV1Schema).toBe(runxContractSchemas.credentialDeliveryResponse);
     expect(credentialDeliveryObservationV1Schema).toBe(runxContractSchemas.credentialDeliveryObservation);
     expect(threadOutboxProviderManifestV1Schema).toBe(runxContractSchemas.threadOutboxProviderManifest);
     expect(threadOutboxProviderPushV1Schema).toBe(runxContractSchemas.threadOutboxProviderPush);
@@ -173,11 +172,11 @@ describe("@runxhq/contracts", () => {
       kind: "runx.credential-envelope.v1",
       grant_id: "grant_1",
       provider: "github",
-      auth_mode: "oauth",
-      material_kind: "opaque_connection",
-      provider_reference: "conn_1",
+      auth_mode: "api_key",
+      material_kind: "api_key",
+      provider_reference: "local_per_run",
       scopes: ["repo:read"],
-      material_ref: "opaque:github:conn_1",
+      material_ref: "local:github:grant_1",
     })).toMatchObject({
       provider: "github",
       scopes: ["repo:read"],
@@ -668,78 +667,6 @@ describe("@runxhq/contracts", () => {
       title: "Old evidence bundle ref",
       observed_at: "2026-05-18T00:00:00Z",
     })).toThrow(/signal\/v1\.json/);
-  });
-
-  it("owns hosted OpenAPI components for cloud consumers", () => {
-    const schemas = buildHostedOpenApiSchemas();
-
-    expect(schemas).toHaveProperty("CreateRunRequest", {
-      $ref: "../../spec/hosted/create-run.request.schema.json",
-    });
-    expect(schemas).toHaveProperty("RerunRunRequest", {
-      $ref: "../../spec/hosted/run-rerun.request.schema.json",
-    });
-    expect(schemas).toHaveProperty("RerunRunResponse", {
-      $ref: "../../spec/hosted/run-rerun.response.schema.json",
-    });
-    expect(schemas).toHaveProperty("RunDiffEnvelope", {
-      $ref: "../../spec/hosted/run-diff.response.schema.json",
-    });
-    const removedSchemaNameToken = ["leg", "acy"].join("");
-    expect(Object.keys(schemas).filter((name) => name.toLowerCase().includes(removedSchemaNameToken))).toEqual([]);
-    expect(Object.keys(schemas).filter((name) => name.endsWith("ApprovalEnvelope"))).toEqual([]);
-    expect(schemas.HostedReadinessEnvelope).toMatchObject({
-      required: ["status", "checks"],
-      properties: {
-        checks: {
-          additionalProperties: {
-            $ref: "#/components/schemas/HostedReadinessCheck",
-          },
-        },
-      },
-    });
-    expect(schemas.HostedApiMetricsEnvelope).toMatchObject({
-      required: ["status", "metrics"],
-      properties: {
-        metrics: {
-          $ref: "#/components/schemas/HostedApiMetrics",
-        },
-      },
-    });
-    expect(schemas.HostedApiLatencyBucketCounts).toMatchObject({
-      required: ["le_50ms", "le_100ms", "le_250ms", "le_500ms", "le_1000ms", "gt_1000ms"],
-    });
-    expect(schemas).toHaveProperty("PublicSkillDetailEnvelope");
-    expect(schemas).toHaveProperty("KnowledgeEntryEnvelope");
-    expect(schemas).toHaveProperty("ApprovalRouteSnapshot");
-    expect(schemas.PolicyApprovalRouteSummary).not.toMatchObject({
-      properties: expect.objectContaining({
-        missing: expect.anything(),
-      }),
-    });
-    expect(schemas.ApprovalRouteSnapshot).toMatchObject({
-      properties: expect.objectContaining({
-        missing: { type: "boolean" },
-      }),
-      required: ["route_id", "recipients"],
-    });
-    expect(schemas.ApprovalInboxItem).toMatchObject({
-      properties: expect.objectContaining({
-        route: {
-          $ref: "#/components/schemas/ApprovalRouteSnapshot",
-        },
-      }),
-    });
-    expect(schemas.ApprovalInboxEnvelope).toMatchObject({
-      properties: expect.objectContaining({
-        next_cursor: { type: "string" },
-      }),
-    });
-    expect(schemas.RunListEnvelope).toMatchObject({
-      properties: expect.objectContaining({
-        next_cursor: { type: "string" },
-      }),
-    });
   });
 
   it("validates auxiliary schema payloads", () => {

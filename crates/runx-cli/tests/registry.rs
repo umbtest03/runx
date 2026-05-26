@@ -3,11 +3,13 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use runx_runtime::registry::RegistryManifestSigningKey;
+use serde_json::json;
 
 const TEST_MANIFEST_KEY_ID: &str = "runx-registry-test-key";
 const TEST_MANIFEST_SIGNER_ID: &str = "runx-registry-test-signer";
-const TEST_MANIFEST_SEED_BASE64: &str = "cJ9DJug44ZdTr+kgoZ8NEkr0ySx4im8F1Qwwrpb9EVk=";
+const TEST_MANIFEST_PUBLIC_KEY_BASE64: &str = "K9U/1+6tuu9O5YfBO++MHrdr95NlPe1Okyg9XS7eWm0=";
+const TEST_MANIFEST_SIGNATURE: &str =
+    "base64:e-DzjjAZRv4inUscSd43cfT5287lIkvkM1YqgsFy1pZ9PkHEJCKp5Hm-zdlAY1D7ItVLNEw8HTM03lhgPk4hCg";
 
 #[test]
 fn registry_local_publish_search_resolve_install_json() -> Result<(), Box<dyn std::error::Error>> {
@@ -78,6 +80,7 @@ fn registry_local_publish_search_resolve_install_json() -> Result<(), Box<dyn st
         ],
     )?;
 
+    mutate_registry_version(&registry_dir, insert_signed_manifest)?;
     let install = runx_command()?
         .args([
             "registry",
@@ -191,6 +194,7 @@ fn publish_registry_fixture(root: &std::path::Path) -> Result<PathBuf, Box<dyn s
         ])
         .output()?;
     assert_success_contains(&publish, &["\"action\": \"publish\""])?;
+    mutate_registry_version(&registry_dir, insert_signed_manifest)?;
     Ok(registry_dir)
 }
 
@@ -209,29 +213,30 @@ fn mutate_registry_version(
     Ok(())
 }
 
+fn insert_signed_manifest(version: &mut serde_json::Value) {
+    version["signed_manifest"] = json!({
+        "schema": runx_runtime::registry::REGISTRY_SIGNED_MANIFEST_SCHEMA,
+        "skill_id": "acme/echo",
+        "version": "1.0.0",
+        "digest": "sha256:08261d83f4881a23ecc9a21cc014563d32c180efc7422ef4d65b4c06ae962c0a",
+        "profile_digest": "sha256:ccc77a7e047160ccbd5e8f2d45d4bce6dfe449facd1c246611d12ef40aa626e9",
+        "signer": {
+            "id": TEST_MANIFEST_SIGNER_ID,
+            "key_id": TEST_MANIFEST_KEY_ID,
+        },
+        "signature": {
+            "alg": "ed25519",
+            "value": TEST_MANIFEST_SIGNATURE,
+        },
+    });
+}
+
 fn runx_command() -> Result<Command, Box<dyn std::error::Error>> {
     let mut command = Command::new(env!("CARGO_BIN_EXE_runx"));
     command.env("NO_COLOR", "1");
-    let signing_key = RegistryManifestSigningKey::from_seed_base64(
-        TEST_MANIFEST_SIGNER_ID.to_owned(),
-        TEST_MANIFEST_KEY_ID.to_owned(),
-        TEST_MANIFEST_SEED_BASE64,
-    )?;
-    command.env(
-        runx_runtime::registry::RUNX_REGISTRY_MANIFEST_SIGNING_SEED_ENV,
-        TEST_MANIFEST_SEED_BASE64,
-    );
-    command.env(
-        runx_runtime::registry::RUNX_REGISTRY_MANIFEST_SIGNING_KEY_ID_ENV,
-        TEST_MANIFEST_KEY_ID,
-    );
-    command.env(
-        runx_runtime::registry::RUNX_REGISTRY_MANIFEST_SIGNER_ID_ENV,
-        TEST_MANIFEST_SIGNER_ID,
-    );
     command.env(
         runx_runtime::registry::RUNX_REGISTRY_MANIFEST_TRUST_KEY_ENV,
-        signing_key.trusted_key()?.public_key_base64(),
+        TEST_MANIFEST_PUBLIC_KEY_BASE64,
     );
     command.env(
         runx_runtime::registry::RUNX_REGISTRY_MANIFEST_TRUST_KEY_ID_ENV,

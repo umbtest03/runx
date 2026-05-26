@@ -93,9 +93,9 @@ const CONTRACT_FIXTURE_SCHEMA_MAPPINGS: &[FixtureSchemaMapping] = &[
         "thesis-assessment.schema.json",
     ),
     FixtureSchemaMapping::new(
-        "fixtures/contracts/credential-delivery/broker-response.json",
+        "fixtures/contracts/credential-delivery/response.json",
         "/expected",
-        "credential-delivery-broker-response.schema.json",
+        "credential-delivery-response.schema.json",
     ),
     FixtureSchemaMapping::new(
         "fixtures/contracts/credential-delivery/observation.json",

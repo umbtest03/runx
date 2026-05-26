@@ -11,9 +11,9 @@ use std::process::ExitCode;
 use runx_runtime::registry::{
     AcquireOptions, FileRegistryStore, IngestSkillOptions, InstallCandidate,
     InstallLocalSkillOptions, LocalRegistryClient, PublishSkillMarkdownOptions, RegistryClient,
-    RegistryManifestSigningKey, RegistryResolveOptions, RegistrySearchOptions,
-    RegistrySkillResolution, TrustedRegistryManifestKey, default_trusted_registry_manifest_keys,
-    install_local_skill, publish_skill_markdown, read_registry_skill, resolve_registry_skill,
+    RegistryResolveOptions, RegistrySearchOptions, RegistrySkillResolution,
+    TrustedRegistryManifestKey, default_trusted_registry_manifest_keys, install_local_skill,
+    publish_skill_markdown, read_registry_skill, resolve_registry_skill,
     search_registry_with_options,
 };
 
@@ -243,7 +243,6 @@ fn run_publish(
                 owner: plan.owner,
                 version: plan.version,
                 profile_document: package.profile_document,
-                manifest_signing_key: manifest_signing_key_from_env(env)?,
                 upsert: plan.upsert,
                 ..IngestSkillOptions::default()
             },
@@ -575,26 +574,6 @@ fn workspace_base(env: &BTreeMap<String, String>, cwd: &Path) -> PathBuf {
         .or_else(|| find_workspace_root(cwd))
         .or_else(|| env.get("INIT_CWD").map(PathBuf::from))
         .unwrap_or_else(|| cwd.to_path_buf())
-}
-
-fn manifest_signing_key_from_env(
-    env: &BTreeMap<String, String>,
-) -> Result<Option<RegistryManifestSigningKey>, RegistryCliError> {
-    let Some(seed) = env.get(runx_runtime::registry::RUNX_REGISTRY_MANIFEST_SIGNING_SEED_ENV)
-    else {
-        return Ok(None);
-    };
-    let key_id = env
-        .get(runx_runtime::registry::RUNX_REGISTRY_MANIFEST_SIGNING_KEY_ID_ENV)
-        .cloned()
-        .ok_or_else(|| usage_error("registry manifest signing key id is required"))?;
-    let signer_id = env
-        .get(runx_runtime::registry::RUNX_REGISTRY_MANIFEST_SIGNER_ID_ENV)
-        .cloned()
-        .unwrap_or_else(|| "runx-local-registry".to_owned());
-    RegistryManifestSigningKey::from_seed_base64(signer_id, key_id, seed)
-        .map(Some)
-        .map_err(|error| usage_error(error.to_string()))
 }
 
 fn trusted_manifest_keys_from_env(

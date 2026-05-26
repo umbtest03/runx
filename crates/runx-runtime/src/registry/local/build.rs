@@ -20,7 +20,6 @@ use crate::registry::local::trust::{
 use crate::registry::local::util::{
     missing_field, now_iso8601, required_string, validate_publisher, validate_source_metadata,
 };
-use crate::registry::sign_registry_manifest;
 
 pub fn build_registry_skill_version(
     markdown: &str,
@@ -34,13 +33,6 @@ pub fn build_registry_skill_version(
     let defaults = registry_version_defaults(&digest, binding.digest.as_deref(), options);
     let manifest = binding.manifest.as_ref();
     let skill_id = build_skill_id(&defaults.owner, &skill.name)?;
-    let signed_manifest = registry_signed_manifest(
-        &skill_id,
-        &defaults.version,
-        &digest,
-        binding.digest.as_deref(),
-        options,
-    )?;
     Ok(RegistrySkillVersion {
         skill_id,
         owner: defaults.owner,
@@ -48,7 +40,7 @@ pub fn build_registry_skill_version(
         description: skill.description.clone(),
         version: defaults.version,
         digest,
-        signed_manifest,
+        signed_manifest: None,
         markdown: markdown.to_owned(),
         profile_document: options.profile_document.clone(),
         profile_digest: binding.digest,
@@ -73,28 +65,6 @@ pub fn build_registry_skill_version(
         created_at: defaults.created_at,
         updated_at: now_iso8601(),
     })
-}
-
-fn registry_signed_manifest(
-    skill_id: &str,
-    version: &str,
-    digest: &str,
-    profile_digest: Option<&str>,
-    options: &IngestSkillOptions,
-) -> Result<Option<super::super::types::RegistrySignedManifest>, LocalRegistryError> {
-    let Some(key) = options.manifest_signing_key.as_ref() else {
-        return Ok(None);
-    };
-    let profile_digest = profile_digest.map(|profile_digest| format!("sha256:{profile_digest}"));
-    sign_registry_manifest(
-        key,
-        skill_id,
-        version,
-        &format!("sha256:{digest}"),
-        profile_digest.as_deref(),
-    )
-    .map(Some)
-    .map_err(Into::into)
 }
 
 struct RegistryVersionDefaults {

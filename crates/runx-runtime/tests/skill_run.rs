@@ -447,6 +447,9 @@ fn native_graph_skill_run_pauses_and_resumes_agent_step() -> Result<(), Box<dyn 
         serde_json::json!({
             "answers": {
                 "agent_step.graph-decide.output": {
+                    "approved": true,
+                    "proof_ref": "receipt-proof:evil:step-output",
+                    "receipt_id": "sha256:evil-step-output",
                     "result": {
                         "summary": "Graph fix authored."
                     }
@@ -469,10 +472,19 @@ fn native_graph_skill_run_pauses_and_resumes_agent_step() -> Result<(), Box<dyn 
     let output = object(&resumed.output, "resumed graph skill run result")?;
     assert_eq!(string_field(output, "status"), Some("sealed"));
     let payload = object_field(output, "payload").ok_or("missing payload")?;
-    let result = object_field(payload, "result").ok_or("missing result")?;
+    assert!(!payload.contains_key("approved"));
+    assert!(!payload.contains_key("proof_ref"));
+    assert!(!payload.contains_key("receipt_id"));
+    let decide_claim = step_claim(payload, "decide").ok_or("missing decide skill claim")?;
+    let result = object_field(decide_claim, "result").ok_or("missing result")?;
     assert_eq!(string_field(result, "summary"), Some("Graph fix authored."));
     let step_outputs = object_field(payload, "step_outputs").ok_or("missing step_outputs")?;
-    assert!(object_field(step_outputs, "decide").is_some());
+    let decide = object_field(step_outputs, "decide").ok_or("missing decide step output")?;
+    assert_eq!(string_field(decide, "status"), Some("success"));
+    assert!(object_field(decide, "skill_claim").is_some());
+    assert!(!decide.contains_key("approved"));
+    assert!(!decide.contains_key("proof_ref"));
+    assert!(!decide.contains_key("receipt_id"));
 
     Ok(())
 }
@@ -598,7 +610,8 @@ fn native_graph_skill_run_pauses_and_resumes_nested_agent_skill()
     let output = object(&resumed.output, "resumed nested agent graph result")?;
     assert_eq!(string_field(output, "status"), Some("sealed"));
     let payload = object_field(output, "payload").ok_or("missing payload")?;
-    let result = object_field(payload, "result").ok_or("missing result")?;
+    let nested_claim = step_claim(payload, "nested").ok_or("missing nested skill claim")?;
+    let result = object_field(nested_claim, "result").ok_or("missing result")?;
     assert_eq!(
         string_field(result, "summary"),
         Some("Nested agent fix authored.")
@@ -668,7 +681,8 @@ fn native_graph_skill_run_pauses_and_resumes_nested_agent_step_skill()
     let output = object(&resumed.output, "resumed nested agent-step graph result")?;
     assert_eq!(string_field(output, "status"), Some("sealed"));
     let payload = object_field(output, "payload").ok_or("missing payload")?;
-    let result = object_field(payload, "result").ok_or("missing result")?;
+    let nested_claim = step_claim(payload, "nested").ok_or("missing nested skill claim")?;
+    let result = object_field(nested_claim, "result").ok_or("missing result")?;
     assert_eq!(
         string_field(result, "summary"),
         Some("Nested agent-step fix authored.")
@@ -712,7 +726,8 @@ fn native_graph_skill_run_executes_local_tool_step() -> Result<(), Box<dyn std::
     let output = object(&result.output, "graph tool result")?;
     assert_eq!(string_field(output, "status"), Some("sealed"));
     let payload = object_field(output, "payload").ok_or("missing payload")?;
-    let echo = object_field(payload, "echo").ok_or("missing echo")?;
+    let echo_claim = step_claim(payload, "echo").ok_or("missing echo skill claim")?;
+    let echo = object_field(echo_claim, "echo").ok_or("missing echo")?;
     assert_eq!(string_field(echo, "message"), Some("Graph tool bug"));
 
     Ok(())
@@ -777,7 +792,8 @@ fn native_graph_skill_run_resolves_agent_step_named_emit_context()
     let output = object(&result.output, "graph agent artifact result")?;
     assert_eq!(string_field(output, "status"), Some("sealed"));
     let payload = object_field(output, "payload").ok_or("missing payload")?;
-    let echo = object_field(payload, "echo").ok_or("missing echo")?;
+    let echo_claim = step_claim(payload, "echo").ok_or("missing echo skill claim")?;
+    let echo = object_field(echo_claim, "echo").ok_or("missing echo")?;
     assert_eq!(string_field(echo, "message"), Some("Graph tool bug"));
 
     Ok(())
@@ -819,7 +835,8 @@ fn native_graph_skill_run_omits_missing_optional_graph_input_references()
     let output = object(&result.output, "graph optional JSON tool result")?;
     assert_eq!(string_field(output, "status"), Some("sealed"));
     let payload = object_field(output, "payload").ok_or("missing payload")?;
-    let echo = object_field(payload, "echo").ok_or("missing echo")?;
+    let echo_claim = step_claim(payload, "echo").ok_or("missing echo skill claim")?;
+    let echo = object_field(echo_claim, "echo").ok_or("missing echo")?;
     assert_eq!(
         string_field(echo, "message"),
         Some("Graph optional JSON bug")
@@ -860,7 +877,8 @@ fn native_graph_skill_run_prefers_built_cli_tool_root() -> Result<(), Box<dyn st
     let output = object(&result.output, "graph tool result")?;
     assert_eq!(string_field(output, "status"), Some("sealed"));
     let payload = object_field(output, "payload").ok_or("missing payload")?;
-    let echo = object_field(payload, "echo").ok_or("missing echo")?;
+    let echo_claim = step_claim(payload, "echo").ok_or("missing echo skill claim")?;
+    let echo = object_field(echo_claim, "echo").ok_or("missing echo")?;
     assert_eq!(string_field(echo, "message"), Some("package cli tools"));
 
     Ok(())
@@ -894,7 +912,8 @@ fn native_graph_skill_run_executes_nested_cli_tool_skill() -> Result<(), Box<dyn
     let output = object(&result.output, "nested graph skill result")?;
     assert_eq!(string_field(output, "status"), Some("sealed"));
     let payload = object_field(output, "payload").ok_or("missing payload")?;
-    let nested = object_field(payload, "nested").ok_or("missing nested output")?;
+    let nested_claim = step_claim(payload, "nested").ok_or("missing nested skill claim")?;
+    let nested = object_field(nested_claim, "nested").ok_or("missing nested output")?;
     assert_eq!(string_field(nested, "message"), Some("Nested graph bug"));
 
     Ok(())
@@ -928,7 +947,8 @@ fn native_graph_skill_run_executes_nested_x_yaml_runner_skill()
     let output = object(&result.output, "nested X.yaml graph skill result")?;
     assert_eq!(string_field(output, "status"), Some("sealed"));
     let payload = object_field(output, "payload").ok_or("missing payload")?;
-    let nested = object_field(payload, "nested").ok_or("missing nested output")?;
+    let nested_claim = step_claim(payload, "nested").ok_or("missing nested skill claim")?;
+    let nested = object_field(nested_claim, "nested").ok_or("missing nested output")?;
     assert_eq!(string_field(nested, "message"), Some("Runner manifest bug"));
 
     Ok(())
@@ -1487,6 +1507,15 @@ fn object_field<'a>(
         Some(JsonValue::Object(value)) => Some(value),
         _ => None,
     }
+}
+
+fn step_claim<'a>(
+    payload: &'a runx_contracts::JsonObject,
+    step_id: &str,
+) -> Option<&'a runx_contracts::JsonObject> {
+    object_field(payload, "step_outputs")
+        .and_then(|steps| object_field(steps, step_id))
+        .and_then(|step| object_field(step, "skill_claim"))
 }
 
 fn array_field<'a>(

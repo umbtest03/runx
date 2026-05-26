@@ -22,8 +22,7 @@ pub enum CredentialDeliveryPurpose {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum CredentialMaterialRole {
-    AccessToken,
-    RefreshToken,
+    PersonalToken,
     ApiKey,
     ClientSecret,
     SessionToken,
@@ -59,8 +58,8 @@ pub enum CredentialDeliveryRequestSchema {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
-pub enum CredentialDeliveryBrokerResponseSchema {
-    #[serde(rename = "runx.credential_delivery.broker_response.v1")]
+pub enum CredentialDeliveryResponseSchema {
+    #[serde(rename = "runx.credential_delivery.response.v1")]
     V1,
 }
 
@@ -121,9 +120,9 @@ pub struct CredentialDeliveryHandle {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
-#[runx_schema(id = "runx.credential_delivery.broker_response.v1")]
-pub struct CredentialDeliveryBrokerResponse {
-    pub schema: CredentialDeliveryBrokerResponseSchema,
+#[runx_schema(id = "runx.credential_delivery.response.v1")]
+pub struct CredentialDeliveryResponse {
+    pub schema: CredentialDeliveryResponseSchema,
     pub response_id: NonEmptyString,
     pub request_id: NonEmptyString,
     pub status: CredentialDeliveryStatus,

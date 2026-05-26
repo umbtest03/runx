@@ -195,20 +195,20 @@ fn fixture_script() -> Result<PathBuf, std::io::Error> {
 }
 
 fn credential_delivery() -> Result<CredentialDelivery, Box<dyn std::error::Error>> {
-    let profile = CredentialDeliveryProfile::env_token("github", "oauth_bearer", "GITHUB_TOKEN")?;
+    let profile = CredentialDeliveryProfile::env_token("github", "api_key", "GITHUB_TOKEN")?;
     let credential: CredentialEnvelope = serde_json::from_value(serde_json::json!({
         "kind": "runx.credential-envelope.v1",
         "grant_id": "grant-github",
         "provider": "github",
-        "auth_mode": "oauth_bearer",
-        "material_kind": "access_token",
+        "auth_mode": "api_key",
+        "material_kind": "api_key",
         "provider_reference": "github-main",
         "scopes": ["issues:write"],
         "material_ref": "secret://github/main"
     }))?;
     let resolver = InMemoryMaterialResolver::with_material(
         "secret://github/main",
-        ResolvedCredentialMaterial::access_token("secret://github/main", "ghs_TEST_SECRET_TOKEN"),
+        ResolvedCredentialMaterial::api_key("secret://github/main", "ghs_TEST_SECRET_TOKEN"),
     );
     let delivery = CredentialDelivery::from_allowed_binding(
         &CredentialBindingDecision::Allow {
@@ -256,7 +256,7 @@ fn credential_delivery() -> Result<CredentialDelivery, Box<dyn std::error::Error
             proof_kind: None,
         }],
         material_ref_hash: Some("sha256:material-ref".into()),
-        delivered_roles: vec![CredentialMaterialRole::AccessToken],
+        delivered_roles: vec![CredentialMaterialRole::ApiKey],
         redaction_refs: Some(vec![Reference {
             reference_type: ReferenceType::RedactionPolicy,
             uri: "runx:redaction_policy:provider-output".to_owned().into(),
@@ -310,7 +310,7 @@ fn credential_observation_only() -> CredentialDelivery {
             proof_kind: None,
         }],
         material_ref_hash: Some("sha256:material-ref".into()),
-        delivered_roles: vec![CredentialMaterialRole::AccessToken],
+        delivered_roles: vec![CredentialMaterialRole::ApiKey],
         redaction_refs: None,
         observed_at: "2026-05-22T00:00:01Z".into(),
     })

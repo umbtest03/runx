@@ -18,7 +18,6 @@ export interface IdeActionCoreOptions {
   readonly env?: NodeJS.ProcessEnv;
   readonly receiptDir?: string;
   readonly registryStore?: RegistryStore;
-  readonly connect?: ConnectService;
 }
 
 export interface RunSkillOptions {
@@ -58,19 +57,6 @@ export interface ReceiptLike {
   readonly [key: string]: unknown;
 }
 
-export interface ConnectService {
-  readonly list: () => Promise<unknown>;
-  readonly preprovision: (request: {
-    readonly provider: string;
-    readonly scopes?: readonly string[];
-    readonly scope_family?: string;
-    readonly authority_kind?: "read_only" | "constructive" | "destructive";
-    readonly target_repo?: string;
-    readonly target_locator?: string;
-  }) => Promise<unknown>;
-  readonly revoke: (grantId: string) => Promise<unknown>;
-}
-
 export interface IdeActionResult<T = unknown> {
   readonly action: string;
   readonly status: "success" | "needs_agent" | "policy_denied" | "failure" | "error";
@@ -86,16 +72,6 @@ export interface IdeActionCore {
   readonly history: (options?: HistoryOptions) => Promise<IdeActionResult>;
   readonly searchSkills: (options: SearchSkillsOptions) => Promise<IdeActionResult>;
   readonly addSkill: (options: AddSkillOptions) => Promise<IdeActionResult>;
-  readonly connectList: () => Promise<IdeActionResult>;
-  readonly connectPreprovision: (request: {
-    readonly provider: string;
-    readonly scopes?: readonly string[];
-    readonly scope_family?: string;
-    readonly authority_kind?: "read_only" | "constructive" | "destructive";
-    readonly target_repo?: string;
-    readonly target_locator?: string;
-  }) => Promise<IdeActionResult>;
-  readonly connectRevoke: (grantId: string) => Promise<IdeActionResult>;
   readonly harnessRun: (fixturePath: string) => Promise<IdeActionResult<HarnessRunResult>>;
 }
 
@@ -114,22 +90,8 @@ export function createIdeActionCore(options: IdeActionCoreOptions = {}): IdeActi
       await wrapAction("runx.skill.search", async () => await searchSkills(options.registryStore, searchOptions)),
     addSkill: async (addOptions) =>
       await wrapAction("runx.skill.add", async () => await addSkill(options.registryStore, addOptions)),
-    connectList: async () =>
-      await wrapAction("runx.connect.list", async () => await connectService(options).list()),
-    connectPreprovision: async (request) =>
-      await wrapAction("runx.connect.preprovision", async () => await connectService(options).preprovision(request)),
-    connectRevoke: async (grantId) =>
-      await wrapAction("runx.connect.revoke", async () => await connectService(options).revoke(grantId)),
     harnessRun: async (fixturePath) =>
       await wrapAction("runx.harness.run", async () => await runHarness(fixturePath, { ...options, env, receiptDir })),
-  };
-}
-
-export function createFixtureConnectService(): ConnectService {
-  return {
-    list: async () => ({ grants: [] }),
-    preprovision: async (request) => ({ status: "created", grant: { provider: request.provider, scopes: request.scopes } }),
-    revoke: async (grantId) => ({ status: "revoked", grant: { grant_id: grantId } }),
   };
 }
 
@@ -311,13 +273,6 @@ async function addSkill(store: RegistryStore | undefined, options: AddSkillOptio
 function parseSkillRef(ref: string): { readonly skillId: string; readonly version?: string } {
   const [skillId, version] = ref.split("@", 2);
   return { skillId, version };
-}
-
-function connectService(options: IdeActionCoreOptions): ConnectService {
-  if (options.connect) {
-    return options.connect;
-  }
-  throw new Error("IDE connect actions require a hosted Connect service.");
 }
 
 async function wrapAction<T>(

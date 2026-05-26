@@ -2,11 +2,11 @@ import { contractSchemaMatches } from "../internal.js";
 import { describe, expect, it } from "vitest";
 
 import {
-  credentialDeliveryBrokerResponseV1Schema,
+  credentialDeliveryResponseV1Schema,
   credentialDeliveryObservationV1Schema,
   credentialDeliveryProfileV1Schema,
   credentialDeliveryRequestV1Schema,
-  type CredentialDeliveryBrokerResponseContract,
+  type CredentialDeliveryResponseContract,
   type CredentialDeliveryObservationContract,
   type CredentialDeliveryProfileContract,
   type CredentialDeliveryRequestContract,
@@ -17,18 +17,18 @@ const hostRef = { type: "host", uri: "runx:host:local" } as const;
 const grantRef = { type: "grant", uri: "runx:grant:github-repo-read" } as const;
 const credentialRef = { type: "credential", uri: "runx:credential:github-installation-1" } as const;
 const redactionPolicyRef = { type: "redaction_policy", uri: "runx:redaction-policy:credentials-v1" } as const;
-const deliveryHandleRef = { type: "credential", uri: "runx:credential-delivery-handle:req_cred_1:access_token" } as const;
+const deliveryHandleRef = { type: "credential", uri: "runx:credential-delivery-handle:req_cred_1:api_key" } as const;
 
 const profile: CredentialDeliveryProfileContract = {
   schema: "runx.credential_delivery.profile.v1",
   profile_id: "github-provider-api-env",
   provider: "github",
-  auth_mode: "oauth",
+  auth_mode: "api_key",
   purpose: "provider_api",
   delivery_mode: "process_env",
-  material_roles: ["access_token"],
+  material_roles: ["api_key"],
   env_bindings: [{
-    role: "access_token",
+    role: "api_key",
     env_var: "GITHUB_TOKEN",
     required: true,
   }],
@@ -45,18 +45,18 @@ const request: CredentialDeliveryRequestContract = {
   profile_id: "github-provider-api-env",
   provider: "github",
   purpose: "provider_api",
-  requested_roles: ["access_token"],
+  requested_roles: ["api_key"],
   requested_at: "2026-05-22T00:30:00Z",
 };
 
-const response: CredentialDeliveryBrokerResponseContract = {
-  schema: "runx.credential_delivery.broker_response.v1",
+const response: CredentialDeliveryResponseContract = {
+  schema: "runx.credential_delivery.response.v1",
   response_id: "cred_resp_1",
   request_id: "cred_req_1",
   status: "delivered",
   delivery_mode: "process_env",
   handles: [{
-    role: "access_token",
+    role: "api_key",
     delivery_handle_ref: deliveryHandleRef,
     env_var: "GITHUB_TOKEN",
   }],
@@ -80,7 +80,7 @@ const observation: CredentialDeliveryObservationContract = {
   delivery_mode: "process_env",
   credential_refs: [credentialRef],
   material_ref_hash: "sha256:4ab3",
-  delivered_roles: ["access_token"],
+  delivered_roles: ["api_key"],
   redaction_refs: [redactionPolicyRef],
   observed_at: "2026-05-22T00:30:02Z",
 };
@@ -89,7 +89,7 @@ describe("credential-delivery schemas", () => {
   it("accepts public credential delivery frames without raw material", () => {
     expect(contractSchemaMatches(credentialDeliveryProfileV1Schema, profile)).toBe(true);
     expect(contractSchemaMatches(credentialDeliveryRequestV1Schema, request)).toBe(true);
-    expect(contractSchemaMatches(credentialDeliveryBrokerResponseV1Schema, response)).toBe(true);
+    expect(contractSchemaMatches(credentialDeliveryResponseV1Schema, response)).toBe(true);
     expect(contractSchemaMatches(credentialDeliveryObservationV1Schema, observation)).toBe(true);
 
     const serialized = JSON.stringify({ profile, request, response, observation });
@@ -98,9 +98,9 @@ describe("credential-delivery schemas", () => {
   });
 
   it("rejects raw secret-like fields on public frames", () => {
-    expect(contractSchemaMatches(credentialDeliveryBrokerResponseV1Schema, {
+    expect(contractSchemaMatches(credentialDeliveryResponseV1Schema, {
       ...response,
-      access_token: "super-secret-token",
+      api_key: "super-secret-token",
     })).toBe(false);
     expect(contractSchemaMatches(credentialDeliveryObservationV1Schema, {
       ...observation,

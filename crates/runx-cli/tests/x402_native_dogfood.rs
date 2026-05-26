@@ -159,7 +159,7 @@ fn native_x402_refusal_ledger_projection() -> Result<(), Box<dyn std::error::Err
         .join("artifacts")
         .join("payment-ledger")
         .join("x402-pay")
-        .join("sha256:d1e3ad51b9e6487c8bfe9984f40b36b7aa3947435c554cfc261765761de2d395.json");
+        .join("sha256:17fef387c0dacac2ee37c6cc8bcf403de6a853bdbd6c37af8ee79630dc161c1d.json");
     let projection: Value = serde_json::from_str(&fs::read_to_string(&projection_path)?)?;
     assert_eq!(
         projection["schema_version"],
@@ -190,7 +190,7 @@ fn native_x402_refusal_ledger_projection() -> Result<(), Box<dyn std::error::Err
     assert_eq!(event["entry"]["data"]["kind"], "payment_ledger_projected");
     assert_eq!(
         event["entry"]["data"]["detail"]["projection_artifact_id"],
-        "x402-pay:runx:receipt:sha256:d1e3ad51b9e6487c8bfe9984f40b36b7aa3947435c554cfc261765761de2d395"
+        "x402-pay:runx:receipt:sha256:17fef387c0dacac2ee37c6cc8bcf403de6a853bdbd6c37af8ee79630dc161c1d"
     );
     assert_eq!(event["entry"]["data"]["detail"]["disposition"], "refused");
 

@@ -7,6 +7,13 @@ const manifestPath = process.env.RUNX_LICENSE_BOUNDARY_MANIFEST
   ? path.resolve(root, process.env.RUNX_LICENSE_BOUNDARY_MANIFEST)
   : path.join(root, "docs/license-boundary.manifest.json");
 const docPath = path.join(root, "docs/licensing-boundary.md");
+const legacyPrivateProviderGatewayIdentifiers = [
+  `Nan${"go"}`,
+  `${"nan"}${"go"}`,
+  `Nan${"go"}Connection`,
+  `${"nan"}${"go"}_connection`,
+  `Nan${"go"}Hosted`,
+];
 
 function fail(message) {
   console.error(`license-boundary: ${message}`);
@@ -129,9 +136,6 @@ function checkManifestComplete() {
   }
   assertArray("banned_identifiers", manifest.banned_identifiers);
   for (const required of [
-    "Nango",
-    "nango",
-    "NangoConnection",
     "RUNX_CONNECT_ACCESS_TOKEN",
     "ConnectClient",
     "connection_id",
@@ -168,7 +172,7 @@ function checkManifestComplete() {
       ok: true,
       check: "manifest-complete",
       crates: Object.keys(crateClasses).length,
-      banned_identifiers: manifest.banned_identifiers.length,
+      banned_identifiers: bannedIdentifiersForGuard(manifest).length,
       allowlist: manifest.allowlist.length,
       private_move_or_abstract: manifest.private_move_or_abstract.length,
     })
@@ -180,6 +184,10 @@ function loadManifestForGuard() {
   assertArray("banned_identifiers", manifest.banned_identifiers);
   assertArray("exclude_globs", manifest.exclude_globs);
   return manifest;
+}
+
+function bannedIdentifiersForGuard(manifest) {
+  return Array.from(new Set([...manifest.banned_identifiers, ...legacyPrivateProviderGatewayIdentifiers]));
 }
 
 function scanRoots(manifest) {
@@ -204,7 +212,7 @@ function checkIdentifiers() {
       const relative = relativePath(file);
       if (isExcluded(relative, manifest.exclude_globs)) continue;
       const text = fs.readFileSync(file, "utf8");
-      for (const identifier of manifest.banned_identifiers) {
+      for (const identifier of bannedIdentifiersForGuard(manifest)) {
         if (text.includes(identifier) && !isAllowlisted(manifest.allowlist ?? [], relative, identifier)) {
           violations.push(`${relative}: ${identifier}`);
         }

@@ -7,8 +7,8 @@ use serde_json as schema_json;
 use crate::schema::RunxSchema;
 use crate::{
     Act, ActAssignment, ActReceiptEnvelope, AgentActInvocation, AgentContextEnvelope, ApprovalGate,
-    Artifact, Authority, AuthorityProof, AuthoritySubsetProof, CredentialDeliveryBrokerResponse,
-    CredentialDeliveryObservation, CredentialDeliveryProfile, CredentialDeliveryRequest,
+    Artifact, Authority, AuthorityProof, AuthoritySubsetProof, CredentialDeliveryObservation,
+    CredentialDeliveryProfile, CredentialDeliveryRequest, CredentialDeliveryResponse,
     CredentialEnvelope, Decision, DevReport, DoctorReport, ExternalAdapterCancellationFrame,
     ExternalAdapterCredentialRequest, ExternalAdapterHostResolutionFrame,
     ExternalAdapterInvocation, ExternalAdapterManifest, ExternalAdapterResponse, FeedEntry,
@@ -45,9 +45,7 @@ pub fn generated_schema_artifacts() -> Vec<SchemaArtifact> {
         artifact::<AuthorityProof>("authority-proof.schema.json"),
         artifact::<CredentialDeliveryProfile>("credential-delivery-profile.schema.json"),
         artifact::<CredentialDeliveryRequest>("credential-delivery-request.schema.json"),
-        artifact::<CredentialDeliveryBrokerResponse>(
-            "credential-delivery-broker-response.schema.json",
-        ),
+        artifact::<CredentialDeliveryResponse>("credential-delivery-response.schema.json"),
         artifact::<CredentialDeliveryObservation>("credential-delivery-observation.schema.json"),
         artifact::<ThreadOutboxProviderManifest>("thread-outbox-provider-manifest.schema.json"),
         artifact::<ThreadOutboxProviderPush>("thread-outbox-provider-push.schema.json"),

@@ -76,19 +76,6 @@ import {
   validateToolManifestJsonViaParser,
 } from "../runner-local/parser-bridge.js";
 
-export interface ConnectService {
-  readonly list: () => Promise<unknown>;
-  readonly preprovision: (request: {
-    readonly provider: string;
-    readonly scopes: readonly string[];
-    readonly scope_family?: string;
-    readonly authority_kind?: "read_only" | "constructive" | "destructive";
-    readonly target_repo?: string;
-    readonly target_locator?: string;
-  }) => Promise<unknown>;
-  readonly revoke: (grantId: string) => Promise<unknown>;
-}
-
 export type RegistryTrustTier = "first_party" | "verified" | "community";
 export type RegistryPublisherKind = "organization" | "user" | "team" | "service" | "publisher";
 export type RegistryAttestationKind = "source" | "publisher" | "verification";
@@ -233,7 +220,6 @@ export interface RunxSdkOptions {
   readonly registryStore?: RegistryStore;
   readonly marketplaceAdapters?: readonly MarketplaceAdapter[];
   readonly toolCatalogAdapters?: readonly ToolCatalogAdapter[];
-  readonly connect?: ConnectService;
   readonly authResolver?: AuthResolver;
   readonly allowedSourceTypes?: readonly string[];
   readonly adapters?: readonly SkillAdapter[];
@@ -541,28 +527,6 @@ export class RunxSdk {
     };
   }
 
-  async connectList(): Promise<unknown> {
-    return await this.requireConnect().list();
-  }
-
-  async connectPreprovision(request: {
-    readonly provider: string;
-    readonly scopes?: readonly string[];
-    readonly scope_family?: string;
-    readonly authority_kind?: "read_only" | "constructive" | "destructive";
-    readonly target_repo?: string;
-    readonly target_locator?: string;
-  }): Promise<unknown> {
-    return await this.requireConnect().preprovision({
-      ...request,
-      scopes: request.scopes ?? [],
-    });
-  }
-
-  async connectRevoke(grantId: string): Promise<unknown> {
-    return await this.requireConnect().revoke(grantId);
-  }
-
   private caller(override?: Caller): Caller {
     return override ?? this.options.caller ?? createStructuredCaller(this.options.callerOptions);
   }
@@ -612,12 +576,6 @@ export class RunxSdk {
     return resolveEnvToolCatalogAdapters(this.env(), source);
   }
 
-  private requireConnect(): ConnectService {
-    if (!this.options.connect) {
-      throw new Error("runx SDK connect methods require a configured connect service.");
-    }
-    return this.options.connect;
-  }
 }
 
 export function createRunxSdk(options: RunxSdkOptions = {}): RunxSdk {
@@ -1779,25 +1737,4 @@ export async function add(options: AddSkillOptions & RunxSdkOptions): Promise<In
 
 export async function publish(options: PublishSkillOptions & RunxSdkOptions): Promise<PublishSkillMarkdownResult> {
   return await createRunxSdk(options).publishSkill(options);
-}
-
-export async function connectList(options: RunxSdkOptions): Promise<unknown> {
-  return await createRunxSdk(options).connectList();
-}
-
-export async function connectPreprovision(
-  options: {
-    readonly provider: string;
-    readonly scopes?: readonly string[];
-    readonly scope_family?: string;
-    readonly authority_kind?: "read_only" | "constructive" | "destructive";
-    readonly target_repo?: string;
-    readonly target_locator?: string;
-  } & RunxSdkOptions,
-): Promise<unknown> {
-  return await createRunxSdk(options).connectPreprovision(options);
-}
-
-export async function connectRevoke(options: { readonly grantId: string } & RunxSdkOptions): Promise<unknown> {
-  return await createRunxSdk(options).connectRevoke(options.grantId);
 }

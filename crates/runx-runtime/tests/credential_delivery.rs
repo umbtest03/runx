@@ -52,7 +52,7 @@ fn delivery_profile_rejects_provider_mismatch() -> Result<(), Box<dyn std::error
             reasons: vec!["allowed".to_owned()],
         },
         &credential(),
-        &CredentialDeliveryProfile::env_token("slack", "oauth_bearer", "SLACK_TOKEN")?,
+        &CredentialDeliveryProfile::env_token("slack", "api_key", "SLACK_TOKEN")?,
         &resolver(),
     );
 
@@ -80,7 +80,7 @@ fn delivery_profile_rejects_provider_mismatch() -> Result<(), Box<dyn std::error
 #[test]
 fn delivery_profile_maps_process_env_contract_profile() -> Result<(), Box<dyn std::error::Error>> {
     let profile = CredentialDeliveryProfile::from_contract_profile(&contract_profile(
-        vec![CredentialMaterialRole::AccessToken],
+        vec![CredentialMaterialRole::ApiKey],
         "GITHUB_TOKEN",
     ))?;
     let delivery = CredentialDelivery::from_allowed_binding(
@@ -93,7 +93,7 @@ fn delivery_profile_maps_process_env_contract_profile() -> Result<(), Box<dyn st
     )?;
 
     assert_eq!(profile.provider(), "github");
-    assert_eq!(profile.auth_mode(), "oauth_bearer");
+    assert_eq!(profile.auth_mode(), "api_key");
     assert_eq!(
         delivery.secret_env().get("GITHUB_TOKEN"),
         Some("ghs_secret_token")
@@ -121,16 +121,54 @@ fn local_descriptor_observation_uses_live_timestamp() -> Result<(), Box<dyn std:
 }
 
 #[test]
+fn public_observation_metadata_serializes_without_secret_material()
+-> Result<(), Box<dyn std::error::Error>> {
+    let secret = "ghs_observation_secret_must_not_leak";
+    let delivery = CredentialDelivery::from_local_descriptor(
+        "github",
+        "bearer",
+        "GITHUB_TOKEN",
+        "local://github/main",
+        vec!["repo".to_owned()],
+        secret,
+    )?;
+    let observation = delivery
+        .public_observation()
+        .ok_or("local descriptor must record public observation")?;
+
+    assert_eq!(observation.provider.as_str(), "github");
+    assert_eq!(observation.credential_refs.len(), 1);
+    assert_eq!(
+        observation.credential_refs[0].uri.as_str(),
+        "runx:credential:local://github/main"
+    );
+    assert!(
+        observation
+            .material_ref_hash
+            .as_ref()
+            .is_some_and(|hash| hash.as_str().starts_with("sha256:"))
+    );
+
+    let serialized = serde_json::to_string(&serde_json::json!({
+        "credential_delivery_observations": [observation],
+    }))?;
+    assert!(serialized.contains("credential_delivery_observations"));
+    assert!(!serialized.contains(secret));
+    assert!(!serialized.contains("GITHUB_TOKEN"));
+    Ok(())
+}
+
+#[test]
 fn delivery_profile_skips_optional_unsupported_contract_binding()
 -> Result<(), Box<dyn std::error::Error>> {
-    let mut contract = contract_profile(vec![CredentialMaterialRole::AccessToken], "GITHUB_TOKEN");
+    let mut contract = contract_profile(vec![CredentialMaterialRole::ApiKey], "GITHUB_TOKEN");
     contract
         .material_roles
-        .push(CredentialMaterialRole::RefreshToken);
+        .push(CredentialMaterialRole::PersonalToken);
     contract
         .env_bindings
         .push(runx_contracts::CredentialDeliveryEnvBinding {
-            role: CredentialMaterialRole::RefreshToken,
+            role: CredentialMaterialRole::PersonalToken,
             env_var: "GITHUB_REFRESH_TOKEN".to_owned(),
             required: false,
         });
@@ -155,7 +193,7 @@ fn delivery_profile_skips_optional_unsupported_contract_binding()
 #[test]
 fn delivery_profile_rejects_unsupported_contract_role() {
     let result = CredentialDeliveryProfile::from_contract_profile(&contract_profile(
-        vec![CredentialMaterialRole::RefreshToken],
+        vec![CredentialMaterialRole::PersonalToken],
         "GITHUB_REFRESH_TOKEN",
     ));
 
@@ -169,7 +207,7 @@ fn delivery_profile_rejects_unsupported_contract_role() {
 fn delivery_profile_rejects_empty_material() -> Result<(), Box<dyn std::error::Error>> {
     let resolver = InMemoryMaterialResolver::with_material(
         "secret://github/main",
-        ResolvedCredentialMaterial::access_token("secret://github/main", "  "),
+        ResolvedCredentialMaterial::api_key("secret://github/main", "  "),
     );
     let result = CredentialDelivery::from_allowed_binding(
         &CredentialBindingDecision::Allow {
@@ -182,7 +220,7 @@ fn delivery_profile_rejects_empty_material() -> Result<(), Box<dyn std::error::E
 
     assert!(matches!(
         result,
-        Err(CredentialDeliveryError::EmptyMaterial { role }) if role == "access_token"
+        Err(CredentialDeliveryError::EmptyMaterial { role }) if role == "api_key"
     ));
     Ok(())
 }
@@ -308,12 +346,12 @@ fn allowed_delivery() -> Result<CredentialDelivery, CredentialDeliveryError> {
 fn resolver() -> InMemoryMaterialResolver {
     InMemoryMaterialResolver::with_material(
         "secret://github/main",
-        ResolvedCredentialMaterial::access_token("secret://github/main", "ghs_secret_token"),
+        ResolvedCredentialMaterial::api_key("secret://github/main", "ghs_secret_token"),
     )
 }
 
 fn github_profile() -> Result<CredentialDeliveryProfile, CredentialDeliveryError> {
-    CredentialDeliveryProfile::env_token("github", "oauth_bearer", "GITHUB_TOKEN")
+    CredentialDeliveryProfile::env_token("github", "api_key", "GITHUB_TOKEN")
 }
 
 fn credential() -> CredentialEnvelope {
@@ -321,8 +359,8 @@ fn credential() -> CredentialEnvelope {
         kind: CredentialEnvelopeKind::V1,
         grant_id: "grant_github_main".into(),
         provider: "github".into(),
-        auth_mode: "oauth_bearer".into(),
-        material_kind: "access_token".into(),
+        auth_mode: "api_key".into(),
+        material_kind: "api_key".into(),
         provider_reference: "conn_github_main".into(),
         scopes: vec!["repo".into()],
         grant_reference: None,
@@ -338,7 +376,7 @@ fn contract_profile(
         schema: runx_contracts::CredentialDeliveryProfileSchema::V1,
         profile_id: "github-provider-api-env".into(),
         provider: "github".into(),
-        auth_mode: "oauth_bearer".into(),
+        auth_mode: "api_key".into(),
         purpose: CredentialDeliveryPurpose::ProviderApi,
         delivery_mode: CredentialDeliveryMode::ProcessEnv,
         material_roles: roles.clone(),

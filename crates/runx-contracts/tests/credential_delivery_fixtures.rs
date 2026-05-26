@@ -1,12 +1,12 @@
 use serde::Deserialize;
 
 use runx_contracts::{
-    CredentialDeliveryBrokerResponse, CredentialDeliveryObservation, CredentialDeliveryProfile,
-    CredentialDeliveryRequest,
+    CredentialDeliveryObservation, CredentialDeliveryProfile, CredentialDeliveryRequest,
+    CredentialDeliveryResponse,
 };
 
 const FIXTURES: &[&str] = &[
-    include_str!("../../../fixtures/contracts/credential-delivery/broker-response.json"),
+    include_str!("../../../fixtures/contracts/credential-delivery/response.json"),
     include_str!("../../../fixtures/contracts/credential-delivery/observation.json"),
     include_str!("../../../fixtures/contracts/credential-delivery/profile.json"),
     include_str!("../../../fixtures/contracts/credential-delivery/request.json"),
@@ -20,8 +20,8 @@ struct Fixture {
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 enum FixtureKind {
-    #[serde(rename = "credential_delivery_broker_response")]
-    BrokerResponse,
+    #[serde(rename = "credential_delivery_response")]
+    Response,
     #[serde(rename = "credential_delivery_observation")]
     Observation,
     #[serde(rename = "credential_delivery_profile")]
@@ -42,12 +42,12 @@ fn credential_delivery_fixtures_match_typescript_wire_shapes() -> Result<(), ser
 #[test]
 fn credential_delivery_public_frames_reject_raw_secret_material() -> Result<(), serde_json::Error> {
     let fixture: Fixture = serde_json::from_str(include_str!(
-        "../../../fixtures/contracts/credential-delivery/broker-response.json"
+        "../../../fixtures/contracts/credential-delivery/response.json"
     ))?;
     let mut response = fixture.expected;
-    response["access_token"] = serde_json::Value::String("super-secret-token".to_owned());
+    response["api_key"] = serde_json::Value::String("super-secret-token".to_owned());
 
-    let result = serde_json::from_value::<CredentialDeliveryBrokerResponse>(response);
+    let result = serde_json::from_value::<CredentialDeliveryResponse>(response);
 
     assert!(result.is_err());
     Ok(())
@@ -55,9 +55,7 @@ fn credential_delivery_public_frames_reject_raw_secret_material() -> Result<(), 
 
 fn assert_roundtrip(fixture: Fixture) -> Result<(), serde_json::Error> {
     match fixture.fixture_kind {
-        FixtureKind::BrokerResponse => {
-            roundtrip::<CredentialDeliveryBrokerResponse>(fixture.expected)
-        }
+        FixtureKind::Response => roundtrip::<CredentialDeliveryResponse>(fixture.expected),
         FixtureKind::Observation => roundtrip::<CredentialDeliveryObservation>(fixture.expected),
         FixtureKind::Profile => roundtrip::<CredentialDeliveryProfile>(fixture.expected),
         FixtureKind::Request => roundtrip::<CredentialDeliveryRequest>(fixture.expected),

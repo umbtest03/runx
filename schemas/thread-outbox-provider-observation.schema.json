@@ -206,11 +206,7 @@
             "items": {
               "anyOf": [
                 {
-                  "const": "access_token",
-                  "type": "string"
-                },
-                {
-                  "const": "refresh_token",
+                  "const": "personal_token",
                   "type": "string"
                 },
                 {

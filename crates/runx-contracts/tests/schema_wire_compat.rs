@@ -21,8 +21,8 @@ use runx_contracts::aster::{
 };
 use runx_contracts::authority::{Authority, AuthoritySubsetProof};
 use runx_contracts::credential_delivery::{
-    CredentialDeliveryBrokerResponse, CredentialDeliveryObservation, CredentialDeliveryProfile,
-    CredentialDeliveryRequest,
+    CredentialDeliveryObservation, CredentialDeliveryProfile, CredentialDeliveryRequest,
+    CredentialDeliveryResponse,
 };
 use runx_contracts::decision::Decision;
 use runx_contracts::dev::DevReport;
@@ -192,9 +192,9 @@ fn covered() -> Vec<Covered> {
             corpus: credential_delivery_request_corpus(),
         },
         Covered {
-            file_name: "credential-delivery-broker-response.schema.json",
-            emitted: CredentialDeliveryBrokerResponse::json_schema(),
-            corpus: credential_delivery_broker_response_corpus(),
+            file_name: "credential-delivery-response.schema.json",
+            emitted: CredentialDeliveryResponse::json_schema(),
+            corpus: credential_delivery_response_corpus(),
         },
         Covered {
             file_name: "credential-delivery-observation.schema.json",
@@ -897,7 +897,7 @@ fn credential_envelope_corpus() -> Vec<(&'static str, Value)> {
         "kind": "runx.credential-envelope.v1",
         "grant_id": "grant_1",
         "provider": "github",
-        "auth_mode": "oauth",
+        "auth_mode": "api_key",
         "material_kind": "token",
         "provider_reference": "conn_1",
         "scopes": ["issues:write"],
@@ -2705,11 +2705,11 @@ fn credential_delivery_profile_corpus() -> Vec<(&'static str, Value)> {
         "schema": "runx.credential_delivery.profile.v1",
         "profile_id": "github-env",
         "provider": "github",
-        "auth_mode": "oauth_bearer",
+        "auth_mode": "api_key",
         "purpose": "provider_api",
         "delivery_mode": "process_env",
-        "material_roles": ["access_token"],
-        "env_bindings": [{ "role": "access_token", "env_var": "GITHUB_TOKEN", "required": true }],
+        "material_roles": ["api_key"],
+        "env_bindings": [{ "role": "api_key", "env_var": "GITHUB_TOKEN", "required": true }],
         "redaction_policy_ref": a_ref(),
     });
     vec![
@@ -2757,7 +2757,7 @@ fn credential_delivery_request_corpus() -> Vec<(&'static str, Value)> {
         "profile_id": "github-env",
         "provider": "github",
         "purpose": "provider_api",
-        "requested_roles": ["access_token"],
+        "requested_roles": ["api_key"],
         "requested_at": "2026-01-01T00:00:00Z",
     });
     vec![
@@ -2794,9 +2794,9 @@ fn credential_delivery_request_corpus() -> Vec<(&'static str, Value)> {
     ]
 }
 
-fn credential_delivery_broker_response_corpus() -> Vec<(&'static str, Value)> {
+fn credential_delivery_response_corpus() -> Vec<(&'static str, Value)> {
     let valid = json!({
-        "schema": "runx.credential_delivery.broker_response.v1",
+        "schema": "runx.credential_delivery.response.v1",
         "response_id": "resp_1",
         "request_id": "req_1",
         "status": "delivered",
@@ -2808,7 +2808,7 @@ fn credential_delivery_broker_response_corpus() -> Vec<(&'static str, Value)> {
         ("full valid", {
             let mut v = valid.clone();
             v["delivery_mode"] = json!("process_env");
-            v["handles"] = json!([{ "role": "access_token", "delivery_handle_ref": a_ref(), "env_var": "GITHUB_TOKEN" }]);
+            v["handles"] = json!([{ "role": "api_key", "delivery_handle_ref": a_ref(), "env_var": "GITHUB_TOKEN" }]);
             v["material_ref_hash"] = json!("sha256:abc");
             v["denied_reasons"] = json!([]);
             v["expires_at"] = json!("2026-02-01T00:00:00Z");
@@ -2853,7 +2853,7 @@ fn credential_delivery_observation_corpus() -> Vec<(&'static str, Value)> {
         "provider": "github",
         "purpose": "provider_api",
         "credential_refs": [a_ref()],
-        "delivered_roles": ["access_token"],
+        "delivered_roles": ["api_key"],
         "observed_at": "2026-01-01T00:00:00Z",
     });
     vec![
@@ -4171,7 +4171,7 @@ fn credential_envelope_rejects_legacy_provider_shaped_wire_key() {
         "kind": "runx.credential-envelope.v1",
         "grant_id": "grant_1",
         "provider": "github",
-        "auth_mode": "oauth",
+        "auth_mode": "api_key",
         "material_kind": "token",
         "provider_reference": "conn_1",
         "scopes": ["issues:write"],
@@ -4184,7 +4184,7 @@ fn credential_envelope_rejects_legacy_provider_shaped_wire_key() {
             "kind": "runx.credential-envelope.v1",
             "grant_id": "grant_1",
             "provider": "github",
-            "auth_mode": "oauth",
+            "auth_mode": "api_key",
             "material_kind": "token",
             "scopes": ["issues:write"],
             "material_ref": "ref:abc",

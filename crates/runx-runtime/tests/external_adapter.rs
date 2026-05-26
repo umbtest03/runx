@@ -925,10 +925,10 @@ fn allowed_delivery() -> Result<CredentialDelivery, CredentialDeliveryError> {
             reasons: vec!["credential material matches admitted grant".to_owned()],
         },
         &credential(),
-        &CredentialDeliveryProfile::env_token("github", "oauth_bearer", "GITHUB_TOKEN")?,
+        &CredentialDeliveryProfile::env_token("github", "api_key", "GITHUB_TOKEN")?,
         &InMemoryMaterialResolver::with_material(
             "secret://github/main",
-            ResolvedCredentialMaterial::access_token("secret://github/main", "ghs_secret_token"),
+            ResolvedCredentialMaterial::api_key("secret://github/main", "ghs_secret_token"),
         ),
     )
 }
@@ -955,7 +955,7 @@ fn credential_delivery_observation() -> CredentialDeliveryObservation {
             "runx:credential:grant_github_main",
         )],
         material_ref_hash: Some("sha256:material-ref-hash".into()),
-        delivered_roles: vec![CredentialMaterialRole::AccessToken],
+        delivered_roles: vec![CredentialMaterialRole::ApiKey],
         redaction_refs: Some(vec![reference(
             ReferenceType::RedactionPolicy,
             "runx:evidence:redaction-policy/github-token",
@@ -969,8 +969,8 @@ fn credential() -> CredentialEnvelope {
         kind: CredentialEnvelopeKind::V1,
         grant_id: "grant_github_main".into(),
         provider: "github".into(),
-        auth_mode: "oauth_bearer".into(),
-        material_kind: "access_token".into(),
+        auth_mode: "api_key".into(),
+        material_kind: "api_key".into(),
         provider_reference: "conn_github_main".into(),
         scopes: vec!["repo".into()],
         grant_reference: None,

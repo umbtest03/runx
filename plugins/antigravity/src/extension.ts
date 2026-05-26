@@ -22,7 +22,6 @@ export function registerRunxCommands(host: RunxIdeHost, core: IdeActionCore = cr
     host.registerCommand("runx.history", async () => await core.history()),
     host.registerCommand("runx.skill.search", async (query) => await core.searchSkills({ query: requiredString(query, "query") })),
     host.registerCommand("runx.skill.add", async (ref) => await core.addSkill({ ref: requiredString(ref, "ref") })),
-    host.registerCommand("runx.connect.list", async () => await core.connectList()),
     host.registerCommand("runx.harness.run", async (fixturePath) => await core.harnessRun(requiredString(fixturePath, "fixturePath"))),
     host.registerCommand("runx.skill.preview", (markdown, profileDocument) => buildSkillPreview({
       markdown: requiredString(markdown, "markdown"),
