@@ -495,6 +495,63 @@ fn native_graph_skill_run_pauses_and_resumes_agent_step() -> Result<(), Box<dyn 
 }
 
 #[test]
+fn native_graph_transition_gate_allows_declared_agent_output()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let skill_dir = write_graph_gated_agent_step_skill_with_field(temp.path(), "decide.approved")?;
+    let receipt_dir = temp.path().join("receipts");
+
+    let initial = run_skill(SkillRunRequest {
+        skill_path: skill_dir.clone(),
+        receipt_dir: Some(receipt_dir.clone()),
+        run_id: None,
+        answers_path: None,
+        inputs: BTreeMap::new(),
+        env: BTreeMap::new(),
+        cwd: temp.path().to_path_buf(),
+        local_credential: None,
+    })?;
+    let output = object(&initial.output, "gated graph result")?;
+    let run_id = string_field(output, "run_id").ok_or("missing run_id")?;
+
+    let answers_path = temp.path().join("gated-answers.json");
+    fs::write(
+        &answers_path,
+        serde_json::json!({
+            "answers": {
+                "agent_step.gated-decide.output": {
+                    "approved": true
+                }
+            }
+        })
+        .to_string(),
+    )?;
+
+    let resumed = run_skill(SkillRunRequest {
+        skill_path: skill_dir,
+        receipt_dir: Some(receipt_dir),
+        run_id: Some(run_id.to_owned()),
+        answers_path: Some(answers_path),
+        inputs: BTreeMap::new(),
+        env: BTreeMap::new(),
+        cwd: temp.path().to_path_buf(),
+        local_credential: None,
+    })?;
+
+    let output = object(&resumed.output, "resumed gated graph result")?;
+    assert_eq!(string_field(output, "status"), Some("needs_agent"));
+    let requests = array_field(output, "requests").ok_or("missing requests")?;
+    assert_eq!(requests.len(), 1);
+    let request = object(&requests[0], "request")?;
+    assert_eq!(
+        string_field(request, "id"),
+        Some("agent_step.gated-followup.output")
+    );
+
+    Ok(())
+}
+
+#[test]
 fn native_graph_transition_gate_rejects_skill_claim_as_fact()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
@@ -543,7 +600,7 @@ fn native_graph_transition_gate_rejects_skill_claim_as_fact()
     assert!(
         error
             .to_string()
-            .contains("transition gate 'decide.approved' is unresolved"),
+            .contains("transition gate 'decide.skill_claim.approved' is unresolved"),
         "unexpected error: {error}"
     );
 
@@ -1210,6 +1267,13 @@ runners:
 }
 
 fn write_graph_gated_agent_step_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    write_graph_gated_agent_step_skill_with_field(root, "decide.skill_claim.approved")
+}
+
+fn write_graph_gated_agent_step_skill_with_field(
+    root: &Path,
+    gate_field: &str,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let skill_dir = root.join("graph-gated-agent-step");
     fs::create_dir_all(&skill_dir)?;
     fs::write(
@@ -1218,7 +1282,8 @@ fn write_graph_gated_agent_step_skill(root: &Path) -> Result<PathBuf, Box<dyn st
     )?;
     fs::write(
         skill_dir.join("X.yaml"),
-        r#"
+        format!(
+            r#"
 skill: graph-gated-agent-step
 runners:
   graph:
@@ -1244,9 +1309,10 @@ runners:
       policy:
         transitions:
           - to: gated
-            field: decide.approved
+            field: {gate_field}
             equals: true
-"#,
+            "#
+        ),
     )?;
     Ok(skill_dir.to_path_buf())
 }

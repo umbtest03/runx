@@ -643,7 +643,7 @@ pub(super) fn transition_field_value<'a>(
     let step_id = segments.next()?;
     let run = runs.iter().rev().find(|run| run.step_id == step_id)?;
     let first = segments.next()?;
-    if run.outputs.contains_key("skill_claim") && first != "status" {
+    if first == "skill_claim" {
         return None;
     }
     let mut value = run.outputs.get(first)?;
