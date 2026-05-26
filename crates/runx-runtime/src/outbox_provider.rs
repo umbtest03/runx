@@ -14,6 +14,7 @@ use runx_contracts::{
 use thiserror::Error;
 
 use crate::credentials::CredentialDelivery;
+use crate::process::{ProcessSignal, configure_process_group, signal_process_group_id};
 
 const DEFAULT_TIMEOUT_MS: u64 = 5_000;
 const DEFAULT_OUTPUT_LIMIT_BYTES: usize = 1_048_576;
@@ -501,26 +502,10 @@ fn redact_json_value(value: &mut JsonValue, credential_delivery: &CredentialDeli
 }
 
 #[cfg(unix)]
-fn configure_process_group(command: &mut Command) {
-    std::os::unix::process::CommandExt::process_group(command, 0);
-}
-
-#[cfg(not(unix))]
-fn configure_process_group(_command: &mut Command) {}
-
-#[cfg(unix)]
 fn kill_process_group(
     child: &mut std::process::Child,
 ) -> Result<(), ThreadOutboxProviderSupervisorError> {
-    let process_group = format!("-{}", child.id());
-    let status = Command::new("/bin/kill")
-        .arg("-KILL")
-        .arg(&process_group)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
-    if status.is_ok_and(|status| status.success()) {
+    if signal_process_group_id(child.id(), ProcessSignal::Force) {
         return Ok(());
     }
     child

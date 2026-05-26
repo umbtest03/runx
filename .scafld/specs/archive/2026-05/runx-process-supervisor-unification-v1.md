@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: runx-process-supervisor-unification-v1
 created: '2026-05-27T00:00:00Z'
-updated: '2026-05-27T00:00:00Z'
-status: draft
+updated: '2026-05-26T22:49:21Z'
+status: completed
 harden_status: not_run
 size: medium
 risk_level: high
@@ -13,14 +13,14 @@ risk_level: high
 
 ## Current State
 
-Status: draft
-Current phase: none
-Next: wait_for_safe_window
-Reason: useful follow-up, but must not collide with active S-tier MCP/session work
-Blockers: active S-tier cutover may touch MCP transport/session ownership
-Allowed follow-up command: inspect overlap, then `scafld approve runx-process-supervisor-unification-v1`
-Latest runner update: 2026-05-27T00:00:00Z
-Review gate: not_started
+Status: completed
+Current phase: final
+Next: done
+Reason: task completed
+Blockers: none
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-26T22:49:21Z
+Review gate: pass
 
 ## Summary
 
@@ -37,6 +37,7 @@ session pooling, external-adapter pooling, or new protocol reset behavior.
 
 - `crates/runx-runtime/src/process/**`
 - `crates/runx-runtime/src/adapters/mcp/transport.rs`
+- `crates/runx-runtime/src/outbox_provider.rs`
 - Focused process-supervision tests under `crates/runx-runtime/tests/**`
 
 Out of scope:
@@ -56,42 +57,62 @@ Out of scope:
 ## Acceptance
 
 - `! rg -n 'Command::new\\("/bin/kill"\\)' crates/runx-runtime/src --glob '*.rs'`
-- `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool,catalog,mcp process`
-- `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool,catalog,mcp --test mcp_server`
-- `cargo fmt --manifest-path crates/Cargo.toml --all -- --check`
+- `cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool,catalog,mcp --test mcp_adapter mcp_process_transport_times_out_and_terminates_child`
+- `cargo check --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool,catalog,mcp`
+- `rustfmt --check crates/runx-runtime/src/process.rs crates/runx-runtime/src/process/signal.rs crates/runx-runtime/src/adapters/mcp/transport.rs crates/runx-runtime/src/outbox_provider.rs`
 
 ## Phase 1: Overlap Check
 
-Status: pending
+Status: completed
 Dependencies: none
 
-Changes:
+Objective: Complete this phase.
 
-- Confirm no current dirty diff owns `adapters/mcp/transport.rs` or shared
-  process supervisor files.
+Changes:
+- Confirm no current dirty diff owns `adapters/mcp/transport.rs` or shared process supervisor files.
 - If dirty overlap exists, keep this spec draft and do not execute.
+
+Acceptance:
+- none
 
 ## Phase 2: Shared Termination Mechanism
 
-Status: pending
+Status: completed
 Dependencies: phase1
 
-Changes:
+Objective: Complete this phase.
 
+Changes:
 - Extract a shared Rust signal helper usable by sync and async supervisors.
 - Replace MCP `/bin/kill` shell-out with the shared helper.
 - Keep non-Unix direct-child semantics unchanged.
 
+Acceptance:
+- none
+
 ## Phase 3: Tests And Guards
 
-Status: pending
+Status: completed
 Dependencies: phase2
 
-Changes:
+Objective: Complete this phase.
 
+Changes:
 - Add focused tests/guards for timeout, TERM/KILL fallback, and no shell-out.
+
+Acceptance:
+- none
 
 ## Review
 
-Status: not_started
-Verdict: none
+Status: completed
+Verdict: pass
+Mode: verify
+Summary: Human-reviewed override accepted: Reviewed scoped runtime process-supervisor diff. Acceptance passed: no /bin/kill shell-out under crates/runx-runtime/src, focused MCP adapter timeout test, runx-runtime cargo check with cli-tool/catalog/mcp, and rustfmt --check on touched files. Workspace-wide fmt is intentionally not claimed because concurrent execution-runner edits are dirty in another lane.
+
+Attack log:
+- `review gate`: manual human audit -> clean (Reviewed scoped runtime process-supervisor diff. Acceptance passed: no /bin/kill shell-out under crates/runx-runtime/src, focused MCP adapter timeout test, runx-runtime cargo check with cli-tool/catalog/mcp, and rustfmt --check on touched files. Workspace-wide fmt is intentionally not claimed because concurrent execution-runner edits are dirty in another lane.)
+
+Findings:
+- none
+

@@ -9,6 +9,8 @@ use std::time::Duration;
 use runx_contracts::{JsonObject, JsonValue};
 use serde_json::{self, Value as JsonWireValue};
 
+#[cfg(unix)]
+use crate::process::{ProcessSignal, signal_process_group_id};
 use crate::sandbox::SandboxPlan;
 
 use super::rmcp_content_length::{RmcpContentLengthTransport, RmcpTransportErrorState};
@@ -259,14 +261,14 @@ fn configure_process_group(_command: &mut tokio::process::Command) {}
 
 #[cfg(unix)]
 async fn terminate_tokio_child(child: &mut tokio::process::Child) {
-    signal_tokio_process_group(child, TokioKillSignal::Terminate).await;
+    signal_tokio_process_group(child, ProcessSignal::Terminate);
     if tokio::time::timeout(FORCE_KILL_GRACE, child.wait())
         .await
         .is_ok()
     {
         return;
     }
-    signal_tokio_process_group(child, TokioKillSignal::Force).await;
+    signal_tokio_process_group(child, ProcessSignal::Force);
     let _ = child.wait().await;
 }
 
@@ -277,35 +279,11 @@ async fn terminate_tokio_child(child: &mut tokio::process::Child) {
 }
 
 #[cfg(unix)]
-enum TokioKillSignal {
-    Terminate,
-    Force,
-}
-
-#[cfg(unix)]
-impl TokioKillSignal {
-    const fn kill_arg(&self) -> &'static str {
-        match self {
-            Self::Terminate => "-TERM",
-            Self::Force => "-KILL",
-        }
-    }
-}
-
-#[cfg(unix)]
-async fn signal_tokio_process_group(child: &mut tokio::process::Child, signal: TokioKillSignal) {
+fn signal_tokio_process_group(child: &mut tokio::process::Child, signal: ProcessSignal) {
     let Some(pid) = child.id() else {
         return;
     };
-    let process_group = format!("-{pid}");
-    let _ = tokio::process::Command::new("/bin/kill")
-        .arg(signal.kill_arg())
-        .arg(process_group)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .await;
+    let _sent = signal_process_group_id(pid, signal);
 }
 
 fn drain_tokio_stderr(stderr: Option<tokio::process::ChildStderr>) {
