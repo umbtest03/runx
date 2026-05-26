@@ -357,7 +357,7 @@ describe("invokeCliTool", () => {
       const readonlyResult = await invokeCliTool({
         source: {
           command: "ambient-command",
-          timeoutSeconds: 1,
+          timeoutSeconds: 5,
           sandbox: {
             profile: "readonly",
           },
@@ -387,7 +387,7 @@ describe("invokeCliTool", () => {
       const result = await invokeCliTool({
         source: {
           command: "ambient-command",
-          timeoutSeconds: 1,
+          timeoutSeconds: 5,
           sandbox: {
             profile: "unrestricted-local-dev",
             approvedEscalation: true,

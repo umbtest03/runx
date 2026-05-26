@@ -28,7 +28,7 @@ proptest! {
 
     // The chosen connected-auth grant is intentionally not exposed through
     // AdmissionDecision. The first-match ordering property is asserted where
-    // the selector is visible: policy::connected_auth::tests.
+    // the selector is visible: policy::credential_grant::tests.
 
     #[test]
     fn graph_scope_admission_is_deterministic(

@@ -1,5 +1,5 @@
 pub mod authority_proof;
-mod connected_auth;
+mod credential_grant;
 mod graph_scope;
 mod interpreter;
 mod local;

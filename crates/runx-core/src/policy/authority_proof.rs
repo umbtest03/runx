@@ -4,8 +4,8 @@ use runx_contracts::{JsonObject, JsonValue, sha256_hex};
 
 use super::{
     LocalAdmissionGrant, LocalScopeAdmissionOptions, ScopeAdmission, ScopeAdmissionStatus,
-    connected_auth::{
-        ConnectedAuthRequirement, connected_auth_requirement, find_matching_grant,
+    credential_grant::{
+        CredentialGrantRequirement, credential_grant_requirement, find_matching_grant,
         has_grant_reference,
     },
     scope::{scope_allows, unique_strings},
@@ -28,7 +28,7 @@ pub fn build_local_scope_admission(
     grants: &[LocalAdmissionGrant],
     options: &LocalScopeAdmissionOptions,
 ) -> ScopeAdmission {
-    let Some(requirement) = connected_auth_requirement(auth) else {
+    let Some(requirement) = credential_grant_requirement(auth) else {
         return scope_admission_allow(Vec::new(), Vec::new(), None, "no connected auth requested");
     };
 
@@ -68,7 +68,7 @@ pub fn build_local_scope_admission(
 
 #[must_use]
 pub fn build_authority_proof(options: &BuildAuthorityProofOptions) -> AuthorityProof {
-    let requirement = connected_auth_requirement(options.auth.as_ref());
+    let requirement = credential_grant_requirement(options.auth.as_ref());
     let scope_admission = options.scope_admission.clone().unwrap_or_else(|| {
         build_local_scope_admission(
             options.auth.as_ref(),
@@ -116,7 +116,7 @@ pub fn build_authority_proof_metadata(
 pub fn validate_credential_binding(
     request: &CredentialBindingRequest,
 ) -> CredentialBindingDecision {
-    let requirement = connected_auth_requirement(request.auth.as_ref());
+    let requirement = credential_grant_requirement(request.auth.as_ref());
     match request.credential.as_ref() {
         None => validate_missing_credential(requirement.as_ref(), &request.scope_admission),
         Some(credential) => validate_resolved_credential(request, requirement.as_ref(), credential),
@@ -124,7 +124,7 @@ pub fn validate_credential_binding(
 }
 
 fn validate_missing_credential(
-    requirement: Option<&ConnectedAuthRequirement>,
+    requirement: Option<&CredentialGrantRequirement>,
     scope_admission: &ScopeAdmission,
 ) -> CredentialBindingDecision {
     if requirement.is_some()
@@ -140,7 +140,7 @@ fn validate_missing_credential(
 
 fn validate_resolved_credential(
     request: &CredentialBindingRequest,
-    requirement: Option<&ConnectedAuthRequirement>,
+    requirement: Option<&CredentialGrantRequirement>,
     credential: &CredentialEnvelope,
 ) -> CredentialBindingDecision {
     let Some(requirement) = requirement else {
@@ -181,7 +181,7 @@ fn validate_resolved_credential(
 
 fn credential_binding_reasons(
     credential: &CredentialEnvelope,
-    requirement: &ConnectedAuthRequirement,
+    requirement: &CredentialGrantRequirement,
     admitted_grant: &LocalAdmissionGrant,
     scope_admission: &ScopeAdmission,
 ) -> Vec<String> {
@@ -194,7 +194,7 @@ fn credential_binding_reasons(
 
 fn collect_credential_identity_reasons(
     credential: &CredentialEnvelope,
-    requirement: &ConnectedAuthRequirement,
+    requirement: &CredentialGrantRequirement,
     admitted_grant: &LocalAdmissionGrant,
     reasons: &mut Vec<String>,
 ) {
@@ -285,7 +285,7 @@ fn collect_credential_reference_reasons(
 }
 
 fn authority_proof_requested(
-    requirement: &Option<ConnectedAuthRequirement>,
+    requirement: &Option<CredentialGrantRequirement>,
     sandbox: &Option<AuthorityProofSandbox>,
     options: &BuildAuthorityProofOptions,
 ) -> AuthorityProofRequested {
@@ -313,7 +313,7 @@ fn authority_proof_requested(
 
 fn credential_material_proof(
     credential: Option<&CredentialEnvelope>,
-    requirement: Option<&ConnectedAuthRequirement>,
+    requirement: Option<&CredentialGrantRequirement>,
     scope_admission: &ScopeAdmission,
 ) -> AuthorityProofCredentialMaterial {
     if let Some(credential) = credential {
@@ -344,7 +344,7 @@ fn resolved_credential_material(
 }
 
 fn unresolved_credential_material(
-    requirement: &ConnectedAuthRequirement,
+    requirement: &CredentialGrantRequirement,
     scope_admission: &ScopeAdmission,
 ) -> AuthorityProofCredentialMaterial {
     AuthorityProofCredentialMaterial {

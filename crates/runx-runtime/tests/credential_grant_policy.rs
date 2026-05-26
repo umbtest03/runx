@@ -7,7 +7,7 @@ use serde_json::json;
 
 #[test]
 fn converted_targeted_grant_admits_exact_requirement() -> Result<(), Box<dyn std::error::Error>> {
-    let skill = connected_skill(json!({
+    let skill = credential_grant_skill(json!({
         "provider": "github",
         "scopes": ["repo:read"],
         "scope_family": "github_repo",
@@ -31,7 +31,7 @@ fn converted_targeted_grant_admits_exact_requirement() -> Result<(), Box<dyn std
 #[test]
 fn converted_targeted_grant_does_not_admit_untargeted_requirement()
 -> Result<(), Box<dyn std::error::Error>> {
-    let skill = connected_skill(json!({
+    let skill = credential_grant_skill(json!({
         "provider": "github",
         "scopes": ["repo:read"]
     }))?;
@@ -50,7 +50,7 @@ fn converted_targeted_grant_does_not_admit_untargeted_requirement()
 
 #[test]
 fn converted_revoked_grant_denies() -> Result<(), Box<dyn std::error::Error>> {
-    let skill = connected_skill(json!({
+    let skill = credential_grant_skill(json!({
         "provider": "github",
         "scopes": ["repo:read"],
         "scope_family": "github_repo",
@@ -86,9 +86,11 @@ fn local_grant(status: LocalAdmissionGrantStatus) -> LocalAdmissionGrant {
     }
 }
 
-fn connected_skill(auth: serde_json::Value) -> Result<LocalAdmissionSkill, serde_json::Error> {
+fn credential_grant_skill(
+    auth: serde_json::Value,
+) -> Result<LocalAdmissionSkill, serde_json::Error> {
     Ok(LocalAdmissionSkill {
-        name: "connected-review".to_owned(),
+        name: "credential-grant-review".to_owned(),
         source: LocalAdmissionSource {
             source_type: "cli-tool".to_owned(),
             command: Some("true".to_owned()),

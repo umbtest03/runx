@@ -1,6 +1,6 @@
 use super::{
     AdmissionDecision, LocalAdmissionOptions, LocalAdmissionSkill, SandboxAdmissionOptions,
-    connected_auth::{connected_auth_requirement, find_matching_grant},
+    credential_grant::{credential_grant_requirement, find_matching_grant},
     interpreter::detect_inline_interpreter,
     sandbox::admit_sandbox,
 };
@@ -28,7 +28,7 @@ pub fn admit_local_skill(
     collect_source_type_reason(skill, options, &mut reasons);
     collect_timeout_reasons(skill, options, &mut reasons);
     collect_local_source_reasons(skill, options, &mut reasons);
-    collect_connected_auth_reasons(skill, options, &mut reasons);
+    collect_credential_grant_reasons(skill, options, &mut reasons);
 
     if reasons.is_empty() {
         AdmissionDecision::Allow {
@@ -119,7 +119,7 @@ fn collect_inline_code_reason(skill: &LocalAdmissionSkill, reasons: &mut Vec<Str
     }
 }
 
-fn collect_connected_auth_reasons(
+fn collect_credential_grant_reasons(
     skill: &LocalAdmissionSkill,
     options: &LocalAdmissionOptions,
     reasons: &mut Vec<String>,
@@ -127,7 +127,7 @@ fn collect_connected_auth_reasons(
     if options.skip_connected_auth.unwrap_or(false) {
         return;
     }
-    let Some(requirement) = connected_auth_requirement(skill.auth.as_ref()) else {
+    let Some(requirement) = credential_grant_requirement(skill.auth.as_ref()) else {
         return;
     };
     let grants = options.connected_grants.as_deref().unwrap_or_default();

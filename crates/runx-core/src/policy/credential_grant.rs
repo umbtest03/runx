@@ -6,7 +6,7 @@ use super::{AuthorityKind, LocalAdmissionGrant, scope::scope_allows};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub(crate) struct ConnectedAuthRequirement {
+pub(crate) struct CredentialGrantRequirement {
     pub provider: String,
     pub scopes: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -19,13 +19,13 @@ pub(crate) struct ConnectedAuthRequirement {
     pub target_locator: Option<String>,
 }
 
-pub(crate) fn connected_auth_requirement(
+pub(crate) fn credential_grant_requirement(
     auth: Option<&JsonValue>,
-) -> Option<ConnectedAuthRequirement> {
+) -> Option<CredentialGrantRequirement> {
     match auth {
         None | Some(JsonValue::Null) | Some(JsonValue::Bool(false)) => None,
         Some(JsonValue::Object(object)) => requirement_from_object(object),
-        Some(_) => Some(ConnectedAuthRequirement {
+        Some(_) => Some(CredentialGrantRequirement {
             provider: "unknown".to_owned(),
             scopes: Vec::new(),
             scope_family: None,
@@ -37,7 +37,7 @@ pub(crate) fn connected_auth_requirement(
 }
 
 pub(crate) fn find_matching_grant<'a>(
-    requirement: &ConnectedAuthRequirement,
+    requirement: &CredentialGrantRequirement,
     grants: &'a [LocalAdmissionGrant],
     connected_auth_checked_at: Option<&str>,
     wildcard_scopes_trusted: bool,
@@ -83,7 +83,7 @@ fn grant_lifetime_allows(grant: &LocalAdmissionGrant, checked_at: Option<&str>) 
 }
 
 pub(crate) fn grant_reference_matches(
-    requirement: &ConnectedAuthRequirement,
+    requirement: &CredentialGrantRequirement,
     grant: &LocalAdmissionGrant,
 ) -> bool {
     if !has_requirement_reference(requirement) {
@@ -103,7 +103,7 @@ pub(crate) fn has_grant_reference(grant: &LocalAdmissionGrant) -> bool {
         || truthy_string(&grant.target_locator)
 }
 
-fn has_requirement_reference(requirement: &ConnectedAuthRequirement) -> bool {
+fn has_requirement_reference(requirement: &CredentialGrantRequirement) -> bool {
     truthy_string(&requirement.scope_family)
         || requirement.authority_kind.is_some()
         || truthy_string(&requirement.target_repo)
@@ -112,13 +112,13 @@ fn has_requirement_reference(requirement: &ConnectedAuthRequirement) -> bool {
 
 fn requirement_from_object(
     object: &runx_contracts::JsonObject,
-) -> Option<ConnectedAuthRequirement> {
+) -> Option<CredentialGrantRequirement> {
     let auth_type = string_field(object, "type");
     if matches!(auth_type, Some("env" | "none" | "local")) {
         return None;
     }
 
-    Some(ConnectedAuthRequirement {
+    Some(CredentialGrantRequirement {
         provider: string_field(object, "provider")
             .or(auth_type)
             .unwrap_or("unknown")
@@ -172,7 +172,7 @@ fn truthy_string(value: &Option<String>) -> bool {
 mod tests {
     use proptest::prelude::*;
 
-    use super::{ConnectedAuthRequirement, find_matching_grant};
+    use super::{CredentialGrantRequirement, find_matching_grant};
     use crate::policy::{LocalAdmissionGrant, LocalAdmissionGrantStatus};
 
     proptest! {
@@ -181,7 +181,7 @@ mod tests {
         #[test]
         fn first_matching_grant_wins(first_id in grant_id(), second_id in grant_id()) {
             prop_assume!(first_id != second_id);
-            let requirement = ConnectedAuthRequirement {
+            let requirement = CredentialGrantRequirement {
                 provider: "github".to_owned(),
                 scopes: vec!["repo:read".to_owned()],
                 scope_family: None,
@@ -280,8 +280,8 @@ mod tests {
         assert!(matched.is_none());
     }
 
-    fn github_repo_read_requirement() -> ConnectedAuthRequirement {
-        ConnectedAuthRequirement {
+    fn github_repo_read_requirement() -> CredentialGrantRequirement {
+        CredentialGrantRequirement {
             provider: "github".to_owned(),
             scopes: vec!["repo:read".to_owned()],
             scope_family: None,

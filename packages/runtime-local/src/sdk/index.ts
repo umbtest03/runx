@@ -3,7 +3,7 @@ export const sdkJsPackage = "@runxhq/runtime-local/sdk";
 export * from "./caller.js";
 export * from "./act-assignment.js";
 export * from "./host-protocol.js";
-export * from "./trusted-host-outcome.js";
+export * from "./trusted-kernel-outcome.js";
 
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";

@@ -106,6 +106,7 @@
     {
       "path": "crates/runx-runtime/src/connect.rs",
       "decision": "rewrite-or-remove",
+      "removed": true,
       "rationale": "Module root currently re-exports hosted brokerage."
     },
     {
@@ -131,7 +132,7 @@
     }
   ],
   "cloud_private_context": [
-    "../cloud/packages/auth/src/hosted-provider-credential.ts",
+    "../cloud/packages/auth/src/hosted-provider-credential.private.ts",
     "../cloud/packages/auth/src/connect.ts",
     "../cloud/packages/auth/src/http.ts",
     "../cloud/packages/auth/src/grant-revocation.ts",

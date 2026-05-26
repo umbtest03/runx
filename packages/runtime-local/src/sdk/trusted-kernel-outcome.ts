@@ -7,10 +7,10 @@ type TrustedKernelReceipt = NonNullable<
   | Extract<RunLocalSkillResult, { readonly status: "policy_denied" }>["receipt"]
 >;
 
-// First-party projection for trusted hosts such as the runx cloud worker.
-// This is not a provider response shape and must not be returned by public
-// host adapters, CLI output, public hosted APIs, or marketplace MCP tools.
-export interface TrustedHostOutcome {
+// First-party projection for runtime-owned hosts. This is not a provider
+// response shape and must not be returned by public adapters, CLI output, APIs,
+// or marketplace MCP tools.
+export interface TrustedKernelOutcome {
   readonly host: HostRunResult;
   readonly kernelStatus: RunLocalSkillResult["status"];
   readonly kernelRunId?: string;
@@ -26,10 +26,10 @@ export interface TrustedHostOutcome {
   readonly stepLabels?: readonly string[];
 }
 
-export function createTrustedHostOutcome(
+export function createTrustedKernelOutcome(
   host: HostRunResult,
   kernel: RunLocalSkillResult,
-): TrustedHostOutcome {
+): TrustedKernelOutcome {
   assertHostKernelParity(host, kernel);
   if (kernel.status === "needs_agent") {
     return {

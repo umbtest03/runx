@@ -4,6 +4,7 @@ task_id: runx-receipt-enlightened-north-star-v1
 created: '2026-05-23T00:00:00Z'
 updated: '2026-05-23T00:00:00Z'
 status: draft
+do_not_execute: true
 build_gate: never_build_without_explicit_confirmation
 tier: enlightened
 size: north-star

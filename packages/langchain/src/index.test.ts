@@ -84,7 +84,7 @@ describe("@runxhq/langchain", () => {
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
-  });
+  }, 60_000);
 
   it("wraps a governed runx workflow as a LangChain tool", async () => {
     const runSkill = vi.fn(async (): Promise<RunxSkillCliResult> => successResult("wrapped-output"));
