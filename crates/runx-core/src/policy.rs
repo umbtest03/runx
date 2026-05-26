@@ -1,3 +1,4 @@
+pub mod authority_algebra;
 pub mod authority_proof;
 mod credential_grant;
 mod graph_scope;

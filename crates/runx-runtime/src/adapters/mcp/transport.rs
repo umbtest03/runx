@@ -18,6 +18,7 @@ use super::types::{
 };
 
 const MAX_CLIENT_RESPONSE_BYTES: usize = 1024 * 1024;
+const FORCE_KILL_GRACE: Duration = Duration::from_millis(100);
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct FixtureMcpTransport;
@@ -242,14 +243,69 @@ fn spawn_tokio_mcp_server(plan: &SandboxPlan) -> Result<tokio::process::Child, M
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    configure_process_group(&mut command);
     command
         .spawn()
         .map_err(|_| McpTransportError::failed("MCP server failed to spawn."))
 }
 
+#[cfg(unix)]
+fn configure_process_group(command: &mut tokio::process::Command) {
+    command.process_group(0);
+}
+
+#[cfg(not(unix))]
+fn configure_process_group(_command: &mut tokio::process::Command) {}
+
+#[cfg(unix)]
+async fn terminate_tokio_child(child: &mut tokio::process::Child) {
+    signal_tokio_process_group(child, TokioKillSignal::Terminate).await;
+    if tokio::time::timeout(FORCE_KILL_GRACE, child.wait())
+        .await
+        .is_ok()
+    {
+        return;
+    }
+    signal_tokio_process_group(child, TokioKillSignal::Force).await;
+    let _ = child.wait().await;
+}
+
+#[cfg(not(unix))]
 async fn terminate_tokio_child(child: &mut tokio::process::Child) {
     let _ = child.start_kill();
     let _ = child.wait().await;
+}
+
+#[cfg(unix)]
+enum TokioKillSignal {
+    Terminate,
+    Force,
+}
+
+#[cfg(unix)]
+impl TokioKillSignal {
+    const fn kill_arg(&self) -> &'static str {
+        match self {
+            Self::Terminate => "-TERM",
+            Self::Force => "-KILL",
+        }
+    }
+}
+
+#[cfg(unix)]
+async fn signal_tokio_process_group(child: &mut tokio::process::Child, signal: TokioKillSignal) {
+    let Some(pid) = child.id() else {
+        return;
+    };
+    let process_group = format!("-{pid}");
+    let _ = tokio::process::Command::new("/bin/kill")
+        .arg(signal.kill_arg())
+        .arg(process_group)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .await;
 }
 
 fn drain_tokio_stderr(stderr: Option<tokio::process::ChildStderr>) {

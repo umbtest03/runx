@@ -1,6 +1,5 @@
-use std::collections::BTreeMap;
-
-use runx_contracts::{JsonNumber, JsonValue, Receipt, sha256_prefixed};
+use runx_contracts::{Receipt, sha256_prefixed};
+use serde_json as json;
 
 use crate::ReceiptError;
 
@@ -32,7 +31,7 @@ pub fn canonical_receipt_body_digest(receipt: &Receipt) -> Result<String, Receip
 pub fn canonical_receipt_identity_json(receipt: &Receipt) -> Result<String, ReceiptError> {
     let mut value = receipt_json(receipt)?;
     strip_body_proof_fields(&mut value);
-    if let JsonValue::Object(map) = &mut value {
+    if let json::Value::Object(map) = &mut value {
         map.remove("id");
         map.remove("lineage");
     }
@@ -45,11 +44,8 @@ pub fn content_addressed_receipt_id(receipt: &Receipt) -> Result<String, Receipt
     canonical_receipt_identity_json(receipt).map(|json| sha256_prefixed(json.as_bytes()))
 }
 
-fn receipt_json(receipt: &Receipt) -> Result<JsonValue, ReceiptError> {
-    let value = serde_json::to_value(receipt).map_err(|source| ReceiptError::Serialization {
-        message: source.to_string(),
-    })?;
-    serde_json::from_value(value).map_err(|source| ReceiptError::Serialization {
+fn receipt_json(receipt: &Receipt) -> Result<json::Value, ReceiptError> {
+    serde_json::to_value(receipt).map_err(|source| ReceiptError::Serialization {
         message: source.to_string(),
     })
 }
@@ -57,53 +53,65 @@ fn receipt_json(receipt: &Receipt) -> Result<JsonValue, ReceiptError> {
 /// The signed body commits every flat field except the envelope's own
 /// `signature` and `digest`. `metadata` is a runtime-local read aid and is not
 /// part of the signed body.
-fn strip_body_proof_fields(value: &mut JsonValue) {
-    if let JsonValue::Object(map) = value {
+fn strip_body_proof_fields(value: &mut json::Value) {
+    if let json::Value::Object(map) = value {
         map.remove("signature");
         map.remove("digest");
         map.remove("metadata");
     }
 }
 
-fn canonical_json_value(value: &JsonValue) -> Result<String, ReceiptError> {
-    match value {
-        JsonValue::Null => Ok("null".to_owned()),
-        JsonValue::Bool(value) => Ok(value.to_string()),
-        JsonValue::Number(value) => Ok(canonical_json_number(value)),
-        JsonValue::String(value) => {
-            serde_json::to_string(value).map_err(|source| ReceiptError::Serialization {
-                message: source.to_string(),
-            })
-        }
-        JsonValue::Array(items) => {
-            let body = items
-                .iter()
-                .map(canonical_json_value)
-                .collect::<Result<Vec<_>, _>>()?
-                .join(",");
-            Ok(format!("[{body}]"))
-        }
-        JsonValue::Object(map) => {
-            let ordered = map.iter().collect::<BTreeMap<_, _>>();
-            let body = ordered
-                .into_iter()
-                .map(|(key, value)| {
-                    let key = serde_json::to_string(key).map_err(|source| {
-                        ReceiptError::Serialization {
-                            message: source.to_string(),
-                        }
-                    })?;
-                    Ok(format!("{key}:{}", canonical_json_value(value)?))
-                })
-                .collect::<Result<Vec<_>, ReceiptError>>()?
-                .join(",");
-            Ok(format!("{{{body}}}"))
-        }
-    }
+fn canonical_json_value(value: &json::Value) -> Result<String, ReceiptError> {
+    let mut output = String::new();
+    write_canonical_json_value(value, &mut output)?;
+    Ok(output)
 }
 
-fn canonical_json_number(value: &JsonNumber) -> String {
-    value.to_string()
+fn write_canonical_json_value(
+    value: &json::Value,
+    output: &mut String,
+) -> Result<(), ReceiptError> {
+    match value {
+        json::Value::Null => output.push_str("null"),
+        json::Value::Bool(value) => output.push_str(if *value { "true" } else { "false" }),
+        json::Value::Number(value) => output.push_str(&value.to_string()),
+        json::Value::String(value) => {
+            write_json_string(value, output)?;
+        }
+        json::Value::Array(items) => {
+            output.push('[');
+            for (index, item) in items.iter().enumerate() {
+                if index > 0 {
+                    output.push(',');
+                }
+                write_canonical_json_value(item, output)?;
+            }
+            output.push(']');
+        }
+        json::Value::Object(map) => {
+            output.push('{');
+            let mut entries = map.iter().collect::<Vec<_>>();
+            entries.sort_unstable_by(|left, right| left.0.cmp(right.0));
+            for (index, (key, value)) in entries.into_iter().enumerate() {
+                if index > 0 {
+                    output.push(',');
+                }
+                write_json_string(key, output)?;
+                output.push(':');
+                write_canonical_json_value(value, output)?;
+            }
+            output.push('}');
+        }
+    }
+    Ok(())
+}
+
+fn write_json_string(value: &str, output: &mut String) -> Result<(), ReceiptError> {
+    let encoded = serde_json::to_string(value).map_err(|source| ReceiptError::Serialization {
+        message: source.to_string(),
+    })?;
+    output.push_str(&encoded);
+    Ok(())
 }
 
 #[cfg(test)]

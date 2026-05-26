@@ -1,11 +1,13 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use runx_contracts::{JsonObject, JsonValue, sha256_hex};
 
 use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
+use crate::adapter_pipeline::{AdapterCapture, AdapterExecutionContext, AdapterInvocationPlan};
 use crate::credentials::CredentialDelivery;
-use crate::sandbox::{prepare_mcp_process_sandbox, sandbox_metadata};
+use crate::sandbox::sandbox_metadata;
+use crate::services::SandboxServices;
 
 use super::sandbox_metadata::mcp_process_sandbox_metadata;
 use super::templates::map_mcp_arguments;
@@ -42,27 +44,32 @@ where
     }
 
     fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
-        let started = Instant::now();
-        let prepared = match prepare_mcp_tool_call(request, started)? {
+        let context = AdapterExecutionContext::start(AdapterInvocationPlan::from_invocation(
+            self.adapter_type(),
+            &request,
+        ));
+        let prepared = match prepare_mcp_tool_call(request, &context)? {
             Ok(prepared) => prepared,
             Err(output) => return Ok(output),
         };
         match self.transport.call_tool(prepared.request) {
-            Ok(result) => Ok(SkillOutput {
-                status: InvocationStatus::Success,
-                stdout: prepared
-                    .credential_delivery
-                    .redact_text(super::templates::stringify_mcp_tool_result(&result)?),
-                stderr: String::new(),
-                exit_code: Some(0),
-                duration_ms: duration_ms(started),
-                metadata: prepared.success_metadata,
-            }),
+            Ok(result) => Ok(context.projection().output(
+                InvocationStatus::Success,
+                AdapterCapture::new(
+                    prepared
+                        .credential_delivery
+                        .redact_text(super::templates::stringify_mcp_tool_result(&result)?),
+                    String::new(),
+                    false,
+                ),
+                Some(0),
+                prepared.success_metadata,
+            )),
             Err(error) => Ok(failure(
                 prepared
                     .credential_delivery
                     .redact_text(error.sanitized_message()),
-                started,
+                &context,
                 prepared.failure_metadata,
             )),
         }
@@ -79,7 +86,7 @@ struct PreparedMcpToolCall {
 
 fn prepare_mcp_tool_call(
     invocation: SkillInvocation,
-    started: Instant,
+    context: &AdapterExecutionContext,
 ) -> Result<Result<PreparedMcpToolCall, SkillOutput>, RuntimeError> {
     let SkillInvocation {
         source,
@@ -96,18 +103,18 @@ fn prepare_mcp_tool_call(
         });
     }
     let Some(server) = source.server.clone() else {
-        return Ok(Err(missing_mcp_metadata(started)));
+        return Ok(Err(missing_mcp_metadata(context)));
     };
     let Some(tool) = source.tool.clone().filter(|tool| !tool.is_empty()) else {
-        return Ok(Err(missing_mcp_metadata(started)));
+        return Ok(Err(missing_mcp_metadata(context)));
     };
     let arguments = map_mcp_arguments(source.arguments.as_ref(), &inputs, &resolved_inputs)?;
-    let sandbox = match prepare_mcp_process_sandbox(&source, &server, &skill_directory, &env) {
+    let sandbox = match SandboxServices.mcp_process_plan(&source, &server, &skill_directory, &env) {
         Ok(plan) => plan,
         Err(RuntimeError::SandboxViolation { message }) => {
             return Ok(Err(failure(
                 format!("MCP sandbox denied: {message}"),
-                started,
+                context,
                 metadata_for(&source, Some(sandbox_metadata(source.sandbox.as_ref())))?,
             )));
         }
@@ -137,10 +144,10 @@ fn prepare_mcp_tool_call(
     }))
 }
 
-fn missing_mcp_metadata(started: Instant) -> SkillOutput {
+fn missing_mcp_metadata(context: &AdapterExecutionContext) -> SkillOutput {
     failure(
         "MCP source requires server and tool metadata.",
-        started,
+        context,
         JsonObject::new(),
     )
 }
@@ -180,23 +187,10 @@ fn metadata_for(
 
 pub(super) fn failure(
     message: impl Into<String>,
-    started: Instant,
+    context: &AdapterExecutionContext,
     metadata: JsonObject,
 ) -> SkillOutput {
-    let message = message.into();
-    SkillOutput {
-        status: InvocationStatus::Failure,
-        stdout: String::new(),
-        stderr: message,
-        exit_code: None,
-        duration_ms: duration_ms(started),
-        metadata,
-    }
-}
-
-pub(super) fn duration_ms(started: Instant) -> u64 {
-    let millis = started.elapsed().as_millis();
-    u64::try_from(millis).unwrap_or(u64::MAX)
+    context.projection().failure(message.into(), metadata)
 }
 
 fn timeout_from_source(timeout_seconds: Option<u64>) -> Duration {

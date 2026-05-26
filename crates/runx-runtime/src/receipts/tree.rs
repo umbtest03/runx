@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use runx_contracts::{Receipt, Reference, ReferenceType};
 use runx_receipts::{
     ReceiptResolveResult, ReceiptResolver, ReceiptTreeConfig, ReceiptVerification, ResolvedReceipt,
@@ -9,13 +11,17 @@ use super::seal::{RuntimeReceiptProofContextProvider, RuntimeReceiptSignaturePol
 #[derive(Clone, Debug, Default)]
 pub struct RuntimeReceiptResolver {
     receipts: Vec<Receipt>,
+    positions: BTreeMap<String, Vec<usize>>,
 }
 
 impl RuntimeReceiptResolver {
     #[must_use]
     pub fn new(receipts: impl IntoIterator<Item = Receipt>) -> Self {
+        let receipts = receipts.into_iter().collect::<Vec<_>>();
+        let positions = receipt_positions(receipts.iter());
         Self {
-            receipts: receipts.into_iter().collect(),
+            receipts,
+            positions,
         }
     }
 
@@ -30,19 +36,65 @@ impl ReceiptResolver for RuntimeReceiptResolver {
         let Some(receipt_id) = referenced_receipt_id(reference) else {
             return ReceiptResolveResult::Malformed;
         };
-        let mut matches = self
-            .receipts
-            .iter()
-            .enumerate()
-            .filter(|(_, receipt)| receipt.id == receipt_id);
-        let Some((index, receipt)) = matches.next() else {
+        let Some(indexes) = self.positions.get(receipt_id) else {
             return ReceiptResolveResult::Missing;
         };
-        if matches.next().is_some() {
+        let [index] = indexes.as_slice() else {
             return ReceiptResolveResult::Ambiguous;
-        }
+        };
+        let Some(receipt) = self.receipts.get(*index) else {
+            return ReceiptResolveResult::ResolverError;
+        };
         ReceiptResolveResult::Found(ResolvedReceipt {
-            path: runtime_receipt_path(index),
+            path: runtime_receipt_path(*index),
+            receipt,
+        })
+    }
+
+    fn supplied_receipts<'a>(&'a self) -> Vec<ResolvedReceipt<'a>> {
+        self.receipts
+            .iter()
+            .enumerate()
+            .map(|(index, receipt)| ResolvedReceipt {
+                path: runtime_receipt_path(index),
+                receipt,
+            })
+            .collect()
+    }
+}
+
+struct RuntimeReceiptRefResolver<'a> {
+    receipts: Vec<&'a Receipt>,
+    positions: BTreeMap<String, Vec<usize>>,
+}
+
+impl<'a> RuntimeReceiptRefResolver<'a> {
+    fn new(receipts: impl IntoIterator<Item = &'a Receipt>) -> Self {
+        let receipts = receipts.into_iter().collect::<Vec<_>>();
+        let positions = receipt_positions(receipts.iter().copied());
+        Self {
+            receipts,
+            positions,
+        }
+    }
+}
+
+impl ReceiptResolver for RuntimeReceiptRefResolver<'_> {
+    fn resolve_child<'a>(&'a self, reference: &Reference) -> ReceiptResolveResult<'a> {
+        let Some(receipt_id) = referenced_receipt_id(reference) else {
+            return ReceiptResolveResult::Malformed;
+        };
+        let Some(indexes) = self.positions.get(receipt_id) else {
+            return ReceiptResolveResult::Missing;
+        };
+        let [index] = indexes.as_slice() else {
+            return ReceiptResolveResult::Ambiguous;
+        };
+        let Some(receipt) = self.receipts.get(*index) else {
+            return ReceiptResolveResult::ResolverError;
+        };
+        ReceiptResolveResult::Found(ResolvedReceipt {
+            path: runtime_receipt_path(*index),
             receipt,
         })
     }
@@ -87,6 +139,21 @@ pub fn validate_runtime_receipt_tree_with_policy(
     }
 }
 
+pub(crate) fn validate_runtime_receipt_tree_refs_with_policy<'a>(
+    root: &Receipt,
+    receipts: impl IntoIterator<Item = &'a Receipt>,
+    config: ReceiptTreeConfig,
+    signature_policy: RuntimeReceiptSignaturePolicy<'_>,
+) -> Result<(), ReceiptVerification> {
+    let verification =
+        verify_runtime_receipt_tree_refs_with_policy(root, receipts, config, signature_policy);
+    if verification.valid {
+        Ok(())
+    } else {
+        Err(verification)
+    }
+}
+
 #[must_use]
 pub fn verify_runtime_receipt_tree(
     root: &Receipt,
@@ -118,8 +185,37 @@ pub fn verify_runtime_receipt_tree_with_policy(
     )
 }
 
+fn verify_runtime_receipt_tree_refs_with_policy<'a>(
+    root: &Receipt,
+    receipts: impl IntoIterator<Item = &'a Receipt>,
+    config: ReceiptTreeConfig,
+    signature_policy: RuntimeReceiptSignaturePolicy<'_>,
+) -> ReceiptVerification {
+    let resolver = RuntimeReceiptRefResolver::new(receipts);
+    let proof_contexts = RuntimeReceiptProofContextProvider::new(signature_policy);
+    verify_receipt_tree_proof_with_resolver(
+        root,
+        &resolver,
+        runtime_receipt_tree_config(config),
+        &proof_contexts,
+    )
+}
+
 fn runtime_receipt_path(index: usize) -> String {
     format!("runtime_receipts[{index}]")
+}
+
+fn receipt_positions<'a>(
+    receipts: impl Iterator<Item = &'a Receipt>,
+) -> BTreeMap<String, Vec<usize>> {
+    let mut positions: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    for (index, receipt) in receipts.enumerate() {
+        positions
+            .entry(receipt.id.to_string())
+            .or_default()
+            .push(index);
+    }
+    positions
 }
 
 fn runtime_receipt_tree_config(mut config: ReceiptTreeConfig) -> ReceiptTreeConfig {

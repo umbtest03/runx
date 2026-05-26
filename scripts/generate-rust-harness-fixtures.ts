@@ -12,6 +12,7 @@ const defaultOracleBin = path.join(repoRoot, "crates", "target", "debug", oracle
 
 const forwardedArgs = [...process.argv.slice(2), "--repo-root", repoRoot];
 const write = process.argv.includes("--write") || process.argv.includes("--generate");
+const summaryJson = process.argv.includes("--summary-json");
 const env = {
   ...process.env,
   ...(write && process.env.RUNX_REGEN_FIXTURES === undefined ? { RUNX_REGEN_FIXTURES: "1" } : {}),
@@ -19,7 +20,7 @@ const env = {
 
 if (process.env.RUNX_HARNESS_FIXTURE_ORACLE_BIN) {
   run(process.env.RUNX_HARNESS_FIXTURE_ORACLE_BIN, forwardedArgs);
-} else if (existsSync(defaultOracleBin)) {
+} else if (existsSync(defaultOracleBin) && !summaryJson) {
   run(defaultOracleBin, forwardedArgs);
 } else {
   run(cargo, [

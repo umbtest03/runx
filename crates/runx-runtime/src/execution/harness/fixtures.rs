@@ -11,6 +11,64 @@ use thiserror::Error;
 const RETIRED_RECEIPT_FIELDS: &[&str] =
     &["kind", "skill_name", "source_type", "graph_name", "owner"];
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HarnessFixtureCase {
+    pub name: &'static str,
+    pub fixture_path: &'static str,
+    pub root_oracle_path: &'static str,
+    pub step_oracles: &'static [HarnessFixtureStepOracle],
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HarnessFixtureStepOracle {
+    pub step_id: &'static str,
+    pub oracle_path: &'static str,
+}
+
+const HARNESS_FIXTURE_CASES: &[HarnessFixtureCase] = &[
+    HarnessFixtureCase {
+        name: "echo-skill",
+        fixture_path: "fixtures/harness/echo-skill.yaml",
+        root_oracle_path: "fixtures/harness/oracle/echo-skill.receipt.json",
+        step_oracles: &[],
+    },
+    HarnessFixtureCase {
+        name: "sequential-graph",
+        fixture_path: "fixtures/harness/sequential-graph.yaml",
+        root_oracle_path: "fixtures/harness/oracle/sequential-graph.receipt.json",
+        step_oracles: &[
+            HarnessFixtureStepOracle {
+                step_id: "first",
+                oracle_path: "fixtures/harness/oracle/sequential-graph.first.json",
+            },
+            HarnessFixtureStepOracle {
+                step_id: "second",
+                oracle_path: "fixtures/harness/oracle/sequential-graph.second.json",
+            },
+        ],
+    },
+    HarnessFixtureCase {
+        name: "payment-approval-graph",
+        fixture_path: "fixtures/harness/payment-approval-graph.yaml",
+        root_oracle_path: "fixtures/harness/oracle/payment-approval-graph.receipt.json",
+        step_oracles: &[
+            HarnessFixtureStepOracle {
+                step_id: "approve-spend",
+                oracle_path: "fixtures/harness/oracle/payment-approval-graph.approve-spend.json",
+            },
+            HarnessFixtureStepOracle {
+                step_id: "fulfill",
+                oracle_path: "fixtures/harness/oracle/payment-approval-graph.fulfill.json",
+            },
+        ],
+    },
+];
+
+#[must_use]
+pub fn list_cases() -> &'static [HarnessFixtureCase] {
+    HARNESS_FIXTURE_CASES
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HarnessFixtureKind {

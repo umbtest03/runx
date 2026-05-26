@@ -13,8 +13,8 @@ use runx_parser::{SkillInput, ValidatedSkill};
 
 use crate::adapter::{SkillAdapter, SkillInvocation, SkillOutput};
 use crate::host::Host;
-use crate::receipts::store::LocalReceiptStore;
-use crate::receipts::{RuntimeReceiptSignatureConfig, step_receipt_with_signature_policy};
+use crate::receipts::step_receipt_with_signature_policy;
+use crate::services::ReceiptServices;
 use crate::{GraphRun, Runtime, RuntimeError, RuntimeOptions};
 
 use super::adapter::McpAdapter;
@@ -201,16 +201,17 @@ fn execute_mcp_server_graph(
                 adapter_type: "graph".to_owned(),
             })?;
     let graph_dir = skill_directory_for_execution(&execution.skill_path);
+    let receipts = ReceiptServices::from_env(&execution.env).map_err(|error| {
+        RuntimeError::ReceiptInvalid {
+            message: error.to_string(),
+        }
+    })?;
     let runtime = Runtime::new(
         McpServerGraphAdapter,
         RuntimeOptions {
             created_at: crate::time::now_iso8601(),
             env: execution.env.clone(),
-            receipt_signature: RuntimeReceiptSignatureConfig::from_env(&execution.env).map_err(
-                |error| RuntimeError::ReceiptInvalid {
-                    message: error.to_string(),
-                },
-            )?,
+            receipt_signature: receipts.signature_config().clone(),
             payment_supervisor: Default::default(),
         },
     );
@@ -263,12 +264,11 @@ fn complete_mcp_server_skill(
     execution: McpServerSkillExecution,
     inputs: JsonObject,
 ) -> Result<McpToolResult, RuntimeError> {
-    let signature_config =
-        RuntimeReceiptSignatureConfig::from_env(&execution.env).map_err(|error| {
-            RuntimeError::ReceiptInvalid {
-                message: error.to_string(),
-            }
-        })?;
+    let receipts = ReceiptServices::from_env(&execution.env).map_err(|error| {
+        RuntimeError::ReceiptInvalid {
+            message: error.to_string(),
+        }
+    })?;
     let output = invoke_mcp_server_skill(&execution, inputs)?;
     let receipt = step_receipt_with_signature_policy(
         run_id,
@@ -276,11 +276,11 @@ fn complete_mcp_server_skill(
         1,
         &output,
         &crate::time::now_iso8601(),
-        signature_config.signature_policy(),
+        receipts.signature_config().signature_policy(),
     )?;
     if let Some(receipt_dir) = &execution.receipt_dir {
-        LocalReceiptStore::new(receipt_dir)
-            .write_receipt_with_policy(&receipt, signature_config.signature_policy())
+        receipts
+            .write_local_receipt_dir(&receipt, receipt_dir)
             .map_err(|source| RuntimeError::ReceiptInvalid {
                 message: source.to_string(),
             })?;

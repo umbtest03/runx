@@ -42,6 +42,46 @@ Receipt canonicalization workloads live in
 The capture script also records `ts_bridge_framing`, a bounded Node framing
 microbenchmark for the TypeScript bridge surface.
 
+## Fanout Execution
+
+Fanout remains serial by default. Set `RUNX_MAX_FANOUT_CONCURRENCY` in
+`RuntimeOptions.env` or the process environment to opt into bounded parallel
+fanout. The runtime only parallelizes isolated, non-mutating skill branches when
+the adapter explicitly provides a sendable fanout clone; native run steps,
+tool-resolution paths, host-resolution paths, payment-authority inputs, and
+custom adapters without the capability stay serial.
+
+## Runtime Boundaries
+
+The hot-path runtime changes keep ownership narrow:
+
+- `runx-core` remains the pure decision layer for graph planning, fanout sync,
+  retry, scope admission, credential binding, and authority proof metadata.
+- `runx-runtime` owns mutable execution indexes, fanout scheduling, subprocess
+  supervision, receipt linking, receipt store indexing, and journal projection.
+- `runx-receipts` owns canonical byte output, body/full digesting, proof
+  verification, and receipt tree resolution.
+- TypeScript packages remain compatibility bridges. Parser/kernel bridges now
+  share one bounded native process helper, but Rust remains the behavior owner.
+  MCP keeps its protocol-specific Content-Length session handling rather than
+  being forced through the one-shot parser/kernel helper.
+
+The shared Rust process supervisor is intentionally private to
+`runx-runtime`. It owns only process lifecycle mechanics: environment/cwd
+application, stdin writing, bounded stdout/stderr capture, timeout signaling,
+process-group cleanup, duration, and sandbox cleanup paths. Adapter-specific
+policy, redaction, protocol parsing, and receipt projection stay in their
+adapter modules.
+
+## Limits
+
+The 2x gate applies to deterministic runx-controlled overhead. It does not
+claim a 2x end-to-end speedup when wall time is dominated by external models,
+remote APIs, user subprocess work, package manager startup, or operating system
+sandbox setup. Subprocess pooling is not enabled for arbitrary user commands;
+pooling is only appropriate for protocol-safe sessions after sandbox,
+credential, and cleanup isolation are proven.
+
 ## Gates
 
 Later phases compare against the Phase 1 baseline:

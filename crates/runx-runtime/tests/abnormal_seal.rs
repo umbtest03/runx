@@ -1,0 +1,186 @@
+#![cfg(feature = "cli-tool")]
+
+use std::fs;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use runx_contracts::{ClosureDisposition, JsonObject};
+use runx_runtime::{
+    HarnessExpectedStatus, InvocationStatus, RuntimeOptions, SkillAdapter, SkillInvocation,
+    SkillOutput, run_harness_fixture_with_adapter,
+};
+
+const FIXTURE_CREATED_AT: &str = "2026-05-18T00:00:00Z";
+
+#[test]
+fn harness_blocks_closure_and_seals_graph_receipt() -> Result<(), Box<dyn std::error::Error>> {
+    let case = TempCase::new("abnormal-seal")?;
+    case.write_skill("act", "act")?;
+    case.write_skill("closure", "closure")?;
+    case.write_graph()?;
+    case.write_harness()?;
+
+    let adapter = RecordingAdapter::default();
+    let output =
+        run_harness_fixture_with_adapter(case.harness_path(), adapter.clone(), runtime_options())?;
+
+    assert_eq!(output.status, HarnessExpectedStatus::PolicyDenied);
+    assert_eq!(output.receipt.seal.disposition, ClosureDisposition::Blocked);
+    assert_eq!(output.receipt.seal.reason_code, "graph_blocked");
+    assert_eq!(output.step_receipts.len(), 1);
+    assert_eq!(
+        output.step_receipts[0].seal.disposition,
+        ClosureDisposition::Closed
+    );
+    assert_eq!(adapter.calls()?, vec!["act".to_owned()]);
+
+    let children = output.step_receipts.clone();
+    assert!(
+        runx_runtime::validate_runtime_receipt_tree(
+            &output.receipt,
+            children,
+            runx_receipts::ReceiptTreeConfig::default()
+        )
+        .is_ok()
+    );
+    assert!(
+        output
+            .receipt
+            .lineage
+            .as_ref()
+            .is_some_and(|lineage| !lineage.children.is_empty())
+    );
+    Ok(())
+}
+
+#[derive(Clone, Default)]
+struct RecordingAdapter {
+    calls: Arc<Mutex<Vec<String>>>,
+}
+
+impl RecordingAdapter {
+    fn calls(&self) -> Result<Vec<String>, std::io::Error> {
+        self.calls
+            .lock()
+            .map(|calls| calls.clone())
+            .map_err(|_| std::io::Error::other("adapter calls lock poisoned"))
+    }
+}
+
+impl SkillAdapter for RecordingAdapter {
+    fn adapter_type(&self) -> &'static str {
+        "cli-tool"
+    }
+
+    fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, runx_runtime::RuntimeError> {
+        self.calls
+            .lock()
+            .map_err(|_| runx_runtime::RuntimeError::ReceiptInvalid {
+                message: "adapter calls lock poisoned".to_owned(),
+            })?
+            .push(request.skill_name.clone());
+        Ok(SkillOutput {
+            status: InvocationStatus::Success,
+            stdout: match request.skill_name.as_str() {
+                "act" => r#"{"approved":false}"#.to_owned(),
+                _ => r#"{"closed":true}"#.to_owned(),
+            },
+            stderr: String::new(),
+            exit_code: Some(0),
+            duration_ms: 0,
+            metadata: JsonObject::default(),
+        })
+    }
+}
+
+struct TempCase {
+    root: PathBuf,
+}
+
+impl TempCase {
+    fn new(name: &str) -> Result<Self, std::io::Error> {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |duration| duration.as_nanos());
+        let root = std::env::temp_dir().join(format!("runx-{name}-{}-{nanos}", std::process::id()));
+        fs::create_dir_all(&root)?;
+        Ok(Self { root })
+    }
+
+    fn harness_path(&self) -> PathBuf {
+        self.root.join("harness.yaml")
+    }
+
+    fn write_skill(&self, directory: &str, name: &str) -> Result<(), std::io::Error> {
+        let skill_dir = self.root.join(directory);
+        fs::create_dir_all(&skill_dir)?;
+        fs::write(
+            skill_dir.join("SKILL.md"),
+            format!(
+                r#"---
+name: {name}
+description: Abnormal seal test {name} skill.
+source:
+  type: cli-tool
+  command: runx-test-adapter
+  args: []
+---
+
+Emits structured test output through the harness adapter.
+"#
+            ),
+        )
+    }
+
+    fn write_graph(&self) -> Result<(), std::io::Error> {
+        fs::write(
+            self.root.join("graph.yaml"),
+            r#"name: abnormal-seal-gate
+owner: runx
+steps:
+  - id: act
+    skill: ./act
+  - id: closure
+    skill: ./closure
+policy:
+  transitions:
+    - to: closure
+      field: act.approved
+      equals: true
+"#,
+        )
+    }
+
+    fn write_harness(&self) -> Result<(), std::io::Error> {
+        fs::write(
+            self.harness_path(),
+            r#"name: abnormal-seal
+kind: graph
+target: graph.yaml
+expect:
+  status: policy_denied
+  receipt:
+    schema: runx.receipt.v1
+    state: sealed
+    disposition: blocked
+    reason_code: graph_blocked
+  steps:
+    - act
+"#,
+        )
+    }
+}
+
+impl Drop for TempCase {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.root);
+    }
+}
+
+fn runtime_options() -> RuntimeOptions {
+    RuntimeOptions {
+        created_at: FIXTURE_CREATED_AT.to_owned(),
+        ..RuntimeOptions::local_development()
+    }
+}

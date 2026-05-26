@@ -44,6 +44,7 @@
     "fixtures:contracts:keys": "tsx scripts/check-contract-fixture-key-order.ts fixtures/contracts",
     "fixtures:harness:check": "tsx scripts/generate-rust-harness-fixtures.ts --check",
     "fixtures:harness:generate": "tsx scripts/generate-rust-harness-fixtures.ts --write",
+    "fixtures:harness:summary": "tsx scripts/generate-rust-harness-fixtures.ts --check --summary-json",
     "fixtures:adapters:a2a:check": "tsx scripts/generate-a2a-adapter-fixtures.ts --check",
     "fixtures:adapters:agent:check": "tsx scripts/generate-agent-adapter-fixtures.ts --check",
     "fixtures:skill-author-runtime:check": "pnpm vitest run packages/adapters/src/cli-tool/skill-author-runtime-fixtures.test.ts && cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool --test skill_author_runtime_fixtures -- --nocapture",
@@ -54,6 +55,10 @@
     "rust:style": "node scripts/check-rust-core-style.mjs",
     "perf:runtime:capture": "node scripts/runtime-throughput.mjs capture",
     "perf:runtime:check": "node scripts/runtime-throughput.mjs check",
+    "stress:runtime:mcp": "cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool,catalog,mcp --test mcp_adapter --test mcp_server",
+    "stress:runtime:cli-tool": "cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool,catalog --test cli_tool_contract",
+    "stress:runtime:external-adapter": "cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool,catalog,external-adapter --test external_adapter",
+    "stress:runtime:fanout": "cargo test --manifest-path crates/Cargo.toml -p runx-runtime --features cli-tool,catalog,mcp --test fanout_parity --test fanout_proptest",
     "receipts:importer-audit": "tsx scripts/check-receipt-importers.ts",
     "verify:fast": "node scripts/verify-fast.mjs",
     "lint": "pnpm typecheck"

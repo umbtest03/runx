@@ -57,9 +57,9 @@ pub fn prepare_process_sandbox(
     let args = source
         .args
         .iter()
-        .map(|arg| resolve_template(arg, inputs))
+        .map(|arg| resolve_template(arg, inputs, base_env))
         .collect();
-    let writable_paths = resolved_writable_paths(sandbox, inputs);
+    let writable_paths = resolved_writable_paths(sandbox, inputs, base_env);
     validate_writable_paths(sandbox, &writable_paths, &cwd, workspace_cwd.as_deref())?;
     let runtime = resolve_sandbox_runtime(sandbox, base_env)?;
     let mut cleanup_paths = Vec::new();
@@ -108,7 +108,7 @@ pub fn prepare_mcp_process_sandbox(
         skill_directory,
         workspace_cwd.as_deref(),
     )?;
-    let writable_paths = resolved_writable_paths(sandbox, &JsonObject::new());
+    let writable_paths = resolved_writable_paths(sandbox, &JsonObject::new(), base_env);
     validate_writable_paths(sandbox, &writable_paths, &cwd, workspace_cwd.as_deref())?;
     let runtime = resolve_sandbox_runtime(sandbox, base_env)?;
     let mut cleanup_paths = Vec::new();
@@ -402,12 +402,16 @@ fn validate_sandbox(sandbox: Option<&SkillSandbox>) -> Result<(), RuntimeError> 
     }
 }
 
-fn resolved_writable_paths(sandbox: Option<&SkillSandbox>, inputs: &JsonObject) -> Vec<String> {
+fn resolved_writable_paths(
+    sandbox: Option<&SkillSandbox>,
+    inputs: &JsonObject,
+    base_env: &BTreeMap<String, String>,
+) -> Vec<String> {
     sandbox.map_or_else(Vec::new, |sandbox| {
         sandbox
             .writable_paths
             .iter()
-            .map(|path| resolve_template(path, inputs))
+            .map(|path| resolve_template(path, inputs, base_env))
             .filter(|path| !path.trim().is_empty() && !has_unresolved_template(path))
             .collect()
     })
@@ -935,13 +939,21 @@ fn json_value_env(value: &JsonValue) -> Result<String, RuntimeError> {
     }
 }
 
-fn resolve_template(template: &str, inputs: &JsonObject) -> String {
+fn resolve_template(
+    template: &str,
+    inputs: &JsonObject,
+    base_env: &BTreeMap<String, String>,
+) -> String {
     let mut resolved = template.to_owned();
     for (key, value) in inputs {
         if let Ok(value) = json_value_env(value) {
             resolved = resolved.replace(&format!("{{{{{key}}}}}"), &value);
             resolved = resolved.replace(&format!("{{{{ {key} }}}}"), &value);
         }
+    }
+    for (key, value) in base_env {
+        resolved = resolved.replace(&format!("{{{{env.{key}}}}}"), value);
+        resolved = resolved.replace(&format!("{{{{ env.{key} }}}}"), value);
     }
     resolved
 }
@@ -1215,6 +1227,7 @@ mod tests {
             writable_paths: vec![
                 "{{workspace_path}}".to_owned(),
                 "{{ fixture }}".to_owned(),
+                "{{ env.RUNX_RAIL_COUNT_PATH }}".to_owned(),
                 "logs".to_owned(),
             ],
             require_enforcement: None,
@@ -1227,10 +1240,20 @@ mod tests {
         )]
         .into_iter()
         .collect();
+        let env = [(
+            "RUNX_RAIL_COUNT_PATH".to_owned(),
+            "/tmp/runx-rail-count.txt".to_owned(),
+        )]
+        .into_iter()
+        .collect();
 
         assert_eq!(
-            resolved_writable_paths(Some(&sandbox), &inputs),
-            vec!["/tmp/runx-fixture".to_owned(), "logs".to_owned()]
+            resolved_writable_paths(Some(&sandbox), &inputs, &env),
+            vec![
+                "/tmp/runx-fixture".to_owned(),
+                "/tmp/runx-rail-count.txt".to_owned(),
+                "logs".to_owned()
+            ]
         );
     }
 

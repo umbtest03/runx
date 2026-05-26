@@ -1,11 +1,17 @@
 // rust-style-allow: large-file because receipt construction, explicit
 // signature policy, and local proof sealing stay together until the runtime
 // receipt builder is split out.
+use crate::adapter::SkillOutput;
+use crate::payment::supervisor::{
+    payment_supervisor_evidence_from_metadata, payment_supervisor_proof_from_metadata,
+    rebind_supervisor_proof_to_receipt,
+};
+use crate::{RuntimeError, StepRun};
 use runx_contracts::{
     ActForm, AuthorityAttenuation, AuthoritySubsetResult, Closure, ClosureDisposition,
     CriterionBinding, CriterionStatus, Decision, DecisionChoice, DecisionInputs,
-    DecisionJustification, FanoutReceiptSyncPoint, Intent, JsonObject, Lineage, ProofKind,
-    RECEIPT_CANONICALIZATION, Receipt, ReceiptAct, ReceiptAuthority, ReceiptEnforcement,
+    DecisionJustification, FanoutReceiptSyncPoint, Intent, JsonObject, JsonValue, Lineage,
+    ProofKind, RECEIPT_CANONICALIZATION, Receipt, ReceiptAct, ReceiptAuthority, ReceiptEnforcement,
     ReceiptIdempotency, ReceiptIssuer, ReceiptIssuerType, ReceiptSchema, ReceiptSubjectKind,
     Reference, ReferenceType, Seal, SignatureAlgorithm, Subject, SuccessCriterion,
     json_string_field,
@@ -15,13 +21,6 @@ use runx_receipts::{
     SignatureVerificationFailure, SignatureVerifier, canonical_receipt_body_digest,
     content_addressed_receipt_id,
 };
-
-use crate::adapter::SkillOutput;
-use crate::payment::supervisor::{
-    payment_supervisor_evidence_from_metadata, payment_supervisor_proof_from_metadata,
-    rebind_supervisor_proof_to_receipt,
-};
-use crate::{RuntimeError, StepRun};
 
 use super::signing::{
     RuntimeReceiptSigner, RuntimeReceiptSigningError, is_local_pseudo_signature,
@@ -140,7 +139,7 @@ pub(crate) fn step_receipt_with_disposition_and_policy(
         sync_points: Vec::new(),
         signals: output_refs.signal_refs,
     });
-    seal_receipt(&mut receipt, signature_policy)?;
+    seal_receipt_unvalidated(&mut receipt, signature_policy)?;
     Ok(receipt)
 }
 
@@ -278,24 +277,24 @@ pub(crate) fn graph_receipt_with_disposition_and_policy(
     // Pass 2: re-seal the graph with the final child refs. The content address
     // is unchanged (lineage excluded); only the full digest commits the children.
     let mut receipt = build_graph_receipt(child_refs);
-    seal_receipt(&mut receipt, signature_policy)?;
+    seal_receipt_unvalidated(&mut receipt, signature_policy)?;
 
-    let children = steps
-        .iter()
-        .map(|step| step.receipt.clone())
-        .collect::<Vec<_>>();
-    validate_receipt_tree_with_policy(&receipt, &children, signature_policy)?;
+    validate_receipt_tree_with_policy(
+        &receipt,
+        steps.iter().map(|step| &step.receipt),
+        signature_policy,
+    )?;
     Ok(receipt)
 }
 
-fn validate_receipt_tree_with_policy(
+fn validate_receipt_tree_with_policy<'a>(
     root: &Receipt,
-    children: &[Receipt],
+    children: impl IntoIterator<Item = &'a Receipt>,
     signature_policy: RuntimeReceiptSignaturePolicy<'_>,
 ) -> Result<(), RuntimeError> {
-    super::tree::validate_runtime_receipt_tree_with_policy(
+    super::tree::validate_runtime_receipt_tree_refs_with_policy(
         root,
-        children.iter().cloned(),
+        children,
         ReceiptTreeConfig::default(),
         signature_policy,
     )
@@ -545,8 +544,64 @@ fn output_refs(output: &SkillOutput) -> OutputRefs {
             proof_kind: None,
         });
     }
+    collect_stdout_refs(&output.stdout, &mut refs);
     collect_supervisor_metadata_refs(&output.metadata, &mut refs);
     refs
+}
+
+fn collect_stdout_refs(stdout: &str, refs: &mut OutputRefs) {
+    let trimmed = stdout.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+    let Ok(value) = serde_json::from_str::<JsonValue>(trimmed) else {
+        return;
+    };
+    collect_stdout_artifact_refs(&value, refs);
+}
+
+fn collect_stdout_artifact_refs(value: &JsonValue, refs: &mut OutputRefs) {
+    let Some(object) = value.as_object() else {
+        return;
+    };
+    if let Some(artifact) = object.get("artifact") {
+        collect_artifact_reference(artifact, refs);
+    }
+    if let Some(artifacts) = object.get("artifacts") {
+        collect_artifact_reference(artifacts, refs);
+    }
+}
+
+fn collect_artifact_reference(value: &JsonValue, refs: &mut OutputRefs) {
+    match value {
+        JsonValue::Array(items) => {
+            for item in items {
+                collect_artifact_reference(item, refs);
+            }
+        }
+        JsonValue::Object(object) => {
+            let Some(artifact_id) = object
+                .get("artifact_id")
+                .or_else(|| object.get("id"))
+                .and_then(JsonValue::as_str)
+                .map(str::trim)
+                .filter(|entry| !entry.is_empty())
+            else {
+                return;
+            };
+            let artifact_type = object
+                .get("artifact_type")
+                .or_else(|| object.get("type"))
+                .and_then(JsonValue::as_str)
+                .map(str::trim)
+                .filter(|entry| !entry.is_empty());
+            let mut reference = Reference::runx(ReferenceType::Artifact, artifact_id);
+            reference.locator = Some(artifact_id.to_owned().into());
+            reference.label = artifact_type.map(Into::into);
+            refs.artifact_refs.push(reference);
+        }
+        JsonValue::Null | JsonValue::Bool(_) | JsonValue::Number(_) | JsonValue::String(_) => {}
+    }
 }
 
 fn collect_supervisor_metadata_refs(metadata: &JsonObject, refs: &mut OutputRefs) {
@@ -611,7 +666,7 @@ fn attach_parent_to_child_receipts(
             .lineage
             .get_or_insert_with(Lineage::default)
             .parent = Some(parent_ref.clone());
-        seal_receipt(&mut step.receipt, signature_policy)?;
+        seal_receipt_unvalidated(&mut step.receipt, signature_policy)?;
         // Re-bind any supervisor proof to the re-sealed child digest so payment
         // ledger projection validates against the final receipt body.
         rebind_supervisor_proof_to_receipt(&mut step.output.metadata, &step.receipt).map_err(
@@ -642,6 +697,23 @@ fn seal_receipt(
     receipt: &mut Receipt,
     signature_policy: RuntimeReceiptSignaturePolicy<'_>,
 ) -> Result<(), RuntimeError> {
+    let digest = seal_receipt_unvalidated(receipt, signature_policy)?;
+
+    let proof_contexts = RuntimeReceiptProofContextProvider::new(signature_policy);
+    let context = proof_contexts.proof_context(receipt);
+    runx_receipts::validate_receipt_proof(receipt, &context).map_err(receipt_error)?;
+    if receipt.digest != digest {
+        return Err(RuntimeError::ReceiptInvalid {
+            message: "receipt digest changed during proof validation".to_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn seal_receipt_unvalidated(
+    receipt: &mut Receipt,
+    signature_policy: RuntimeReceiptSignaturePolicy<'_>,
+) -> Result<String, RuntimeError> {
     signature_policy.prepare_receipt(receipt)?;
     // Content-address the id over the canonical body (id = hash(canonical_body),
     // excluding id/signature/digest/metadata/lineage) before the digest commits
@@ -657,10 +729,7 @@ fn seal_receipt(
         })?;
     receipt.digest = digest.clone().into();
     signature_policy.sign_receipt(receipt, &digest)?;
-
-    let proof_contexts = RuntimeReceiptProofContextProvider::new(signature_policy);
-    let context = proof_contexts.proof_context(receipt);
-    runx_receipts::validate_receipt_proof(receipt, &context).map_err(receipt_error)
+    Ok(digest)
 }
 
 pub(crate) fn proof_context<'a>(

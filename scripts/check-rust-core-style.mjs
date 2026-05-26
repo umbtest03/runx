@@ -29,6 +29,7 @@ const disallowedPatterns = [
   {
     pattern: /\bHashMap\b/u,
     reason: "serialized maps must use deterministic key order; prefer BTreeMap",
+    allowlist: ["crates/runx-runtime/src/execution/graph_index.rs"],
   },
   {
     pattern: /\b(?:anyhow|eyre)::/u,
@@ -109,7 +110,10 @@ async function listRustFiles(directory) {
 }
 
 function checkPatterns(relativePath, source) {
-  for (const { pattern, reason } of disallowedPatterns) {
+  for (const { pattern, reason, allowlist = [] } of disallowedPatterns) {
+    if (allowlist.includes(relativePath)) {
+      continue;
+    }
     const match = pattern.exec(source);
     if (match) {
       const line = lineNumberForIndex(source, match.index);

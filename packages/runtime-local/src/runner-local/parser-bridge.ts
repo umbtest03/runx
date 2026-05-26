@@ -1,7 +1,8 @@
-import { spawn } from "node:child_process";
 import process from "node:process";
 
 import { errorMessage, firstNonEmpty, isRecord } from "@runxhq/core/util";
+
+import { runBoundedNativeProcess } from "./native-process.js";
 
 export interface ParserBridgeOptions {
   readonly env?: NodeJS.ProcessEnv;
@@ -439,6 +440,7 @@ async function runParserEval(
   };
 
   const result = await spawnParserProcess({
+    operation: "Rust parser eval",
     command,
     args,
     cwd: options.cwd ?? process.cwd(),
@@ -466,92 +468,7 @@ async function runParserEval(
   return parsed;
 }
 
-interface SpawnParserProcessOptions {
-  readonly command: string;
-  readonly args: readonly string[];
-  readonly cwd: string;
-  readonly env: NodeJS.ProcessEnv;
-  readonly stdin: string;
-  readonly timeoutMs: number;
-}
-
-interface SpawnParserProcessResult {
-  readonly status: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-}
-
-function spawnParserProcess(options: SpawnParserProcessOptions): Promise<SpawnParserProcessResult> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(options.command, options.args, {
-      cwd: options.cwd,
-      env: options.env,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    let settled = false;
-    let timedOut = false;
-    let stdout = "";
-    let stderr = "";
-    let killTimer: NodeJS.Timeout | undefined;
-
-    const timer = setTimeout(() => {
-      if (settled) {
-        return;
-      }
-      timedOut = true;
-      child.kill("SIGTERM");
-      killTimer = setTimeout(() => {
-        child.kill("SIGKILL");
-        if (settled) {
-          return;
-        }
-        settled = true;
-        reject(new Error(`Rust parser eval timed out after ${options.timeoutMs}ms.`));
-      }, 1_000);
-    }, options.timeoutMs);
-
-    const clearTimers = () => {
-      clearTimeout(timer);
-      if (killTimer) {
-        clearTimeout(killTimer);
-      }
-    };
-
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => {
-      stdout += chunk;
-    });
-    child.stderr.on("data", (chunk: string) => {
-      stderr += chunk;
-    });
-    child.on("error", (error) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      clearTimers();
-      reject(new Error(`Failed to spawn Rust parser eval command '${options.command}': ${error.message}`));
-    });
-    child.on("close", (status) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      clearTimers();
-      if (timedOut) {
-        reject(new Error(`Rust parser eval timed out after ${options.timeoutMs}ms.`));
-        return;
-      }
-      resolve({ status, stdout, stderr });
-    });
-    child.stdin.on("error", () => {
-      // The child may exit before consuming stdin. The close handler reports
-      // the parser process status with captured stdout/stderr.
-    });
-    child.stdin.end(options.stdin);
-  });
-}
+const spawnParserProcess = runBoundedNativeProcess;
 
 function evalTimeoutMs(value: string | undefined): number {
   if (value === undefined || value.trim().length === 0) {

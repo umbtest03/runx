@@ -10,9 +10,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use runx_contracts::{
-    ClosureDisposition, ExecutionEvent, FanoutReceiptSyncPoint, JsonObject, Receipt,
-};
+use runx_contracts::{ClosureDisposition, FanoutReceiptSyncPoint, JsonObject, Receipt};
 use runx_core::state_machine::{SequentialGraphState, StepAdmissionWitness};
 use runx_parser::ExecutionGraph;
 use serde::{Deserialize, Serialize};
@@ -22,6 +20,7 @@ use crate::RuntimeError;
 use crate::adapter::{SkillAdapter, SkillOutput};
 use crate::host::{Host, NoopHost};
 use crate::journal::ExecutionJournal;
+use crate::lifecycle::LifecycleEvent;
 use crate::payment::supervisor::RuntimePaymentSupervisor;
 use crate::receipts::paths::{RUNX_CWD_ENV, RUNX_PROJECT_DIR_ENV, RUNX_RECEIPT_DIR_ENV};
 use crate::receipts::{
@@ -29,6 +28,7 @@ use crate::receipts::{
     RUNX_RECEIPT_SIGN_KID_ENV, RuntimeReceiptSignatureConfig, RuntimeReceiptSignaturePolicy,
     graph_receipt_with_disposition_and_policy, graph_receipt_with_signature_policy,
 };
+use crate::services::ReceiptServices;
 
 mod authority;
 mod execution;
@@ -66,15 +66,14 @@ impl RuntimeOptions {
     }
 
     pub fn from_env(env: BTreeMap<String, String>) -> Result<Self, RuntimeError> {
-        let receipt_signature = RuntimeReceiptSignatureConfig::from_env(&env).map_err(|error| {
-            RuntimeError::ReceiptInvalid {
+        let receipt_services =
+            ReceiptServices::from_env(&env).map_err(|error| RuntimeError::ReceiptInvalid {
                 message: error.to_string(),
-            }
-        })?;
+            })?;
         Ok(Self {
             created_at: crate::time::now_iso8601(),
             env,
-            receipt_signature,
+            receipt_signature: receipt_services.signature_config().clone(),
             payment_supervisor: RuntimePaymentSupervisor::default(),
         })
     }
@@ -216,12 +215,9 @@ where
                     &self.options.created_at,
                     self.options.signature_policy(),
                 )?;
-                execution.record(
+                execution.record_lifecycle(
                     host,
-                    ExecutionEvent::Completed {
-                        message: format!("graph {} completed", graph.name),
-                        data: None,
-                    },
+                    LifecycleEvent::graph_completed(&graph.name, &receipt),
                 )?;
                 Ok(execution.finish(graph, receipt))
             }
@@ -240,12 +236,9 @@ where
                     },
                     self.options.signature_policy(),
                 )?;
-                execution.record(
+                execution.record_lifecycle(
                     host,
-                    ExecutionEvent::Completed {
-                        message: format!("graph {} blocked at {step_id}", graph.name),
-                        data: None,
-                    },
+                    LifecycleEvent::graph_blocked(&graph.name, &step_id, &receipt),
                 )?;
                 Ok(execution.finish(graph, receipt))
             }
@@ -321,13 +314,7 @@ where
             &self.options.created_at,
             self.options.signature_policy(),
         )?;
-        execution.record(
-            host,
-            ExecutionEvent::Completed {
-                message: format!("graph {} completed", graph.name),
-                data: None,
-            },
-        )?;
+        execution.record_lifecycle(host, LifecycleEvent::graph_completed(&graph.name, &receipt))?;
         Ok(execution.finish(graph, receipt))
     }
 

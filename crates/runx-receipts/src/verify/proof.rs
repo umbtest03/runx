@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 
 use runx_contracts::{
-    AuthorityAttenuation, AuthoritySubsetResult, Receipt, ReceiptCommitment,
-    ReceiptVerificationSummary, Reference, SignatureAlgorithm,
+    AuthorityAttenuation, AuthoritySubsetResult, Receipt, ReceiptVerificationSummary,
+    SignatureAlgorithm,
 };
 
 use crate::{canonical_receipt_body_digest, content_addressed_receipt_id};
@@ -39,8 +39,7 @@ pub fn verify_receipt_proof(
         context,
         findings: Vec::new(),
     };
-    verifier.check_body_digest(receipt);
-    verifier.check_signature(receipt);
+    verifier.check_body_proof(receipt);
     findings.extend(verifier.findings);
     ReceiptVerification::from_findings(findings)
 }
@@ -69,7 +68,7 @@ pub fn receipt_id_is_content_addressed(receipt: &Receipt) -> bool {
 }
 
 impl ProofVerifier<'_> {
-    fn check_body_digest(&mut self, receipt: &Receipt) {
+    fn check_body_proof(&mut self, receipt: &Receipt) {
         let Ok(body_digest) = canonical_receipt_body_digest(receipt) else {
             self.push(
                 ReceiptFindingCode::SealDigestMismatch,
@@ -78,6 +77,11 @@ impl ProofVerifier<'_> {
             );
             return;
         };
+        self.check_body_digest(receipt, &body_digest);
+        self.check_signature(receipt, &body_digest);
+    }
+
+    fn check_body_digest(&mut self, receipt: &Receipt, body_digest: &str) {
         if receipt.digest != body_digest {
             self.push(
                 ReceiptFindingCode::SealDigestMismatch,
@@ -87,10 +91,7 @@ impl ProofVerifier<'_> {
         }
     }
 
-    fn check_signature(&mut self, receipt: &Receipt) {
-        let Ok(body_digest) = canonical_receipt_body_digest(receipt) else {
-            return;
-        };
+    fn check_signature(&mut self, receipt: &Receipt, body_digest: &str) {
         match self.context.signature_verifier {
             Some(verifier) => {
                 if receipt.signature.alg != SignatureAlgorithm::Ed25519 {
@@ -102,7 +103,7 @@ impl ProofVerifier<'_> {
                     return;
                 }
                 if let Err(error) =
-                    verifier.verify(&receipt.issuer, &receipt.signature, &body_digest)
+                    verifier.verify(&receipt.issuer, &receipt.signature, body_digest)
                 {
                     self.push(
                         signature_failure_code(&error),
@@ -140,28 +141,35 @@ pub fn compute_verification_summary(
     receipt: &Receipt,
     context: &ReceiptProofContext<'_>,
 ) -> ReceiptVerificationSummary {
+    let body_digest = canonical_receipt_body_digest(receipt).ok();
     let signature_valid = context.signature_verifier.is_some_and(|verifier| {
-        canonical_receipt_body_digest(receipt).is_ok_and(|body_digest| {
+        body_digest.as_deref().is_some_and(|body_digest| {
             receipt.signature.alg == SignatureAlgorithm::Ed25519
                 && verifier
-                    .verify(&receipt.issuer, &receipt.signature, &body_digest)
+                    .verify(&receipt.issuer, &receipt.signature, body_digest)
                     .is_ok()
         })
     });
     let authority_attenuation_valid = context.authority_verified
         && has_verified_attenuation_shape(&receipt.authority.attenuation);
-    let criteria_bound = verify_receipt(receipt).findings.iter().all(|finding| {
+    let structural_verification = verify_receipt(receipt);
+    let criteria_bound = structural_verification.findings.iter().all(|finding| {
         !matches!(
             finding.code,
             ReceiptFindingCode::SealCriterionActMissing | ReceiptFindingCode::SealCriterionUnbound
         )
     });
-    let redaction_valid = redaction_refs(receipt).iter().all(|reference| {
-        context
-            .verified_redaction_refs
-            .contains(reference.uri.as_str())
-    });
-    let hash_commitments_valid = hash_commitments(receipt).iter().all(|commitment| {
+    let redaction_valid = receipt
+        .authority
+        .enforcement
+        .redaction_refs
+        .iter()
+        .all(|reference| {
+            context
+                .verified_redaction_refs
+                .contains(reference.uri.as_str())
+        });
+    let hash_commitments_valid = receipt.subject.commitments.iter().all(|commitment| {
         context
             .verified_hash_commitments
             .contains(commitment.value.as_str())
@@ -185,17 +193,4 @@ fn has_verified_attenuation_shape(attenuation: &AuthorityAttenuation) -> bool {
         return false;
     };
     proof.parent_authority_ref == *parent && matches!(proof.result, AuthoritySubsetResult::Subset)
-}
-
-fn redaction_refs(receipt: &Receipt) -> Vec<&Reference> {
-    receipt
-        .authority
-        .enforcement
-        .redaction_refs
-        .iter()
-        .collect()
-}
-
-fn hash_commitments(receipt: &Receipt) -> Vec<&ReceiptCommitment> {
-    receipt.subject.commitments.iter().collect()
 }

@@ -8,8 +8,10 @@ source:
     - ./run.sh
   timeout_seconds: 10
   sandbox:
-    profile: readonly
+    profile: workspace-write
     cwd_policy: skill-directory
+    writable_paths:
+      - "{{ env.RUNX_PAYMENT_RAIL_COUNT_PATH }}"
     env_allowlist:
       - RUNX_PAYMENT_RAIL_COUNT_PATH
       - RUNX_X402_IDEMPOTENCY_KEY

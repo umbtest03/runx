@@ -5,6 +5,7 @@
 //! parser/core/receipt crates stay upstream of this crate.
 
 pub mod adapter;
+mod adapter_pipeline;
 mod agent_invocation;
 pub mod approval;
 pub mod config;
@@ -15,17 +16,21 @@ pub mod error;
 pub mod execution;
 pub mod host;
 pub mod journal;
+mod lifecycle;
 pub mod list;
 pub mod outbox_provider;
 pub mod parser_eval;
 pub mod payment;
 pub mod post_merge_observer;
+#[cfg(any(feature = "cli-tool", feature = "external-adapter"))]
+mod process;
 pub mod receipts;
 pub mod redaction;
 pub mod registry;
 mod runtime_http;
 pub mod sandbox;
 pub mod scaffold;
+mod services;
 mod time;
 pub mod tool_catalogs;
 
@@ -68,8 +73,9 @@ pub use dev::{
 pub use doctor::{DoctorOptions, default_doctor_options, run_doctor};
 pub use error::RuntimeError;
 pub use harness::{
-    HarnessExpectedStatus, HarnessFixtureError, HarnessFixtureKind, HarnessReplayError,
-    HarnessReplayOutput, load_harness_fixture, parse_harness_fixture, run_harness_fixture,
+    HarnessExpectedStatus, HarnessFixtureCase, HarnessFixtureError, HarnessFixtureKind,
+    HarnessFixtureStepOracle, HarnessReplayError, HarnessReplayOutput, list_cases,
+    load_harness_fixture, parse_harness_fixture, run_harness_fixture,
     run_harness_fixture_with_adapter,
 };
 pub use host::{Host, NoopHost};

@@ -96,13 +96,7 @@ impl LocalReceiptStore {
 
         verify_stored_receipt_proof(&file_path, receipt, signature_policy)?;
         write_atomic(&self.root, &file_name, &contents)?;
-        match self.rebuild_index_with_policy(signature_policy) {
-            Ok(_) => Ok(()),
-            Err(error) => Err(ReceiptStoreError::ReceiptIndexStale {
-                path: self.index_path(),
-                message: error.to_string(),
-            }),
-        }
+        self.update_index_after_write(receipt, signature_policy)
     }
 
     pub fn list(&self) -> Result<Vec<Receipt>, ReceiptStoreError> {
@@ -190,18 +184,7 @@ impl LocalReceiptStore {
                 });
             }
         };
-        let index = serde_json::from_str::<ReceiptStoreIndex>(&contents).map_err(|source| {
-            ReceiptStoreError::MalformedIndex {
-                path: index_path.clone(),
-                message: source.to_string(),
-            }
-        })?;
-        if index.schema != RECEIPT_STORE_INDEX_SCHEMA {
-            return Err(ReceiptStoreError::MalformedIndex {
-                path: index_path,
-                message: format!("unsupported index schema {}", index.schema),
-            });
-        }
+        let index = parse_index(&contents, &index_path)?;
         self.verify_index(&index, signature_policy)?;
         Ok(index)
     }
@@ -238,38 +221,103 @@ impl LocalReceiptStore {
         signature_policy: RuntimeReceiptSignaturePolicy<'_>,
     ) -> Result<(), ReceiptStoreError> {
         let listed = self.list_with_policy(signature_policy)?;
-        let listed_ids = listed
+        let listed_entries = listed
             .iter()
-            .map(|receipt| receipt.id.as_str())
+            .map(|receipt| ReceiptStoreIndexEntry {
+                receipt_id: receipt.id.to_string(),
+                file_name: format!("{}.json", receipt.id),
+                created_at: receipt.created_at.to_string(),
+            })
             .collect::<Vec<_>>();
-        let indexed_ids = index
-            .entries
-            .iter()
-            .map(|entry| entry.receipt_id.as_str())
-            .collect::<Vec<_>>();
-        if listed_ids != indexed_ids {
+        if listed_entries != index.entries {
             return Err(ReceiptStoreError::ReceiptIndexStale {
                 path: self.index_path(),
                 message: "index entries do not match receipt JSON files".to_owned(),
             });
         }
-        for entry in &index.entries {
-            let expected_file_name = receipt_file_name(&entry.receipt_id)?;
-            if entry.file_name != expected_file_name {
-                return Err(ReceiptStoreError::ReceiptIndexStale {
+        Ok(())
+    }
+
+    fn update_index_after_write(
+        &self,
+        receipt: &Receipt,
+        signature_policy: RuntimeReceiptSignaturePolicy<'_>,
+    ) -> Result<(), ReceiptStoreError> {
+        match self.append_index_entry(receipt) {
+            Ok(()) => Ok(()),
+            Err(_) => match self.rebuild_index_with_policy(signature_policy) {
+                Ok(_) => Ok(()),
+                Err(error) => Err(ReceiptStoreError::ReceiptIndexStale {
                     path: self.index_path(),
-                    message: "index file name does not match receipt id".to_owned(),
-                });
+                    message: error.to_string(),
+                }),
+            },
+        }
+    }
+
+    fn append_index_entry(&self, receipt: &Receipt) -> Result<(), ReceiptStoreError> {
+        let mut index = self.read_index_without_verification()?;
+        ensure_index_shape_for_append(&index)?;
+        let receipt_id = receipt.id.to_string();
+        if index
+            .entries
+            .iter()
+            .any(|entry| entry.receipt_id == receipt_id)
+        {
+            return Err(ReceiptStoreError::ReceiptIndexStale {
+                path: self.index_path(),
+                message: "index already contains receipt id".to_owned(),
+            });
+        }
+        if self.receipt_file_count()? != index.entries.len().saturating_add(1) {
+            return Err(ReceiptStoreError::ReceiptIndexStale {
+                path: self.index_path(),
+                message: "index entry count does not match receipt JSON files".to_owned(),
+            });
+        }
+        index.entries.push(ReceiptStoreIndexEntry {
+            receipt_id: receipt_id.clone(),
+            file_name: receipt_file_name(&receipt_id)?,
+            created_at: receipt.created_at.to_string(),
+        });
+        index
+            .entries
+            .sort_by(|left, right| left.receipt_id.cmp(&right.receipt_id));
+        index.generated_at = generated_at_nanos();
+        self.write_index(&index)
+    }
+
+    fn read_index_without_verification(&self) -> Result<ReceiptStoreIndex, ReceiptStoreError> {
+        let index_path = self.index_path();
+        let contents = fs::read_to_string(&index_path).map_err(|source| {
+            ReceiptStoreError::StoreUnreadable {
+                path: index_path.clone(),
+                source,
             }
-            let receipt = self.read_exact_with_policy(&entry.receipt_id, signature_policy)?;
-            if receipt.created_at.as_str() != entry.created_at {
-                return Err(ReceiptStoreError::ReceiptIndexStale {
-                    path: self.index_path(),
-                    message: "index created_at does not match receipt JSON".to_owned(),
-                });
+        })?;
+        parse_index(&contents, &index_path)
+    }
+
+    fn receipt_file_count(&self) -> Result<usize, ReceiptStoreError> {
+        let mut count = 0usize;
+        for entry in
+            fs::read_dir(&self.root).map_err(|source| ReceiptStoreError::StoreUnreadable {
+                path: self.root.clone(),
+                source,
+            })?
+        {
+            let entry = entry.map_err(|source| ReceiptStoreError::StoreUnreadable {
+                path: self.root.clone(),
+                source,
+            })?;
+            let path = entry.path();
+            if path.extension() == Some(OsStr::new("json"))
+                && path.file_name() != Some(OsStr::new(INDEX_FILE_NAME))
+            {
+                count += 1;
             }
         }
-        Ok(())
+        Ok(count)
     }
 
     fn write_index(&self, index: &ReceiptStoreIndex) -> Result<(), ReceiptStoreError> {
@@ -278,7 +326,10 @@ impl LocalReceiptStore {
                 path: self.index_path(),
                 message: source.to_string(),
             })?;
-        write_atomic(&self.root, INDEX_FILE_NAME, &contents)
+        // `index.json` is a recoverable projection of receipt files. Receipt
+        // writes remain durable; index writes stay atomic but skip fsync so an
+        // append does not pay the full durability cost twice.
+        write_atomic_cache(&self.root, INDEX_FILE_NAME, &contents)
     }
 
     fn index_path(&self) -> PathBuf {
@@ -486,6 +537,43 @@ fn read_receipt_file_without_proof(
     parse_receipt_contents_without_proof(&contents, path, expected_id)
 }
 
+fn parse_index(contents: &str, path: &Path) -> Result<ReceiptStoreIndex, ReceiptStoreError> {
+    let index = serde_json::from_str::<ReceiptStoreIndex>(contents).map_err(|source| {
+        ReceiptStoreError::MalformedIndex {
+            path: path.to_path_buf(),
+            message: source.to_string(),
+        }
+    })?;
+    if index.schema != RECEIPT_STORE_INDEX_SCHEMA {
+        return Err(ReceiptStoreError::MalformedIndex {
+            path: path.to_path_buf(),
+            message: format!("unsupported index schema {}", index.schema),
+        });
+    }
+    Ok(index)
+}
+
+fn ensure_index_shape_for_append(index: &ReceiptStoreIndex) -> Result<(), ReceiptStoreError> {
+    let mut previous_id: Option<&str> = None;
+    for entry in &index.entries {
+        let expected_file_name = receipt_file_name(&entry.receipt_id)?;
+        if entry.file_name != expected_file_name {
+            return Err(ReceiptStoreError::ReceiptIndexStale {
+                path: PathBuf::from(INDEX_FILE_NAME),
+                message: "index file name does not match receipt id".to_owned(),
+            });
+        }
+        if previous_id.is_some_and(|previous| previous >= entry.receipt_id.as_str()) {
+            return Err(ReceiptStoreError::ReceiptIndexStale {
+                path: PathBuf::from(INDEX_FILE_NAME),
+                message: "index receipt ids must be sorted and unique".to_owned(),
+            });
+        }
+        previous_id = Some(entry.receipt_id.as_str());
+    }
+    Ok(())
+}
+
 fn parse_receipt_contents(
     contents: &str,
     path: &Path,
@@ -556,12 +644,29 @@ fn verify_stored_receipt_proof(
 }
 
 fn write_atomic(dir: &Path, file_name: &str, contents: &[u8]) -> Result<(), ReceiptStoreError> {
+    write_atomic_with(dir, file_name, contents, true)
+}
+
+fn write_atomic_cache(
+    dir: &Path,
+    file_name: &str,
+    contents: &[u8],
+) -> Result<(), ReceiptStoreError> {
+    write_atomic_with(dir, file_name, contents, false)
+}
+
+fn write_atomic_with(
+    dir: &Path,
+    file_name: &str,
+    contents: &[u8],
+    durable: bool,
+) -> Result<(), ReceiptStoreError> {
     let temp_name = temp_file_name(file_name);
     let temp_path = dir.join(&temp_name);
     let final_path = dir.join(file_name);
-    let write_result = write_temp_file(&temp_path, contents)
+    let write_result = write_temp_file(&temp_path, contents, durable)
         .and_then(|()| fs::rename(&temp_path, &final_path))
-        .and_then(|()| sync_directory(dir));
+        .and_then(|()| if durable { sync_directory(dir) } else { Ok(()) });
     if let Err(source) = write_result {
         let _ignored = fs::remove_file(&temp_path);
         return Err(ReceiptStoreError::StoreUnreadable {
@@ -572,7 +677,7 @@ fn write_atomic(dir: &Path, file_name: &str, contents: &[u8]) -> Result<(), Rece
     Ok(())
 }
 
-fn write_temp_file(path: &Path, contents: &[u8]) -> Result<(), std::io::Error> {
+fn write_temp_file(path: &Path, contents: &[u8], durable: bool) -> Result<(), std::io::Error> {
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]
@@ -583,7 +688,10 @@ fn write_temp_file(path: &Path, contents: &[u8]) -> Result<(), std::io::Error> {
     let mut file = options.open(path)?;
     file.write_all(contents)?;
     file.flush()?;
-    file.sync_all()
+    if durable {
+        file.sync_all()?;
+    }
+    Ok(())
 }
 
 fn sync_directory(path: &Path) -> Result<(), std::io::Error> {

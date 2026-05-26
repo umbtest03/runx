@@ -372,6 +372,68 @@ fn cli_tool_drains_large_stdout_and_omits_truncated_output()
 
 #[test]
 #[cfg(feature = "cli-tool")]
+fn cli_tool_preserves_stderr_on_failed_process() -> Result<(), Box<dyn std::error::Error>> {
+    let output = invoke_node(
+        vec![
+            "-e".to_owned(),
+            "process.stderr.write('useful failure'); process.exit(7);".to_owned(),
+        ],
+        Some(5),
+    )?;
+
+    assert_eq!(output.status, InvocationStatus::Failure);
+    assert_eq!(output.exit_code, Some(7));
+    assert_eq!(output.stderr, "useful failure");
+    Ok(())
+}
+
+#[test]
+#[cfg(feature = "cli-tool")]
+fn cli_tool_spawn_failure_is_runtime_io() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let skill_dir = temp.path().join("skill");
+    fs::create_dir_all(&skill_dir)?;
+    let missing_command = temp.path().join("missing-command");
+
+    let result = CliToolAdapter.invoke(SkillInvocation {
+        skill_name: "spawn-failure".to_owned(),
+        source: SkillSource {
+            source_type: runx_parser::SourceKind::CliTool,
+            command: Some(path_string(&missing_command)?),
+            args: Vec::new(),
+            cwd: None,
+            timeout_seconds: Some(5),
+            input_mode: None,
+            sandbox: None,
+            server: None,
+            catalog_ref: None,
+            tool: None,
+            arguments: None,
+            agent_card_url: None,
+            agent_identity: None,
+            agent: None,
+            task: None,
+            hook: None,
+            outputs: None,
+            graph: None,
+            raw: JsonObject::new(),
+        },
+        inputs: JsonObject::new(),
+        resolved_inputs: JsonObject::new(),
+        skill_directory: skill_dir,
+        env: std::env::vars().collect(),
+        credential_delivery: CredentialDelivery::none(),
+    });
+
+    assert!(matches!(
+        result,
+        Err(RuntimeError::Io { context, .. }) if context == "spawning cli-tool process"
+    ));
+    Ok(())
+}
+
+#[test]
+#[cfg(feature = "cli-tool")]
 fn cli_tool_timeout_kills_direct_child_without_waiting_for_full_script()
 -> Result<(), Box<dyn std::error::Error>> {
     let started = Instant::now();

@@ -8,6 +8,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::time::Instant;
 
 use runx_contracts::{JsonObject, JsonValue, Receipt};
 use runx_receipts::{
@@ -19,48 +20,9 @@ use runx_runtime::payment::supervisor::{
     RuntimePaymentSupervisor,
 };
 use runx_runtime::{
-    HarnessReplayOutput, InvocationStatus, RuntimeOptions, SkillAdapter, SkillInvocation,
-    SkillOutput, run_harness_fixture_with_adapter,
+    HarnessFixtureCase, HarnessReplayOutput, InvocationStatus, RuntimeOptions, SkillAdapter,
+    SkillInvocation, SkillOutput, list_cases, run_harness_fixture_with_adapter,
 };
-
-const FIXTURES: &[FixtureSpec] = &[
-    FixtureSpec {
-        name: "echo-skill",
-        fixture_path: "fixtures/harness/echo-skill.yaml",
-        root_oracle_path: "fixtures/harness/oracle/echo-skill.receipt.json",
-        step_oracles: &[],
-    },
-    FixtureSpec {
-        name: "sequential-graph",
-        fixture_path: "fixtures/harness/sequential-graph.yaml",
-        root_oracle_path: "fixtures/harness/oracle/sequential-graph.receipt.json",
-        step_oracles: &[
-            StepOracle {
-                step_id: "first",
-                oracle_path: "fixtures/harness/oracle/sequential-graph.first.json",
-            },
-            StepOracle {
-                step_id: "second",
-                oracle_path: "fixtures/harness/oracle/sequential-graph.second.json",
-            },
-        ],
-    },
-    FixtureSpec {
-        name: "payment-approval-graph",
-        fixture_path: "fixtures/harness/payment-approval-graph.yaml",
-        root_oracle_path: "fixtures/harness/oracle/payment-approval-graph.receipt.json",
-        step_oracles: &[
-            StepOracle {
-                step_id: "approve-spend",
-                oracle_path: "fixtures/harness/oracle/payment-approval-graph.approve-spend.json",
-            },
-            StepOracle {
-                step_id: "fulfill",
-                oracle_path: "fixtures/harness/oracle/payment-approval-graph.fulfill.json",
-            },
-        ],
-    },
-];
 
 fn main() -> ExitCode {
     match run() {
@@ -75,21 +37,20 @@ fn main() -> ExitCode {
 fn run() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse(std::env::args_os().skip(1))?;
     let mut failed = false;
+    let mut summaries = Vec::new();
 
-    for fixture in FIXTURES {
-        let fixture_path = cli.repo_root.join(fixture.fixture_path);
-        let output = run_harness_fixture_with_adapter(
-            &fixture_path,
-            FixtureOracleAdapter,
-            fixture_runtime_options(),
-        )?;
-        let root = CheckedReceipt {
-            oracle_path: cli.repo_root.join(fixture.root_oracle_path),
-            receipt: &output.receipt,
+    for fixture in list_cases() {
+        let summary = process_fixture(&cli, fixture)?;
+        failed |= summary.status == SummaryStatus::Failed;
+        summaries.push(summary);
+    }
+
+    if cli.summary_json {
+        let report = SummaryReport {
+            schema: "runx.harness_fixture_replay_summary.v1",
+            cases: summaries,
         };
-        failed |= process_receipt(&cli, &root)?;
-        failed |= process_step_oracles(&cli, fixture, &output)?;
-        failed |= check_fixture_digests(&cli, fixture, &output.receipt)?;
+        write_stdout_line(&serde_json::to_string_pretty(&report)?)?;
     }
 
     if failed {
@@ -101,9 +62,60 @@ fn run() -> Result<(), Box<dyn Error>> {
     }
 }
 
+fn process_fixture(
+    cli: &Cli,
+    fixture: &HarnessFixtureCase,
+) -> Result<FixtureSummary, Box<dyn Error>> {
+    let started = Instant::now();
+    let fixture_path = cli.repo_root.join(fixture.fixture_path);
+    let output = match run_harness_fixture_with_adapter(
+        &fixture_path,
+        FixtureOracleAdapter,
+        fixture_runtime_options(),
+    ) {
+        Ok(output) => output,
+        Err(error) => {
+            return Ok(FixtureSummary::failed(
+                fixture.name,
+                started.elapsed().as_millis(),
+                FailureClassification::ReplayError,
+                Some(error.to_string()),
+            ));
+        }
+    };
+    let receipt_digest = canonical_receipt_digest(&output.receipt)?;
+    let root = CheckedReceipt {
+        oracle_path: cli.repo_root.join(fixture.root_oracle_path),
+        receipt: &output.receipt,
+    };
+    let root_stale = process_receipt(cli, &root)?;
+    let steps_stale = process_step_oracles(cli, fixture, &output)?;
+    let digest_stale = check_fixture_digests(cli, fixture, &output.receipt)?;
+    let failure_classification = if root_stale || steps_stale {
+        Some(FailureClassification::OracleStale)
+    } else if digest_stale {
+        Some(FailureClassification::DigestStale)
+    } else {
+        None
+    };
+    Ok(FixtureSummary {
+        name: fixture.name,
+        status: if failure_classification.is_some() {
+            SummaryStatus::Failed
+        } else {
+            SummaryStatus::Passed
+        },
+        elapsed_ms: started.elapsed().as_millis(),
+        receipt_id: Some(output.receipt.id.to_string()),
+        receipt_digest: Some(receipt_digest),
+        failure_classification,
+        error: None,
+    })
+}
+
 fn process_step_oracles(
     cli: &Cli,
-    fixture: &FixtureSpec,
+    fixture: &HarnessFixtureCase,
     output: &HarnessReplayOutput,
 ) -> Result<bool, Box<dyn Error>> {
     let mut failed = false;
@@ -166,7 +178,7 @@ fn process_receipt(cli: &Cli, checked: &CheckedReceipt<'_>) -> Result<bool, Box<
 
 fn check_fixture_digests(
     cli: &Cli,
-    fixture: &FixtureSpec,
+    fixture: &HarnessFixtureCase,
     receipt: &Receipt,
 ) -> Result<bool, Box<dyn Error>> {
     let body_digest = canonical_receipt_body_digest(receipt)?;
@@ -211,6 +223,7 @@ fn write_stderr_line(message: &str) -> io::Result<()> {
 struct Cli {
     repo_root: PathBuf,
     write: bool,
+    summary_json: bool,
 }
 
 impl Cli {
@@ -218,6 +231,7 @@ impl Cli {
         let mut repo_root = std::env::current_dir()?;
         let mut write = false;
         let mut check = false;
+        let mut summary_json = false;
         let mut args = args.peekable();
 
         while let Some(arg) = args.next() {
@@ -227,6 +241,7 @@ impl Cli {
             match token {
                 "--write" | "--generate" => write = true,
                 "--check" => check = true,
+                "--summary-json" => summary_json = true,
                 "--repo-root" => {
                     let value = args
                         .next()
@@ -254,6 +269,7 @@ impl Cli {
         Ok(Self {
             repo_root,
             write: write && !check,
+            summary_json,
         })
     }
 
@@ -264,24 +280,64 @@ impl Cli {
 }
 
 fn usage() -> String {
-    "usage: runx-harness-fixture-oracles [--check|--write] [--repo-root path]".to_owned()
-}
-
-struct FixtureSpec {
-    name: &'static str,
-    fixture_path: &'static str,
-    root_oracle_path: &'static str,
-    step_oracles: &'static [StepOracle],
-}
-
-struct StepOracle {
-    step_id: &'static str,
-    oracle_path: &'static str,
+    "usage: runx-harness-fixture-oracles [--check|--write] [--summary-json] [--repo-root path]"
+        .to_owned()
 }
 
 struct CheckedReceipt<'a> {
     oracle_path: PathBuf,
     receipt: &'a Receipt,
+}
+
+#[derive(serde::Serialize)]
+struct SummaryReport {
+    schema: &'static str,
+    cases: Vec<FixtureSummary>,
+}
+
+#[derive(serde::Serialize)]
+struct FixtureSummary {
+    name: &'static str,
+    status: SummaryStatus,
+    elapsed_ms: u128,
+    receipt_id: Option<String>,
+    receipt_digest: Option<String>,
+    failure_classification: Option<FailureClassification>,
+    error: Option<String>,
+}
+
+impl FixtureSummary {
+    fn failed(
+        name: &'static str,
+        elapsed_ms: u128,
+        failure_classification: FailureClassification,
+        error: Option<String>,
+    ) -> Self {
+        Self {
+            name,
+            status: SummaryStatus::Failed,
+            elapsed_ms,
+            receipt_id: None,
+            receipt_digest: None,
+            failure_classification: Some(failure_classification),
+            error,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+enum SummaryStatus {
+    Passed,
+    Failed,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+enum FailureClassification {
+    ReplayError,
+    OracleStale,
+    DigestStale,
 }
 
 #[derive(Debug)]

@@ -20,14 +20,13 @@ use super::scheduler::{
     FanoutSchedule, FanoutScheduler, ParallelFanoutSchedule, ScheduledFanoutStep,
 };
 use super::steps::{output_error, run_step, run_step_with_index, runtime_error_step_run};
-use super::sync::{
-    completed_event, failed_event, fanout_sync_point, latest_fanout_receipt_ids, started_event,
-};
+use super::sync::{fanout_sync_point, latest_fanout_receipt_ids};
 use super::{GraphCheckpoint, GraphRun, Runtime, RuntimeOptions, StepRun};
 use crate::RuntimeError;
 use crate::adapter::SkillAdapter;
 use crate::host::{Host, NoopHost};
 use crate::journal::ExecutionJournal;
+use crate::lifecycle::LifecycleEvent;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum StepFailureMode {
@@ -327,7 +326,7 @@ impl GraphExecution {
             enforce_transition_gates(graph, step, &self.runs)?;
         }
         for scheduled in &schedule.steps {
-            self.record(host, started_event(scheduled.step_id))?;
+            self.record_lifecycle(host, LifecycleEvent::step_started(scheduled.step_id))?;
             self.start_step(runtime, scheduled.step_id);
         }
 
@@ -367,59 +366,67 @@ impl GraphExecution {
         let mut results = Vec::with_capacity(steps.len());
         let chunk_size = max_concurrency.max(1);
         for (chunk_index, chunk) in steps.chunks(chunk_size).enumerate() {
-            let chunk_start = chunk_index * chunk_size;
-            let mut chunk_results = thread::scope(|scope| -> Result<Vec<_>, RuntimeError> {
-                let mut handles = Vec::with_capacity(chunk.len());
-                for (offset, scheduled) in chunk.iter().enumerate() {
-                    let sequence = chunk_start + offset;
-                    let adapter = runtime.adapter.clone_for_fanout().ok_or_else(|| {
-                        RuntimeError::UnsupportedAdapter {
-                            adapter_type: format!(
-                                "{} parallel fanout",
-                                runtime.adapter.adapter_type()
-                            ),
-                        }
-                    })?;
-                    let options = runtime.options.clone();
-                    let graph_name = graph.name.as_str();
-                    let step = self.find_step(graph, scheduled.step_id)?;
-                    let step_id = scheduled.step_id.to_owned();
-                    let attempt = scheduled.attempt;
-                    let runs = &self.runs;
-                    let run_positions = &self.run_positions;
-                    handles.push(scope.spawn(move || {
-                        let run = execute_parallel_fanout_step(
-                            adapter,
-                            options,
-                            graph_dir,
-                            graph_name,
-                            step,
-                            attempt,
-                            runs,
-                            run_positions,
-                        )?;
-                        Ok::<ParallelStepRun, RuntimeError>(ParallelStepRun {
-                            sequence,
-                            step_id,
-                            attempt,
-                            run,
-                        })
-                    }));
-                }
-
-                let mut results = Vec::with_capacity(handles.len());
-                for handle in handles {
-                    results.push(handle.join().map_err(|_| RuntimeError::SkillFailed {
-                        skill_name: "fanout".to_owned(),
-                        message: "parallel fanout worker panicked".to_owned(),
-                    })??);
-                }
-                Ok(results)
-            })?;
+            let mut chunk_results = self.execute_parallel_fanout_batch(
+                runtime,
+                graph_dir,
+                graph,
+                chunk,
+                chunk_index * chunk_size,
+            )?;
             results.append(&mut chunk_results);
         }
         results.sort_by_key(|result| result.sequence);
         Ok(results)
+    }
+
+    fn execute_parallel_fanout_batch<A>(
+        &self,
+        runtime: &Runtime<A>,
+        graph_dir: &Path,
+        graph: &ExecutionGraph,
+        steps: &[ScheduledFanoutStep<'_>],
+        sequence_base: usize,
+    ) -> Result<Vec<ParallelStepRun>, RuntimeError>
+    where
+        A: SkillAdapter,
+    {
+        thread::scope(|scope| {
+            let mut handles = Vec::with_capacity(steps.len());
+            for (offset, scheduled) in steps.iter().enumerate() {
+                let adapter = runtime.adapter.clone_for_fanout().ok_or_else(|| {
+                    RuntimeError::UnsupportedAdapter {
+                        adapter_type: format!("{} parallel fanout", runtime.adapter.adapter_type()),
+                    }
+                })?;
+                let step = self.find_step(graph, scheduled.step_id)?;
+                let options = runtime.options.clone();
+                let graph_name = graph.name.as_str();
+                let step_id = scheduled.step_id.to_owned();
+                let attempt = scheduled.attempt;
+                let runs = &self.runs;
+                let run_positions = &self.run_positions;
+                let sequence = sequence_base + offset;
+                handles.push(scope.spawn(move || {
+                    let run = execute_parallel_fanout_step(
+                        adapter,
+                        options,
+                        graph_dir,
+                        graph_name,
+                        step,
+                        attempt,
+                        runs,
+                        run_positions,
+                    )?;
+                    Ok::<ParallelStepRun, RuntimeError>(ParallelStepRun {
+                        sequence,
+                        step_id,
+                        attempt,
+                        run,
+                    })
+                }));
+            }
+            join_parallel_fanout_handles(handles)
+        })
     }
 
     pub(super) fn block_graph(
@@ -552,7 +559,7 @@ impl GraphExecution {
     {
         let step = self.find_step(graph, plan.step_id)?;
         enforce_transition_gates(graph, step, &self.runs)?;
-        self.record(host, started_event(plan.step_id))?;
+        self.record_lifecycle(host, LifecycleEvent::step_started(plan.step_id))?;
         self.start_step(runtime, plan.step_id);
         let run = self.execute_step_plan(runtime, graph_dir, graph, step, host, plan)?;
         self.commit_step_run(runtime, host, plan, run)
@@ -618,11 +625,11 @@ impl GraphExecution {
         if run.output.succeeded() {
             self.succeed_step(runtime, plan.step_id, &run);
             self.push_run(run);
-            self.record(host, completed_event(plan.step_id))
+            self.record_lifecycle(host, LifecycleEvent::step_completed(plan.step_id))
         } else {
             self.fail_step(runtime, plan.step_id, &run);
             host.log(format!("step {} failed", plan.step_id))?;
-            self.record(host, failed_event(plan.step_id))?;
+            self.record_lifecycle(host, LifecycleEvent::step_failed(plan.step_id))?;
             if plan.failure_mode == StepFailureMode::RecordAndContinue {
                 self.push_run(run);
                 Ok(())
@@ -684,6 +691,14 @@ impl GraphExecution {
     ) -> Result<(), RuntimeError> {
         self.journal.push(event.clone());
         host.report(event)
+    }
+
+    pub(super) fn record_lifecycle(
+        &mut self,
+        host: &mut dyn Host,
+        event: LifecycleEvent,
+    ) -> Result<(), RuntimeError> {
+        self.record(host, event.into_execution_event())
     }
 
     pub(super) fn finish(
@@ -810,6 +825,19 @@ fn execute_parallel_fanout_step(
         Ok(run) => Ok(run),
         Err(error) => runtime_error_step_run(&runtime, graph_name, step, attempt, error),
     }
+}
+
+fn join_parallel_fanout_handles(
+    handles: Vec<thread::ScopedJoinHandle<'_, Result<ParallelStepRun, RuntimeError>>>,
+) -> Result<Vec<ParallelStepRun>, RuntimeError> {
+    let mut results = Vec::with_capacity(handles.len());
+    for handle in handles {
+        results.push(handle.join().map_err(|_| RuntimeError::SkillFailed {
+            skill_name: "fanout".to_owned(),
+            message: "parallel fanout worker panicked".to_owned(),
+        })??);
+    }
+    Ok(results)
 }
 
 fn run_positions(runs: &[StepRun]) -> BTreeMap<String, usize> {

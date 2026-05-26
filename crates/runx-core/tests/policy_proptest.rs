@@ -1,6 +1,7 @@
 use proptest::prelude::*;
 use proptest::test_runner::TestCaseError;
 use runx_contracts::{AuthorityTerm, JsonObject, JsonValue};
+use runx_core::policy::authority_algebra::{items_subset, optional_bound_subset};
 use runx_core::policy::{
     GraphScopeAdmissionDecision, GraphScopeAdmissionRequest, GraphScopeGrant, LocalAdmissionGrant,
     LocalAdmissionGrantStatus, LocalAdmissionOptions, LocalAdmissionSkill, LocalAdmissionSource,
@@ -72,6 +73,50 @@ proptest! {
         let right = is_payment_authority_subset(&child, &parent);
 
         prop_assert_eq!(left, right);
+    }
+
+    #[test]
+    fn authority_item_subset_is_reflexive(
+        values in prop::collection::vec(any::<u8>(), 0..24),
+    ) {
+        prop_assert!(items_subset(&values, &values));
+    }
+
+    #[test]
+    fn authority_item_subset_is_transitive(
+        parent in prop::collection::vec(any::<u8>(), 0..24),
+    ) {
+        let middle = parent
+            .iter()
+            .copied()
+            .enumerate()
+            .filter_map(|(index, value)| (index % 2 == 0).then_some(value))
+            .collect::<Vec<_>>();
+        let child = middle
+            .iter()
+            .copied()
+            .enumerate()
+            .filter_map(|(index, value)| (index % 2 == 0).then_some(value))
+            .collect::<Vec<_>>();
+
+        prop_assert!(items_subset(&middle, &parent));
+        prop_assert!(items_subset(&child, &middle));
+        prop_assert!(items_subset(&child, &parent));
+    }
+
+    #[test]
+    fn authority_optional_bounds_are_reflexive(
+        value in any::<u64>(),
+    ) {
+        prop_assert!(optional_bound_subset(Some(value), Some(value)));
+        prop_assert!(optional_bound_subset::<u64>(None, None));
+    }
+
+    #[test]
+    fn authority_optional_bounds_deny_widening(
+        (child, parent) in (1_u64..100_000).prop_flat_map(|child| (Just(child), 0_u64..child)),
+    ) {
+        prop_assert!(!optional_bound_subset(Some(child), Some(parent)));
     }
 }
 

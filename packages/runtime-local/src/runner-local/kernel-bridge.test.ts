@@ -174,6 +174,14 @@ describe("Rust kernel CLI JSON bridge", () => {
     });
   });
 
+  it("bounds Rust kernel bridge stdout", async () => {
+    await expect(createSingleStepStateViaKernel("echo", {
+      command: process.execPath,
+      argsPrefix: ["-e", "process.stdout.write('a'.repeat(1024 * 1024 + 1));", "--"],
+      timeoutMs: 5_000,
+    })).rejects.toThrow("Rust kernel eval stdout exceeded 1048576 bytes");
+  });
+
   it("uses the Rust kernel for requested graph scope admission", async () => {
     await expect(admitGraphStepScopesViaKernel({
       stepId: "echo",

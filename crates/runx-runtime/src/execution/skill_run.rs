@@ -30,14 +30,12 @@ use crate::agent_invocation::{
 use crate::execution::orchestrator::SkillRunRequest;
 use crate::execution::runner::{GraphCheckpoint, GraphRun, Runtime, RuntimeOptions};
 use crate::host::Host;
-use crate::receipts::paths::{
-    RUNX_CWD_ENV, RUNX_PROJECT_DIR_ENV, ReceiptPathInputs, resolve_receipt_path,
-};
-use crate::receipts::store::{LocalReceiptStore, ReceiptStoreError};
+use crate::receipts::store::ReceiptStoreError;
 use crate::receipts::{
     RuntimeReceiptSignatureConfig, StepReceiptWithDisposition,
     step_receipt_with_disposition_and_policy,
 };
+use crate::services::{ReceiptServices, WorkspaceEnv};
 
 const SKILL_RUN_SCHEMA: &str = "runx.skill_run.v1";
 const GRAPH_SKILL_STATE_SCHEMA: &str = "runx.graph_skill_state.v1";
@@ -53,7 +51,8 @@ pub enum SkillRunError {
 }
 
 pub(crate) fn execute_skill_run(request: &SkillRunRequest) -> Result<JsonValue, SkillRunError> {
-    let signature_config = RuntimeReceiptSignatureConfig::from_env(&request.env)
+    let workspace = WorkspaceEnv::new(request.env.clone(), request.cwd.clone());
+    let receipts = ReceiptServices::from_env(workspace.env())
         .map_err(|error| SkillRunError::Invalid(error.to_string()))?;
     let skill_dir = resolve_skill_dir(&request.skill_path)?;
     let manifest = load_runner_manifest(&skill_dir)?;
@@ -74,23 +73,22 @@ pub(crate) fn execute_skill_run(request: &SkillRunRequest) -> Result<JsonValue, 
     )?;
     if runner.source.source_type == runx_parser::SourceKind::CliTool {
         return execute_cli_tool_skill_run(
-            request,
-            &signature_config,
-            &manifest,
-            runner,
-            invocation,
+            request, &workspace, &receipts, &manifest, runner, invocation,
         );
     }
     if runner.source.source_type == runx_parser::SourceKind::Graph {
-        return execute_graph_skill_run(request, &signature_config, &manifest, runner);
+        return execute_graph_skill_run(request, &workspace, &receipts, &manifest, runner);
     }
 
-    execute_agent_skill_run(request, &signature_config, &manifest, runner, invocation)
+    execute_agent_skill_run(
+        request, &workspace, &receipts, &manifest, runner, invocation,
+    )
 }
 
 fn execute_agent_skill_run(
     request: &SkillRunRequest,
-    signature_config: &RuntimeReceiptSignatureConfig,
+    workspace: &WorkspaceEnv,
+    receipts: &ReceiptServices,
     manifest: &SkillRunnerManifest,
     runner: &SkillRunnerDefinition,
     invocation: SkillInvocation,
@@ -112,8 +110,14 @@ fn execute_agent_skill_run(
     let stdout = serde_json::to_string(&answer)
         .map_err(|error| SkillRunError::Invalid(format!("failed to serialize answer: {error}")))?;
     let disposition = answer_disposition(&answer);
-    let receipt = seal_skill_answer(&run_id, runner, &stdout, disposition, signature_config)?;
-    write_skill_receipt(request, &receipt, signature_config)?;
+    let receipt = seal_skill_answer(
+        &run_id,
+        runner,
+        &stdout,
+        disposition,
+        receipts.signature_config(),
+    )?;
+    write_skill_receipt(request, workspace, receipts, &receipt)?;
 
     Ok(JsonValue::Object(sealed_output(
         manifest,
@@ -129,7 +133,8 @@ fn execute_agent_skill_run(
 // checkpoint hydration, host resolution, and final receipt sealing in one path.
 fn execute_graph_skill_run(
     request: &SkillRunRequest,
-    signature_config: &RuntimeReceiptSignatureConfig,
+    workspace: &WorkspaceEnv,
+    receipts: &ReceiptServices,
     manifest: &SkillRunnerManifest,
     runner: &SkillRunnerDefinition,
 ) -> Result<JsonValue, SkillRunError> {
@@ -146,13 +151,13 @@ fn execute_graph_skill_run(
     let graph = materialize_graph_inputs(graph, &request.inputs);
     let run_id = graph_run_id(request, runner)?;
     let skill_dir = resolve_skill_dir(&request.skill_path)?;
-    let env = graph_runtime_env(request, &skill_dir);
+    let env = workspace.graph_env_for_skill(&skill_dir);
     let runtime = Runtime::new(
         SkillRunGraphAdapter,
         RuntimeOptions {
             created_at: crate::time::now_iso8601(),
             env,
-            receipt_signature: signature_config.clone(),
+            receipt_signature: receipts.signature_config().clone(),
             payment_supervisor: Default::default(),
         },
     );
@@ -162,7 +167,7 @@ fn execute_graph_skill_run(
     };
     let mut host = SkillRunGraphHost::new(answers);
     let mut checkpoint = if request.answers_path.is_some() {
-        read_graph_state(request, &run_id, &runner.name)?.checkpoint
+        read_graph_state(request, workspace, receipts, &run_id, &runner.name)?.checkpoint
     } else {
         runtime.run_graph_until_steps_with_host(&skill_dir, &graph, 0, &mut host)?
     };
@@ -181,7 +186,7 @@ fn execute_graph_skill_run(
                         previous_checkpoint,
                         &mut final_host,
                     )?;
-                    write_skill_receipt(request, &run.receipt, signature_config)?;
+                    write_skill_receipt(request, workspace, receipts, &run.receipt)?;
                     let payload = graph_payload(&run)?;
                     let output = graph_skill_output(&payload, &run)?;
                     return Ok(JsonValue::Object(sealed_output(
@@ -195,6 +200,8 @@ fn execute_graph_skill_run(
                 }
                 write_graph_state(
                     request,
+                    workspace,
+                    receipts,
                     &run_id,
                     &GraphSkillRunState {
                         schema: GRAPH_SKILL_STATE_SCHEMA.to_owned(),
@@ -208,6 +215,8 @@ fn execute_graph_skill_run(
             Err(RuntimeError::GraphBlocked { .. }) if host.pending_request().is_some() => {
                 write_graph_state(
                     request,
+                    workspace,
+                    receipts,
                     &run_id,
                     &GraphSkillRunState {
                         schema: GRAPH_SKILL_STATE_SCHEMA.to_owned(),
@@ -354,41 +363,6 @@ fn graph_run_id(
     }
 }
 
-fn graph_runtime_env(request: &SkillRunRequest, skill_dir: &Path) -> BTreeMap<String, String> {
-    let mut env = request.env.clone();
-    for key in ["PATH", "SystemRoot", "PATHEXT"] {
-        if !env.contains_key(key) {
-            if let Ok(value) = std::env::var(key) {
-                env.insert(key.to_owned(), value);
-            }
-        }
-    }
-    let cwd = request.cwd.to_string_lossy().into_owned();
-    env.entry(RUNX_CWD_ENV.to_owned())
-        .or_insert_with(|| cwd.clone());
-    env.entry(RUNX_PROJECT_DIR_ENV.to_owned()).or_insert(cwd);
-    if !env.contains_key("RUNX_TOOL_ROOTS") {
-        if let Some(joined) = inferred_tool_roots(skill_dir) {
-            env.insert("RUNX_TOOL_ROOTS".to_owned(), joined);
-        }
-    }
-    env
-}
-
-fn inferred_tool_roots(skill_dir: &Path) -> Option<String> {
-    let root = skill_dir
-        .parent()
-        .filter(|parent| parent.file_name().and_then(|name| name.to_str()) == Some("skills"))
-        .and_then(Path::parent)?;
-    let tools_root = root.join("tools");
-    if !tools_root.is_dir() {
-        return None;
-    }
-    std::env::join_paths([tools_root])
-        .ok()
-        .map(|value| value.to_string_lossy().into_owned())
-}
-
 fn read_answers(path: &Path) -> Result<JsonObject, SkillRunError> {
     let raw = fs::read_to_string(path)
         .map_err(|source| RuntimeError::io(format!("reading {}", path.display()), source))?;
@@ -406,13 +380,13 @@ fn read_answers(path: &Path) -> Result<JsonObject, SkillRunError> {
     Ok(answers)
 }
 
-fn graph_state_path(request: &SkillRunRequest, run_id: &str) -> PathBuf {
-    let receipt_path = resolve_receipt_path(ReceiptPathInputs {
-        explicit_dir: request.receipt_dir.as_deref(),
-        runtime_config: None,
-        env: &request.env,
-        cwd: &request.cwd,
-    });
+fn graph_state_path(
+    request: &SkillRunRequest,
+    workspace: &WorkspaceEnv,
+    receipts: &ReceiptServices,
+    run_id: &str,
+) -> PathBuf {
+    let receipt_path = receipts.resolve_path(workspace, request.receipt_dir.as_deref(), None);
     receipt_path
         .path
         .join("runs")
@@ -421,10 +395,12 @@ fn graph_state_path(request: &SkillRunRequest, run_id: &str) -> PathBuf {
 
 fn write_graph_state(
     request: &SkillRunRequest,
+    workspace: &WorkspaceEnv,
+    receipts: &ReceiptServices,
     run_id: &str,
     state: &GraphSkillRunState,
 ) -> Result<(), SkillRunError> {
-    let path = graph_state_path(request, run_id);
+    let path = graph_state_path(request, workspace, receipts, run_id);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .map_err(|source| RuntimeError::io(format!("creating {}", parent.display()), source))?;
@@ -438,10 +414,12 @@ fn write_graph_state(
 
 fn read_graph_state(
     request: &SkillRunRequest,
+    workspace: &WorkspaceEnv,
+    receipts: &ReceiptServices,
     run_id: &str,
     runner_name: &str,
 ) -> Result<GraphSkillRunState, SkillRunError> {
-    let path = graph_state_path(request, run_id);
+    let path = graph_state_path(request, workspace, receipts, run_id);
     let raw = fs::read_to_string(&path)
         .map_err(|source| RuntimeError::io(format!("reading {}", path.display()), source))?;
     let state: GraphSkillRunState = serde_json::from_str(&raw)
@@ -711,7 +689,8 @@ fn runner_invocation(
 #[cfg(feature = "cli-tool")]
 fn execute_cli_tool_skill_run(
     request: &SkillRunRequest,
-    signature_config: &RuntimeReceiptSignatureConfig,
+    workspace: &WorkspaceEnv,
+    receipts: &ReceiptServices,
     manifest: &SkillRunnerManifest,
     runner: &SkillRunnerDefinition,
     invocation: SkillInvocation,
@@ -742,9 +721,9 @@ fn execute_cli_tool_skill_run(
         disposition.clone(),
         format!("process_{}", closure_disposition_label(&disposition)),
         format!("cli-tool {} completed", runner.name),
-        signature_config,
+        receipts.signature_config(),
     )?;
-    write_skill_receipt(request, &receipt, signature_config)?;
+    write_skill_receipt(request, workspace, receipts, &receipt)?;
     Ok(JsonValue::Object(sealed_output(
         manifest,
         &run_id,
@@ -758,7 +737,8 @@ fn execute_cli_tool_skill_run(
 #[cfg(not(feature = "cli-tool"))]
 fn execute_cli_tool_skill_run(
     _request: &SkillRunRequest,
-    _signature_config: &RuntimeReceiptSignatureConfig,
+    _workspace: &WorkspaceEnv,
+    _receipts: &ReceiptServices,
     _manifest: &SkillRunnerManifest,
     _runner: &SkillRunnerDefinition,
     _invocation: SkillInvocation,
@@ -770,17 +750,13 @@ fn execute_cli_tool_skill_run(
 
 fn write_skill_receipt(
     request: &SkillRunRequest,
+    workspace: &WorkspaceEnv,
+    receipts: &ReceiptServices,
     receipt: &runx_contracts::Receipt,
-    signature_config: &RuntimeReceiptSignatureConfig,
 ) -> Result<(), SkillRunError> {
-    let receipt_path = resolve_receipt_path(ReceiptPathInputs {
-        explicit_dir: request.receipt_dir.as_deref(),
-        runtime_config: None,
-        env: &request.env,
-        cwd: &request.cwd,
-    });
-    LocalReceiptStore::new(&receipt_path.path)
-        .write_receipt_with_policy(receipt, signature_config.signature_policy())
+    let receipt_path = receipts.resolve_path(workspace, request.receipt_dir.as_deref(), None);
+    receipts
+        .write_local_receipt(receipt, &receipt_path)
         .map_err(Into::into)
 }
 

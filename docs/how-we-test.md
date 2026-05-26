@@ -3,6 +3,19 @@
 Runx has two local test lanes: a fast loop for package-adjacent work and a full
 workspace suite for release confidence.
 
+Rust runtime work has four explicit gates:
+
+| Gate | Purpose | Command shape |
+| --- | --- | --- |
+| Local fast | Tight edit loop for nearby package/runtime changes. | `pnpm verify:fast` or a focused `cargo test --manifest-path crates/Cargo.toml -p <crate> ...` |
+| CI fast | Deterministic semantic and boundary checks that should run on every review. | `pnpm boundary:check`, `pnpm typecheck`, focused Rust contract/runtime tests |
+| Heavy | Perf, fanout, MCP, external-process, and oracle checks that are useful before release or risky runtime changes. | `pnpm stress:runtime:*`, `pnpm perf:runtime:check -- --baseline <path>` |
+| Soak | Long-running replay/stress loops that should be invoked intentionally, never hidden inside the default workspace test. | Repeated stress commands under an external runner with captured JSON output |
+
+Do not hide heavy or soak work inside `cargo test --workspace` or `pnpm test`.
+The normal loop should fail fast; replay and stress gates should produce
+machine-readable output that can be archived with the spec or CI run.
+
 ## Fast Loop
 
 Use this while editing core runtime, harness, parser, policy, or nearby tests:
@@ -67,6 +80,34 @@ Use checked-in fixtures when a behavior should remain stable:
 
 Prefer small fixtures with one purpose. If an example appears in docs, add a
 test or harness so the docs fail loudly when the runtime shape changes.
+
+Harness replay is owned by Rust. The fixture registry lives in
+`runx_runtime::harness::list_cases()`, and the
+`runx-harness-fixture-oracles` binary consumes that same registry for checks,
+regeneration, and summary output:
+
+```bash
+pnpm fixtures:harness:check
+pnpm fixtures:harness:summary
+```
+
+The summary path emits one JSON record per case with status, elapsed time,
+receipt id, receipt digest, and failure classification.
+
+## Runtime Stress
+
+Adapter and fanout stress gates are explicit scripts:
+
+```bash
+pnpm stress:runtime:mcp
+pnpm stress:runtime:cli-tool
+pnpm stress:runtime:external-adapter
+pnpm stress:runtime:fanout
+```
+
+These commands exercise MCP stdio/server wiring, CLI-tool process supervision,
+external adapter cancellation/error boundaries, and fanout ordering/concurrency.
+They are heavy gates, not the default local loop.
 
 ## Adding Tests
 

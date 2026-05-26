@@ -44,6 +44,8 @@ use crate::payment::supervisor::{
 };
 #[cfg(feature = "cli-tool")]
 use crate::receipts::RuntimeReceiptSignaturePolicy;
+#[cfg(feature = "cli-tool")]
+use crate::receipts::paths::RUNX_CWD_ENV;
 use crate::receipts::paths::{RUNX_RECEIPT_DIR_ENV, ReceiptPathInputs, resolve_receipt_path};
 use crate::receipts::{
     GraphClosure, StepReceiptWithDisposition, graph_receipt_with_disposition_and_policy,
@@ -527,6 +529,14 @@ fn x402_idempotency_run_env(
 ) -> Result<RuntimeOptions, HarnessReplayError> {
     let mut env = options.env.clone();
     env.extend(fixture.env.clone());
+    env.insert(
+        RUNX_CWD_ENV.to_owned(),
+        payment_state_path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .to_string_lossy()
+            .into_owned(),
+    );
     env.insert(
         RUNX_PAYMENT_STATE_PATH_ENV.to_owned(),
         payment_state_path.to_string_lossy().into_owned(),

@@ -73,4 +73,12 @@ describe("Rust parser CLI JSON bridge", () => {
       },
     })).rejects.toThrow("RUNX_PARSER_EVAL_BIN");
   });
+
+  it("bounds Rust parser bridge stdout", async () => {
+    await expect(validateGraphYamlViaParser("name: gx\nsteps: []\n", {
+      command: process.execPath,
+      argsPrefix: ["-e", "process.stdout.write('a'.repeat(1024 * 1024 + 1));", "--"],
+      timeoutMs: 5_000,
+    })).rejects.toThrow("Rust parser eval stdout exceeded 1048576 bytes");
+  });
 });

@@ -1,10 +1,15 @@
 // rust-style-allow: large-file - payment authority comparison is one algebraic boundary; splitting it before the core term model settles would hide subset invariants.
 use runx_contracts::{
-    AuthorityCapability, AuthorityCondition, AuthorityResourceFamily, AuthoritySubsetProof,
-    AuthoritySubsetRelation, AuthoritySubsetResult, AuthorityTerm, AuthorityVerb, Decision,
-    DecisionChoice, PaymentAuthorityBounds, PaymentCredentialForm, Reference,
+    AuthorityCapability, AuthorityResourceFamily, AuthoritySubsetProof, AuthoritySubsetRelation,
+    AuthoritySubsetResult, AuthorityTerm, AuthorityVerb, Decision, DecisionChoice,
+    PaymentAuthorityBounds, PaymentCredentialForm, Reference,
 };
 use thiserror::Error;
+
+use super::authority_algebra::{
+    items_subset, optional_bound_subset, optional_exact_or_narrower, optional_ref_bound_subset,
+    parent_items_preserved, same_reference_address,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StepAuthorityAdmission<'a> {
@@ -417,17 +422,13 @@ fn same_reference(left: &Reference, right: &Reference) -> bool {
 pub fn is_payment_authority_subset(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool {
     child.resource_family == AuthorityResourceFamily::Payment
         && parent.resource_family == AuthorityResourceFamily::Payment
-        && same_authority_resource(&child.resource_ref, &parent.resource_ref)
-        && verbs_subset(&child.verbs, &parent.verbs)
-        && capabilities_subset(child, parent)
-        && parent_conditions_preserved(child, parent)
-        && parent_approvals_preserved(child, parent)
-        && expiry_subset(child, parent)
+        && same_reference_address(&child.resource_ref, &parent.resource_ref)
+        && items_subset(&child.verbs, &parent.verbs)
+        && items_subset(&child.capabilities, &parent.capabilities)
+        && parent_items_preserved(&child.conditions, &parent.conditions)
+        && parent_items_preserved(&child.approvals, &parent.approvals)
+        && optional_ref_bound_subset(child.expires_at.as_ref(), parent.expires_at.as_ref())
         && payment_bounds_subset(child, parent)
-}
-
-fn same_authority_resource(child: &Reference, parent: &Reference) -> bool {
-    child.reference_type == parent.reference_type && child.uri == parent.uri
 }
 
 fn payment_bounds_subset(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool {
@@ -446,8 +447,8 @@ fn payment_bounds_subset(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool 
         && optional_exact_or_narrower(&child_payment.operation, &parent_payment.operation)
         && optional_exact_or_narrower(&child_payment.period, &parent_payment.period)
         && required_booleans_subset(child_payment, parent_payment)
-        && optional_u64_lte_when_parent_set(child_payment.quote_ttl_ms, parent_payment.quote_ttl_ms)
-        && optional_u64_lte_when_parent_set(
+        && optional_bound_subset(child_payment.quote_ttl_ms, parent_payment.quote_ttl_ms)
+        && optional_bound_subset(
             child_payment.approval_threshold_minor,
             parent_payment.approval_threshold_minor,
         )
@@ -456,46 +457,6 @@ fn payment_bounds_subset(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool 
             &parent_payment.credential_form,
         )
         && single_use_spend_capability_for_reserve_or_spend(child, parent)
-}
-
-fn verbs_subset(child: &[AuthorityVerb], parent: &[AuthorityVerb]) -> bool {
-    child.iter().all(|verb| parent.contains(verb))
-}
-
-fn capabilities_subset(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool {
-    child
-        .capabilities
-        .iter()
-        .all(|capability| parent.capabilities.contains(capability))
-}
-
-fn parent_conditions_preserved(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool {
-    parent
-        .conditions
-        .iter()
-        .all(|condition| condition_is_preserved(condition, &child.conditions))
-}
-
-fn condition_is_preserved(
-    parent: &AuthorityCondition,
-    child_conditions: &[AuthorityCondition],
-) -> bool {
-    child_conditions.iter().any(|child| child == parent)
-}
-
-fn parent_approvals_preserved(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool {
-    parent
-        .approvals
-        .iter()
-        .all(|approval| child.approvals.contains(approval))
-}
-
-fn expiry_subset(child: &AuthorityTerm, parent: &AuthorityTerm) -> bool {
-    match (&child.expires_at, &parent.expires_at) {
-        (_, None) => true,
-        (Some(child), Some(parent)) => child <= parent,
-        (None, Some(_)) => false,
-    }
 }
 
 fn required_currency_equal(
@@ -527,13 +488,13 @@ fn minor_unit_caps_subset(
         return false;
     }
 
-    optional_cap_subset(
+    optional_bound_subset(
         child_payment.max_per_call_minor,
         parent_payment.max_per_call_minor,
-    ) && optional_cap_subset(
+    ) && optional_bound_subset(
         child_payment.max_per_run_minor,
         parent_payment.max_per_run_minor,
-    ) && optional_cap_subset(
+    ) && optional_bound_subset(
         child_payment.max_per_period_minor,
         parent_payment.max_per_period_minor,
     )
@@ -555,26 +516,10 @@ fn uses_minor_units(term: &AuthorityTerm) -> bool {
     })
 }
 
-fn optional_cap_subset(child: Option<u64>, parent: Option<u64>) -> bool {
-    match (child, parent) {
-        (Some(child), Some(parent)) => child <= parent,
-        (None, Some(_)) => false,
-        (Some(_), None) | (None, None) => true,
-    }
-}
-
 fn rails_subset(child: &PaymentAuthorityBounds, parent: &PaymentAuthorityBounds) -> bool {
     !child.rails.is_empty()
         && !parent.rails.is_empty()
         && child.rails.iter().all(|rail| parent.rails.contains(rail))
-}
-
-fn optional_exact_or_narrower<T: Eq>(child: &Option<T>, parent: &Option<T>) -> bool {
-    match (child, parent) {
-        (_, None) => true,
-        (Some(child), Some(parent)) => child == parent,
-        (None, Some(_)) => false,
-    }
 }
 
 fn required_booleans_subset(
@@ -586,13 +531,6 @@ fn required_booleans_subset(
         && (!parent.idempotency_required || child.idempotency_required)
         && (!parent.recovery_required || child.recovery_required)
         && (!parent.receipt_before_success || child.receipt_before_success)
-}
-
-fn optional_u64_lte_when_parent_set(child: Option<u64>, parent: Option<u64>) -> bool {
-    match parent {
-        Some(parent) => child.is_some_and(|child| child <= parent),
-        None => true,
-    }
 }
 
 fn single_use_spend_capability_for_reserve_or_spend(

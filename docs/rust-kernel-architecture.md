@@ -209,6 +209,41 @@ surface is `runx-cli` with a binary named `runx`. If the name ever becomes
 available or transferred, an umbrella crate can be proposed in a separate spec;
 until then consumers depend on the specific crate they need.
 
+### Runtime buckets
+
+The runtime crate is the impure owner, but it should not read as one flat bag
+of side effects. Current modules map to these implementation buckets:
+
+- Service construction: `config`, `credentials`, `registry`, `runtime_http`,
+  `receipts::paths`, `receipts::signing`, and the `RuntimeOptions` entrypoint.
+  These modules resolve environment, credentials, registry roots, HTTP clients,
+  receipt paths, and signing policy. They should become typed service facets
+  that are constructed near runtime entrypoints, not leaf adapters.
+- Harness execution: `execution::harness`, `execution::orchestrator`,
+  `execution::runner`, `execution::skill_run`, and
+  `execution::target_runner`. These modules open the governed execution
+  boundary, run graphs or skills, and seal receipts.
+- Adapter invocation: `adapter`, `adapters::*`, `agent_invocation`,
+  `sandbox`, and `outbox_provider`. These modules resolve an invocation,
+  admit it, run or supervise a process/protocol call, capture output, and
+  return projected evidence to the harness.
+- Receipt and event projection: `receipts`, `journal`, `host`, `redaction`,
+  and the receipt tree verifier. These modules own durable evidence and the
+  projections that feed history, hosted ingestion, and fixture oracles.
+- Authority algebra: `runx-core::policy` plus runtime consumers in
+  `execution::runner::authority`, `approval`, `payment`, and
+  `credential_grant_policy` tests. Runtime code may record authority evidence,
+  but checkable attenuation belongs in typed policy primitives.
+- CLI presentation: `runx-cli` owns argument parsing, output, and exit codes.
+  It may call runtime services, but should not recreate runtime semantics.
+- Dev and testing: `dev`, `doctor`, `scaffold`, `tool_catalogs`, harness
+  fixtures, adapter oracles, throughput scripts, and stress gates. These are
+  product surfaces for authors and maintainers, not hidden fallback runtimes.
+
+These buckets are not proposed Cargo crates. They are the internal ownership
+map for `runx-rust-runtime-architecture-lift-v1`: split only where the split
+creates a clearer dependency or capability boundary.
+
 ## 4. `runx-core` public API stance
 
 `runx-core` is library-only and not published in this phase. Its public API is

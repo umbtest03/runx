@@ -1,6 +1,5 @@
 use runx_contracts::{
-    ExecutionEvent, FanoutReceiptDecision, FanoutReceiptStrategy, FanoutReceiptSyncPoint,
-    JsonObject,
+    FanoutReceiptDecision, FanoutReceiptStrategy, FanoutReceiptSyncPoint, JsonObject,
 };
 use runx_core::state_machine::{FanoutSyncDecision, FanoutSyncOutcome, FanoutSyncStrategy};
 use runx_parser::ExecutionGraph;
@@ -69,25 +68,4 @@ pub(super) fn decision_gate(
         return None;
     };
     Some(object)
-}
-
-pub(super) fn started_event(step_id: &str) -> ExecutionEvent {
-    ExecutionEvent::StepStarted {
-        message: format!("step {step_id} started"),
-        data: None,
-    }
-}
-
-pub(super) fn completed_event(step_id: &str) -> ExecutionEvent {
-    ExecutionEvent::StepCompleted {
-        message: format!("step {step_id} completed"),
-        data: None,
-    }
-}
-
-pub(super) fn failed_event(step_id: &str) -> ExecutionEvent {
-    ExecutionEvent::Warning {
-        message: format!("step {step_id} failed"),
-        data: None,
-    }
 }

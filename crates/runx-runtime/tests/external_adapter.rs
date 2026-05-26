@@ -230,6 +230,55 @@ exit 12
 }
 
 #[test]
+fn external_adapter_process_supervisor_rejects_spawn_failure()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let mut manifest = manifest_for_script(&temp.path().join("missing-adapter-command"))?;
+    manifest.transport.command = Some(path_string(&temp.path().join("missing-shell"))?.into());
+
+    let Err(error) = ExternalAdapterProcessSupervisor.invoke(&manifest, &base_invocation()) else {
+        return Err("spawn failure must fail closed".into());
+    };
+
+    assert!(matches!(
+        error,
+        ExternalAdapterSupervisorError::Io { context, .. }
+            if context == "spawning external adapter process"
+    ));
+    Ok(())
+}
+
+#[test]
+fn external_adapter_process_supervisor_rejects_oversized_stdout()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let script = write_script(
+        temp.path(),
+        r#"set -eu
+IFS= read -r _invocation
+chunk=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+i=0
+while [ "$i" -lt 20000 ]; do
+  printf '%s' "$chunk"
+  i=$((i + 1))
+done
+"#,
+    )?;
+
+    let Err(error) =
+        ExternalAdapterProcessSupervisor.invoke(&manifest_for_script(&script)?, &base_invocation())
+    else {
+        return Err("oversized stdout must fail closed".into());
+    };
+
+    assert!(matches!(
+        error,
+        ExternalAdapterSupervisorError::ResponseTooLarge { .. }
+    ));
+    Ok(())
+}
+
+#[test]
 fn external_adapter_process_supervisor_rejects_unknown_protocol_before_spawn()
 -> Result<(), Box<dyn std::error::Error>> {
     let manifest = serde_json::json!({
@@ -449,6 +498,29 @@ printf '%s' "$invocation" > "$RUNX_CAPTURE_INVOCATION"
             && !serde_json::to_string(&output.metadata)?.contains("ghs_secret_token"),
         "public external adapter frames must not contain raw credential material"
     );
+    Ok(())
+}
+
+#[test]
+fn external_adapter_skill_adapter_preserves_response_stderr()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let response_path = temp.path().join("response.json");
+    let mut response = completed_response();
+    response.invocation_id = "external_adapter.external-smoke.invoke".to_owned();
+    response.stderr = Some("adapter warning".to_owned());
+    fs::write(&response_path, serde_json::to_vec(&response)?)?;
+    let script = write_cat_response_script(temp.path())?;
+    let manifest = manifest_for_script(&script)?;
+
+    let output = ExternalAdapterSkillAdapter::default().invoke(skill_invocation(
+        temp.path(),
+        Some(manifest),
+        [("RUNX_RESPONSE_PATH", path_string(&response_path)?)],
+    )?)?;
+
+    assert_eq!(output.status, runx_runtime::InvocationStatus::Success);
+    assert_eq!(output.stderr, "adapter warning");
     Ok(())
 }
 

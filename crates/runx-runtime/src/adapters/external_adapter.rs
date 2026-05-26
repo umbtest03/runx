@@ -2,13 +2,8 @@
 // validation, timeout handling, and frame normalization must stay adjacent to
 // keep the external adapter boundary auditable.
 use std::collections::BTreeMap;
-use std::io::{Read, Write};
-#[cfg(unix)]
-use std::os::unix::process::CommandExt;
 use std::path::{Component, Path, PathBuf};
-use std::process::{Child, Command, ExitStatus, Stdio};
-use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use runx_contracts::{
     CredentialDeliveryPurpose, EXTERNAL_ADAPTER_PROTOCOL_VERSION, ExternalAdapterCancellationFrame,
@@ -23,7 +18,9 @@ use thiserror::Error;
 
 use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
+use crate::adapter_pipeline::AdapterInvocationPlan;
 use crate::credentials::CredentialDelivery;
+use crate::process::{ProcessOutcome, ProcessSpec, ProcessStdin, run_process};
 use crate::receipts::paths::RUNX_RECEIPT_DIR_ENV;
 use crate::time::now_iso8601;
 
@@ -40,8 +37,6 @@ const HOST_RESOLUTION_SCHEMA: &str = "runx.external_adapter.host_resolution.v1";
 const CREDENTIAL_DELIVERY_OBSERVATIONS_METADATA: &str = "credential_delivery_observations";
 const HOST_RESOLUTION_FRAME_ID_METADATA: &str = "external_adapter_host_resolution_frame_id";
 const HOST_RESOLUTION_REQUEST_METADATA: &str = "external_adapter_host_resolution_request";
-const POLL_INTERVAL: Duration = Duration::from_millis(10);
-const FORCE_KILL_GRACE: Duration = Duration::from_millis(100);
 const RESPONSE_LIMIT_BYTES: usize = 1024 * 1024;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -94,12 +89,14 @@ where
     }
 
     fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
+        let plan = AdapterInvocationPlan::from_invocation(self.adapter_type(), &request);
+        debug_assert_eq!(plan.adapter_type(), self.adapter_type());
         if request.source.source_type != runx_parser::SourceKind::ExternalAdapter {
             return Err(RuntimeError::UnsupportedAdapter {
-                adapter_type: request.source.source_type.as_str().to_owned(),
+                adapter_type: plan.source_type().to_owned(),
             });
         }
-        let skill_name = request.skill_name.clone();
+        let skill_name = plan.skill_name().to_owned();
         invoke_external_adapter_skill(request, &self.manifest_resolver, &self.supervisor).map_err(
             |error| RuntimeError::SkillFailed {
                 skill_name,
@@ -302,38 +299,25 @@ impl ExternalAdapterProcessSupervisor {
             .reject_process_env_boundary("external-adapter")
             .map_err(|_| ExternalAdapterSupervisorError::CredentialProcessEnvUnsupported)?;
         validate_invocation_contract(manifest, invocation)?;
-        let started = Instant::now();
         let command = process_command(manifest)?;
-        let mut child = spawn_process(command, manifest, invocation, credential_delivery)?;
-        let stdout = capture_pipe(child.stdout.take(), "opening external adapter stdout pipe")?;
-        let stderr = capture_pipe(child.stderr.take(), "opening external adapter stderr pipe")?;
-        if let Err(error) = write_invocation(&mut child, invocation) {
-            let _cleanup = kill_timed_out_process(&mut child, KillSignal::Force);
-            let _wait = child.wait();
-            let _stdout = join_capture(stdout, "collecting failed external adapter stdout");
-            let _stderr = join_capture(stderr, "collecting failed external adapter stderr");
-            return Err(error);
+        let ProcessOutcome {
+            status,
+            timed_out,
+            stdout,
+            stderr: _drained_stderr,
+            duration_ms,
+            cleanup_errors: _cleanup_errors,
+        } = run_external_adapter_process(command, manifest, invocation, credential_delivery)?;
+        if timed_out {
+            return Err(ExternalAdapterSupervisorError::TimedOut {
+                timeout_ms: manifest.timeouts.invocation_ms,
+                cancellation: Box::new(timeout_cancellation_frame(
+                    manifest,
+                    invocation,
+                    manifest.timeouts.invocation_ms,
+                )),
+            });
         }
-        let timeout = Duration::from_millis(manifest.timeouts.invocation_ms);
-        let wait_result = wait_for_exit(&mut child, timeout)?;
-
-        let status = match wait_result {
-            WaitResult::Exited(status) => status,
-            WaitResult::TimedOut => {
-                let _stdout = join_capture(stdout, "collecting timed out external adapter stdout");
-                let _stderr = join_capture(stderr, "collecting timed out external adapter stderr");
-                return Err(ExternalAdapterSupervisorError::TimedOut {
-                    timeout_ms: manifest.timeouts.invocation_ms,
-                    cancellation: Box::new(timeout_cancellation_frame(
-                        manifest,
-                        invocation,
-                        manifest.timeouts.invocation_ms,
-                    )),
-                });
-            }
-        };
-        let stdout = join_capture(stdout, "collecting external adapter stdout")?;
-        let _stderr = join_capture(stderr, "collecting external adapter stderr")?;
         if !status.success() {
             return Err(ExternalAdapterSupervisorError::ProcessFailed {
                 exit_status: status.to_string(),
@@ -349,7 +333,7 @@ impl ExternalAdapterProcessSupervisor {
         Ok(ExternalAdapterProcessOutcome {
             response,
             process_exit_code: status.code(),
-            duration_ms: duration_ms(started),
+            duration_ms,
         })
     }
 }
@@ -788,29 +772,26 @@ fn process_command(
     Ok(command)
 }
 
-fn spawn_process(
-    process_command: &str,
+fn run_external_adapter_process(
+    command: &str,
     manifest: &ExternalAdapterManifest,
     invocation: &ExternalAdapterInvocation,
     credential_delivery: &CredentialDelivery,
-) -> Result<Child, ExternalAdapterSupervisorError> {
-    let mut command = Command::new(process_command);
-    if let Some(args) = manifest.transport.args.as_ref() {
-        command.args(args);
-    }
+) -> Result<ProcessOutcome, ExternalAdapterSupervisorError> {
+    let mut spec = ProcessSpec::new("external adapter", command.to_owned(), RESPONSE_LIMIT_BYTES)
+        .args(manifest.transport.args.clone().unwrap_or_default())
+        .env(process_env(invocation, credential_delivery)?)
+        .stdin(Some(ProcessStdin::new(
+            invocation_stdin(invocation)?,
+            "writing external adapter invocation",
+        )))
+        .timeout(Some(Duration::from_millis(manifest.timeouts.invocation_ms)));
     if let Some(cwd) = invocation.cwd.as_ref() {
-        command.current_dir(cwd.as_str());
+        spec = spec.cwd(cwd.to_string());
     }
-    command
-        .env_clear()
-        .envs(process_env(invocation, credential_delivery)?)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    configure_process_group(&mut command);
-    command
-        .spawn()
-        .map_err(|source| io_error("spawning external adapter process", source))
+    run_process(spec).map_err(|error| match error {
+        crate::process::ProcessSupervisorError::Io { context, source } => io_error(context, source),
+    })
 }
 
 fn process_env(
@@ -832,19 +813,13 @@ fn process_env(
     Ok(env)
 }
 
-fn write_invocation(
-    child: &mut Child,
+fn invocation_stdin(
     invocation: &ExternalAdapterInvocation,
-) -> Result<(), ExternalAdapterSupervisorError> {
-    let Some(mut stdin) = child.stdin.take() else {
-        return Ok(());
-    };
-    serde_json::to_writer(&mut stdin, invocation)
+) -> Result<Vec<u8>, ExternalAdapterSupervisorError> {
+    let mut bytes = serde_json::to_vec(invocation)
         .map_err(|source| json_error("serializing external adapter invocation", source))?;
-    stdin
-        .write_all(b"\n")
-        .map_err(|source| io_error("writing external adapter invocation", source))?;
-    Ok(())
+    bytes.push(b'\n');
+    Ok(bytes)
 }
 
 fn parse_response(
@@ -1057,154 +1032,6 @@ fn timeout_cancellation_frame(
     }
 }
 
-fn capture_pipe<R>(
-    pipe: Option<R>,
-    context: &'static str,
-) -> Result<JoinHandle<std::io::Result<CapturedOutput>>, ExternalAdapterSupervisorError>
-where
-    R: Read + Send + 'static,
-{
-    pipe.map(capture_stream)
-        .ok_or_else(|| io_error(context, std::io::Error::other("pipe was not captured")))
-}
-
-fn capture_stream<R>(mut reader: R) -> JoinHandle<std::io::Result<CapturedOutput>>
-where
-    R: Read + Send + 'static,
-{
-    thread::spawn(move || {
-        let mut captured = Vec::new();
-        let mut truncated = false;
-        let mut buffer = [0_u8; 8192];
-        loop {
-            let count = reader.read(&mut buffer)?;
-            if count == 0 {
-                return Ok(CapturedOutput {
-                    bytes: captured,
-                    truncated,
-                });
-            }
-            let remaining = RESPONSE_LIMIT_BYTES.saturating_sub(captured.len());
-            if remaining > 0 {
-                captured.extend_from_slice(&buffer[..count.min(remaining)]);
-            }
-            if count > remaining {
-                truncated = true;
-            }
-        }
-    })
-}
-
-fn join_capture(
-    handle: JoinHandle<std::io::Result<CapturedOutput>>,
-    context: &'static str,
-) -> Result<CapturedOutput, ExternalAdapterSupervisorError> {
-    match handle.join() {
-        Ok(Ok(output)) => Ok(output),
-        Ok(Err(source)) => Err(io_error(context, source)),
-        Err(_) => Err(io_error(
-            context,
-            std::io::Error::other("output reader thread failed"),
-        )),
-    }
-}
-
-fn wait_for_exit(
-    child: &mut Child,
-    timeout: Duration,
-) -> Result<WaitResult, ExternalAdapterSupervisorError> {
-    let started = Instant::now();
-    loop {
-        if let Some(status) = child
-            .try_wait()
-            .map_err(|source| io_error("polling external adapter process", source))?
-        {
-            return Ok(WaitResult::Exited(status));
-        }
-        if started.elapsed() >= timeout {
-            kill_timed_out_process(child, KillSignal::Terminate)?;
-            thread::sleep(FORCE_KILL_GRACE);
-            kill_timed_out_process(child, KillSignal::Force)?;
-            child.wait().map_err(|source| {
-                io_error("waiting for timed out external adapter process", source)
-            })?;
-            return Ok(WaitResult::TimedOut);
-        }
-        thread::sleep(POLL_INTERVAL);
-    }
-}
-
-#[cfg(unix)]
-fn configure_process_group(command: &mut Command) {
-    command.process_group(0);
-}
-
-#[cfg(not(unix))]
-fn configure_process_group(_command: &mut Command) {}
-
-enum KillSignal {
-    Terminate,
-    Force,
-}
-
-impl KillSignal {
-    #[cfg(unix)]
-    fn kill_arg(&self) -> &'static str {
-        match self {
-            Self::Terminate => "-TERM",
-            Self::Force => "-KILL",
-        }
-    }
-}
-
-#[cfg(unix)]
-fn kill_timed_out_process(
-    child: &mut Child,
-    signal: KillSignal,
-) -> Result<(), ExternalAdapterSupervisorError> {
-    let process_group = format!("-{}", child.id());
-    let status = Command::new("/bin/kill")
-        .arg(signal.kill_arg())
-        .arg(&process_group)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
-
-    if status.is_ok_and(|status| status.success()) {
-        return Ok(());
-    }
-    if child
-        .try_wait()
-        .map_err(|source| io_error("polling timed out external adapter process", source))?
-        .is_some()
-    {
-        return Ok(());
-    }
-    kill_direct_child_if_running(child)
-}
-
-#[cfg(not(unix))]
-fn kill_timed_out_process(
-    child: &mut Child,
-    _signal: KillSignal,
-) -> Result<(), ExternalAdapterSupervisorError> {
-    kill_direct_child_if_running(child)
-}
-
-fn kill_direct_child_if_running(child: &mut Child) -> Result<(), ExternalAdapterSupervisorError> {
-    if child
-        .try_wait()
-        .map_err(|source| io_error("polling timed out external adapter process", source))?
-        .is_some()
-    {
-        return Ok(());
-    }
-    child
-        .kill()
-        .map_err(|source| io_error("killing timed out external adapter process", source))
-}
-
 fn trim_ascii_whitespace(bytes: &[u8]) -> &[u8] {
     let start = bytes
         .iter()
@@ -1215,10 +1042,6 @@ fn trim_ascii_whitespace(bytes: &[u8]) -> &[u8] {
         .rposition(|byte| !byte.is_ascii_whitespace())
         .map_or(start, |index| index + 1);
     &bytes[start..end]
-}
-
-fn duration_ms(started: Instant) -> u64 {
-    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
 fn io_error(context: impl Into<String>, source: std::io::Error) -> ExternalAdapterSupervisorError {
@@ -1246,14 +1069,4 @@ fn json_adapter_error(
         context: context.into(),
         source,
     }
-}
-
-struct CapturedOutput {
-    bytes: Vec<u8>,
-    truncated: bool,
-}
-
-enum WaitResult {
-    Exited(ExitStatus),
-    TimedOut,
 }

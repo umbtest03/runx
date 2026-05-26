@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 
 const schema = "runx.oss_runtime_throughput.v1";
 const repoRoot = process.cwd();
-const criterionRoot = path.join(repoRoot, "crates", "target", "criterion");
+const cargoTargetDir = path.join(repoRoot, "crates", "target", "runx-perf");
+const criterionRoot = path.join(cargoTargetDir, "criterion");
 const runtimeBench = {
   package: "runx-runtime",
   bench: "graph_throughput",
@@ -87,6 +88,7 @@ try {
 
 function capture(workloads, options) {
   const requested = [...new Set(workloads)];
+  clearCriterionMetrics(requested);
   runRequiredBenches(requested, options);
   const criterionMetrics = readCriterionMetrics(requested);
   const metrics = {};
@@ -111,15 +113,23 @@ function capture(workloads, options) {
 
 function runRequiredBenches(workloads, options) {
   const sampleSize = String(options.sampleSize ?? 20);
-  if (workloads.some((workload) => runtimeBench.workloads.has(workload))) {
-    runCargoBench(runtimeBench, sampleSize);
+  const runtimeWorkloads = workloads.filter((workload) => runtimeBench.workloads.has(workload));
+  if (runtimeWorkloads.length > 0) {
+    runCargoBench(runtimeBench, sampleSize, runtimeWorkloads);
   }
-  if (workloads.some((workload) => receiptBench.workloads.has(workload))) {
-    runCargoBench(receiptBench, sampleSize);
+  const receiptWorkloads = workloads.filter((workload) => receiptBench.workloads.has(workload));
+  if (receiptWorkloads.length > 0) {
+    runCargoBench(receiptBench, sampleSize, receiptWorkloads);
   }
 }
 
-function runCargoBench(bench, sampleSize) {
+function runCargoBench(bench, sampleSize, workloads) {
+  for (const filter of criterionFilters(bench, workloads)) {
+    runCargoBenchFilter(bench, sampleSize, filter);
+  }
+}
+
+function runCargoBenchFilter(bench, sampleSize, filter) {
   const args = [
     "bench",
     "--manifest-path",
@@ -130,14 +140,61 @@ function runCargoBench(bench, sampleSize) {
   if (bench.features) {
     args.push("--features", bench.features);
   }
-  args.push("--bench", bench.bench, "--", "--sample-size", sampleSize);
+  args.push("--bench", bench.bench, "--");
+  if (filter) {
+    args.push(filter);
+  }
+  args.push("--sample-size", sampleSize);
   const result = spawnSync("cargo", args, {
     cwd: repoRoot,
     stdio: "inherit",
-    env: { ...process.env, CARGO_TERM_COLOR: process.env.CARGO_TERM_COLOR ?? "never" },
+    env: {
+      ...process.env,
+      CARGO_TARGET_DIR: cargoTargetDir,
+      CARGO_TERM_COLOR: process.env.CARGO_TERM_COLOR ?? "never",
+    },
   });
   if (result.status !== 0) {
     throw new Error(`cargo ${args.join(" ")} failed with exit ${result.status ?? "signal"}`);
+  }
+}
+
+function criterionFilters(bench, workloads) {
+  const unique = [...new Set(workloads)].filter((workload) => bench.workloads.has(workload));
+  if (unique.length === bench.workloads.size) {
+    return [null];
+  }
+  const prefix = commonPrefix(unique);
+  const prefixMatches = [...bench.workloads].filter((workload) => workload.startsWith(prefix));
+  if (
+    prefix.length >= 4
+    && prefixMatches.length === unique.length
+    && prefixMatches.every((workload) => unique.includes(workload))
+  ) {
+    return [prefix];
+  }
+  return unique;
+}
+
+function commonPrefix(values) {
+  if (values.length === 0) {
+    return "";
+  }
+  let prefix = values[0];
+  for (const value of values.slice(1)) {
+    while (!value.startsWith(prefix) && prefix.length > 0) {
+      prefix = prefix.slice(0, -1);
+    }
+  }
+  return prefix;
+}
+
+function clearCriterionMetrics(workloads) {
+  for (const workload of workloads) {
+    const workloadPath = path.join(criterionRoot, workload);
+    if (existsSync(workloadPath)) {
+      rmSync(workloadPath, { recursive: true, force: true });
+    }
   }
 }
 
