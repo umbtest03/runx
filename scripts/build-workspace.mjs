@@ -217,14 +217,11 @@ async function syncCliTools(directory) {
   const source = path.join(workspaceRoot, "tools");
   const target = path.join(directory, "tools");
   const compiledTarget = path.join(directory, "dist", "tools");
+  await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   if (!(await exists(source))) {
-    await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
     await rm(compiledTarget, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
     return;
   }
-  await replaceTreeAtomically(target, async (staging) => {
-    await cp(source, staging, { recursive: true });
-  });
   await replaceTreeAtomically(compiledTarget, async (staging) => {
     await copyCliToolRuntimeTree(source, staging);
     await stripSourceMaps(staging);

@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import os from "node:os";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -68,54 +67,9 @@ function verifyNativePackage(packageName, packageJsonPath, expectedPlatform, exp
     fail(`runx checksum binary mismatch: expected ${expectedBinary}, found ${checksum.binary ?? "<missing>"}`);
   }
 
-  // Hashing the whole binary on every invocation is the dominant launcher cost.
-  // npm verifies tarball integrity at install time, so the runtime hash only
-  // needs to run on first use and whenever the binary changes on disk. A warm
-  // fingerprint (size + mtime) that matches a prior verification lets us skip
-  // the full read. Set RUNX_SKIP_NATIVE_VERIFY=1 to bypass entirely in hot loops.
-  if (truthy(process.env.RUNX_SKIP_NATIVE_VERIFY)) {
-    return;
-  }
-  const fingerprint = `${binary.size}:${binary.mtimeMs}`;
-  if (readVerifiedFingerprint(binaryPath, checksum.sha256) === fingerprint) {
-    return;
-  }
   const digest = createHash("sha256").update(readFileSync(binaryPath)).digest("hex");
   if (checksum.sha256 !== digest) {
     fail("runx native binary checksum verification failed");
-  }
-  writeVerifiedFingerprint(binaryPath, checksum.sha256, fingerprint);
-}
-
-function truthy(value) {
-  return value === "1" || value === "true";
-}
-
-// Best-effort verification cache: maps a binary's on-disk fingerprint to the
-// sha256 it last verified against. Any read/write failure falls through to a
-// full hash, so the cache can only ever skip work that has already passed.
-function cachePath(binaryPath) {
-  const base = process.env.XDG_CACHE_HOME || path.join(os.homedir(), ".cache");
-  const key = createHash("sha256").update(binaryPath).digest("hex").slice(0, 16);
-  return path.join(base, "runx", `native-verify-${key}.json`);
-}
-
-function readVerifiedFingerprint(binaryPath, expectedSha) {
-  try {
-    const cached = JSON.parse(readFileSync(cachePath(binaryPath), "utf8"));
-    return cached.sha256 === expectedSha ? cached.fingerprint : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeVerifiedFingerprint(binaryPath, sha256, fingerprint) {
-  try {
-    const file = cachePath(binaryPath);
-    mkdirSync(path.dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify({ sha256, fingerprint }));
-  } catch {
-    // Cache is an optimization only; ignore failures (e.g. read-only home).
   }
 }
 

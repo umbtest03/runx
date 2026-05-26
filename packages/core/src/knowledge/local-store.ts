@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { recordField } from "../util/types.js";
+import { recordField, stringField } from "../util/types.js";
 import {
   hashStable,
   isAlreadyExists,
@@ -306,11 +306,6 @@ function receiptExecutionName(receipt: LocalKnowledgeIndexableReceipt): string |
   const harness = recordField(record, "harness");
   const harnessRef = recordField(harness, "harness_ref");
   return stringField(harnessRef, "label") ?? stringField(harness, "harness_id");
-}
-
-function stringField(value: Readonly<Record<string, unknown>> | undefined, key: string): string | undefined {
-  const entry = value?.[key];
-  return typeof entry === "string" ? entry : undefined;
 }
 
 function emptyKnowledge(): LocalKnowledge {

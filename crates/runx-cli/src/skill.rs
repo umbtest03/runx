@@ -18,9 +18,10 @@ pub struct SkillPlan {
     pub json: bool,
     pub inputs: BTreeMap<String, JsonValue>,
     /// One-shot, per-run local credential descriptor supplied via
-    /// `--credential` and `--secret-env`. Runner-specific execution validates
-    /// whether that delivery channel is supported before any child process
-    /// starts.
+    /// `--credential` and `--secret-env`. The secret is read from the named
+    /// process environment variable so raw secret material never appears on
+    /// argv. Runner-specific execution validates whether that delivery channel
+    /// is supported before any child process starts.
     pub local_credential: Option<LocalCredentialDescriptor>,
 }
 
@@ -115,14 +116,20 @@ fn parse_credential_binding(value: &str) -> Result<CredentialBinding, String> {
     })
 }
 
-/// Parse `--secret-env <ENV=VALUE>` into an env var name and secret value.
+/// Parse `--secret-env <ENV_VAR>` into an env var name and secret value.
 fn parse_secret_env(value: &str) -> Result<(String, String), String> {
-    let (name, secret) = value
-        .split_once('=')
-        .ok_or_else(|| "runx skill --secret-env requires <ENV_VAR>=<value>".to_owned())?;
+    if value.contains('=') {
+        return Err(
+            "runx skill --secret-env accepts an environment variable name, not an inline value"
+                .to_owned(),
+        );
+    }
+    let name = value.trim();
     if name.is_empty() {
         return Err("runx skill --secret-env requires a non-empty env var name".to_owned());
     }
+    let secret = env::var(name)
+        .map_err(|_| format!("runx skill --secret-env env var '{name}' is not set"))?;
     if secret.trim().is_empty() {
         return Err("runx skill --secret-env requires a non-empty secret value".to_owned());
     }
@@ -131,7 +138,7 @@ fn parse_secret_env(value: &str) -> Result<(String, String), String> {
 
 /// Build the per-run local credential descriptor from the parsed flags.
 ///
-/// `--secret-env` carries the env var and secret material; `--credential`
+/// `--secret-env` names the env var that carries secret material; `--credential`
 /// supplies non-secret binding metadata. The runtime rejects unsupported
 /// runner/delivery combinations before execution.
 fn finalize_local_credential(
@@ -140,7 +147,7 @@ fn finalize_local_credential(
     match (&state.credential, &state.secret_env) {
         (None, None) => Ok(None),
         (Some(_), None) => {
-            Err("runx skill --credential requires --secret-env <ENV>=<value>".to_owned())
+            Err("runx skill --credential requires --secret-env <ENV_VAR>".to_owned())
         }
         (binding, Some((env_var, secret))) => {
             let binding = binding.as_ref().ok_or_else(|| {

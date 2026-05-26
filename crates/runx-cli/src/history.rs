@@ -542,7 +542,7 @@ mod tests {
     const FIXTURE_SEED: [u8; 32] = [0x42; 32];
 
     fn fixture_signer() -> Result<Ed25519ReceiptSigner, runx_runtime::RuntimeReceiptSigningError> {
-        Ed25519ReceiptSigner::from_seed(FIXTURE_KID, ReceiptIssuerType::Local, &FIXTURE_SEED)
+        Ed25519ReceiptSigner::from_seed(FIXTURE_KID, ReceiptIssuerType::Hosted, &FIXTURE_SEED)
     }
 
     fn production_signed_receipt(

@@ -45,7 +45,9 @@ pub use execution::target_runner;
 ))]
 pub mod adapters;
 
-pub use adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
+pub use adapter::{
+    FanoutExecutionMode, InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput,
+};
 pub use approval::{ApprovalError, LocalApprovalGateResolver, request_approval};
 pub use config::{
     ConfigError, ConfigKey, LocalProfileSource, ManagedAgentConfig, ManagedAgentProvider,
@@ -100,15 +102,17 @@ pub use receipts::tree::{
 };
 pub use receipts::{
     Ed25519ReceiptSigner, Ed25519ReceiptVerifier, ProductionReceiptKey,
-    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_KID_ENV,
-    RuntimeReceiptSignatureConfig, RuntimeReceiptSignaturePolicy, RuntimeReceiptSigner,
-    RuntimeReceiptSigningError,
+    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV,
+    RUNX_RECEIPT_SIGN_KID_ENV, RuntimeReceiptSignatureConfig, RuntimeReceiptSignaturePolicy,
+    RuntimeReceiptSigner, RuntimeReceiptSigningError,
 };
 pub use redaction::redact_sensitive_text;
 pub use registry::{RegistryInstallMetadataInput, registry_install_receipt_metadata};
 #[cfg(feature = "cli-tool")]
 pub use runner::run_graph_file;
-pub use runner::{GraphCheckpoint, GraphRun, Runtime, RuntimeOptions, StepRun};
+pub use runner::{
+    GraphCheckpoint, GraphRun, RUNX_MAX_FANOUT_CONCURRENCY_ENV, Runtime, RuntimeOptions, StepRun,
+};
 pub use runx_core::kernel_eval;
 pub use scaffold::{
     InitAction, InitGeneratedValues, RunxInitOptions, RunxInitResult, RunxNewOptions,

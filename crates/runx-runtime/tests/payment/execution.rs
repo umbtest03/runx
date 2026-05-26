@@ -68,7 +68,10 @@ fn approved_payment_approval_emits_approval_output_and_runs_fulfill()
 fn denied_payment_approval_emits_denied_output_and_blocks_fulfill()
 -> Result<(), Box<dyn std::error::Error>> {
     let fixture = GraphFixture::new()?;
-    let runtime = Runtime::new(RecordingAdapter::default(), RuntimeOptions::default());
+    let runtime = Runtime::new(
+        RecordingAdapter::default(),
+        RuntimeOptions::local_development(),
+    );
     let mut host = ApprovalHost::approved(false);
 
     let checkpoint =
@@ -171,7 +174,10 @@ fn payment_graph_seals_with_strict_parent_child_receipt_proof()
 fn payment_spend_success_without_runtime_supervisor_is_denied_before_graph_success()
 -> Result<(), Box<dyn std::error::Error>> {
     let fixture = GraphFixture::new()?;
-    let runtime = Runtime::new(RecordingAdapter::default(), RuntimeOptions::default());
+    let runtime = Runtime::new(
+        RecordingAdapter::default(),
+        RuntimeOptions::local_development(),
+    );
     let mut host = ApprovalHost::approved(true);
 
     let result = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host);
@@ -209,7 +215,7 @@ fn payment_spend_success_without_rail_proof_is_denied_before_graph_success()
     let fixture = GraphFixture::new()?;
     let runtime = Runtime::new(
         RecordingAdapter::without_rail_proof(),
-        RuntimeOptions::default(),
+        RuntimeOptions::local_development(),
     );
     let mut host = ApprovalHost::approved(true);
 
@@ -256,7 +262,7 @@ fn payment_spend_authority_is_detected_from_reserved_authority_not_scope_string(
     let fixture = GraphFixture::with_fulfill_options(FulfillAdmission::Valid, FulfillScope::None)?;
     let runtime = Runtime::new(
         RecordingAdapter::without_rail_proof(),
-        RuntimeOptions::default(),
+        RuntimeOptions::local_development(),
     );
     let mut host = ApprovalHost::approved(true);
 
@@ -338,7 +344,7 @@ fn non_payment_step_without_rail_admission_inputs_invokes_adapter()
         GraphFixture::with_fulfill_options(FulfillAdmission::MissingAll, FulfillScope::None)?;
     let adapter = RecordingAdapter::default();
     let invocations = adapter.invocations();
-    let runtime = Runtime::new(adapter, RuntimeOptions::default());
+    let runtime = Runtime::new(adapter, RuntimeOptions::local_development());
     let mut host = ApprovalHost::approved(true);
 
     let run = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host)?;
@@ -457,7 +463,7 @@ fn x402_paid_echo_replays_sealed_idempotency_without_second_rail()
             payment_supervisor: payment_supervisor(vec![paid_echo_supervisor_evidence(
                 PAID_ECHO_IDEMPOTENCY_KEY,
             )]),
-            ..RuntimeOptions::default()
+            ..RuntimeOptions::local_development()
         },
     );
 
@@ -539,7 +545,7 @@ fn x402_paid_echo_replay_with_mismatched_amount_denies_before_second_rail()
             payment_supervisor: payment_supervisor(vec![paid_echo_supervisor_evidence(
                 PAID_ECHO_IDEMPOTENCY_KEY,
             )]),
-            ..RuntimeOptions::default()
+            ..RuntimeOptions::local_development()
         },
     );
 
@@ -609,7 +615,7 @@ fn x402_paid_echo_reused_spend_capability_with_new_idempotency_denied_from_persi
             payment_supervisor: payment_supervisor(vec![paid_echo_supervisor_evidence(
                 PAID_ECHO_IDEMPOTENCY_KEY,
             )]),
-            ..RuntimeOptions::default()
+            ..RuntimeOptions::local_development()
         },
     );
 
@@ -673,7 +679,7 @@ fn x402_paid_echo_partial_mutation_escalates_without_second_rail()
         adapter,
         RuntimeOptions {
             env,
-            ..RuntimeOptions::default()
+            ..RuntimeOptions::local_development()
         },
     );
 
@@ -757,7 +763,7 @@ fn x402_paid_echo_denied_approval_never_invokes_payment_or_echo()
     let fixture = PaidEchoFixture::new()?;
     let adapter = PaidEchoAdapter::new(PaidEchoRailProof::Present);
     let invocations = adapter.invocations();
-    let runtime = Runtime::new(adapter, RuntimeOptions::default());
+    let runtime = Runtime::new(adapter, RuntimeOptions::local_development());
     let mut host = ApprovalHost::approved(false);
 
     let result = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host);
@@ -800,7 +806,7 @@ fn x402_paid_echo_missing_rail_proof_never_invokes_echo() -> Result<(), Box<dyn 
     let fixture = PaidEchoFixture::new()?;
     let adapter = PaidEchoAdapter::new(PaidEchoRailProof::Missing);
     let invocations = adapter.invocations();
-    let runtime = Runtime::new(adapter, RuntimeOptions::default());
+    let runtime = Runtime::new(adapter, RuntimeOptions::local_development());
     let mut host = ApprovalHost::approved(true);
 
     let result = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host);
@@ -849,7 +855,7 @@ fn assert_payment_admission_denied_before_adapter(
     let fixture = GraphFixture::with_fulfill_options(admission, FulfillScope::PaymentSpend)?;
     let adapter = RecordingAdapter::default();
     let invocations = adapter.invocations();
-    let runtime = Runtime::new(adapter, RuntimeOptions::default());
+    let runtime = Runtime::new(adapter, RuntimeOptions::local_development());
     let mut host = ApprovalHost::approved(true);
 
     let result = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host);
@@ -890,7 +896,7 @@ fn runtime_options_with_payment_supervisor(
 ) -> RuntimeOptions {
     RuntimeOptions {
         payment_supervisor: payment_supervisor(evidence),
-        ..RuntimeOptions::default()
+        ..RuntimeOptions::local_development()
     }
 }
 

@@ -6,7 +6,8 @@ use std::fmt;
 
 use runx_contracts::{
     CredentialDeliveryMode, CredentialDeliveryObservation, CredentialDeliveryObservationStatus,
-    CredentialDeliveryPurpose, CredentialEnvelopeKind, Reference, ReferenceType, sha256_prefixed,
+    CredentialDeliveryPurpose, CredentialEnvelopeKind, Reference, ReferenceType, sha256_hex,
+    sha256_prefixed,
 };
 use runx_core::policy::{CredentialBindingDecision, CredentialEnvelope};
 use thiserror::Error;
@@ -141,7 +142,7 @@ impl MaterialResolver for InMemoryMaterialResolver {
     ) -> Result<ResolvedCredentialMaterial, CredentialDeliveryError> {
         self.materials.get(material_ref).cloned().ok_or_else(|| {
             CredentialDeliveryError::MaterialNotFound {
-                material_ref: material_ref.to_owned(),
+                material_ref_hash: hash_material_ref(material_ref),
             }
         })
     }
@@ -290,8 +291,8 @@ impl CredentialDelivery {
         let material = resolver.resolve_material(&credential.material_ref)?;
         if material.material_ref != credential.material_ref {
             return Err(CredentialDeliveryError::MaterialRefMismatch {
-                expected: credential.material_ref.to_string(),
-                actual: material.material_ref,
+                expected_hash: hash_material_ref(&credential.material_ref),
+                actual_hash: hash_material_ref(&material.material_ref),
             });
         }
         Ok(Self {
@@ -369,10 +370,15 @@ pub enum CredentialDeliveryError {
         credential_provider: String,
         profile_provider: String,
     },
-    #[error("credential material '{material_ref}' was not found")]
-    MaterialNotFound { material_ref: String },
-    #[error("credential material ref mismatch: expected '{expected}', got '{actual}'")]
-    MaterialRefMismatch { expected: String, actual: String },
+    #[error("credential material with hash '{material_ref_hash}' was not found")]
+    MaterialNotFound { material_ref_hash: String },
+    #[error(
+        "credential material ref hash mismatch: expected '{expected_hash}', got '{actual_hash}'"
+    )]
+    MaterialRefMismatch {
+        expected_hash: String,
+        actual_hash: String,
+    },
     #[error("credential material is missing role '{role}'")]
     MissingRole { role: String },
     #[error("credential material for role '{role}' is empty")]
@@ -397,10 +403,12 @@ fn build_local_provision_observation(
     auth_mode: &str,
     material_ref: &str,
 ) -> CredentialDeliveryObservation {
+    let material_ref_hash = hash_material_ref(material_ref);
+    let material_ref_id = sha256_hex(material_ref.as_bytes());
     CredentialDeliveryObservation {
         schema: runx_contracts::CredentialDeliveryObservationSchema::V1,
-        observation_id: format!("local-credential-delivery/{material_ref}").into(),
-        request_id: format!("local-credential-provision/{material_ref}").into(),
+        observation_id: format!("local-credential-delivery/{material_ref_id}").into(),
+        request_id: format!("local-credential-provision/{material_ref_id}").into(),
         response_id: None,
         status: CredentialDeliveryObservationStatus::Delivered,
         harness_ref: Reference::with_uri(
@@ -417,13 +425,17 @@ fn build_local_provision_observation(
         delivery_mode: Some(CredentialDeliveryMode::ProcessEnv),
         credential_refs: vec![Reference::with_uri(
             ReferenceType::Credential,
-            format!("runx:credential:{material_ref}"),
+            format!("runx:credential:local:{material_ref_id}"),
         )],
-        material_ref_hash: Some(sha256_prefixed(material_ref.as_bytes()).into()),
+        material_ref_hash: Some(material_ref_hash.into()),
         delivered_roles: vec![runx_contracts::CredentialMaterialRole::ApiKey],
         redaction_refs: None,
         observed_at: crate::time::now_iso8601().into(),
     }
+}
+
+fn hash_material_ref(material_ref: &str) -> String {
+    sha256_prefixed(material_ref.as_bytes())
 }
 
 fn require_allowed_binding(
@@ -538,5 +550,24 @@ mod tests {
             result,
             Err(CredentialDeliveryError::MissingRole { role }) if role == "api_key"
         ));
+    }
+
+    #[test]
+    fn material_ref_errors_report_hashes_not_raw_refs() {
+        let missing = InMemoryMaterialResolver::default()
+            .resolve_material("secret://github/main")
+            .expect_err("missing material must fail");
+        let message = missing.to_string();
+        assert!(message.contains("sha256:"));
+        assert!(!message.contains("secret://github/main"));
+
+        let mismatch = CredentialDeliveryError::MaterialRefMismatch {
+            expected_hash: hash_material_ref("secret://github/main"),
+            actual_hash: hash_material_ref("secret://github/other"),
+        };
+        let message = mismatch.to_string();
+        assert!(message.contains("sha256:"));
+        assert!(!message.contains("secret://github/main"));
+        assert!(!message.contains("secret://github/other"));
     }
 }

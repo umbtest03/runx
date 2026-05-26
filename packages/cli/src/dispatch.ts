@@ -9,7 +9,7 @@ import {
   resolveSkillInstallRoot,
 } from "@runxhq/core/config";
 import { createFileKnowledgeStore } from "@runxhq/core/knowledge";
-import { firstNonEmpty, isRecord, recordField } from "@runxhq/core/util";
+import { arrayValue, firstNonEmpty, isRecord, recordField, stringField } from "@runxhq/core/util";
 
 import type { ParsedArgs } from "./args.js";
 import type { CliIo, CliServices } from "./index.js";
@@ -486,7 +486,7 @@ function nativeSkillRunResult(skillPath: string, value: unknown): CliSkillRunRes
   const skillName = stringField(value, "skill_name") ?? path.basename(skillPath);
   if (status === "needs_agent") {
     const runId = stringField(value, "run_id");
-    const requests = arrayField(value, "requests") as Extract<CliSkillRunResult, { readonly status: "needs_agent" }>["requests"];
+    const requests = arrayValue(value.requests) as Extract<CliSkillRunResult, { readonly status: "needs_agent" }>["requests"];
     if (!runId) {
       throw new Error("native runx skill needs_agent payload is missing run_id.");
     }
@@ -518,14 +518,4 @@ function nativeSkillRunResult(skillPath: string, value: unknown): CliSkillRunRes
     } as CliSkillRunResult;
   }
   throw new Error(`native runx skill returned unsupported status '${status ?? "<missing>"}'.`);
-}
-
-function arrayField(value: Readonly<Record<string, unknown>>, key: string): readonly unknown[] {
-  const field = value[key];
-  return Array.isArray(field) ? field : [];
-}
-
-function stringField(value: Readonly<Record<string, unknown>>, key: string): string | undefined {
-  const field = value[key];
-  return typeof field === "string" ? field : undefined;
 }

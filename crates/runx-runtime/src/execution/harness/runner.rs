@@ -788,7 +788,7 @@ fn agent_step_output(
     let payload = fixture
         .caller
         .get("answers")
-        .and_then(json_object)
+        .and_then(JsonValue::as_object)
         .and_then(|answers| answers.get(request_id))
         .cloned()
         .unwrap_or(JsonValue::Null);
@@ -848,34 +848,13 @@ fn required_string_metadata(
     }
 }
 
-fn json_object(value: &JsonValue) -> Option<&runx_contracts::JsonObject> {
-    match value {
-        JsonValue::Object(object) => Some(object),
-        JsonValue::Null
-        | JsonValue::Bool(_)
-        | JsonValue::Number(_)
-        | JsonValue::String(_)
-        | JsonValue::Array(_) => None,
-    }
-}
-
-fn json_string(value: &JsonValue) -> Option<&str> {
-    match value {
-        JsonValue::String(value) => Some(value),
-        JsonValue::Null
-        | JsonValue::Bool(_)
-        | JsonValue::Number(_)
-        | JsonValue::Object(_)
-        | JsonValue::Array(_) => None,
-    }
-}
-
 fn agent_answer_disposition(answer: &JsonValue) -> ClosureDisposition {
-    match json_object(answer)
+    match answer
+        .as_object()
         .and_then(|object| object.get("closure"))
-        .and_then(json_object)
+        .and_then(JsonValue::as_object)
         .and_then(|closure| closure.get("disposition"))
-        .and_then(json_string)
+        .and_then(JsonValue::as_str)
     {
         Some("deferred") => ClosureDisposition::Deferred,
         Some("superseded") => ClosureDisposition::Superseded,
@@ -941,7 +920,7 @@ mod tests {
     fn sequence_output_uses_supplied_production_signature_policy() -> Result<(), HarnessReplayError>
     {
         let signer =
-            Ed25519ReceiptSigner::from_seed(FIXTURE_KID, ReceiptIssuerType::Local, &FIXTURE_SEED)
+            Ed25519ReceiptSigner::from_seed(FIXTURE_KID, ReceiptIssuerType::Hosted, &FIXTURE_SEED)
                 .map_err(signing_error)?;
         let verifier = Ed25519ReceiptVerifier::new([signer.production_key()]);
         let signature_policy =
@@ -1350,7 +1329,7 @@ fn fixture_answer<'a>(
     fixture
         .caller
         .get(group)
-        .and_then(json_object)
+        .and_then(JsonValue::as_object)
         .and_then(|answers| {
             answers
                 .get(primary_key)
@@ -1381,7 +1360,7 @@ fn fixture_answer_actor(
     request_id: &str,
     gate_id: &str,
 ) -> Result<ResolutionResponseActor, RuntimeError> {
-    let Some(actor) = json_object(answer).and_then(|object| object.get("actor")) else {
+    let Some(actor) = answer.as_object().and_then(|object| object.get("actor")) else {
         return Ok(ResolutionResponseActor::Human);
     };
     match actor {

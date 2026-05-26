@@ -6,12 +6,16 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use runx_contracts::{ClosureDisposition, JsonNumber, JsonObject, JsonValue};
+use runx_contracts::{
+    ClosureDisposition, JsonNumber, JsonObject, JsonValue, json_object_field as object_field,
+    json_string_field as string_field,
+};
 
 use super::r#loop::{
     assert_fixture_expectation, failed_fixture, prepare_fixture_workspace,
     resolve_fixture_execution_roots,
 };
+use super::support::elapsed_ms;
 use super::tool::materialize_fixture_value;
 use super::types::{
     DevError, DevFixtureAssertion, DevFixtureAssertionKind, DevFixtureResult, DevFixtureStatus,
@@ -386,22 +390,4 @@ fn disposition_name(disposition: &ClosureDisposition) -> &'static str {
         ClosureDisposition::Killed => "killed",
         ClosureDisposition::TimedOut => "timed_out",
     }
-}
-
-fn string_field<'a>(object: &'a JsonObject, field: &str) -> Option<&'a str> {
-    match object.get(field) {
-        Some(JsonValue::String(value)) => Some(value),
-        _ => None,
-    }
-}
-
-fn object_field<'a>(object: &'a JsonObject, field: &str) -> Option<&'a JsonObject> {
-    match object.get(field) {
-        Some(JsonValue::Object(value)) => Some(value),
-        _ => None,
-    }
-}
-
-fn elapsed_ms(started: Instant) -> u64 {
-    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
 }

@@ -9,13 +9,16 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
 
-use runx_contracts::{JsonObject, JsonValue};
+use runx_contracts::{
+    JsonObject, JsonValue, json_object_field as object_field, json_string_field as string_field,
+};
 use serde::Deserialize;
 
 use super::r#loop::{
     assert_fixture_expectation, failed_fixture, prepare_fixture_workspace,
     resolve_fixture_execution_roots,
 };
+use super::support::elapsed_ms;
 use super::types::{
     DevError, DevFixtureAssertion, DevFixtureAssertionKind, DevFixtureExecutionRoots,
     DevFixtureResult, DevFixtureStatus, ParsedDevFixture, PreparedDevFixtureWorkspace,
@@ -304,26 +307,8 @@ fn parse_json_maybe(value: &str) -> Option<JsonValue> {
         .or_else(|| Some(JsonValue::String(trimmed.to_owned())))
 }
 
-fn string_field<'a>(object: &'a JsonObject, field: &str) -> Option<&'a str> {
-    match object.get(field) {
-        Some(JsonValue::String(value)) => Some(value),
-        _ => None,
-    }
-}
-
-fn object_field<'a>(object: &'a JsonObject, field: &str) -> Option<&'a JsonObject> {
-    match object.get(field) {
-        Some(JsonValue::Object(value)) => Some(value),
-        _ => None,
-    }
-}
-
 fn json_display(value: &JsonValue) -> String {
     serde_json::to_string(value).unwrap_or_else(|_| "null".to_owned())
-}
-
-fn elapsed_ms(started: Instant) -> u64 {
-    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
 #[derive(Debug, Deserialize)]

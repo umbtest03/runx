@@ -21,6 +21,7 @@ pub use seal::{
 };
 pub use signing::{
     Ed25519ReceiptSigner, Ed25519ReceiptVerifier, ProductionReceiptKey,
-    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_KID_ENV,
-    RuntimeReceiptSignatureConfig, RuntimeReceiptSigner, RuntimeReceiptSigningError,
+    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV,
+    RUNX_RECEIPT_SIGN_KID_ENV, RuntimeReceiptSignatureConfig, RuntimeReceiptSigner,
+    RuntimeReceiptSigningError,
 };

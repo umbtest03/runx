@@ -1,6 +1,9 @@
 // rust-style-allow: large-file - authority-proof parity keeps the TS oracle mapping in one reviewable module.
 use runx_contracts::schema::NonEmptyString;
-use runx_contracts::{JsonObject, JsonValue, sha256_hex};
+use runx_contracts::{
+    JsonObject, JsonValue, json_bool_field, json_object as json_value_object,
+    json_object_field as object_field, sha256_hex,
+};
 
 use super::{
     LocalAdmissionGrant, LocalScopeAdmissionOptions, ScopeAdmission, ScopeAdmissionStatus,
@@ -369,7 +372,7 @@ fn summarize_authority_sandbox(
     declaration: Option<&AuthorityProofSandboxDeclaration>,
     approval: Option<&AuthorityProofApproval>,
 ) -> Option<AuthorityProofSandbox> {
-    let record = json_object(metadata);
+    let record = json_value_object(metadata);
     let profile = string_field(record, "profile")
         .or_else(|| declaration.and_then(|value| optional_string(value.profile.as_deref())))?;
     let network = summarize_network(
@@ -612,20 +615,6 @@ fn deny(reasons: Vec<String>) -> CredentialBindingDecision {
     CredentialBindingDecision::Deny { reasons }
 }
 
-fn json_object(value: Option<&JsonValue>) -> Option<&JsonObject> {
-    match value {
-        Some(JsonValue::Object(object)) => Some(object),
-        _ => None,
-    }
-}
-
-fn object_field<'a>(object: &'a JsonObject, field: &str) -> Option<&'a JsonObject> {
-    match object.get(field) {
-        Some(JsonValue::Object(value)) => Some(value),
-        _ => None,
-    }
-}
-
 fn string_field(object: Option<&JsonObject>, field: &str) -> Option<String> {
     match object.and_then(|value| value.get(field)) {
         Some(JsonValue::String(value)) if !value.trim().is_empty() => Some(value.trim().to_owned()),
@@ -641,8 +630,5 @@ fn optional_string(value: Option<&str>) -> Option<String> {
 }
 
 fn bool_field(object: Option<&JsonObject>, field: &str) -> Option<bool> {
-    match object.and_then(|value| value.get(field)) {
-        Some(JsonValue::Bool(value)) => Some(*value),
-        _ => None,
-    }
+    object.and_then(|value| json_bool_field(value, field))
 }

@@ -1,8 +1,7 @@
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use runx_contracts::{JsonObject, JsonValue};
+use runx_contracts::JsonObject;
 use runx_core::state_machine::{RetryPolicy, SequentialGraphStepDefinition};
 use runx_parser::{
     ExecutionGraph, GraphStep, SkillRunnerDefinition, SkillRunnerManifest, SkillSource,
@@ -12,6 +11,9 @@ use runx_parser::{
 
 use crate::adapter::SkillOutput;
 use crate::{RuntimeError, StepRun};
+
+use super::graph_index::PriorRunIndex;
+use super::output_projection::project_skill_output;
 
 pub(crate) struct LoadedStepSkill {
     pub(crate) name: String,
@@ -153,19 +155,20 @@ pub(crate) fn resolve_inputs(
     step: &GraphStep,
     prior_runs: &[StepRun],
 ) -> Result<JsonObject, RuntimeError> {
+    let prior_run_index = PriorRunIndex::new(prior_runs);
+    resolve_inputs_with_index(step, &prior_run_index)
+}
+
+pub(crate) fn resolve_inputs_with_index(
+    step: &GraphStep,
+    prior_run_index: &PriorRunIndex<'_>,
+) -> Result<JsonObject, RuntimeError> {
     let mut inputs = step.inputs.clone();
     if step.context_edges.is_empty() {
         return Ok(inputs);
     }
-    if step.context_edges.len() == 1 {
-        let edge = &step.context_edges[0];
-        let value = context_output(prior_runs, &edge.from_step, &edge.output)?;
-        inputs.insert(edge.input.clone(), value);
-        return Ok(inputs);
-    }
-    let prior_run_index = prior_run_index(prior_runs);
     for edge in &step.context_edges {
-        let value = context_output_from_index(&prior_run_index, &edge.from_step, &edge.output)?;
+        let value = prior_run_index.output(&edge.from_step, &edge.output)?;
         inputs.insert(edge.input.clone(), value);
     }
     Ok(inputs)
@@ -176,33 +179,8 @@ pub(crate) fn output_object(output: &SkillOutput) -> JsonObject {
 }
 
 pub(crate) fn output_object_with_claim(output: &SkillOutput) -> (JsonObject, JsonObject) {
-    let mut object = JsonObject::new();
-    let parsed_stdout = serde_json::from_str::<JsonValue>(&output.stdout).ok();
-    if let Some(parsed) = parsed_stdout.as_ref() {
-        object.insert("raw".to_owned(), JsonValue::String(output.stdout.clone()));
-        object.insert("skill_claim".to_owned(), parsed.clone());
-    }
-    object.insert(
-        "stdout".to_owned(),
-        JsonValue::String(output.stdout.clone()),
-    );
-    object.insert(
-        "stderr".to_owned(),
-        JsonValue::String(output.stderr.clone()),
-    );
-    object.insert(
-        "status".to_owned(),
-        JsonValue::String(if output.succeeded() {
-            "success".to_owned()
-        } else {
-            "failure".to_owned()
-        }),
-    );
-    let claim = match parsed_stdout {
-        Some(JsonValue::Object(object)) => object,
-        _ => JsonObject::new(),
-    };
-    (object, claim)
+    let projection = project_skill_output(output);
+    (projection.outputs, projection.claim)
 }
 
 fn context_from(step: &GraphStep) -> Option<Vec<String>> {
@@ -216,53 +194,4 @@ fn context_from(step: &GraphStep) -> Option<Vec<String>> {
 
 fn retry_attempts(max_attempts: u64) -> u32 {
     u32::try_from(max_attempts).unwrap_or(u32::MAX)
-}
-
-fn context_output(
-    prior_runs: &[StepRun],
-    from_step: &str,
-    output: &str,
-) -> Result<JsonValue, RuntimeError> {
-    let Some(run) = prior_runs.iter().find(|run| run.step_id == from_step) else {
-        return Err(RuntimeError::GraphBlocked {
-            step_id: from_step.to_owned(),
-            reason: "context source step has not run".to_owned(),
-        });
-    };
-    Ok(resolve_output_path(&run.outputs, output).unwrap_or(JsonValue::Null))
-}
-
-fn prior_run_index<'a>(prior_runs: &'a [StepRun]) -> BTreeMap<&'a str, &'a StepRun> {
-    let mut index = BTreeMap::new();
-    for run in prior_runs {
-        index.entry(run.step_id.as_str()).or_insert(run);
-    }
-    index
-}
-
-fn context_output_from_index(
-    prior_runs: &BTreeMap<&str, &StepRun>,
-    from_step: &str,
-    output: &str,
-) -> Result<JsonValue, RuntimeError> {
-    let Some(run) = prior_runs.get(from_step) else {
-        return Err(RuntimeError::GraphBlocked {
-            step_id: from_step.to_owned(),
-            reason: "context source step has not run".to_owned(),
-        });
-    };
-    Ok(resolve_output_path(&run.outputs, output).unwrap_or(JsonValue::Null))
-}
-
-fn resolve_output_path(outputs: &JsonObject, output: &str) -> Option<JsonValue> {
-    let mut segments = output.split('.');
-    let first = segments.next()?;
-    let mut value = outputs.get(first)?;
-    for segment in segments {
-        let JsonValue::Object(object) = value else {
-            return None;
-        };
-        value = object.get(segment)?;
-    }
-    Some(value.clone())
 }

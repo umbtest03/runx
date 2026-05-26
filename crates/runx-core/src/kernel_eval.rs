@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use runx_contracts::{AuthorityTerm, JsonValue};
+use runx_contracts::{AuthorityTerm, JsonValue, json_string_field};
 use serde::Deserialize;
 
 use crate::policy::{
@@ -160,13 +160,6 @@ fn kernel_document_kind(document: &JsonValue) -> Option<&str> {
     match fields.get("input") {
         Some(JsonValue::Object(input)) => json_string_field(input, "kind"),
         _ => json_string_field(fields, "kind"),
-    }
-}
-
-fn json_string_field<'a>(fields: &'a runx_contracts::JsonObject, key: &str) -> Option<&'a str> {
-    match fields.get(key) {
-        Some(JsonValue::String(value)) => Some(value.as_str()),
-        _ => None,
     }
 }
 

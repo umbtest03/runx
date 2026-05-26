@@ -2266,7 +2266,7 @@ fn projection_disposition(
             "target runner metadata object is required".to_owned(),
         ));
     };
-    match target_runner.get("disposition").and_then(json_string) {
+    match target_runner.get("disposition").and_then(JsonValue::as_str) {
         Some("created") => Ok(TargetRepoRunnerPullRequestDisposition::Create),
         Some("reused") => Ok(TargetRepoRunnerPullRequestDisposition::Reuse),
         _ => Err(TargetRepoRunnerRuntimeError::ReceiptProjection(
@@ -2334,12 +2334,5 @@ fn metadata_path_string<'a>(object: &'a JsonObject, path: &[&str]) -> Option<&'a
         };
         value = object.get(*segment)?;
     }
-    json_string(value)
-}
-
-fn json_string(value: &JsonValue) -> Option<&str> {
-    match value {
-        JsonValue::String(value) => Some(value.as_str()),
-        _ => None,
-    }
+    value.as_str()
 }

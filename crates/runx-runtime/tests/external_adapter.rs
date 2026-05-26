@@ -295,7 +295,7 @@ printf '%s' "$invocation" > captured-invocation.json
 
     let run = Runtime::new(
         ExternalAdapterSkillAdapter::default(),
-        RuntimeOptions::default(),
+        RuntimeOptions::local_development(),
     )
     .run_graph_file(&graph_path)?;
 
@@ -523,7 +523,7 @@ IFS= read -r _invocation
 
     let result = Runtime::new(
         ExternalAdapterSkillAdapter::default(),
-        RuntimeOptions::default(),
+        RuntimeOptions::local_development(),
     )
     .run_graph_file_with_host(&graph_path, &mut host);
 

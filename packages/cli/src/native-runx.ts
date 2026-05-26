@@ -3,7 +3,10 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-import { errorMessage, firstNonEmpty } from "@runxhq/core/util";
+import { errorMessage, firstNonEmpty, parsePositiveInt } from "@runxhq/core/util";
+
+const DEFAULT_NATIVE_RUNX_TIMEOUT_MS = 300_000;
+const DEFAULT_NATIVE_RUNX_OUTPUT_LIMIT_BYTES = 1_048_576;
 
 export interface NativeRunxProcessResult {
   readonly status: number | null;
@@ -36,7 +39,11 @@ export async function runNativeRunx(
   args: readonly string[],
   options: NativeRunxOptions,
 ): Promise<NativeRunxProcessResult> {
-  const timeoutMs = options.timeoutMs ?? parsePositiveInt(options.env.RUNX_RUST_CLI_TIMEOUT_MS);
+  const timeoutMs = options.timeoutMs
+    ?? parsePositiveInt(options.env.RUNX_RUST_CLI_TIMEOUT_MS)
+    ?? DEFAULT_NATIVE_RUNX_TIMEOUT_MS;
+  const maxOutputBytes = parsePositiveInt(options.env.RUNX_RUST_CLI_OUTPUT_LIMIT_BYTES)
+    ?? DEFAULT_NATIVE_RUNX_OUTPUT_LIMIT_BYTES;
   return await spawnNativeRunx({
     command: resolveNativeRunxBinary(options.env),
     args,
@@ -48,21 +55,20 @@ export async function runNativeRunx(
       RUNX_RUST_CLI: "1",
     },
     timeoutMs,
+    maxOutputBytes,
   });
 }
 
-function resolveNativeRunxBinary(env: NodeJS.ProcessEnv): string {
-  for (const candidate of [
-    env.RUNX_RUST_CLI_BIN,
-    env.RUNX_RUST_REGISTRY_BIN,
-    path.join(process.cwd(), "crates", "target", "debug", "runx"),
-    path.join(process.cwd(), "crates", "target", "release", "runx"),
-    path.join(process.cwd(), "oss", "crates", "target", "debug", "runx"),
-    path.join(process.cwd(), "oss", "crates", "target", "release", "runx"),
-  ]) {
-    if (candidate && (candidate === "runx" || existsSync(candidate))) {
-      return candidate;
+export function resolveNativeRunxBinary(env: NodeJS.ProcessEnv): string {
+  const override = env.RUNX_DEV_RUST_CLI_BIN;
+  if (override) {
+    if (!path.isAbsolute(override)) {
+      throw new Error(`RUNX_DEV_RUST_CLI_BIN must be an absolute path: ${override}`);
     }
+    if (existsSync(override)) {
+      return override;
+    }
+    throw new Error(`RUNX_DEV_RUST_CLI_BIN does not exist: ${override}`);
   }
   return "runx";
 }
@@ -72,10 +78,11 @@ interface SpawnNativeRunxOptions {
   readonly args: readonly string[];
   readonly cwd: string;
   readonly env: NodeJS.ProcessEnv;
-  readonly timeoutMs?: number;
+  readonly timeoutMs: number;
+  readonly maxOutputBytes: number;
 }
 
-function spawnNativeRunx(options: SpawnNativeRunxOptions): Promise<NativeRunxProcessResult> {
+export function spawnNativeRunx(options: SpawnNativeRunxOptions): Promise<NativeRunxProcessResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(options.command, options.args, {
       cwd: options.cwd,
@@ -86,34 +93,59 @@ function spawnNativeRunx(options: SpawnNativeRunxOptions): Promise<NativeRunxPro
     let timedOut = false;
     let stdout = "";
     let stderr = "";
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    let outputLimitExceeded: string | undefined;
     let killTimer: NodeJS.Timeout | undefined;
 
-    const timer = options.timeoutMs === undefined
-      ? undefined
-      : setTimeout(() => {
-          if (settled) return;
-          timedOut = true;
-          child.kill("SIGTERM");
-          killTimer = setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            child.kill("SIGKILL");
-            reject(new Error(`native runx ${options.args.join(" ")} timed out after ${options.timeoutMs}ms.`));
-          }, 1_000);
-        }, options.timeoutMs);
+    const terminate = () => {
+      child.kill("SIGTERM");
+      killTimer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        child.kill("SIGKILL");
+        reject(new Error(outputLimitExceeded ?? `native runx ${options.args.join(" ")} timed out after ${options.timeoutMs}ms.`));
+      }, 1_000);
+    };
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      timedOut = true;
+      terminate();
+    }, options.timeoutMs);
 
     const clearTimers = () => {
-      if (timer) clearTimeout(timer);
+      clearTimeout(timer);
       if (killTimer) clearTimeout(killTimer);
+    };
+
+    const appendOutput = (stream: "stdout" | "stderr", chunk: string) => {
+      if (outputLimitExceeded) return;
+      const chunkBytes = Buffer.byteLength(chunk, "utf8");
+      if (stream === "stdout") {
+        stdoutBytes += chunkBytes;
+        if (stdoutBytes <= options.maxOutputBytes) {
+          stdout += chunk;
+          return;
+        }
+      } else {
+        stderrBytes += chunkBytes;
+        if (stderrBytes <= options.maxOutputBytes) {
+          stderr += chunk;
+          return;
+        }
+      }
+      outputLimitExceeded = `native runx ${stream} exceeded ${options.maxOutputBytes} bytes.`;
+      terminate();
     };
 
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
-      stdout += chunk;
+      appendOutput("stdout", chunk);
     });
     child.stderr.on("data", (chunk: string) => {
-      stderr += chunk;
+      appendOutput("stderr", chunk);
     });
     child.on("error", (error) => {
       if (settled) return;
@@ -125,8 +157,12 @@ function spawnNativeRunx(options: SpawnNativeRunxOptions): Promise<NativeRunxPro
       if (settled) return;
       settled = true;
       clearTimers();
+      if (outputLimitExceeded) {
+        reject(new Error(outputLimitExceeded));
+        return;
+      }
       if (timedOut) {
-        reject(new Error(`native runx ${options.args.join(" ")} timed out after ${options.timeoutMs ?? "unknown"}ms.`));
+        reject(new Error(`native runx ${options.args.join(" ")} timed out after ${options.timeoutMs}ms.`));
         return;
       }
       resolve({ status, stdout, stderr });
@@ -139,10 +175,3 @@ function nativeRunxError(args: readonly string[], result: NativeRunxProcessResul
     `native runx ${args.join(" ")} failed with exit ${result.status}: ${firstNonEmpty(result.stderr, result.stdout, "no output")}`,
   );
 }
-
-function parsePositiveInt(value: string | undefined): number | undefined {
-  if (!value) return undefined;
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-}
-

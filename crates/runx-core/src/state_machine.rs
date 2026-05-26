@@ -5,7 +5,9 @@ mod types;
 
 pub use fanout::{evaluate_fanout_sync, fanout_sync_decision_key};
 pub use sequential_graph::{
-    create_sequential_graph_state, plan_sequential_graph_transition, transition_sequential_graph,
+    SequentialGraphStepIndex, apply_sequential_graph_event, create_sequential_graph_state,
+    create_sequential_graph_step_index, plan_sequential_graph_transition,
+    plan_sequential_graph_transition_indexed, transition_sequential_graph,
 };
 pub use single_step::{create_single_step_state, transition_single_step};
 pub use types::{

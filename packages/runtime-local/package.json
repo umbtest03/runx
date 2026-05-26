@@ -1,7 +1,7 @@
 {
   "name": "@runxhq/runtime-local",
   "version": "0.1.2",
-  "description": "Sunset TypeScript compatibility surface for local runtime wrappers while canonical local orchestration moves to Rust.",
+  "description": "Runx local runtime support for harness replay, receipt history, SDK bindings, MCP, and tool catalogs.",
   "private": false,
   "license": "MIT",
   "type": "module",

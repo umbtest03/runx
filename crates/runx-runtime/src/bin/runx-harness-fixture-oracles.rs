@@ -299,7 +299,7 @@ fn fixture_runtime_options() -> RuntimeOptions {
     RuntimeOptions {
         created_at: "2026-05-18T00:00:00Z".to_owned(),
         payment_supervisor: RuntimePaymentSupervisor::from_supervisor(FixturePaymentSupervisor),
-        ..RuntimeOptions::default()
+        ..RuntimeOptions::local_development()
     }
 }
 

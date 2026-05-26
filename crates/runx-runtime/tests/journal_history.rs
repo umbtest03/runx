@@ -635,7 +635,7 @@ const FIXTURE_SEED: [u8; 32] = [0x42; 32];
 fn fixture_signer() -> Result<Ed25519ReceiptSigner, Box<dyn std::error::Error>> {
     Ok(Ed25519ReceiptSigner::from_seed(
         FIXTURE_KID,
-        ReceiptIssuerType::Local,
+        ReceiptIssuerType::Hosted,
         &FIXTURE_SEED,
     )?)
 }

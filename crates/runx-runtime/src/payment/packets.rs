@@ -1,7 +1,7 @@
 // rust-style-allow: long-function because payment packet parsing accepts the
 // current graph output envelopes while payment execution is being generalized
 // across mock and provider-backed rails.
-use runx_contracts::{JsonNumber, JsonObject, JsonValue};
+use runx_contracts::{JsonNumber, JsonObject, JsonValue, json_bool_field, json_string_field};
 use thiserror::Error;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -110,7 +110,7 @@ pub fn read_payment_reservation_packet(
         )?
         .to_owned(),
         operation: payment_bounds
-            .and_then(|bounds| string_field(bounds, "operation"))
+            .and_then(|bounds| non_empty_string_field(bounds, "operation"))
             .ok_or(PaymentPacketError::MissingField {
                 field: "reserved_payment_authority.*.bounds.payment.operation",
             })?
@@ -122,7 +122,7 @@ pub fn read_payment_reservation_packet(
         )?
         .to_owned(),
         spend_capability_ref: object_path(data, &["spend_capability_ref"])
-            .and_then(|reference| string_field(reference, "uri"))
+            .and_then(|reference| non_empty_string_field(reference, "uri"))
             .ok_or(PaymentPacketError::MissingField {
                 field: "spend_capability_ref.uri",
             })?
@@ -139,11 +139,11 @@ pub fn read_payment_rail_packet(
     let result = object_path(data, &["rail_result"])
         .map(|result| {
             Ok(PaymentRailResult {
-                status: string_field(result, "status").map(str::to_owned),
-                rail: string_field(result, "rail").map(str::to_owned),
+                status: non_empty_string_field(result, "status").map(str::to_owned),
+                rail: non_empty_string_field(result, "rail").map(str::to_owned),
                 amount_minor: optional_u64(result, "amount_minor", "rail_result.amount_minor")?,
-                currency: string_field(result, "currency").map(str::to_owned),
-                counterparty: string_field(result, "counterparty").map(str::to_owned),
+                currency: non_empty_string_field(result, "currency").map(str::to_owned),
+                counterparty: non_empty_string_field(result, "counterparty").map(str::to_owned),
             })
         })
         .transpose()?;
@@ -165,7 +165,7 @@ pub fn read_payment_rail_packet(
         result,
         proof,
         recovery_status: object_path(data, &["recovery_hint"])
-            .and_then(|hint| string_field(hint, "status"))
+            .and_then(|hint| non_empty_string_field(hint, "status"))
             .map(str::to_owned),
     }))
 }
@@ -183,8 +183,8 @@ pub fn read_payment_refusal_packet(
     Ok(Some(PaymentRefusalPacket {
         reason_code: required_string(refusal, "reason_code", "payment_refusal_packet.reason_code")?
             .to_owned(),
-        rail_call_performed: bool_field(refusal, "rail_call_performed").unwrap_or(false),
-        ledger_spend_recorded: bool_field(refusal, "ledger_spend_recorded").unwrap_or(false),
+        rail_call_performed: json_bool_field(refusal, "rail_call_performed").unwrap_or(false),
+        ledger_spend_recorded: json_bool_field(refusal, "ledger_spend_recorded").unwrap_or(false),
     }))
 }
 
@@ -231,21 +231,11 @@ fn required_string<'a>(
     key: &'static str,
     field: &'static str,
 ) -> Result<&'a str, PaymentPacketError> {
-    string_field(object, key).ok_or(PaymentPacketError::MissingField { field })
+    non_empty_string_field(object, key).ok_or(PaymentPacketError::MissingField { field })
 }
 
-fn string_field<'a>(object: &'a JsonObject, key: &str) -> Option<&'a str> {
-    match object.get(key)? {
-        JsonValue::String(value) if !value.is_empty() => Some(value),
-        _ => None,
-    }
-}
-
-fn bool_field(object: &JsonObject, key: &str) -> Option<bool> {
-    match object.get(key)? {
-        JsonValue::Bool(value) => Some(*value),
-        _ => None,
-    }
+fn non_empty_string_field<'a>(object: &'a JsonObject, key: &str) -> Option<&'a str> {
+    json_string_field(object, key).filter(|value| !value.is_empty())
 }
 
 fn required_u64(

@@ -4,10 +4,11 @@
 use runx_contracts::{
     ActForm, AuthorityAttenuation, AuthoritySubsetResult, Closure, ClosureDisposition,
     CriterionBinding, CriterionStatus, Decision, DecisionChoice, DecisionInputs,
-    DecisionJustification, FanoutReceiptSyncPoint, Intent, JsonObject, JsonValue, Lineage,
-    ProofKind, RECEIPT_CANONICALIZATION, Receipt, ReceiptAct, ReceiptAuthority, ReceiptEnforcement,
+    DecisionJustification, FanoutReceiptSyncPoint, Intent, JsonObject, Lineage, ProofKind,
+    RECEIPT_CANONICALIZATION, Receipt, ReceiptAct, ReceiptAuthority, ReceiptEnforcement,
     ReceiptIdempotency, ReceiptIssuer, ReceiptIssuerType, ReceiptSchema, ReceiptSubjectKind,
     Reference, ReferenceType, Seal, SignatureAlgorithm, Subject, SuccessCriterion,
+    json_string_field,
 };
 use runx_receipts::{
     ReceiptProofContext, ReceiptProofContextProvider, ReceiptSignature, ReceiptTreeConfig,
@@ -533,7 +534,7 @@ struct OutputRefs {
 
 fn output_refs(output: &SkillOutput) -> OutputRefs {
     let mut refs = OutputRefs::default();
-    if let Some(request_id) = string_field(&output.metadata, "agent_request_id") {
+    if let Some(request_id) = json_string_field(&output.metadata, "agent_request_id") {
         refs.source_refs.push(Reference {
             uri: format!("runx:agent_act:{request_id}").into(),
             reference_type: ReferenceType::Act,
@@ -573,13 +574,6 @@ fn collect_supervisor_metadata_refs(metadata: &JsonObject, refs: &mut OutputRefs
         observed_at: None,
         proof_kind: Some(ProofKind::PaymentRail),
     });
-}
-
-fn string_field<'a>(object: &'a JsonObject, field: &str) -> Option<&'a str> {
-    match object.get(field) {
-        Some(JsonValue::String(value)) => Some(value),
-        _ => None,
-    }
 }
 
 fn disposition(output: &SkillOutput) -> ClosureDisposition {

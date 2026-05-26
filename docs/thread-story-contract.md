@@ -13,6 +13,12 @@ The shared implementation lives in `@runxhq/core/knowledge` as typed helpers:
 - `buildThreadStatusMarkdown`
 - `buildThreadPullRequestReviewerPacketMarkdown`
 
+Source-command normalization lives one layer earlier in `@runxhq/core/source`.
+It supplies canonical source/thread locators, safe command summaries, target
+repo hints, and dedupe keys that story builders may reference. It does not own
+the durable reviewer projection, and it must not publish to Slack, GitHub, or
+Sentry directly.
+
 The thread outbox tools use those helpers to produce:
 
 - `story.schema`: `runx.thread-story.control.v1`

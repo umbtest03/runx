@@ -10,6 +10,14 @@ const workspaceRoot = process.cwd();
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 describe("Rust CLI cutover scripts", () => {
+  it("keeps the published native selector on unconditional digest verification", async () => {
+    const selector = await readFile(path.join(workspaceRoot, "packages", "cli", "bin", "runx"), "utf8");
+
+    expect(selector).not.toContain("RUNX_SKIP_NATIVE_VERIFY");
+    expect(selector).not.toContain("native-verify-");
+    expect(selector).toContain("createHash(\"sha256\").update(readFileSync(binaryPath)).digest(\"hex\")");
+  });
+
   it("accepts clean cutover candidates and blocks launcher shim flags", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cutover-script-candidate-"));
 

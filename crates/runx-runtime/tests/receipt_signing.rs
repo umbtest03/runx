@@ -10,8 +10,10 @@ use runx_receipts::{
 };
 use runx_runtime::receipts::{
     Ed25519ReceiptSigner, Ed25519ReceiptVerifier, ProductionReceiptKey,
-    RuntimeReceiptSignaturePolicy, RuntimeReceiptSigner, RuntimeReceiptSigningError,
-    graph_receipt_with_signature_policy, step_receipt_with_signature_policy,
+    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV,
+    RUNX_RECEIPT_SIGN_KID_ENV, RuntimeReceiptSignatureConfig, RuntimeReceiptSignaturePolicy,
+    RuntimeReceiptSigner, RuntimeReceiptSigningError, graph_receipt_with_signature_policy,
+    step_receipt_with_signature_policy,
 };
 use runx_runtime::{InvocationStatus, SkillOutput, StepRun};
 
@@ -126,14 +128,14 @@ fn production_sealing_rejects_missing_issuer_metadata() -> Result<(), Box<dyn Er
     let verifier = fixture_verifier(&signer);
     let missing_kid = FixedSigner {
         issuer: ReceiptIssuer {
-            issuer_type: ReceiptIssuerType::Local,
+            issuer_type: ReceiptIssuerType::Hosted,
             kid: " ".into(),
             public_key_sha256: signer.production_key().public_key_sha256().into(),
         },
     };
     let missing_hash = FixedSigner {
         issuer: ReceiptIssuer {
-            issuer_type: ReceiptIssuerType::Local,
+            issuer_type: ReceiptIssuerType::Hosted,
             kid: FIXTURE_KID.into(),
             public_key_sha256: " ".into(),
         },
@@ -212,6 +214,44 @@ fn production_verifier_rejects_pseudo_and_malformed_public_key() -> Result<(), B
     Ok(())
 }
 
+#[test]
+fn production_signing_env_requires_non_local_issuer_type() -> Result<(), Box<dyn Error>> {
+    let empty_env = std::collections::BTreeMap::new();
+    let error = RuntimeReceiptSignatureConfig::from_env(&empty_env)
+        .err()
+        .ok_or("missing signing env unexpectedly succeeded")?;
+    assert!(
+        error
+            .to_string()
+            .contains("governed runtime receipt signing")
+    );
+
+    let env_without_issuer = signing_env(None);
+    let error = RuntimeReceiptSignatureConfig::from_env(&env_without_issuer)
+        .err()
+        .ok_or("missing issuer type unexpectedly succeeded")?;
+    assert!(error.to_string().contains("issuer type is missing"));
+
+    let env_with_local = signing_env(Some("local"));
+    let error = RuntimeReceiptSignatureConfig::from_env(&env_with_local)
+        .err()
+        .ok_or("local production issuer unexpectedly succeeded")?;
+    assert!(error.to_string().contains("issuer type is unsupported"));
+
+    let env_with_hosted = signing_env(Some("hosted"));
+    let config = RuntimeReceiptSignatureConfig::from_env(&env_with_hosted)?;
+    let receipt = step_receipt_with_signature_policy(
+        "prod_env",
+        "seal",
+        1,
+        &skill_output(InvocationStatus::Success),
+        CREATED_AT,
+        config.signature_policy(),
+    )?;
+    assert_eq!(receipt.issuer.issuer_type, ReceiptIssuerType::Hosted);
+    Ok(())
+}
+
 fn production_step_receipt(
     signer: &Ed25519ReceiptSigner,
     verifier: &Ed25519ReceiptVerifier,
@@ -255,7 +295,7 @@ fn production_step_run(
 }
 
 fn fixture_signer() -> Result<Ed25519ReceiptSigner, RuntimeReceiptSigningError> {
-    Ed25519ReceiptSigner::from_seed(FIXTURE_KID, ReceiptIssuerType::Local, &FIXTURE_SEED)
+    Ed25519ReceiptSigner::from_seed(FIXTURE_KID, ReceiptIssuerType::Hosted, &FIXTURE_SEED)
 }
 
 fn fixture_verifier(signer: &Ed25519ReceiptSigner) -> Ed25519ReceiptVerifier {
@@ -270,6 +310,25 @@ fn proof_context(verifier: &Ed25519ReceiptVerifier) -> ReceiptProofContext<'_> {
         verified_redaction_refs: Default::default(),
         verified_hash_commitments: Default::default(),
     }
+}
+
+fn signing_env(issuer_type: Option<&str>) -> std::collections::BTreeMap<String, String> {
+    let mut env = [
+        (RUNX_RECEIPT_SIGN_KID_ENV.to_owned(), FIXTURE_KID.to_owned()),
+        (
+            RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV.to_owned(),
+            "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=".to_owned(),
+        ),
+    ]
+    .into_iter()
+    .collect::<std::collections::BTreeMap<_, _>>();
+    if let Some(issuer_type) = issuer_type {
+        env.insert(
+            RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV.to_owned(),
+            issuer_type.to_owned(),
+        );
+    }
+    env
 }
 
 fn skill_output(status: InvocationStatus) -> SkillOutput {

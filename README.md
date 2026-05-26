@@ -113,12 +113,11 @@ metadata, MCP, built-in adapter execution, and external execution-adapter
 supervision for the native CLI path. OS sandbox enforcement remains a separate
 runtime hardening lane and must not be assumed from sandbox declarations alone.
 
-`@runxhq/runtime-local` and `@runxhq/adapters` are sunset TypeScript
-compatibility surfaces. They may contain wrappers, generated protocol types,
-helper SDKs, or tests during the cutover, but they must not execute trusted
-local runtime fallback behavior. New local orchestration work belongs in Rust
-first, and package wrappers must fail closed when a supported native binary is
-not available.
+`@runxhq/runtime-local` and `@runxhq/adapters` are TypeScript support packages
+for wrappers, generated protocol types, helper SDKs, and tests. They must not
+execute trusted local runtime fallback behavior. New local orchestration work
+belongs in Rust first, and package wrappers must fail closed when a supported
+native binary is not available.
 
 TypeScript remains for generated contracts, CLI/client wrappers,
 cloud/product integrations, host adapters, authoring tooling, and helper SDKs
@@ -135,7 +134,7 @@ Command-surface ownership:
 | Surface | Canonical owner | TypeScript role |
 | --- | --- | --- |
 | `runx skill` local execution | `runx-runtime::execution` via `runx-cli` | npm launcher/client wrapper |
-| `runx harness <fixture.yaml>` | Rust harness replay | compatibility tests and wrappers |
+| `runx harness <fixture.yaml>` | Rust harness replay | tests and wrapper views |
 | receipts and history | Rust receipt store and journal | display/client views |
 | policy, authority, payment, x402 | Rust core/runtime policy | published type mirrors and product UX |
 | external execution-adapter protocol | `runx-runtime` supervisor | generated types, helper SDKs, host/client wrappers |
@@ -309,7 +308,7 @@ checked-in script file and invoke that file instead.
 
 ## Trainable Exports
 
-Trainable export is currently a TypeScript compatibility command. It can
+Trainable export is currently a TypeScript-maintained projection command. It can
 project verified receipt lineage into newline-delimited training rows without
 mutating the original receipts, but it is not yet part of the native Rust CLI
 surface:

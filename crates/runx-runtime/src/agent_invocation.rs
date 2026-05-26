@@ -108,7 +108,7 @@ fn envelope_instructions(request: &SkillInvocation) -> String {
         .source
         .raw
         .get("instructions")
-        .and_then(json_string)
+        .and_then(JsonValue::as_str)
         .filter(|value| !value.trim().is_empty())
         .map(str::to_owned)
         .unwrap_or_else(|| {
@@ -121,11 +121,11 @@ fn envelope_allowed_tools(request: &SkillInvocation) -> Vec<NonEmptyString> {
         .source
         .raw
         .get("allowed_tools")
-        .and_then(json_array)
+        .and_then(JsonValue::as_array)
         .map(|tools| {
             tools
                 .iter()
-                .filter_map(json_string)
+                .filter_map(JsonValue::as_str)
                 .filter_map(|value| NonEmptyString::new(value.to_owned()))
                 .collect::<Vec<_>>()
         })
@@ -142,20 +142,6 @@ fn output_contract(raw: &JsonObject) -> Result<BTreeMap<String, OutputField>, Ru
     let Output(output) = serde_json::from_value(value)
         .map_err(|source| RuntimeError::json("parsing agent output contract", source))?;
     Ok(output)
-}
-
-fn json_array(value: &JsonValue) -> Option<&Vec<JsonValue>> {
-    match value {
-        JsonValue::Array(values) => Some(values),
-        _ => None,
-    }
-}
-
-fn json_string(value: &JsonValue) -> Option<&str> {
-    match value {
-        JsonValue::String(value) => Some(value),
-        _ => None,
-    }
 }
 
 fn execution_location(skill_directory: &Path, env: &BTreeMap<String, String>) -> ExecutionLocation {

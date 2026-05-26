@@ -12,7 +12,7 @@ pnpm test:fast
 ```
 
 `test:fast` uses `vitest.fast.config.ts`. It includes package tests plus
-compatibility coverage for TypeScript wrapper surfaces.
+coverage for surviving TypeScript package boundaries.
 
 For canonical local runtime behavior, prefer the Rust lane directly. Payment,
 authority, receipt, harness, dogfood, registry, and policy-config changes need

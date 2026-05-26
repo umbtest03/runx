@@ -508,7 +508,7 @@ fn read_profile_state(
     };
     let Some(profile_document) = profile
         .get("document")
-        .and_then(json_string)
+        .and_then(JsonValue::as_str)
         .filter(|value| !value.is_empty())
     else {
         return Ok(None);
@@ -598,7 +598,7 @@ fn validate_manifest_skill(
         }
     })?;
     let manifest_skill = match &value {
-        JsonValue::Object(object) => object.get("skill").and_then(json_string),
+        JsonValue::Object(object) => object.get("skill").and_then(JsonValue::as_str),
         _ => None,
     };
     if let Some(manifest_skill) = manifest_skill
@@ -611,17 +611,6 @@ fn validate_manifest_skill(
         });
     }
     Ok(())
-}
-
-fn json_string(value: &JsonValue) -> Option<&str> {
-    match value {
-        JsonValue::String(value) => Some(value),
-        JsonValue::Null
-        | JsonValue::Bool(_)
-        | JsonValue::Number(_)
-        | JsonValue::Array(_)
-        | JsonValue::Object(_) => None,
-    }
 }
 
 fn read_optional_file(path: &Path) -> Result<Option<String>, ConfigError> {

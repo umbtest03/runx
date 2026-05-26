@@ -1,4 +1,4 @@
-use runx_contracts::JsonValue;
+use runx_contracts::{JsonObject, JsonValue, json_string_field as string_field};
 use serde::{Deserialize, Serialize};
 
 use super::rfc3339::parse_rfc3339_moment;
@@ -110,9 +110,7 @@ fn has_requirement_reference(requirement: &CredentialGrantRequirement) -> bool {
         || truthy_string(&requirement.target_locator)
 }
 
-fn requirement_from_object(
-    object: &runx_contracts::JsonObject,
-) -> Option<CredentialGrantRequirement> {
+fn requirement_from_object(object: &JsonObject) -> Option<CredentialGrantRequirement> {
     let auth_type = string_field(object, "type");
     if matches!(auth_type, Some("env" | "none" | "local")) {
         return None;
@@ -131,18 +129,11 @@ fn requirement_from_object(
     })
 }
 
-fn string_field<'a>(object: &'a runx_contracts::JsonObject, field: &str) -> Option<&'a str> {
-    match object.get(field) {
-        Some(JsonValue::String(value)) => Some(value),
-        _ => None,
-    }
-}
-
-fn owned_string_field(object: &runx_contracts::JsonObject, field: &str) -> Option<String> {
+fn owned_string_field(object: &JsonObject, field: &str) -> Option<String> {
     string_field(object, field).map(ToOwned::to_owned)
 }
 
-fn string_array_field(object: &runx_contracts::JsonObject, field: &str) -> Vec<String> {
+fn string_array_field(object: &JsonObject, field: &str) -> Vec<String> {
     match object.get(field) {
         Some(JsonValue::Array(values)) => values
             .iter()
@@ -155,7 +146,7 @@ fn string_array_field(object: &runx_contracts::JsonObject, field: &str) -> Vec<S
     }
 }
 
-fn authority_kind_field(object: &runx_contracts::JsonObject, field: &str) -> Option<AuthorityKind> {
+fn authority_kind_field(object: &JsonObject, field: &str) -> Option<AuthorityKind> {
     match string_field(object, field) {
         Some("read_only") => Some(AuthorityKind::ReadOnly),
         Some("constructive") => Some(AuthorityKind::Constructive),

@@ -5,7 +5,7 @@ import path from "node:path";
 import process from "node:process";
 import { spawn } from "node:child_process";
 
-import { asRecord, errorMessage, firstNonEmpty, isNotFound, readOptionalFile, stringValue } from "@runxhq/core/util";
+import { asRecord, errorMessage, firstNonEmpty, isNotFound, parsePositiveInt, readOptionalFile, stringValue } from "@runxhq/core/util";
 
 export type RegistryTrustTier = "first_party" | "verified" | "community";
 
@@ -394,12 +394,6 @@ function requiredTrustTier(record: Record<string, unknown>, field: string): Regi
     throw new Error(`Rust registry resolve returned invalid ${field}.`);
   }
   return value;
-}
-
-function parsePositiveInt(value: string | undefined): number | undefined {
-  if (!value) return undefined;
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 function truthyEnv(value: string | undefined): boolean {
