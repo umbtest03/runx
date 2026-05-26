@@ -27,7 +27,7 @@ packages. `packages/cli/src/**` has zero exact runtime-local/adapters package
 references in this tree. Blockers: not currently executable. `rust-harness`,
 `rust-runtime-skill-execution`, `rust-runtime-adapters-agent`,
 `rust-runtime-adapters-a2a`, `rust-runtime-adapters-catalog`,
-`rust-runtime-adapters-mcp`, and `rust-mcp-server-harness-receipt-seal` are
+`rust-runtime-adapters-mcp`, and `rust-mcp-server-receipt-seal` are
 completed or archived completed. The remaining blockers are importer/routing
 blockers: IDE core, langchain, package manifests, path aliases, vitest aliases,
 oracle scripts, active docs/fixtures, Rust parity/doctor references, and many
@@ -69,7 +69,7 @@ or protocol boundary.
 The replacement execution model is Rust runtime plus the ratified harness
 spine. Skill execution is expressed as a harness run: decisions and acts are
 contained in the harness node, receipts are sealed harness nodes, and graph
-execution is represented by parent/child harness receipt references. This spec
+execution is represented by parent/child receipt references. This spec
 does not preserve a TypeScript compatibility bridge, a `runtime-local` shim, or
 legacy receipt/object vocabularies.
 
@@ -95,8 +95,8 @@ Current reality as of this refresh:
 - Completed prerequisites: `rust-harness`, `rust-runtime-skill-execution`,
   `rust-runtime-adapters-agent`, `rust-runtime-adapters-a2a`, archived
   `rust-runtime-adapters-catalog`, archived `rust-runtime-adapters-mcp`, and
-  archived `rust-mcp-server-harness-receipt-seal`.
-- The former MCP blocker is closed: `rust-mcp-server-harness-receipt-seal`
+  archived `rust-mcp-server-receipt-seal`.
+- The former MCP blocker is closed: `rust-mcp-server-receipt-seal`
   is archived completed with review gate pass and acceptance evidence for
   `cargo test --manifest-path crates/Cargo.toml -p runx-runtime mcp_server
   --features mcp -- --nocapture`, harness tests, receipt proof tests, and MCP
@@ -277,7 +277,7 @@ Invariants:
   skill author subprocess ABI (`run.js`/`run.mjs`/CLI-tool input/output),
   external execution adapter protocol (custom source execution replacing
   runtime-local `SkillAdapter` behavior), source-event ingress (Slack, Sentry,
-  GitHub, file, API, and webhook signals admitted into harness receipts),
+  GitHub, file, API, and webhook signals admitted into receipts),
   hosted or embedded runtime binding (cloud worker, agent-runner, SDK, host
   bridge, continuation, auth resolver, and resume semantics), tool catalog/read
   model access (public search, inspect, and registry/catalog views), and
@@ -305,8 +305,8 @@ Invariants:
   packet names such as `runx.issue_to_pr_outcome.v1` are not runtime-local
   compatibility aliases.
 - The only accepted runtime-local replacement for skill execution is a Rust
-  harness run that emits and verifies canonical sealed harness receipts with
-  contained decision payloads, contained act payloads, child harness receipt
+  harness run that emits and verifies canonical sealed receipts with
+  contained decision payloads, contained act payloads, child receipt
   refs, proof status, and verification checks.
 - Historical archived specs may mention old terms, but active specs, fixtures,
   package manifests, and runtime-local replacement docs must not depend on
@@ -371,17 +371,17 @@ Out of scope:
 ## Dependencies
 
 - `runx-contract-spine-hard-cutover` complete; it is the canonical source for
-  harness, act, decision, signal, authority, and harness receipt shapes.
+  harness, act, decision, signal, authority, and receipt shapes.
 - `rust-harness` complete and default-ready for every harness mode needed by
   surviving local callers. It must reject retired fixture receipt fields rather
   than translate them.
 - `rust-runtime-skill-execution` complete; checked-in product skill harnesses
-  execute in Rust and verify sealed harness receipt trees.
+  execute in Rust and verify sealed receipt trees.
 - `rust-ts-sunset-marketplaces` complete.
 - Every runtime adapter path complete and routed:
   `rust-runtime-adapters-agent`, `rust-runtime-adapters-a2a`, and archived
   `rust-runtime-adapters-catalog` and `rust-runtime-adapters-mcp` are
-  completed; `rust-mcp-server-harness-receipt-seal` is also archived completed
+  completed; `rust-mcp-server-receipt-seal` is also archived completed
   and closes the former MCP server single-skill receipt proof gap. The
   `cli_tool` runtime path is already consumed by skill execution but does not
   cover MCP, agent, A2A, catalog, CLI package source routing, or TS package
@@ -417,7 +417,7 @@ Out of scope:
    vocabulary. This spec must not create new schema aliases, v2 shapes, or
    transitional runtime-local object models.
 2. `rust-harness` ports replay execution to Rust and upgrades active harness
-   fixtures to canonical harness receipt assertions. This sunset must wait for
+   fixtures to canonical receipt assertions. This sunset must wait for
    those fixtures to reject retired fields such as `skill_execution`,
    `graph_execution`, `skill_name`, `source_type`, `graph_name`, and `owner`
    under `expect.receipt`.
@@ -447,7 +447,7 @@ Out of scope:
   named protocols for non-execution integration lanes. It is not handled by a
   local compatibility bridge.
 - Product skill execution evidence is a Rust harness run. A passing assertion
-  must cite canonical harness receipt schema/id, harness id, seal status,
+  must cite canonical receipt schema/id, harness id, seal status,
   contained decisions, contained acts, child receipt refs, proof status, and
   verification checks.
 - The Rust CLI launcher or SDK may spawn Rust runtime or call Rust libraries,
@@ -580,7 +580,7 @@ Phase 1: importer and fixture inventory.
 
 Phase 2: evidence gate.
 - Verify `rust-harness` acceptance evidence is checked in and active fixtures
-  use canonical harness receipt assertions.
+  use canonical receipt assertions.
 - Verify `rust-runtime-skill-execution` acceptance evidence is checked in for
   `issue-intake` and `issue-to-pr` without modifying product skill files.
 - Verify adapter specs cover every source type reachable from surviving
@@ -626,7 +626,7 @@ Phase 5: validation and review.
   replaced by empty packages, shim packages, aliases, or v2 package names.
 - All surviving skill execution acceptance evidence is expressed as Rust
   harness runs. Receipts are sealed harness nodes with contained decisions,
-  contained acts, child harness receipt refs where graph execution is involved,
+  contained acts, child receipt refs where graph execution is involved,
   proof status, and verification checks.
 - No active replacement code, fixture, docs page, package manifest, or spec
   added by this sunset uses retired peer terminal artifact keys as execution
@@ -634,7 +634,7 @@ Phase 5: validation and review.
 - No active replacement fixture or receipt expectation accepts retired
   `skill_execution` or `graph_execution` receipt objects.
 - `issue-intake` and `issue-to-pr` run through Rust runtime skill execution and
-  their emitted harness receipts validate through `runx-receipts`.
+  their emitted receipts validate through `runx-receipts`.
 - `runx harness` and the runtime skill execution tests pass without invoking
   `packages/runtime-local` or `packages/adapters`.
 - Runtime-local-only fixture generator scripts are either deleted or retained
@@ -682,7 +682,7 @@ node scripts/check-rust-core-style.mjs
 
 - Regression in a completed prerequisite: `rust-harness`,
   `rust-runtime-skill-execution`, any Rust adapter spec, or
-  `rust-mcp-server-harness-receipt-seal` losing sealed harness receipt proof or
+  `rust-mcp-server-receipt-seal` losing sealed receipt proof or
   reintroducing TS runtime-local dispatch.
 - The 2026-05-21 importer census is nonzero: 92 active exact-package
   reference files remain outside `.scafld/specs/**` and `dist/**`, including

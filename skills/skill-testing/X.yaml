@@ -21,7 +21,7 @@ harness:
           docs:
             - path: docs/skill-profile-model.md
               reason: Describes the package-only SKILL standard.
-        test_constraints: Keep the report grounded in repo-visible evidence and local harness receipts.
+        test_constraints: Keep the report grounded in repo-visible evidence and local receipts.
       caller:
         answers:
           agent_step.review-skill.output:

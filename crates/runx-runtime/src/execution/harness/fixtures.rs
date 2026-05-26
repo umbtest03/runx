@@ -134,9 +134,9 @@ pub enum HarnessFixtureError {
     Required { field: String },
     #[error("harness fixture {field} must not be empty")]
     Empty { field: &'static str },
-    #[error("retired harness receipt expectation field {field_path}")]
+    #[error("retired receipt expectation field {field_path}")]
     RetiredReceiptField { field_path: String },
-    #[error("unknown harness receipt expectation field {field_path}")]
+    #[error("unknown receipt expectation field {field_path}")]
     UnknownReceiptField { field_path: String },
     #[error("harness fixture mode {mode} at {field_path} is not yet supported by the Rust harness")]
     UnsupportedFixtureMode { mode: String, field_path: String },

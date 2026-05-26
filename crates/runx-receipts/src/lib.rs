@@ -1,4 +1,4 @@
-//! Pure Rust harness receipt verification for runx.
+//! Pure Rust receipt verification for runx.
 //!
 //! This crate owns the post-cutover receipt layer: a receipt is the sealed
 //! proof of a harness node, with acts and decisions proven through that seal.

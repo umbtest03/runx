@@ -1697,7 +1697,7 @@ fn receipt_corpus() -> Vec<(&'static str, Value)> {
                 "source_refs": [],
                 "target_refs": [],
                 "artifact_refs": [],
-                "closure": act_closure(),
+                "closure": closed_act(),
             }]);
             v["seal"]["criteria"] = json!([{
                 "criterion_id": "c1",
@@ -1746,7 +1746,7 @@ fn receipt_corpus() -> Vec<(&'static str, Value)> {
     ]
 }
 
-fn act_closure() -> Value {
+fn closed_act() -> Value {
     json!({
         "disposition": "closed",
         "reason_code": "done",
@@ -1762,7 +1762,7 @@ fn act_corpus() -> Vec<(&'static str, Value)> {
         "form": "observation",
         "intent": an_intent(),
         "summary": "did the thing",
-        "closure": act_closure(),
+        "closure": closed_act(),
         "criterion_bindings": [],
         "source_refs": [],
         "target_refs": [],

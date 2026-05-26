@@ -32,7 +32,7 @@
         "scopes": [
           "repo:read"
         ],
-        "type": "nango"
+        "type": "connected"
       },
       "name": "connected",
       "source": {

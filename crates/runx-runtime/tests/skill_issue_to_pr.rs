@@ -41,7 +41,7 @@ fn issue_to_pr_generated_fixtures_replay_to_needs_agent_receipts()
                 .map(|l| l.children.as_slice())
                 .unwrap_or_default()
                 .is_empty(),
-            "{case_name}: graph receipt should cite child harness receipts"
+            "{case_name}: graph receipt should cite child receipts"
         );
     }
     Ok(())

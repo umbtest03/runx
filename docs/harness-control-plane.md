@@ -1,6 +1,6 @@
 # Harness Control Plane
 
-runx issue automation is governed by harness receipts, not by a tracker-style
+runx issue automation is governed by receipts, not by a tracker-style
 queue object. Source adapters admit signals, decisions open or decline harness
 nodes, contained acts perform revision, reply, review, observation, or
 verification acts, and each harness seals to a receipt.
@@ -10,7 +10,7 @@ verification acts, and each harness seals to a receipt.
 OSS owns:
 
 - canonical signal, decision, act, harness, artifact, redaction, verification,
-  and harness receipt contracts
+  and receipt contracts
 - local skill inputs and outputs
 - source-thread and outbox packets
 - receipts and scafld-backed issue-to-PR execution
@@ -49,7 +49,7 @@ codes, criterion state, and hash commitments.
 Evidence is carried by references, artifacts, verification checks, redaction
 records, and receipt commitments. There is no separate evidence bundle
 contract. Adapters may hydrate richer provider context before a decision opens
-a mutation harness, but the governed boundary is the harness receipt.
+a mutation harness, but the governed boundary is the receipt.
 
 ## Merge Authority
 

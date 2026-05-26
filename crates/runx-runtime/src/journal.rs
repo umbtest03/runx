@@ -268,7 +268,7 @@ pub fn project_journal_for_receipt(
 
 #[must_use]
 // rust-style-allow: long-function because this projection assembles one sealed
-// harness receipt into a deterministic row set; splitting it before CLI and
+// receipt into a deterministic row set; splitting it before CLI and
 // paused-run sources land would obscure the ordering invariants.
 pub fn project_receipt_journal(receipt: &Receipt) -> JournalProjection {
     project_receipt_journal_with_policy(receipt, RuntimeReceiptSignaturePolicy::local_development())
@@ -276,7 +276,7 @@ pub fn project_receipt_journal(receipt: &Receipt) -> JournalProjection {
 
 #[must_use]
 // rust-style-allow: long-function because this projection assembles one sealed
-// harness receipt into a deterministic row set; splitting it before CLI and
+// receipt into a deterministic row set; splitting it before CLI and
 // paused-run sources land would obscure the ordering invariants.
 pub fn project_receipt_journal_with_policy(
     receipt: &Receipt,

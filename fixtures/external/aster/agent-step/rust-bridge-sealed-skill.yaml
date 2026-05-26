@@ -39,7 +39,7 @@ caller:
       closure:
         disposition: "closed"
         reason_code: "process_closed"
-        summary: "Aster issue-triage bridge run sealed with a canonical harness receipt."
+        summary: "Aster issue-triage bridge run sealed with a canonical receipt."
       receipt:
         id: "hrn_rcpt_aster_issue_triage_14"
         schema: "runx.receipt.v1"

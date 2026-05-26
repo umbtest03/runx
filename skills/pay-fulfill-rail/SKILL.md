@@ -15,7 +15,7 @@ already selected a Decision, reserved budget by idempotency key, and passed an
 attenuated `payment` authority term into the child harness.
 
 The skill must receive a scoped spend capability or provider session reference,
-never raw funding material. It returns rail proof for the harness receipt; it
+never raw funding material. It returns rail proof for the receipt; it
 does not decide policy, approval, retry, or success.
 
 ## Quality Profile

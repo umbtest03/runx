@@ -457,7 +457,7 @@ steps:
     }
   });
 
-  it("records sync policy decisions on the harness receipt", async () => {
+  it("records sync policy decisions on the receipt", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-fanout-inspect-"));
     const receiptDir = path.join(tempDir, "receipts");
 

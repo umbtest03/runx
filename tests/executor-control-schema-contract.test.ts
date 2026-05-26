@@ -16,7 +16,7 @@ describe("executor control schema contracts", () => {
       grant_id: "grant_1",
       provider: "github",
       auth_mode: "oauth",
-      material_kind: "nango_connection",
+      material_kind: "provider_credential",
       provider_reference: "conn_1",
       scopes: ["repo:read"],
       grant_reference: {
@@ -25,13 +25,13 @@ describe("executor control schema contracts", () => {
         authority_kind: "read_only",
         target_repo: "runxhq/aster",
       },
-      material_ref: "nango:github:conn_1",
+      material_ref: "opaque:github:conn_1",
     })).toEqual({
       kind: "runx.credential-envelope.v1",
       grant_id: "grant_1",
       provider: "github",
       auth_mode: "oauth",
-      material_kind: "nango_connection",
+      material_kind: "provider_credential",
       provider_reference: "conn_1",
       scopes: ["repo:read"],
       grant_reference: {
@@ -41,7 +41,7 @@ describe("executor control schema contracts", () => {
         target_repo: "runxhq/aster",
         target_locator: undefined,
       },
-      material_ref: "nango:github:conn_1",
+      material_ref: "opaque:github:conn_1",
     });
   });
 
@@ -52,7 +52,7 @@ describe("executor control schema contracts", () => {
       provider: "github",
       provider_reference: "conn_1",
       scopes: ["repo:read"],
-      material_ref: "nango:github:conn_1",
+      material_ref: "opaque:github:conn_1",
     })).toThrow(/credential-envelope\.schema\.json/);
   });
 });

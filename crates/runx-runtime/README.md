@@ -13,7 +13,7 @@ Current slice:
 - parses a local graph with `runx-parser`
 - plans sequential/fanout transitions with `runx-core`
 - runs `cli-tool` skills behind the `cli-tool` feature
-- emits harness receipts and validates the parent receipt tree with
+- emits receipts and validates the parent receipt tree with
   `runx-receipts`
 - exposes native skill, doctor, list, history, MCP, registry, config, policy,
   tool, and dev command support through `runx-cli`

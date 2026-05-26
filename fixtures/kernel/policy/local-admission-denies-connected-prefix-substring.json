@@ -32,7 +32,7 @@
         "scopes": [
           "repository:read"
         ],
-        "type": "nango"
+        "type": "connected"
       },
       "name": "connected-prefix-substring",
       "source": {

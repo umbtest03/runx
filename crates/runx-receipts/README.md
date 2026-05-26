@@ -1,6 +1,6 @@
 # runx-receipts
 
-Pure Rust harness receipt verification for runx.
+Pure Rust receipt verification for runx.
 
 The post-cutover receipt model treats a receipt as the sealed proof of a
 harness node. This crate validates that shape against the shared
@@ -10,7 +10,7 @@ runtime adapters.
 
 Current verification covers structural invariants and strict proof checks:
 terminal harness seal presence, top-level seal mirroring, form-specific act
-payloads, decision and seal criterion references, child harness receipt
+payloads, decision and seal criterion references, child receipt
 references, authority attenuation proof presence, supplied child receipt
 resolution, `sha256:` hash commitments, deterministic body commitments, and
 injected signature verification through `SignatureVerifier`.

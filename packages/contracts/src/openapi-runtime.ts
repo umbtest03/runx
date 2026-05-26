@@ -779,35 +779,35 @@ export function buildHostedOpenApiRuntimeSchemas(): Readonly<Record<string, unkn
       required: ["provider", "return_to"],
       additionalProperties: false,
     },
-    HostedConnection: {
+    HostedProviderReference: {
       type: "object",
       properties: {
-        id: { type: "string" },
+        provider_reference: { type: "string" },
         principal_id: { type: "string" },
         provider: { type: "string" },
         scopes: { type: "array", items: { type: "string" } },
         status: { type: "string", enum: ["active", "revoked"] },
         created_at: { type: "string", format: "date-time" },
       },
-      required: ["id", "principal_id", "provider", "scopes", "status", "created_at"],
+      required: ["provider_reference", "principal_id", "provider", "scopes", "status", "created_at"],
       additionalProperties: false,
     },
-    ConnectionListEnvelope: {
+    ProviderReferenceListEnvelope: {
       type: "object",
       properties: {
         status: { type: "string", const: "success" },
-        connections: { type: "array", items: openApiSchemaRef("HostedConnection") },
+        provider_references: { type: "array", items: openApiSchemaRef("HostedProviderReference") },
       },
-      required: ["status", "connections"],
+      required: ["status", "provider_references"],
       additionalProperties: false,
     },
-    ConnectionRevokedEnvelope: {
+    ProviderReferenceRevokedEnvelope: {
       type: "object",
       properties: {
         status: { type: "string", const: "revoked" },
-        connection: openApiSchemaRef("HostedConnection"),
+        provider_reference: openApiSchemaRef("HostedProviderReference"),
       },
-      required: ["status", "connection"],
+      required: ["status", "provider_reference"],
       additionalProperties: false,
     },
     ConnectGrant: {

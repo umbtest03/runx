@@ -67,9 +67,9 @@ pub enum HarnessReplayError {
         expected: String,
         actual: String,
     },
-    #[error("harness receipt digest failed: {message}")]
+    #[error("receipt digest failed: {message}")]
     ReceiptDigest { message: String },
-    #[error("harness receipt proof failed for {receipt_id}: {findings}")]
+    #[error("receipt proof failed for {receipt_id}: {findings}")]
     ReceiptProofInvalid {
         receipt_id: String,
         findings: String,

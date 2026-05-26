@@ -26,7 +26,7 @@ describe("local runtime auth security", () => {
         `---
 name: credential-boundary
 auth:
-  type: nango
+  type: connected
   provider: github
   scopes:
     - repo:read
@@ -75,7 +75,7 @@ Exercises connected credential binding.
               grant_id: "grant_other",
               provider: "github",
               auth_mode: "oauth",
-              material_kind: "nango_connection",
+              material_kind: "provider_credential",
               provider_reference: "conn_1",
               scopes: ["repo:read"],
               grant_reference: {
@@ -85,7 +85,7 @@ Exercises connected credential binding.
                 target_repo: "runxhq/aster",
                 target_locator: "runxhq/aster#issue/4",
               },
-              material_ref: "nango:github:conn_1",
+              material_ref: "opaque:github:conn_1",
             },
           }),
         },
@@ -125,7 +125,7 @@ Exercises connected credential binding.
 
       const receiptContents = await readFile(path.join(receiptDir, `${result.receipt?.id}.json`), "utf8");
       expect(receiptContents).not.toContain("executed");
-      expect(receiptContents).not.toContain("nango:github:conn_1");
+      expect(receiptContents).not.toContain("opaque:github:conn_1");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -143,7 +143,7 @@ Exercises connected credential binding.
         `---
 name: admitted-grant-only
 auth:
-  type: nango
+  type: connected
   provider: github
   scopes:
     - repo:read
@@ -207,7 +207,7 @@ Exercises admitted grant narrowing.
                   grant_id: grant.grant_id,
                   provider: grant.provider,
                   auth_mode: "oauth",
-                  material_kind: "nango_connection",
+                  material_kind: "provider_credential",
                   provider_reference: "conn_1",
                   scopes: grant.scopes,
                   grant_reference: {
@@ -217,7 +217,7 @@ Exercises admitted grant narrowing.
                     target_repo: "runxhq/aster",
                     target_locator: "runxhq/aster#issue/4",
                   },
-                  material_ref: "nango:github:conn_1",
+                  material_ref: "opaque:github:conn_1",
                 },
               }
               : undefined;
@@ -243,7 +243,7 @@ Exercises admitted grant narrowing.
         `---
 name: missing-credential
 auth:
-  type: nango
+  type: connected
   provider: github
   scopes:
     - repo:read

@@ -131,7 +131,7 @@ Likely implementation touchpoints if this draft is promoted:
 - `fixtures/skills/x402-pay-*-fulfill/SKILL.md`
 - `skills/pay-fulfill-rail/SKILL.md`
 - `skills/pay-fulfill-rail/X.yaml`
-- `schemas/reference.schema.json`, `schemas/harness-receipt.schema.json`, or
+- `schemas/reference.schema.json`, `schemas/receipt.schema.json`, or
   payment packet schemas only if the public wire shape changes
 - `packages/contracts/src/schemas/spine.ts` or
   `packages/contracts/src/schemas/receipt.ts` only if generated schema parity is

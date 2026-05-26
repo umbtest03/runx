@@ -748,7 +748,7 @@ fn dedupe_plan(
             uri: format!("runx:receipt:{}", receipt.id).into(),
             provider: None,
             locator: Some(receipt.digest.clone()),
-            label: Some("post-merge observer harness receipt".to_owned().into()),
+            label: Some("post-merge observer receipt".to_owned().into()),
             observed_at: None,
             proof_kind: None,
         },

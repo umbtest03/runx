@@ -928,7 +928,7 @@ fn sealed_receipt_dedupe_plan(
             uri: format!("runx:receipt:{}", sealed_receipt.id).into(),
             provider: None,
             locator: Some(sealed_receipt.digest.clone()),
-            label: Some("post-merge observer harness receipt".to_owned().into()),
+            label: Some("post-merge observer receipt".to_owned().into()),
             observed_at: Some(sealed_receipt.seal.closed_at.clone()),
             proof_kind: None,
         },

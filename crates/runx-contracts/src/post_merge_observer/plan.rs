@@ -121,7 +121,7 @@ pub fn plan_post_merge_observer_runtime_dedupe(
         uri: format!("runx:receipt:{receipt_id}").into(),
         provider: None,
         locator: Some(plan.idempotency.content_hash.clone().into()),
-        label: Some("post-merge observer harness receipt".into()),
+        label: Some("post-merge observer receipt".into()),
         observed_at: None,
         proof_kind: None,
     });

@@ -382,7 +382,7 @@ function fixtureCases(): readonly KernelFixtureCase[] {
     { report: "hold" },
   );
   const githubReadAuth = {
-    type: "nango",
+    type: "connected",
     provider: "github",
     scopes: ["repo:read", "repo:read"],
     scope_family: "github_repo",
@@ -410,7 +410,7 @@ function fixtureCases(): readonly KernelFixtureCase[] {
     grant_id: "grant_expected",
     provider: "github",
     auth_mode: "oauth",
-    material_kind: "nango_connection",
+    material_kind: "provider_credential",
     provider_reference: "conn_1",
     scopes: ["repo:read"],
     grant_reference: {
@@ -420,7 +420,7 @@ function fixtureCases(): readonly KernelFixtureCase[] {
       target_repo: "runxhq/aster",
       target_locator: "runxhq/aster#issue/4",
     },
-    material_ref: "nango:github:conn_1",
+    material_ref: "opaque:github:conn_1",
   };
 
   return [
@@ -589,7 +589,7 @@ function fixtureCases(): readonly KernelFixtureCase[] {
       input: {
         kind: "policy.buildLocalScopeAdmission",
         auth: {
-          type: "nango",
+          type: "connected",
           provider: "github",
           scopes: ["repo:write"],
         },
@@ -968,7 +968,7 @@ function fixtureCases(): readonly KernelFixtureCase[] {
         skill: {
           name: "connected",
           source: { type: "cli-tool" },
-          auth: { type: "nango", provider: "github", scopes: ["repo:read"] },
+          auth: { type: "connected", provider: "github", scopes: ["repo:read"] },
         },
         options: {
           connectedGrants: [
@@ -992,7 +992,7 @@ function fixtureCases(): readonly KernelFixtureCase[] {
         skill: {
           name: "connected-prefix-substring",
           source: { type: "cli-tool" },
-          auth: { type: "nango", provider: "github", scopes: ["repository:read"] },
+          auth: { type: "connected", provider: "github", scopes: ["repository:read"] },
         },
         options: {
           connectedGrants: [
@@ -1016,7 +1016,7 @@ function fixtureCases(): readonly KernelFixtureCase[] {
         skill: {
           name: "connected-universal-wildcard",
           source: { type: "cli-tool" },
-          auth: { type: "nango", provider: "github", scopes: ["repo:read"] },
+          auth: { type: "connected", provider: "github", scopes: ["repo:read"] },
         },
         options: {
           connectedGrants: [

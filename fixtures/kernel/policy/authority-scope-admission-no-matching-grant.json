@@ -20,7 +20,7 @@
       "scopes": [
         "repo:write"
       ],
-      "type": "nango"
+      "type": "connected"
     },
     "grants": [
       {

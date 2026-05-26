@@ -1,7 +1,7 @@
 //! Native Rust runtime skeleton for runx execution.
 //!
 //! The runtime owns impure boundaries: filesystem reads, subprocess execution,
-//! sandbox preparation, host reporting, and harness receipt emission. Pure
+//! sandbox preparation, host reporting, and receipt emission. Pure
 //! parser/core/receipt crates stay upstream of this crate.
 
 pub mod adapter;

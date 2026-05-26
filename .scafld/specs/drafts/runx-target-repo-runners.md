@@ -79,7 +79,7 @@ Invariants:
 - Runner availability is explicit; no hidden fallback to the source repo.
 - A target repo must be scafld-ready before mutating issue-to-PR work runs.
 - Target execution runs inside a governed harness; the PR-producing act uses
-  `form: "revision"` and is proved only by the sealing harness receipt.
+  `form: "revision"` and is proved only by the sealing receipt.
 - Dedupe runs before creating a new PR.
 - PR packaging records `metadata.dedupe.strategy`, `metadata.dedupe.key`, and
   `metadata.dedupe.result` so retries are auditable and provider pushers can
@@ -170,7 +170,7 @@ Required behavior:
 - [x] Local pull-request receipt metadata records whether the PR path was
   created or reused for the dedupe key using canonical `metadata.dedupe.result`
   values.
-- [ ] Pull-request outbox metadata and the sealed pull-request harness receipt
+- [ ] Pull-request outbox metadata and the sealed pull-request receipt
   record whether the PR path was created or reused for the dedupe key. Local
   contract receipt metadata is present; live outbox/sealed-harness integration
   remains.
@@ -222,7 +222,7 @@ Changes:
 - Thread target repo context into runner invocation as role-named References.
 - Carry source issue/thread metadata through execution.
 - Ensure public output uses URLs and repo names.
-- Seal target runner execution as a harness receipt containing a `revision`
+- Seal target runner execution as a receipt containing a `revision`
   act for branch/PR creation or reuse.
 
 Acceptance:
@@ -258,7 +258,7 @@ Changes:
 - Add dedupe key generation and provider lookup.
 - Reuse/link existing PR when policy says so.
 - Preserve the dedupe decision in pull-request outbox metadata and in the
-  sealed harness receipt proof path.
+  sealed receipt proof path.
 
 Acceptance:
 - [x] Provider lookup execution reuses an open PR only when dedupe markers and
@@ -330,7 +330,7 @@ Issues:
 - 2026-05-19: Expanded placeholder into target-repo runner contract after
   Nitrosend source-thread dogfood review.
 - 2026-05-19: Locked PR dedupe to outbox metadata plus the sealed pull-request
-  harness receipt node so the Rust runner and provider pushers keep retry
+  receipt node so the Rust runner and provider pushers keep retry
   behavior observable.
 - 2026-05-20: Added local missing-runner and not-scafld negative fixture
   coverage for fail-closed target-runner admission before mutation.

@@ -368,7 +368,7 @@ harness:
       runner: intake
       inputs:
         harness_context:
-          receipt_ref: receipt:harness:1
+          receipt_ref: runx:receipt:1
           evidence_refs:
             - type: github_issue
               uri: gh://nitrosend/nitrosend/issues/1
@@ -394,8 +394,8 @@ runners:
       outcome_state: complete
       evidence_refs:
         - type: receipt
-          uri: receipt:harness:verify
-          label: harness receipt
+          uri: runx:receipt:verify
+          label: receipt
       surface_refs:
         - type: artifact_refs
           uri: artifact://verify

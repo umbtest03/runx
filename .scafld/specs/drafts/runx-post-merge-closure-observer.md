@@ -17,7 +17,7 @@ Status: draft
 Current phase: bounded live GitHub PR readback adapter slice
 Next: provider adapter and target-runner integration slice after dependencies
 Reason: issue-to-PR currently has a pure contract/runtime observer slice for
-closure planning, dedupe, sealed harness receipt projection, and local
+closure planning, dedupe, sealed receipt projection, and local
 publication command projection. Runtime now has an abstract observer adapter
 seam plus a fixture-backed GitHub PR observation/readback adapter that returns
 deterministic PR and verification observations without network side effects.
@@ -88,7 +88,7 @@ close command, Rust contract-level
 repeated observer signal idempotency proof for duplicate local provider
 observations, missing source-thread fail-closed routing before provider-state
 classification, stable webhook/scheduler runtime dedupe planning, sealed
-harness-receipt publication projection gates, and local runtime command
+receipt publication projection gates, and local runtime command
 projection for source issue comments, source-thread replies, and
 policy-authorized source issue close commands. Provider adapters remain
 pending.
@@ -98,7 +98,7 @@ Review gate: not_started
 
 Add a reusable post-merge closure/proof observer for runx issue-to-PR flows. It
 observes PR merge/close state, runs policy-defined verification, seals the
-observed state and verification proof into harness receipts, updates the source
+observed state and verification proof into receipts, updates the source
 GitHub issue, posts the final Slack/source-thread reply, and closes or marks
 the issue according to policy.
 
@@ -134,21 +134,21 @@ Invariants:
 - Verification output is reviewer-safe and redacted.
 - No hidden auto-merge path is introduced.
 - The observer never emits a legacy peer terminal artifact. It seals a follow-on
-  harness receipt whose contained acts use `form: "observation"`,
+  receipt whose contained acts use `form: "observation"`,
   `form: "verification"`, `form: "reply"`, or `form: "revision"` as needed.
 - Source issue closure and final source-thread publication require a sealed
-  harness receipt with closure and `proof.verification` criteria.
+  receipt with closure and `proof.verification` criteria.
 
 ## Objectives
 
-- Define the harness receipt closure/proof model for merged, closed-unmerged,
+- Define the receipt closure/proof model for merged, closed-unmerged,
   superseded, verification-passed, and verification-failed observations.
 - Define criterion ids, reference roles, closure reason codes, and idempotency
   keys for provider state, PR state, human gate, verification, close policy,
   and source-thread targets.
 - Add provider observer for GitHub PR state changes.
 - Add policy-driven verification hook that records verification as a contained
-  act with `form: "verification"` inside a sealed harness receipt.
+  act with `form: "verification"` inside a sealed receipt.
 - Publish final reply to source GitHub issue and Slack/source thread.
 - Add idempotency/dedupe for repeated webhook or scheduled observer runs.
 - Add fixtures for merged verified, merged failed verify, closed unmerged,
@@ -174,7 +174,7 @@ Out of scope:
 
 - `runx-operational-policy-config`.
 - `runx-target-repo-runners` for cross-repo source/target context.
-- `rust-runtime-receipt-path-discovery` for harness receipt storage.
+- `rust-runtime-receipt-path-discovery` for receipt storage.
 - `rust-receipt-proof-verification` for sealed receipt proof verification.
 
 ## Assumptions
@@ -241,20 +241,20 @@ Required behavior:
   classification when source-thread metadata is missing, and the local runtime
   command projection fails closed when sealed source-thread provider/locator
   metadata is missing. Live provider adapters remain pending.
-- [ ] Final publication is backed by a sealed harness receipt containing issue
+- [ ] Final publication is backed by a sealed receipt containing issue
   link, PR link, merge sha when available, verification summary, closure reason,
   and next human action. Local projection now requires the sealed target PR ref,
   requires merge SHA metadata for merged closures, distinguishes proof criteria
   from optional verification criteria for closed-unmerged receipts, and renders
   the full context fields in local commands; live publication remains pending.
-- [x] Final publication validates by reading the sealed harness receipt and
+- [x] Final publication validates by reading the sealed receipt and
   required closure/proof criteria before publication; source issue close still
   requires proof-bound verification criteria.
 - [x] Final publication excludes absolute local paths, raw env vars, secrets,
   and excessive logs at the local runtime command-projection boundary.
 - [ ] No fixture, emitted artifact, schema id, or persisted receipt uses a
   retired peer terminal artifact shape; terminal state is represented only as
-  sealed harness receipt closure plus `proof.verification` criteria.
+  sealed receipt closure plus `proof.verification` criteria.
 
 ## Phase 1: Closure/Proof Model
 
@@ -265,10 +265,10 @@ Objective: Define the observer harness, contained acts, closures, references,
 criterion ids, and idempotency keys.
 
 Changes:
-- Add observer harness receipt fixture shape.
+- Add observer receipt fixture shape.
 - Add contained act forms for provider observation, deployment verification,
   source-thread reply, and policy-authorized issue close/label revision.
-- Add closure reason code rules and criterion id binding to harness receipt
+- Add closure reason code rules and criterion id binding to receipt
   proof.
 - Add idempotency key rules.
 - Add policy validation for closure and publication actions.
@@ -287,12 +287,12 @@ Objective: Observe provider PR state and run verification.
 Changes:
 - Add GitHub PR observer adapter.
 - Add verification hook contract.
-- Seal observer harness receipts and link them to the source harness receipt
+- Seal observer receipts and link them to the source receipt
   tree.
 
 Acceptance:
 - [ ] Merged, closed, and repeated signal fixtures produce correct closures,
-  verification proof, and idempotent harness receipt refs.
+  verification proof, and idempotent receipt refs.
 
 ## Phase 3: Publishing
 
@@ -303,14 +303,14 @@ Objective: Publish the final reply and issue updates to the original source
 surfaces from sealed receipt projections.
 
 Changes:
-- Publish source issue comment from sealed harness receipt projection.
+- Publish source issue comment from sealed receipt projection.
 - Publish source Slack/source-thread reply only when thread metadata is present.
 - Close/label source issue according to policy through a contained revision act.
 
 Acceptance:
 - [ ] Source-thread fixture posts no root-channel messages.
 - [ ] Final comment is concise but contains review-gate, closure, and
-  verification state projected from the sealed harness receipt.
+  verification state projected from the sealed receipt.
 
 ## Rollback
 
@@ -330,7 +330,7 @@ Findings:
 ## Self Eval
 
 - Target score: 9.5. Passing means humans get a complete issue-to-PR-to-merge
-  story backed by sealed harness receipts without watching multiple channels
+  story backed by sealed receipts without watching multiple channels
   manually.
 
 ## Deviations
@@ -374,7 +374,7 @@ Issues:
 - 2026-05-19: Expanded placeholder into post-merge observer contract.
 - 2026-05-19: Reconciled with the harness-spine hard cutover. The observer no
   longer defines a terminal packet; Rust, Aster, and repo wrappers must
-  consume sealed harness receipts with contained observation, verification,
+  consume sealed receipts with contained observation, verification,
   reply, and revision acts.
 - 2026-05-20: `runx-post-merge-observer-idempotency-contract` added a pure Rust
   planner proof that repeated merged-and-verified provider observations keep
@@ -385,9 +385,9 @@ Issues:
   fallback.
 - 2026-05-20: Added the contract runtime dedupe plan that gives webhook and
   scheduler observations the same post-merge observer receipt identity, plus a
-  sealed harness-receipt projection gate for final publication and issue close.
+  sealed receipt projection gate for final publication and issue close.
 - 2026-05-20: Added the runtime/publication slice in `runx-runtime`: it consumes
-  `PostMergeObserverRuntimeDedupePlan` plus a sealed harness receipt, emits only
+  `PostMergeObserverRuntimeDedupePlan` plus a sealed receipt, emits only
   deterministic source issue comment, source-thread reply, and authorized close
   commands, dedupes repeated webhook/scheduler publication by publication key,
   fails closed on missing source-thread provider/locator metadata, and sanitizes
@@ -395,7 +395,7 @@ Issues:
   draft because live provider adapters and end-to-end publication fixtures are
   still pending.
 - 2026-05-20: Reworded the draft away from retired peer terminal vocabulary.
-  The remaining contract language is sealed harness receipt closure plus
+  The remaining contract language is sealed receipt closure plus
   `proof.verification` criteria, with no compatibility shim or legacy peer
   artifact contract.
 - 2026-05-21: Added local runtime failed-verification publication projection:

@@ -26,7 +26,7 @@
       ],
       "target_locator": "runxhq/aster#issue/4",
       "target_repo": "runxhq/aster",
-      "type": "nango"
+      "type": "connected"
     },
     "grants": [
       {

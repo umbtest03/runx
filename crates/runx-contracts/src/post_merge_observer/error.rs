@@ -128,10 +128,10 @@ impl PostMergeObserverPlanError {
     fn fmt_receipt_error(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ReceiptNotSealed => {
-                formatter.write_str("post-merge publication requires a sealed harness receipt")
+                formatter.write_str("post-merge publication requires a sealed receipt")
             }
             Self::ReceiptNotPostMergeObserver => {
-                formatter.write_str("sealed harness receipt is not a post-merge observer closure")
+                formatter.write_str("sealed receipt is not a post-merge observer closure")
             }
             Self::MissingReceiptCriterion(criterion_id) => {
                 write!(

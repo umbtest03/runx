@@ -143,7 +143,7 @@ fn run_native_harness(fixture_paths: Vec<OsString>) -> ExitCode {
         Ok(json) => write_stdout_line(&json),
         Err(error) => {
             let _ignored = write_stderr_line(&format!(
-                "runx: failed to serialize harness receipt: {error}"
+                "runx: failed to serialize receipt: {error}"
             ));
             ExitCode::from(1)
         }
