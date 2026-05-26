@@ -7,13 +7,13 @@ Status: Phase 1 classification snapshot for
 
 Runx OSS crates may consume credential material and enforce declared authority.
 They must not broker OAuth, custody secrets, mint verified grants, or couple to a
-provider-specific credential broker such as Nango.
+provider-specific credential broker.
 
 The durable crossing is the existing opaque credential channel:
 `material_ref` is resolved through `MaterialResolver` into scoped material for a
 single execution. Offline declared grants, local env/config material, redaction
 hygiene, and connected-auth requirement policy stay MIT. Hosted connect,
-browser/polling OAuth, `RUNX_CONNECT_ACCESS_TOKEN` broker access, Nango types,
+browser/polling OAuth, `RUNX_CONNECT_ACCESS_TOKEN` broker access, private provider-broker types,
 connection session state, and verified-grant issuance move private or are
 abstracted away from MIT crates.
 
@@ -22,7 +22,7 @@ abstracted away from MIT crates.
 Inventory command:
 
 ```sh
-rg -n 'nango|oauth|RUNX_CONNECT|connection_id|material_ref|credential|auth' crates --glob '*.rs'
+rg -n 'oauth|RUNX_CONNECT|connection_id|material_ref|credential|auth' crates --glob '*.rs'
 ```
 
 The command matched 99 Rust files. The classification below is intentionally
@@ -31,7 +31,7 @@ snapshot records the current boundary.
 
 ## Private Or Move/Abstract
 
-These files currently expose brokerage, hosted connect, Nango/OAuth,
+These files currently expose brokerage, hosted connect, private provider-broker OAuth,
 `RUNX_CONNECT_*`, `connection_id`, or public surfaces built around those
 concepts.
 
@@ -39,7 +39,7 @@ concepts.
   HTTP connect polling, bearer auth, `RUNX_CONNECT_BASE_URL`, and
   `RUNX_CONNECT_ACCESS_TOKEN`.
 - `crates/runx-runtime/src/connect/types.rs` - removed from OSS in Phase 2; abstract or move. It exposes
-  `NangoConnection`, OAuth state, `connection_id`, and hosted grant material.
+  private provider-broker OAuth state, `connection_id`, and hosted grant material.
 - `crates/runx-runtime/src/connect/opener.rs` - removed from OSS in Phase 2; move private with the browser
   connect flow.
 - `crates/runx-runtime/src/connect.rs` - rewrite in Phase 2 so MIT exports only
@@ -59,7 +59,7 @@ concepts.
 - `crates/runx-runtime/tests/connect_support.rs` - move private unless Phase 2
   extracts a pure MIT fixture helper.
 - `crates/runx-runtime/tests/connect_policy_integration.rs` - keep only if it
-  can test a pure MIT grant-to-local-admission conversion without Nango or
+  can test a pure MIT grant-to-local-admission conversion without hosted provider broker or
   hosted client fixtures.
 - `crates/runx-runtime/tests/connect_secret_redaction.rs` - rewrite to exercise
   `redact_connect_text()` directly; redaction stays MIT, the hosted client does
@@ -207,10 +207,10 @@ terms, not credential envelope authority proof material.
 ## Private Home
 
 The private implementation home is `../cloud/packages/auth`. That package owns
-Nango, OAuth, connect HTTP routes, BYO credential custody, grant issuance, and
-grant revocation. Read-only context from Phase 1 also identified hosted wiring
-in `../cloud/packages/api` and run-auth resolver context in
-`../cloud/packages/worker`.
+hosted provider-broker OAuth, connect HTTP routes, BYO credential custody,
+grant issuance, and grant revocation. Read-only context from Phase 1 also
+identified hosted wiring in `../cloud/packages/api` and run-auth resolver
+context in `../cloud/packages/worker`.
 
 Follow-up cloud work must move or re-home the brokerage implementation there;
 this OSS spec records the boundary and remediates only the OSS repository.

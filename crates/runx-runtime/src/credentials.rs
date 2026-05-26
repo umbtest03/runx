@@ -32,7 +32,7 @@ impl CredentialDeliveryProfile {
             provider: provider.into(),
             auth_mode: auth_mode.into(),
             env_bindings: vec![CredentialEnvBinding {
-                role: CredentialMaterialRole::AccessToken,
+                role: CredentialMaterialRole::ApiKey,
                 env_var,
                 required: true,
             }],
@@ -88,13 +88,13 @@ struct CredentialEnvBinding {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CredentialMaterialRole {
-    AccessToken,
+    ApiKey,
 }
 
 impl CredentialMaterialRole {
     const fn label(self) -> &'static str {
         match self {
-            Self::AccessToken => "access_token",
+            Self::ApiKey => "api_key",
         }
     }
 
@@ -102,7 +102,7 @@ impl CredentialMaterialRole {
         role: runx_contracts::CredentialMaterialRole,
     ) -> Result<Self, CredentialDeliveryError> {
         match role {
-            runx_contracts::CredentialMaterialRole::AccessToken => Ok(Self::AccessToken),
+            runx_contracts::CredentialMaterialRole::ApiKey => Ok(Self::ApiKey),
             _ => Err(CredentialDeliveryError::UnsupportedMaterialRole {
                 role: format!("{role:?}"),
             }),
@@ -155,12 +155,9 @@ pub struct ResolvedCredentialMaterial {
 
 impl ResolvedCredentialMaterial {
     #[must_use]
-    pub fn access_token(material_ref: impl Into<String>, value: impl Into<String>) -> Self {
+    pub fn api_key(material_ref: impl Into<String>, value: impl Into<String>) -> Self {
         let mut values = BTreeMap::new();
-        values.insert(
-            CredentialMaterialRole::AccessToken,
-            SecretString::new(value),
-        );
+        values.insert(CredentialMaterialRole::ApiKey, SecretString::new(value));
         Self {
             material_ref: material_ref.into(),
             values,
@@ -257,7 +254,7 @@ impl CredentialDelivery {
             grant_id: material_ref.clone().into(),
             provider: provider.into(),
             auth_mode: auth_mode.into(),
-            material_kind: "access_token".into(),
+            material_kind: "api_key".into(),
             provider_reference: "local_per_run".into(),
             scopes: scopes.into_iter().map(Into::into).collect(),
             grant_reference: None,
@@ -268,7 +265,7 @@ impl CredentialDelivery {
         };
         let resolver = InMemoryMaterialResolver::with_material(
             material_ref.clone(),
-            ResolvedCredentialMaterial::access_token(material_ref, secret),
+            ResolvedCredentialMaterial::api_key(material_ref, secret),
         );
 
         Ok(
@@ -423,7 +420,7 @@ fn build_local_provision_observation(
             format!("runx:credential:{material_ref}"),
         )],
         material_ref_hash: Some(sha256_prefixed(material_ref.as_bytes()).into()),
-        delivered_roles: vec![runx_contracts::CredentialMaterialRole::AccessToken],
+        delivered_roles: vec![runx_contracts::CredentialMaterialRole::ApiKey],
         redaction_refs: None,
         observed_at: crate::time::now_iso8601().into(),
     }
@@ -501,9 +498,9 @@ mod tests {
     -> Result<(), CredentialDeliveryError> {
         let profile = CredentialDeliveryProfile {
             provider: "github".to_owned(),
-            auth_mode: "oauth_bearer".to_owned(),
+            auth_mode: "api_key".to_owned(),
             env_bindings: vec![CredentialEnvBinding {
-                role: CredentialMaterialRole::AccessToken,
+                role: CredentialMaterialRole::ApiKey,
                 env_var: "GITHUB_TOKEN".to_owned(),
                 required: false,
             }],
@@ -523,9 +520,9 @@ mod tests {
     fn required_env_binding_fails_when_material_role_is_missing() {
         let profile = CredentialDeliveryProfile {
             provider: "github".to_owned(),
-            auth_mode: "oauth_bearer".to_owned(),
+            auth_mode: "api_key".to_owned(),
             env_bindings: vec![CredentialEnvBinding {
-                role: CredentialMaterialRole::AccessToken,
+                role: CredentialMaterialRole::ApiKey,
                 env_var: "GITHUB_TOKEN".to_owned(),
                 required: true,
             }],
@@ -539,7 +536,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(CredentialDeliveryError::MissingRole { role }) if role == "access_token"
+            Err(CredentialDeliveryError::MissingRole { role }) if role == "api_key"
         ));
     }
 }

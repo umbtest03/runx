@@ -89,9 +89,15 @@ interface RegistrySkillResolution {
 export async function installLocalSkill(options: InstallLocalSkillOptions): Promise<InstallLocalSkillResult> {
   const candidate = await fetchInstallCandidate(options);
   const actualDigest = hashString(candidate.markdown);
-  const expectedDigest = options.expectedDigest ?? candidate.origin.digest;
+  const expectedDigest = normalizeExpectedDigest(options.expectedDigest);
 
-  if (expectedDigest && expectedDigest !== actualDigest) {
+  if (!expectedDigest) {
+    throw new Error(
+      `Trusted skill install requires an expected digest for ${options.ref}; use the native runx registry install path for signed-manifest verification.`,
+    );
+  }
+
+  if (expectedDigest !== actualDigest) {
     throw new Error(
       `Digest mismatch for ${options.ref}: expected sha256:${expectedDigest}, received sha256:${actualDigest}.`,
     );
@@ -245,6 +251,10 @@ async function fetchInstallCandidate(options: InstallLocalSkillOptions): Promise
 
 function isRemoteRegistryUrl(value: string | undefined): value is string {
   return typeof value === "string" && /^https?:\/\//i.test(value);
+}
+
+function normalizeExpectedDigest(value: string | undefined): string | undefined {
+  return value?.startsWith("sha256:") ? value.slice("sha256:".length) : value;
 }
 
 interface ResolveRegistrySkillForInstallOptions {

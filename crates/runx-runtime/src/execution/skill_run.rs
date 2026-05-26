@@ -570,14 +570,6 @@ fn graph_payload(run: &GraphRun) -> Result<JsonValue, SkillRunError> {
             step.step_id.clone(),
             JsonValue::Object(step.outputs.clone()),
         );
-        if let Some(JsonValue::Object(claim)) = step.outputs.get("skill_claim") {
-            for (key, value) in claim {
-                payload.entry(key.clone()).or_insert_with(|| value.clone());
-            }
-        }
-        for (key, value) in &step.outputs {
-            payload.entry(key.clone()).or_insert_with(|| value.clone());
-        }
     }
     payload.insert("steps".to_owned(), JsonValue::Array(step_summaries));
     payload.insert("step_outputs".to_owned(), JsonValue::Object(step_outputs));

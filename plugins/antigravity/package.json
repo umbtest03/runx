@@ -25,7 +25,6 @@
       { "command": "runx.history", "title": "runx: Show History" },
       { "command": "runx.skill.search", "title": "runx: Search Skills" },
       { "command": "runx.skill.add", "title": "runx: Add Skill" },
-      { "command": "runx.connect.list", "title": "runx: List Connections" },
       { "command": "runx.harness.run", "title": "runx: Run Harness" },
       { "command": "runx.skill.preview", "title": "runx: Preview Skill" }
     ],

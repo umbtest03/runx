@@ -124,9 +124,9 @@ function canonicalCredential(): CredentialEnvelope {
     kind: "runx.credential-envelope.v1",
     grant_id: "grant_1",
     provider: "github",
-    auth_mode: "oauth",
-    material_kind: "opaque_connection",
-    provider_reference: "conn_1",
+    auth_mode: "api_key",
+    material_kind: "api_key",
+    provider_reference: "local_per_run",
     scopes: ["repo:read"],
     grant_reference: {
       grant_id: "grant_1",
@@ -134,7 +134,7 @@ function canonicalCredential(): CredentialEnvelope {
       authority_kind: "read_only",
       target_repo: "runxhq/aster",
     },
-    material_ref: "opaque:github:conn_1",
+    material_ref: "local:github:grant_1",
   };
 }
 

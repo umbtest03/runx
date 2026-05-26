@@ -30,11 +30,6 @@ import {
 } from "./cli-presentation.js";
 import { handleConfigCommand } from "./commands/config.js";
 import {
-  handleConnectCommand,
-  renderConnectResult,
-  resolveConfiguredConnectService,
-} from "./commands/connect.js";
-import {
   isGithubRepoUrl,
   publishUrlSkill,
   renderUrlAddResult,
@@ -75,10 +70,8 @@ export async function dispatchCli(
   parsed: ParsedArgs,
   io: CliIo,
   env: NodeJS.ProcessEnv,
-  services: CliServices = {},
+  _services: CliServices = {},
 ): Promise<number> {
-  const connectService = parsed.command === "connect" ? services.connect ?? resolveConfiguredConnectService(env) : services.connect;
-
   if (parsed.command === "harness" && parsed.harnessPath) {
     return await writeNativeRunx(io, ["harness", resolvePathFromUserInput(parsed.harnessPath, env), "--json"], env);
   }
@@ -153,30 +146,6 @@ export async function dispatchCli(
       io.stdout.write(renderListResult(result, env));
     }
     return result.items.some((item) => item.status === "invalid") && !parsed.listOkOnly ? 1 : 0;
-  }
-
-  if (parsed.command === "connect" && parsed.connectAction) {
-    if (!connectService) {
-      throw new Error(
-        "runx connect requires the hosted Connect service. Set RUNX_CONNECT_BASE_URL=https://connect.runx.ai and RUNX_CONNECT_ACCESS_TOKEN, or configure an equivalent hosted connect base URL.",
-      );
-    }
-    const result = await handleConnectCommand({
-      connectAction: parsed.connectAction,
-      connectProvider: parsed.connectProvider,
-      connectGrantId: parsed.connectGrantId,
-      connectScopes: parsed.connectScopes,
-      connectScopeFamily: parsed.connectScopeFamily,
-      connectAuthorityKind: parsed.connectAuthorityKind,
-      connectTargetRepo: parsed.connectTargetRepo,
-      connectTargetLocator: parsed.connectTargetLocator,
-    }, connectService);
-    if (parsed.json) {
-      io.stdout.write(`${JSON.stringify({ status: "success", connect: result }, null, 2)}\n`);
-    } else {
-      io.stdout.write(renderConnectResult(parsed.connectAction, result, env));
-    }
-    return 0;
   }
 
   if (parsed.command === "config" && parsed.configAction) {
@@ -571,4 +540,3 @@ function stringField(value: Readonly<Record<string, unknown>>, key: string): str
   const field = value[key];
   return typeof field === "string" ? field : undefined;
 }
-

@@ -122,10 +122,6 @@ class RunxClient:
             args.append("--non-interactive")
         return self.run_json(args)
 
-    def connect_list(self) -> dict[str, Any]:
-        return self.run_json(["connect", "list"])
-
-
 def _optional_str(value: Any) -> str | None:
     return None if value is None else str(value)
 

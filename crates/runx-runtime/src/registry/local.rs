@@ -4,7 +4,6 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::RegistryManifestSigningKey;
 use super::refs::parse_registry_ref;
 use super::types::{
     PublishSkillMarkdownResult, PublishStatus, RegistryAttestation, RegistryLinkResolution,
@@ -32,7 +31,6 @@ pub struct IngestSkillOptions {
     pub trust_tier: Option<TrustTier>,
     pub attestations: Vec<RegistryAttestation>,
     pub source_metadata: Option<RegistrySourceMetadata>,
-    pub manifest_signing_key: Option<RegistryManifestSigningKey>,
     pub upsert: bool,
 }
 
@@ -99,8 +97,6 @@ pub enum LocalRegistryError {
     VersionConflict { skill_id: String, version: String },
     #[error("Registry ref '{0}' is ambiguous. Use '<owner>/<name>' instead.")]
     Ambiguous(String),
-    #[error("{0}")]
-    ManifestSigning(#[from] super::trust_anchor::RegistryManifestSigningFailure),
 }
 
 impl FileRegistryStore {

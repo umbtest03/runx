@@ -594,7 +594,11 @@ pub(super) fn transition_field_value<'a>(
     let mut segments = field.split('.');
     let step_id = segments.next()?;
     let run = runs.iter().rev().find(|run| run.step_id == step_id)?;
-    let mut value = segments.next().and_then(|first| run.outputs.get(first))?;
+    let first = segments.next()?;
+    if run.outputs.contains_key("skill_claim") && first != "status" {
+        return None;
+    }
+    let mut value = run.outputs.get(first)?;
     for segment in segments {
         let JsonValue::Object(object) = value else {
             return None;

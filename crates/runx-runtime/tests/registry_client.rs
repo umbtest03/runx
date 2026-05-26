@@ -5,20 +5,20 @@ use runx_contracts::sha256_prefixed;
 use runx_runtime::registry::{
     AcquireOptions, HostedHttpError, HttpMethod, HttpRequest, HttpResponse, InstallCandidate,
     InstallError, InstallLocalSkillOptions, InstallStatus, RegistryClient, RegistryClientError,
-    RegistryManifestSigningKey, RegistryResolveError, Transport, TrustTier,
-    TrustedRegistryManifestKey, build_registry_skill_version, install_local_skill,
+    RegistryManifestSignature, RegistryManifestSigner, RegistryResolveError,
+    RegistrySignedManifest, Transport, TrustTier, TrustedRegistryManifestKey, install_local_skill,
     materialization_cache_path, materialization_digest_marker, parse_registry_ref,
-    sign_registry_manifest,
 };
 use serde_json::json;
 use tempfile::tempdir;
 
 const TEST_MANIFEST_KEY_ID: &str = "runx-registry-test-key";
 const TEST_MANIFEST_SIGNER_ID: &str = "runx-registry-test-signer";
-const TEST_MANIFEST_SEED: [u8; 32] = [
-    112, 159, 67, 38, 232, 56, 225, 151, 83, 175, 233, 32, 161, 159, 13, 18, 74, 244, 201, 44, 120,
-    138, 111, 5, 213, 12, 48, 174, 150, 253, 17, 89,
-];
+const TEST_MANIFEST_PUBLIC_KEY_BASE64: &str = "K9U/1+6tuu9O5YfBO++MHrdr95NlPe1Okyg9XS7eWm0=";
+const TEST_MANIFEST_SIGNATURE: &str =
+    "base64:e-DzjjAZRv4inUscSd43cfT5287lIkvkM1YqgsFy1pZ9PkHEJCKp5Hm-zdlAY1D7ItVLNEw8HTM03lhgPk4hCg";
+const TEST_MANIFEST_WRONG_PROFILE_SIGNATURE: &str =
+    "base64:_GiJCwBm23gsmhjC4lpLkz-wTSA-GJsJ68d1wW5-8bXvD8Wi9i0Bns0pBAuXY7pU9D4bfZ8JNAWdHCdxNGISBw";
 
 #[derive(Default)]
 struct MockTransport {
@@ -296,22 +296,10 @@ fn local_install_is_idempotent_and_rejects_conflicts() -> Result<(), Box<dyn std
 #[test]
 fn local_install_accepts_signed_registry_manifest() -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
-    let mut candidate = install_candidate()?;
-    let record = build_registry_skill_version(
-        &candidate.markdown,
-        &runx_runtime::registry::IngestSkillOptions {
-            owner: Some("acme".to_owned()),
-            version: Some("1.0.0".to_owned()),
-            profile_document: candidate.profile_document.clone(),
-            manifest_signing_key: Some(signing_key()?),
-            ..runx_runtime::registry::IngestSkillOptions::default()
-        },
-    )?;
-    candidate.profile_digest = record.profile_digest.clone();
-    candidate.signed_manifest = record.signed_manifest;
+    let candidate = install_candidate()?;
     let options = InstallLocalSkillOptions {
         destination_root: temp.path().join("skills"),
-        expected_digest: Some(record.digest.clone()),
+        expected_digest: Some(skill_digest()),
         trusted_manifest_keys: trusted_manifest_keys()?,
     };
 
@@ -367,13 +355,13 @@ fn local_install_rejects_bad_expected_digest() -> Result<(), Box<dyn std::error:
 fn profile_digest_mismatch_leaves_no_partial_install() -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
     let mut candidate = install_candidate()?;
-    candidate.signed_manifest = Some(sign_registry_manifest(
-        &signing_key()?,
+    candidate.signed_manifest = Some(signed_manifest(
         "acme/echo",
         "1.0.0",
         &skill_digest(),
         Some("sha256:wrong"),
-    )?);
+        TEST_MANIFEST_WRONG_PROFILE_SIGNATURE,
+    ));
     let options = InstallLocalSkillOptions {
         destination_root: temp.path().join("skills"),
         expected_digest: None,
@@ -448,13 +436,13 @@ fn install_candidate() -> Result<InstallCandidate, Box<dyn std::error::Error>> {
         r#ref: "acme/echo@1.0.0".to_owned(),
         skill_id: Some("acme/echo".to_owned()),
         version: Some("1.0.0".to_owned()),
-        signed_manifest: Some(sign_registry_manifest(
-            &signing_key()?,
+        signed_manifest: Some(signed_manifest(
             "acme/echo",
             "1.0.0",
             &skill_digest(),
             Some(&profile_digest()),
-        )?),
+            TEST_MANIFEST_SIGNATURE,
+        )),
         profile_digest: None,
         runner_names: vec!["default".to_owned()],
         trust_tier: Some(TrustTier::Community),
@@ -469,16 +457,35 @@ fn profile_digest() -> String {
     sha256_prefixed(include_str!("../../../fixtures/registry/install/echo-X.yaml").as_bytes())
 }
 
-fn signing_key() -> Result<RegistryManifestSigningKey, Box<dyn std::error::Error>> {
-    Ok(RegistryManifestSigningKey::from_seed_bytes(
-        TEST_MANIFEST_SIGNER_ID.to_owned(),
+fn trusted_manifest_keys() -> Result<Vec<TrustedRegistryManifestKey>, Box<dyn std::error::Error>> {
+    Ok(vec![TrustedRegistryManifestKey::from_base64(
         TEST_MANIFEST_KEY_ID.to_owned(),
-        &TEST_MANIFEST_SEED,
-    )?)
+        TEST_MANIFEST_PUBLIC_KEY_BASE64,
+    )?])
 }
 
-fn trusted_manifest_keys() -> Result<Vec<TrustedRegistryManifestKey>, Box<dyn std::error::Error>> {
-    Ok(vec![signing_key()?.trusted_key()?])
+fn signed_manifest(
+    skill_id: &str,
+    version: &str,
+    digest: &str,
+    profile_digest: Option<&str>,
+    signature: &str,
+) -> RegistrySignedManifest {
+    RegistrySignedManifest {
+        schema: runx_runtime::registry::REGISTRY_SIGNED_MANIFEST_SCHEMA.to_owned(),
+        skill_id: skill_id.to_owned(),
+        version: version.to_owned(),
+        digest: digest.to_owned(),
+        profile_digest: profile_digest.map(str::to_owned),
+        signer: RegistryManifestSigner {
+            id: TEST_MANIFEST_SIGNER_ID.to_owned(),
+            key_id: TEST_MANIFEST_KEY_ID.to_owned(),
+        },
+        signature: RegistryManifestSignature {
+            alg: "ed25519".to_owned(),
+            value: signature.to_owned(),
+        },
+    }
 }
 
 fn search_success_fixture() -> Result<serde_json::Value, serde_json::Error> {

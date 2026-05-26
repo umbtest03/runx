@@ -74,9 +74,9 @@ Exercises connected credential binding.
               kind: "runx.credential-envelope.v1",
               grant_id: "grant_other",
               provider: "github",
-              auth_mode: "oauth",
-              material_kind: "provider_credential",
-              provider_reference: "conn_1",
+              auth_mode: "api_key",
+              material_kind: "api_key",
+              provider_reference: "local_per_run",
               scopes: ["repo:read"],
               grant_reference: {
                 grant_id: "grant_other",
@@ -85,7 +85,7 @@ Exercises connected credential binding.
                 target_repo: "runxhq/aster",
                 target_locator: "runxhq/aster#issue/4",
               },
-              material_ref: "opaque:github:conn_1",
+              material_ref: "local:github:grant_1",
             },
           }),
         },
@@ -125,7 +125,7 @@ Exercises connected credential binding.
 
       const receiptContents = await readFile(path.join(receiptDir, `${result.receipt?.id}.json`), "utf8");
       expect(receiptContents).not.toContain("executed");
-      expect(receiptContents).not.toContain("opaque:github:conn_1");
+      expect(receiptContents).not.toContain("local:github:grant_1");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -206,9 +206,9 @@ Exercises admitted grant narrowing.
                   kind: "runx.credential-envelope.v1",
                   grant_id: grant.grant_id,
                   provider: grant.provider,
-                  auth_mode: "oauth",
-                  material_kind: "provider_credential",
-                  provider_reference: "conn_1",
+                  auth_mode: "api_key",
+                  material_kind: "api_key",
+                  provider_reference: "local_per_run",
                   scopes: grant.scopes,
                   grant_reference: {
                     grant_id: grant.grant_id,
@@ -217,7 +217,7 @@ Exercises admitted grant narrowing.
                     target_repo: "runxhq/aster",
                     target_locator: "runxhq/aster#issue/4",
                   },
-                  material_ref: "opaque:github:conn_1",
+                  material_ref: "local:github:grant_1",
                 },
               }
               : undefined;

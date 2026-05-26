@@ -30,13 +30,10 @@ pub use refs::{
     materialization_digest_marker, parse_registry_ref, safe_skill_package_parts,
 };
 pub use trust_anchor::{
-    REGISTRY_SIGNED_MANIFEST_SCHEMA, RUNX_REGISTRY_MANIFEST_SIGNER_ID_ENV,
-    RUNX_REGISTRY_MANIFEST_SIGNING_KEY_ID_ENV, RUNX_REGISTRY_MANIFEST_SIGNING_SEED_ENV,
-    RUNX_REGISTRY_MANIFEST_TRUST_KEY_ENV, RUNX_REGISTRY_MANIFEST_TRUST_KEY_ID_ENV,
-    RegistryManifestKeyError, RegistryManifestSigningFailure, RegistryManifestSigningKey,
+    REGISTRY_SIGNED_MANIFEST_SCHEMA, RUNX_REGISTRY_MANIFEST_TRUST_KEY_ENV,
+    RUNX_REGISTRY_MANIFEST_TRUST_KEY_ID_ENV, RegistryManifestKeyError,
     RegistryManifestVerificationFailure, TrustedRegistryManifestKey,
-    default_trusted_registry_manifest_keys, sign_registry_manifest,
-    verify_registry_signed_manifest,
+    default_trusted_registry_manifest_keys, verify_registry_signed_manifest,
 };
 pub use types::{
     AcquiredRegistrySkill, ProfileMode, PublishSkillMarkdownResult, PublishStatus,

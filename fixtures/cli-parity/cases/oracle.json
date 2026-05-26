@@ -230,33 +230,6 @@
       ]
     },
     {
-      "id": "connect.list.validate",
-      "commandId": "connect.list",
-      "mode": "validate",
-      "proves": [
-        "connect",
-        "cli-presentation"
-      ]
-    },
-    {
-      "id": "connect.revoke.validate",
-      "commandId": "connect.revoke",
-      "mode": "validate",
-      "proves": [
-        "connect",
-        "cli-presentation"
-      ]
-    },
-    {
-      "id": "connect.preprovision.validate",
-      "commandId": "connect.preprovision",
-      "mode": "validate",
-      "proves": [
-        "connect",
-        "authority"
-      ]
-    },
-    {
       "id": "config.set.validate",
       "commandId": "config.set",
       "mode": "validate",

@@ -1,6 +1,6 @@
 {
   "schema": "runx.license_boundary_manifest.v1",
-  "inventory_command": "rg -n 'nango|oauth|RUNX_CONNECT|connection_id|material_ref|credential|auth' crates --glob '*.rs'",
+  "inventory_command": "rg -n 'oauth|RUNX_CONNECT|connection_id|material_ref|credential|auth' crates --glob '*.rs'",
   "crate_classes": {
     "runx-cli": {
       "class": "mit-oss",
@@ -47,13 +47,9 @@
   "private_home": {
     "path": "../cloud/packages/auth",
     "follow_up_spec": "cloud-connect-auth-private-home-v1",
-    "notes": "Private broker for Nango, OAuth, hosted connect HTTP, BYO custody, grant issuance, and grant revocation."
+    "notes": "Private broker for hosted provider OAuth, hosted connect HTTP, BYO custody, grant issuance, and grant revocation."
   },
   "banned_identifiers": [
-    "Nango",
-    "nango",
-    "NangoConnection",
-    "nango_connection",
     "oauth_required",
     "oauth_poll",
     "authorize_url",
@@ -69,7 +65,6 @@
     "HttpConnectPreprovisionRequest",
     "HttpConnectReadyResponse",
     "HttpConnectRevokeResponse",
-    "NangoHosted",
     "connection_id",
     "RunxPrivateConnectBroker"
   ],
@@ -100,7 +95,7 @@
       "path": "crates/runx-runtime/src/connect/types.rs",
       "decision": "abstract-or-move",
       "removed": true,
-      "rationale": "NangoConnection, OAuth state, and connection_id typed surfaces."
+      "rationale": "Provider gateway OAuth state and connection_id typed surfaces."
     },
     {
       "path": "crates/runx-runtime/src/connect/opener.rs",
@@ -135,8 +130,7 @@
     }
   ],
   "cloud_private_context": [
-    "../cloud/packages/auth/src/nango-hosted.ts",
-    "../cloud/packages/auth/src/nango.ts",
+    "../cloud/packages/auth/src/hosted-provider-credential.ts",
     "../cloud/packages/auth/src/connect.ts",
     "../cloud/packages/auth/src/http.ts",
     "../cloud/packages/auth/src/grant-revocation.ts",

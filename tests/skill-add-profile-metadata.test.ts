@@ -6,8 +6,10 @@ import { describe, expect, it } from "vitest";
 
 import { createDefaultSkillAdapters } from "@runxhq/adapters";
 import { createFixtureMarketplaceAdapter, type MarketplaceAdapter, type SkillSearchResult } from "@runxhq/core/marketplaces";
+import { hashString } from "@runxhq/core/util";
 import { installLocalSkill, runLocalSkill, type Caller } from "@runxhq/runtime-local";
 import { createFileRegistryStore, seedRegistrySkill } from "./registry-fixtures.js";
+import { resolveRunxBinary } from "./runx-binary.js";
 
 const caller: Caller = {
   resolve: async (request) =>
@@ -58,6 +60,8 @@ runners:
         ref: "acme/package-echo@1.0.0",
         registryStore: createFileRegistryStore(registryDir),
         destinationRoot: skillsDir,
+        expectedDigest: version.digest,
+        env: nativeEnv(),
       });
 
       expect(install).toMatchObject({
@@ -77,7 +81,7 @@ runners:
         caller,
         receiptDir: path.join(tempDir, "receipts"),
         runxHome: path.join(tempDir, "home"),
-        env: process.env,
+        env: nativeEnv(),
         adapters: createDefaultSkillAdapters(),
       });
 
@@ -100,13 +104,17 @@ runners:
 
   it("installs marketplace execution profile when the upstream source provides it", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-skill-add-x-marketplace-"));
+    const adapter = createFixtureMarketplaceAdapter();
+    const [skill] = await adapter.search("sourcey-docs");
 
     try {
       const install = await installLocalSkill({
         ref: "fixture-marketplace:sourcey-docs",
         registryStore: createFileRegistryStore(path.join(tempDir, "registry")),
-        marketplaceAdapters: [createFixtureMarketplaceAdapter()],
+        marketplaceAdapters: [adapter],
         destinationRoot: path.join(tempDir, "skills"),
+        expectedDigest: skill?.digest,
+        env: nativeEnv(),
       });
 
       expect(install).toMatchObject({
@@ -125,13 +133,17 @@ runners:
 
   it("keeps portable marketplace skills runnable through the agent runner", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-skill-add-x-standard-"));
+    const adapter = createFixtureMarketplaceAdapter();
+    const [skill] = await adapter.search("marketplace-portable");
 
     try {
       const install = await installLocalSkill({
         ref: "fixture-marketplace:marketplace-portable",
         registryStore: createFileRegistryStore(path.join(tempDir, "registry")),
-        marketplaceAdapters: [createFixtureMarketplaceAdapter()],
+        marketplaceAdapters: [adapter],
         destinationRoot: path.join(tempDir, "skills"),
+        expectedDigest: skill?.digest,
+        env: nativeEnv(),
       });
 
       expect(install).toMatchObject({
@@ -145,7 +157,7 @@ runners:
         caller,
         receiptDir: path.join(tempDir, "receipts"),
         runxHome: path.join(tempDir, "home"),
-        env: process.env,
+        env: nativeEnv(),
       });
 
       expect(run.status).toBe("sealed");
@@ -174,6 +186,8 @@ runners:
           registryStore: createFileRegistryStore(path.join(tempDir, "registry")),
           marketplaceAdapters: [createInvalidXMarketplaceAdapter()],
           destinationRoot: path.join(tempDir, "skills"),
+          expectedDigest: hashString(INVALID_X_MARKDOWN),
+          env: nativeEnv(),
         }),
       ).rejects.toThrow("does not match skill");
     } finally {
@@ -183,13 +197,6 @@ runners:
 });
 
 function createInvalidXMarketplaceAdapter(): MarketplaceAdapter {
-  const markdown = `---
-name: portable
-description: Portable skill.
----
-
-Portable.
-`;
   const profileDocument = `skill: other-skill
 runners:
   portable-cli:
@@ -215,6 +222,23 @@ runners:
     source: "invalid-x",
     label: "Invalid X Fixture",
     search: async () => [result],
-    resolve: async () => ({ markdown, profileDocument, result }),
+    resolve: async () => ({ markdown: INVALID_X_MARKDOWN, profileDocument, result }),
+  };
+}
+
+const INVALID_X_MARKDOWN = `---
+name: portable
+description: Portable skill.
+---
+
+Portable.
+`;
+
+function nativeEnv(): NodeJS.ProcessEnv {
+  const runxBinary = resolveRunxBinary();
+  return {
+    ...process.env,
+    RUNX_KERNEL_EVAL_BIN: runxBinary,
+    RUNX_RUST_CLI_BIN: runxBinary,
   };
 }

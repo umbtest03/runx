@@ -74,7 +74,7 @@ export function skillSnippets(): readonly SkillSnippet[] {
       name: "Auth Requirement",
       prefix: "runx-auth",
       description: "Execution auth requirement for execution profile.",
-      body: ["auth:", "  type: ${1:nango}", "  provider: ${2:github}", "  scopes:", "    - ${3:repo:read}"],
+      body: ["auth:", "  type: ${1:connected}", "  provider: ${2:github}", "  scopes:", "    - ${3:repo:read}"],
     },
     {
       name: "Runtime And Sandbox",

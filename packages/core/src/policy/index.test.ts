@@ -184,11 +184,11 @@ describe("admitLocalSkill", () => {
         kind: "runx.credential-envelope.v1",
         grant_id: "grant_wildcard",
         provider: "github",
-        auth_mode: "oauth",
-        material_kind: "opaque_connection",
-        provider_reference: "conn_1",
+        auth_mode: "api_key",
+        material_kind: "api_key",
+        provider_reference: "local_per_run",
         scopes: ["repo:*"],
-        material_ref: "opaque:github:conn_1",
+        material_ref: "local:github:grant_1",
       },
     }).status).toBe("allow");
   });
@@ -488,11 +488,11 @@ describe("authority proof", () => {
         kind: "runx.credential-envelope.v1",
         grant_id: "grant_1",
         provider: "github",
-        auth_mode: "oauth",
-        material_kind: "opaque_connection",
-        provider_reference: "conn_1",
+        auth_mode: "api_key",
+        material_kind: "api_key",
+        provider_reference: "local_per_run",
         scopes: ["repo:read"],
-        material_ref: "opaque:github:conn_1",
+        material_ref: "local:github:grant_1",
       },
     });
 
@@ -520,7 +520,7 @@ describe("authority proof", () => {
     });
     expect(JSON.stringify(metadata)).not.toContain("super-secret-token");
     expect(JSON.stringify(metadata)).not.toContain("sk-contract-test");
-    expect(JSON.stringify(metadata)).not.toContain("opaque:github:conn_1");
+    expect(JSON.stringify(metadata)).not.toContain("local:github:grant_1");
   });
 
   it("records denied connected auth without resolving credential material", () => {
@@ -648,9 +648,9 @@ describe("authority proof", () => {
         kind: "runx.credential-envelope.v1",
         grant_id: "grant_other",
         provider: "github",
-        auth_mode: "oauth",
-        material_kind: "opaque_connection",
-        provider_reference: "conn_1",
+        auth_mode: "api_key",
+        material_kind: "api_key",
+        provider_reference: "local_per_run",
         scopes: ["repo:read"],
         grant_reference: {
           grant_id: "grant_other",
@@ -659,7 +659,7 @@ describe("authority proof", () => {
           target_repo: "runxhq/aster",
           target_locator: "runxhq/aster#issue/4",
         },
-        material_ref: "opaque:github:conn_1",
+        material_ref: "local:github:grant_1",
       },
     })).toEqual({
       status: "deny",

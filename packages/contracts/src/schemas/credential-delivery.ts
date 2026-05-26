@@ -19,8 +19,7 @@ const credentialDeliveryPurposes = [
   "webhook_verification",
 ] as const;
 const credentialMaterialRoles = [
-  "access_token",
-  "refresh_token",
+  "personal_token",
   "api_key",
   "client_secret",
   "session_token",
@@ -125,9 +124,9 @@ export const credentialDeliveryHandleSchema = Type.Object(
 export type CredentialDeliveryHandleContract =
   DeepReadonly<Static<typeof credentialDeliveryHandleSchema>>;
 
-const credentialDeliveryBrokerResponseV1TypeSchema = Type.Object(
+const credentialDeliveryResponseV1TypeSchema = Type.Object(
   {
-    schema: Type.Literal(RUNX_LOGICAL_SCHEMAS.credentialDeliveryBrokerResponse),
+    schema: Type.Literal(RUNX_LOGICAL_SCHEMAS.credentialDeliveryResponse),
     response_id: Type.String({ minLength: 1 }),
     request_id: Type.String({ minLength: 1 }),
     status: credentialDeliveryStatusSchema,
@@ -141,18 +140,18 @@ const credentialDeliveryBrokerResponseV1TypeSchema = Type.Object(
   },
   {
     $schema: JSON_SCHEMA_DRAFT_2020_12,
-    $id: RUNX_CONTRACT_IDS.credentialDeliveryBrokerResponse,
-    "x-runx-schema": RUNX_LOGICAL_SCHEMAS.credentialDeliveryBrokerResponse,
+    $id: RUNX_CONTRACT_IDS.credentialDeliveryResponse,
+    "x-runx-schema": RUNX_LOGICAL_SCHEMAS.credentialDeliveryResponse,
     additionalProperties: false,
   },
 );
 
-export type CredentialDeliveryBrokerResponseContract =
-  DeepReadonly<Static<typeof credentialDeliveryBrokerResponseV1TypeSchema>>;
+export type CredentialDeliveryResponseContract =
+  DeepReadonly<Static<typeof credentialDeliveryResponseV1TypeSchema>>;
 
-export const credentialDeliveryBrokerResponseV1Schema =
-  generatedSchema<CredentialDeliveryBrokerResponseContract>(
-    "credential-delivery-broker-response.schema.json",
+export const credentialDeliveryResponseV1Schema =
+  generatedSchema<CredentialDeliveryResponseContract>(
+    "credential-delivery-response.schema.json",
   );
 
 const credentialDeliveryObservationV1TypeSchema = Type.Object(
@@ -204,11 +203,11 @@ export function validateCredentialDeliveryRequestContract(
   return validateContractSchema(credentialDeliveryRequestV1Schema, value, label);
 }
 
-export function validateCredentialDeliveryBrokerResponseContract(
+export function validateCredentialDeliveryResponseContract(
   value: unknown,
-  label = "credential_delivery_broker_response",
-): CredentialDeliveryBrokerResponseContract {
-  return validateContractSchema(credentialDeliveryBrokerResponseV1Schema, value, label);
+  label = "credential_delivery_response",
+): CredentialDeliveryResponseContract {
+  return validateContractSchema(credentialDeliveryResponseV1Schema, value, label);
 }
 
 export function validateCredentialDeliveryObservationContract(

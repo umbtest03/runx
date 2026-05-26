@@ -66,9 +66,6 @@ const commands: readonly CommandMatrixEntry[] = [
   command("history", "runx history [query]", [], ["--skill", "--status", "--source", "--actor", "--artifact-type", "--since", "--until", "--receipt-dir", "--json"], "none", ["history", "receipts"], ["history.validate"]),
   command("export-receipts.trainable", "runx export-receipts --trainable", [], ["--receipt-dir", "--since", "--until", "--status", "--source"], "none", ["trainable-export", "receipts"], ["export-receipts.validate"]),
   command("knowledge.show", "runx knowledge show --project .", [], ["--project", "--json"], "none", ["knowledge", "cli-presentation"], ["knowledge.show.validate"]),
-  command("connect.list", "runx connect list", [], ["--json"], "external-stub", ["connect", "cli-presentation"], ["connect.list.validate"]),
-  command("connect.revoke", "runx connect revoke <grant-id>", [], ["--json"], "external-stub", ["connect", "cli-presentation"], ["connect.revoke.validate"]),
-  command("connect.preprovision", "runx connect <provider>", [], ["--scope", "--scope-family", "--authority-kind", "--target-repo", "--target-locator", "--json"], "external-stub", ["connect", "authority"], ["connect.preprovision.validate"]),
   command("config.set", "runx config set <key> <value>", [], ["--json"], "filesystem", ["config", "cli-presentation"], ["config.set.validate"]),
   command("config.get", "runx config get <key>", [], ["--json"], "filesystem", ["config", "cli-presentation"], ["config.get.validate"]),
   command("config.list", "runx config list", [], ["--json"], "filesystem", ["config", "cli-presentation"], ["config.list.execute"]),
@@ -111,8 +108,7 @@ const surfaces: readonly RuntimeSurface[] = [
   surface("doctor", "packages/cli", "semantic", ["doctor"], "Diagnostics can add ids, but the documented command surface must not disappear."),
   surface("dev", "packages/cli", "fixture-backed", ["dev"], "Development lanes run deterministic or recorded harness fixtures."),
   surface("knowledge", "packages/core/knowledge", "schema-exact", ["knowledge.show"], "Public projection output stays schema-exact."),
-  surface("connect", "packages/cli", "stubbed", ["connect.list", "connect.revoke", "connect.preprovision"], "OAuth/provider calls are represented by stub services."),
-  surface("authority", "packages/core/policy", "schema-exact", ["connect.preprovision", "skill.run"], "Grant, scope, and authority-kind parsing must remain machine-checkable."),
+  surface("authority", "packages/core/policy", "schema-exact", ["skill.run"], "Grant, scope, and authority-kind policy remains machine-checkable without OSS brokerage."),
   surface("policy", "packages/core/policy", "schema-exact", ["policy.inspect", "policy.lint"], "Policy inspection and linting stay machine-checkable before mutation gates run."),
   surface("caller-mediated-resolution", "runx-runtime", "fixture-backed", ["skill.run"], "Required input, approvals, and agent work keep the same continuation contract."),
   surface("scaffold", "packages/cli", "semantic", ["new", "init"], "Project and standalone package scaffolds preserve command shape and generated-file intent."),
@@ -332,9 +328,6 @@ function helpUsageCommandIds(usage: string): readonly string[] {
   }
   if (usage.startsWith("runx knowledge show")) {
     return ["knowledge.show"];
-  }
-  if (usage.startsWith("runx connect ")) {
-    return ["connect.list", "connect.revoke", "connect.preprovision"];
   }
   if (usage.startsWith("runx config ")) {
     return ["config.set", "config.get", "config.list"];

@@ -93,6 +93,11 @@ pub enum InstallError {
         expected: String,
         actual: String,
     },
+    #[error("registry signed manifest identity for {ref_name} is missing {field}")]
+    ManifestIdentityMissing {
+        ref_name: String,
+        field: &'static str,
+    },
     #[error("binding digest mismatch for {ref_name}: expected {expected}, received {actual}")]
     ProfileDigestMismatch {
         ref_name: String,
@@ -261,19 +266,31 @@ fn validate_candidate_profile_digest(
     let expected_profile_digest = candidate
         .signed_manifest
         .as_ref()
-        .and_then(|manifest| manifest.profile_digest.as_ref())
-        .or(candidate.profile_digest.as_ref());
-    if let Some(expected) = expected_profile_digest {
-        let matches = profile_digest
-            .as_ref()
-            .is_some_and(|actual| digest_matches(expected, actual));
-        if !matches {
+        .and_then(|manifest| manifest.profile_digest.as_ref());
+    match (profile_digest.as_ref(), expected_profile_digest) {
+        (Some(actual), Some(expected)) if digest_matches(expected, actual) => {}
+        (Some(actual), Some(expected)) => {
             return Err(InstallError::ProfileDigestMismatch {
                 ref_name: candidate.r#ref.clone(),
                 expected: expected.clone(),
-                actual: profile_digest.clone().unwrap_or_else(|| "none".to_owned()),
+                actual: actual.clone(),
             });
         }
+        (Some(actual), None) => {
+            return Err(InstallError::ProfileDigestMismatch {
+                ref_name: candidate.r#ref.clone(),
+                expected: "signed manifest profile digest".to_owned(),
+                actual: actual.clone(),
+            });
+        }
+        (None, Some(expected)) => {
+            return Err(InstallError::ProfileDigestMismatch {
+                ref_name: candidate.r#ref.clone(),
+                expected: expected.clone(),
+                actual: "none".to_owned(),
+            });
+        }
+        (None, None) => {}
     }
     Ok(profile_digest)
 }
@@ -282,23 +299,31 @@ fn validate_manifest_identity(
     candidate: &InstallCandidate,
     manifest: &RegistrySignedManifest,
 ) -> Result<(), InstallError> {
-    if let Some(skill_id) = &candidate.skill_id {
-        if &manifest.skill_id != skill_id {
-            return Err(InstallError::ManifestIdentityMismatch {
-                ref_name: candidate.r#ref.clone(),
-                expected: skill_id.clone(),
-                actual: manifest.skill_id.clone(),
-            });
-        }
+    let Some(skill_id) = &candidate.skill_id else {
+        return Err(InstallError::ManifestIdentityMissing {
+            ref_name: candidate.r#ref.clone(),
+            field: "skill_id",
+        });
+    };
+    if &manifest.skill_id != skill_id {
+        return Err(InstallError::ManifestIdentityMismatch {
+            ref_name: candidate.r#ref.clone(),
+            expected: skill_id.clone(),
+            actual: manifest.skill_id.clone(),
+        });
     }
-    if let Some(version) = &candidate.version {
-        if &manifest.version != version {
-            return Err(InstallError::ManifestIdentityMismatch {
-                ref_name: candidate.r#ref.clone(),
-                expected: version.clone(),
-                actual: manifest.version.clone(),
-            });
-        }
+    let Some(version) = &candidate.version else {
+        return Err(InstallError::ManifestIdentityMissing {
+            ref_name: candidate.r#ref.clone(),
+            field: "version",
+        });
+    };
+    if &manifest.version != version {
+        return Err(InstallError::ManifestIdentityMismatch {
+            ref_name: candidate.r#ref.clone(),
+            expected: version.clone(),
+            actual: manifest.version.clone(),
+        });
     }
     Ok(())
 }
@@ -323,6 +348,12 @@ fn manifest_verification_error(
             InstallError::InvalidManifestSignature {
                 ref_name,
                 reason: "unsupported algorithm".to_owned(),
+            }
+        }
+        RegistryManifestVerificationFailure::MalformedPayload => {
+            InstallError::InvalidManifestSignature {
+                ref_name,
+                reason: "malformed payload".to_owned(),
             }
         }
         RegistryManifestVerificationFailure::MalformedKey => {

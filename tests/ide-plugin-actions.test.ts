@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { createIdeActionCore, createFixtureConnectService } from "../plugins/ide-core/src/index.js";
+import { createIdeActionCore } from "../plugins/ide-core/src/index.js";
 import { registerRunxCommands } from "../plugins/antigravity/src/extension.js";
 import { createFileRegistryStore, seedRegistrySkill } from "./registry-fixtures.js";
 
@@ -42,7 +42,7 @@ describe("ide plugin actions", () => {
     }
   });
 
-  it("wraps receipt inspection, registry, connect, harness, and Antigravity command registration", async () => {
+  it("wraps receipt inspection, registry, harness, and Antigravity command registration", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-ide-actions-registry-"));
     try {
       const registryStore = createFileRegistryStore(path.join(tempDir, "registry"));
@@ -55,7 +55,6 @@ describe("ide plugin actions", () => {
         env: { ...process.env, RUNX_CWD: process.cwd(), RUNX_HOME: path.join(tempDir, "home") },
         receiptDir: path.join(tempDir, "receipts"),
         registryStore,
-        connect: createFixtureConnectService(),
       });
 
       const skillRun = await core.runSkill({ skillPath: "fixtures/skills/echo", inputs: { message: "from-ide" } });
@@ -72,10 +71,6 @@ describe("ide plugin actions", () => {
       expect(JSON.stringify(search.data)).toContain("acme/sourcey");
       const add = await core.addSkill({ ref: "acme/sourcey@1.0.0", to: path.join(tempDir, "installed") });
       expect(add.status).toBe("success");
-
-      await expect(core.connectList()).resolves.toMatchObject({ status: "success" });
-      await expect(core.connectPreprovision({ provider: "github", scopes: ["repo:read"] })).resolves.toMatchObject({ status: "success" });
-      await expect(core.connectRevoke("grant_1")).resolves.toMatchObject({ status: "success" });
 
       const harnessFixturePath = path.join(tempDir, "echo-skill-current.yaml");
       await writeFile(

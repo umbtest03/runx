@@ -15,9 +15,9 @@ describe("executor control schema contracts", () => {
       kind: "runx.credential-envelope.v1",
       grant_id: "grant_1",
       provider: "github",
-      auth_mode: "oauth",
-      material_kind: "provider_credential",
-      provider_reference: "conn_1",
+      auth_mode: "api_key",
+      material_kind: "api_key",
+      provider_reference: "local_per_run",
       scopes: ["repo:read"],
       grant_reference: {
         grant_id: "grant_1",
@@ -25,14 +25,14 @@ describe("executor control schema contracts", () => {
         authority_kind: "read_only",
         target_repo: "runxhq/aster",
       },
-      material_ref: "opaque:github:conn_1",
+      material_ref: "local:github:grant_1",
     })).toEqual({
       kind: "runx.credential-envelope.v1",
       grant_id: "grant_1",
       provider: "github",
-      auth_mode: "oauth",
-      material_kind: "provider_credential",
-      provider_reference: "conn_1",
+      auth_mode: "api_key",
+      material_kind: "api_key",
+      provider_reference: "local_per_run",
       scopes: ["repo:read"],
       grant_reference: {
         grant_id: "grant_1",
@@ -41,7 +41,7 @@ describe("executor control schema contracts", () => {
         target_repo: "runxhq/aster",
         target_locator: undefined,
       },
-      material_ref: "opaque:github:conn_1",
+      material_ref: "local:github:grant_1",
     });
   });
 
@@ -50,9 +50,9 @@ describe("executor control schema contracts", () => {
       kind: "github",
       grant_id: "grant_1",
       provider: "github",
-      provider_reference: "conn_1",
+      provider_reference: "local_per_run",
       scopes: ["repo:read"],
-      material_ref: "opaque:github:conn_1",
+      material_ref: "local:github:grant_1",
     })).toThrow(/credential-envelope\.schema\.json/);
   });
 });

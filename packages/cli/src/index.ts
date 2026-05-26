@@ -9,7 +9,6 @@ import { pathToFileURL } from "node:url";
 import { errorMessage } from "@runxhq/core/util";
 
 import { isSupportedCommand, parseArgs } from "./args.js";
-import type { ConnectService } from "./commands/connect.js";
 import { dispatchCli, writeCliError } from "./dispatch.js";
 import { isHelpRequest, writeUsage } from "./help.js";
 
@@ -23,9 +22,7 @@ export interface CliIo {
   readonly stdin: NodeJS.ReadStream;
 }
 
-export interface CliServices {
-  readonly connect?: ConnectService;
-}
+export interface CliServices {}
 
 export async function runCli(
   argv: readonly string[] = process.argv.slice(2),

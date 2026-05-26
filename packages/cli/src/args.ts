@@ -1,9 +1,4 @@
 import { configAction } from "./commands/config.js";
-import {
-  normalizeConnectAuthorityKind,
-  parseConnectAction,
-  type ConnectAuthorityKind,
-} from "./commands/connect.js";
 import { normalizeListKind, type RunxListRequestedKind } from "./commands/list.js";
 import { policyAction, type PolicyAction } from "./commands/policy.js";
 
@@ -64,14 +59,6 @@ export interface ParsedArgs {
   readonly publishVersion?: string;
   readonly registryUrl?: string;
   readonly expectedDigest?: string;
-  readonly connectAction?: "list" | "revoke" | "preprovision";
-  readonly connectProvider?: string;
-  readonly connectGrantId?: string;
-  readonly connectScopes: readonly string[];
-  readonly connectScopeFamily?: string;
-  readonly connectAuthorityKind?: ConnectAuthorityKind;
-  readonly connectTargetRepo?: string;
-  readonly connectTargetLocator?: string;
   readonly configAction?: "set" | "get" | "list";
   readonly configKey?: string;
   readonly configValue?: string;
@@ -159,7 +146,6 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   const isSkillPublish = command === "skill" && positionals[0] === "publish";
   const isSkillInspect = command === "skill" && positionals[0] === "inspect";
   const isKnowledgeShow = command === "knowledge" && positionals[0] === "show";
-  const isConnect = command === "connect";
   const isConfig = command === "config";
   const isPolicy = command === "policy";
   const isNew = command === "new";
@@ -186,30 +172,6 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   const publishVersion = isSkillPublish && typeof inputs.version === "string" ? inputs.version : undefined;
   const registryUrl = (isSkillSearch || isSkillAdd || isSkillPublish) && typeof inputs.registry === "string" ? inputs.registry : undefined;
   const expectedDigest = isSkillAdd && typeof inputs.digest === "string" ? normalizeDigest(inputs.digest) : undefined;
-  const connectScopes = isConnect ? normalizeScopes(inputs.scope) : [];
-  const connectScopeFamily = isConnect && typeof inputs.scopeFamily === "string"
-    ? inputs.scopeFamily
-    : isConnect && typeof inputs.scope_family === "string"
-      ? inputs.scope_family
-      : isConnect && typeof inputs["scope-family"] === "string"
-        ? inputs["scope-family"]
-        : undefined;
-  const connectTargetRepo = isConnect && typeof inputs.targetRepo === "string"
-    ? inputs.targetRepo
-    : isConnect && typeof inputs.target_repo === "string"
-      ? inputs.target_repo
-      : isConnect && typeof inputs["target-repo"] === "string"
-        ? inputs["target-repo"]
-        : undefined;
-  const connectTargetLocator = isConnect && typeof inputs.targetLocator === "string"
-    ? inputs.targetLocator
-    : isConnect && typeof inputs.target_locator === "string"
-      ? inputs.target_locator
-      : isConnect && typeof inputs["target-locator"] === "string"
-        ? inputs["target-locator"]
-        : undefined;
-  const connectAuthoritySource = inputs.authorityKind ?? inputs.authority_kind ?? inputs["authority-kind"];
-  const connectAuthorityKind = isConnect ? normalizeConnectAuthorityKind(connectAuthoritySource) : undefined;
   const newDirectory = isNew && typeof inputs.directory === "string"
     ? inputs.directory
     : isNew && typeof inputs.dir === "string"
@@ -227,46 +189,27 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       ? omitInputs(inputs, ["version", "to", "registry", "digest"])
       : isSkillPublish
         ? omitInputs(inputs, ["version", "owner", "registry"])
-        : isConnect
-          ? omitInputs(
-            inputs,
-            [
-              "scope",
-              "scopeFamily",
-              "scope_family",
-              "scope-family",
-              "authorityKind",
-              "authority_kind",
-              "authority-kind",
-              "targetRepo",
-              "target_repo",
-              "target-repo",
-              "targetLocator",
-              "target_locator",
-              "target-locator",
-            ],
-          )
-          : isConfig
+        : isConfig
+          ? {}
+          : isPolicy
             ? {}
-            : isPolicy
-              ? {}
-              : isNew
-                ? omitInputs(inputs, ["directory", "dir"])
-                : isInit
-                  ? omitInputs(inputs, ["global", "prefetch", "prefetchOfficial"])
-                  : isDoctor
-                    ? omitInputs(inputs, ["fix", "explain", "listDiagnostics", "list-diagnostics"])
-                    : isTool
-                          ? omitInputs(inputs, ["all", "source"])
-                          : isDev
-                            ? omitInputs(inputs, ["lane", "record", "realAgents", "real-agents", "watch"])
-                            : isMcp
-                              ? inputs
-                              : isList
-                                ? omitInputs(inputs, ["okOnly", "ok-only", "invalidOnly", "invalid-only"])
-                                : isExportReceipts
-                                  ? omitInputs(inputs, ["trainable", "since", "until", "status", "source"])
-                                  : inputs;
+            : isNew
+              ? omitInputs(inputs, ["directory", "dir"])
+              : isInit
+                ? omitInputs(inputs, ["global", "prefetch", "prefetchOfficial"])
+                : isDoctor
+                  ? omitInputs(inputs, ["fix", "explain", "listDiagnostics", "list-diagnostics"])
+                  : isTool
+                    ? omitInputs(inputs, ["all", "source"])
+                    : isDev
+                      ? omitInputs(inputs, ["lane", "record", "realAgents", "real-agents", "watch"])
+                      : isMcp
+                        ? inputs
+                        : isList
+                          ? omitInputs(inputs, ["okOnly", "ok-only", "invalidOnly", "invalid-only"])
+                          : isExportReceipts
+                            ? omitInputs(inputs, ["trainable", "since", "until", "status", "source"])
+                            : inputs;
   return {
     command,
     subcommand: positionals[0],
@@ -334,14 +277,6 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     publishVersion,
     registryUrl,
     expectedDigest,
-    connectAction: isConnect ? parseConnectAction(positionals) : undefined,
-    connectProvider: isConnect && positionals[0] !== "list" && positionals[0] !== "revoke" ? positionals[0] : undefined,
-    connectGrantId: isConnect && positionals[0] === "revoke" ? positionals[1] : undefined,
-    connectScopes,
-    connectScopeFamily,
-    connectAuthorityKind,
-    connectTargetRepo,
-    connectTargetLocator,
     configAction: isConfig ? configAction(positionals) : undefined,
     configKey: isConfig ? positionals[1] : undefined,
     configValue: isConfig ? positionals.slice(2).join(" ") || undefined : undefined,
@@ -402,15 +337,6 @@ export function isSupportedCommand(parsed: ParsedArgs): boolean {
     return true;
   }
   if (parsed.command === "harness" && parsed.harnessPath) {
-    return true;
-  }
-  if (parsed.command === "connect" && parsed.connectAction === "list") {
-    return true;
-  }
-  if (parsed.command === "connect" && parsed.connectAction === "revoke" && parsed.connectGrantId) {
-    return true;
-  }
-  if (parsed.command === "connect" && parsed.connectAction === "preprovision" && parsed.connectProvider) {
     return true;
   }
   if (parsed.command === "config" && parsed.configAction === "list") {
@@ -487,21 +413,4 @@ function normalizeKnownFlag(rawKey: string): string {
 
 function normalizeDigest(value: string): string {
   return value.startsWith("sha256:") ? value.slice("sha256:".length) : value;
-}
-
-function normalizeScopes(value: unknown): readonly string[] {
-  if (Array.isArray(value)) {
-    return value.filter((scope): scope is string => typeof scope === "string" && scope.length > 0).flatMap(splitScopes);
-  }
-  if (typeof value === "string" && value !== "true") {
-    return splitScopes(value);
-  }
-  return [];
-}
-
-function splitScopes(value: string): readonly string[] {
-  return value
-    .split(",")
-    .map((scope) => scope.trim())
-    .filter((scope) => scope.length > 0);
 }

@@ -23,9 +23,9 @@ const validCredentialEnvelope: CredentialEnvelopeContract = {
   kind: "runx.credential-envelope.v1",
   grant_id: "grant_1",
   provider: "github",
-  auth_mode: "oauth",
-  material_kind: "opaque_connection",
-  provider_reference: "conn_1",
+  auth_mode: "api_key",
+  material_kind: "api_key",
+  provider_reference: "local_per_run",
   scopes: ["repo:read"],
   grant_reference: {
     grant_id: "grant_1",
@@ -33,7 +33,7 @@ const validCredentialEnvelope: CredentialEnvelopeContract = {
     authority_kind: "constructive",
     target_repo: "runxhq/aster",
   },
-  material_ref: "opaque:github:conn_1",
+  material_ref: "local:github:grant_1",
 };
 
 const validAuthorityProof: AuthorityProofContract = {
@@ -55,7 +55,7 @@ const validAuthorityProof: AuthorityProofContract = {
     status: "resolved",
     grant_id: "grant_1",
     provider: "github",
-    provider_reference: "conn_1",
+    provider_reference: "local_per_run",
     scopes: ["repo:read"],
     grant_reference: validCredentialEnvelope.grant_reference,
     material_ref_hash: "sha256-ref",
@@ -110,11 +110,11 @@ describe("credential and authority proof schemas", () => {
         kind: "runx.credential-envelope.v1",
         grant_id: "grant_1",
         provider: "github",
-        auth_mode: "oauth",
-        material_kind: "opaque_connection",
+        auth_mode: "api_key",
+        material_kind: "api_key",
         connection_id: "conn_1",
         scopes: ["repo:read"],
-        material_ref: "opaque:github:conn_1",
+        material_ref: "local:github:grant_1",
       }),
     ).toBe(false);
     expect(

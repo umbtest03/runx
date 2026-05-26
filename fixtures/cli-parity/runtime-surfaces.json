@@ -220,25 +220,13 @@
       "notes": "Public projection output stays schema-exact."
     },
     {
-      "id": "connect",
-      "owner": "packages/cli",
-      "parityClass": "stubbed",
-      "coveredBy": [
-        "connect.list",
-        "connect.revoke",
-        "connect.preprovision"
-      ],
-      "notes": "OAuth/provider calls are represented by stub services."
-    },
-    {
       "id": "authority",
       "owner": "packages/core/policy",
       "parityClass": "schema-exact",
       "coveredBy": [
-        "connect.preprovision",
         "skill.run"
       ],
-      "notes": "Grant, scope, and authority-kind parsing must remain machine-checkable."
+      "notes": "Grant, scope, and authority-kind policy remains machine-checkable without OSS brokerage."
     },
     {
       "id": "policy",
