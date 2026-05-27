@@ -31,7 +31,7 @@ impl<T> McpAdapter<T> {
 
 impl Default for McpAdapter<ProcessMcpTransport> {
     fn default() -> Self {
-        Self::new(ProcessMcpTransport)
+        Self::new(ProcessMcpTransport::default())
     }
 }
 

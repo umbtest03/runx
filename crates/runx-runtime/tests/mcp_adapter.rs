@@ -83,7 +83,7 @@ fn mcp_adapter_clamps_min_timeout_and_sanitizes_tool_error() -> Result<(), Runti
 
 #[test]
 fn mcp_adapter_malformed_json_response_is_sanitized() -> Result<(), RuntimeError> {
-    let adapter = McpAdapter::new(ProcessMcpTransport);
+    let adapter = McpAdapter::new(ProcessMcpTransport::default());
     let mut inputs = JsonObject::new();
     inputs.insert(
         "secret".to_owned(),
@@ -111,7 +111,7 @@ fn mcp_adapter_malformed_json_response_is_sanitized() -> Result<(), RuntimeError
 
 #[test]
 fn mcp_process_transport_lists_fixture_tools_over_stdio() -> Result<(), RuntimeError> {
-    let tools = ProcessMcpTransport
+    let tools = ProcessMcpTransport::default()
         .list_tools(McpListToolsRequest {
             server: fixture_server()?,
             timeout: Duration::from_secs(5),
@@ -154,7 +154,7 @@ fn mcp_process_transport_lists_fixture_tools_over_stdio() -> Result<(), RuntimeE
 
 #[test]
 fn mcp_process_transport_calls_fixture_echo_over_stdio() -> Result<(), RuntimeError> {
-    let adapter = McpAdapter::new(ProcessMcpTransport);
+    let adapter = McpAdapter::new(ProcessMcpTransport::default());
     let mut inputs = JsonObject::new();
     inputs.insert(
         "message".to_owned(),
@@ -178,6 +178,59 @@ fn mcp_process_transport_calls_fixture_echo_over_stdio() -> Result<(), RuntimeEr
 }
 
 #[test]
+fn mcp_process_transport_reuses_session_for_matching_scope() -> Result<(), RuntimeError> {
+    let marker_path = lifecycle_marker_path("session-reuse")?;
+    let transport = ProcessMcpTransport::default();
+    reset_transport_session_pool(&transport)?;
+    transport.reset_spawn_count();
+    let adapter = McpAdapter::new(transport.clone());
+
+    let first = adapter.invoke(session_marker_invocation(
+        &marker_path,
+        "same-scope",
+        "first",
+    )?)?;
+    let second = adapter.invoke(session_marker_invocation(
+        &marker_path,
+        "same-scope",
+        "second",
+    )?)?;
+    assert_eq!(first.status, InvocationStatus::Success);
+    assert_eq!(first.stdout, "first");
+    assert_eq!(second.status, InvocationStatus::Success);
+    assert_eq!(second.stdout, "second");
+    assert_eq!(transport.spawned_process_count(), 1);
+
+    reset_transport_session_pool(&transport)?;
+    let _ = fs::remove_file(&marker_path);
+    Ok(())
+}
+
+#[test]
+fn mcp_process_transport_isolates_sessions_by_environment_scope() -> Result<(), RuntimeError> {
+    let marker_path = lifecycle_marker_path("session-scope")?;
+    let transport = ProcessMcpTransport::default();
+    reset_transport_session_pool(&transport)?;
+    transport.reset_spawn_count();
+    let adapter = McpAdapter::new(transport.clone());
+
+    let first = adapter.invoke(session_marker_invocation(&marker_path, "scope-a", "first")?)?;
+    let second = adapter.invoke(session_marker_invocation(
+        &marker_path,
+        "scope-b",
+        "second",
+    )?)?;
+
+    assert_eq!(first.status, InvocationStatus::Success);
+    assert_eq!(second.status, InvocationStatus::Success);
+    assert_eq!(transport.spawned_process_count(), 2);
+
+    reset_transport_session_pool(&transport)?;
+    let _ = fs::remove_file(&marker_path);
+    Ok(())
+}
+
+#[test]
 fn mcp_process_transport_times_out_and_terminates_child() -> Result<(), RuntimeError> {
     let marker_path = lifecycle_marker_path("timeout-child")?;
     let mut inputs = JsonObject::new();
@@ -186,7 +239,7 @@ fn mcp_process_transport_times_out_and_terminates_child() -> Result<(), RuntimeE
         JsonValue::String(marker_path.to_string_lossy().into_owned()),
     );
 
-    let output = McpAdapter::new(ProcessMcpTransport).invoke(fixture_invocation(
+    let output = McpAdapter::new(ProcessMcpTransport::default()).invoke(fixture_invocation(
         "sleep",
         Some(1),
         inputs,
@@ -212,7 +265,7 @@ fn mcp_process_transport_times_out_and_terminates_child() -> Result<(), RuntimeE
 
 #[test]
 fn mcp_process_transport_accepts_response_body_at_size_limit() -> Result<(), RuntimeError> {
-    let adapter = McpAdapter::new(ProcessMcpTransport);
+    let adapter = McpAdapter::new(ProcessMcpTransport::default());
 
     let output = adapter.invoke(fixture_invocation(
         "max-response",
@@ -229,7 +282,7 @@ fn mcp_process_transport_accepts_response_body_at_size_limit() -> Result<(), Run
 
 #[test]
 fn mcp_process_transport_rejects_oversized_response_body() -> Result<(), RuntimeError> {
-    let adapter = McpAdapter::new(ProcessMcpTransport);
+    let adapter = McpAdapter::new(ProcessMcpTransport::default());
 
     let output = adapter.invoke(fixture_invocation(
         "oversized-response",
@@ -246,7 +299,7 @@ fn mcp_process_transport_rejects_oversized_response_body() -> Result<(), Runtime
 
 #[test]
 fn mcp_adapter_applies_sandbox_env_allowlist_to_process_server() -> Result<(), RuntimeError> {
-    let adapter = McpAdapter::new(ProcessMcpTransport);
+    let adapter = McpAdapter::new(ProcessMcpTransport::default());
 
     let blocked = adapter.invoke(sandbox_env_invocation("RUNX_SECRET_VALUE")?)?;
     assert_eq!(blocked.status, InvocationStatus::Success);
@@ -264,7 +317,7 @@ fn mcp_adapter_applies_sandbox_env_allowlist_to_process_server() -> Result<(), R
 
 #[test]
 fn mcp_adapter_reports_missing_tool_metadata() -> Result<(), RuntimeError> {
-    let adapter = McpAdapter::new(ProcessMcpTransport);
+    let adapter = McpAdapter::new(ProcessMcpTransport::default());
     let mut request = invocation("echo", Some(1), JsonObject::new());
     request.source.tool = None;
 
@@ -289,7 +342,8 @@ fn mcp_adapter_matches_fixture_oracle_status_stdout_and_stderr()
         "sandbox-env-blocked",
         "missing-metadata",
     ] {
-        let output = McpAdapter::new(ProcessMcpTransport).invoke(fixture_case(case_name)?)?;
+        let output =
+            McpAdapter::new(ProcessMcpTransport::default()).invoke(fixture_case(case_name)?)?;
 
         assert_eq!(
             status_text(&output.status),
@@ -438,6 +492,47 @@ fn sandbox_env_invocation(name: &str) -> Result<SkillInvocation, RuntimeError> {
         .env
         .insert("RUNX_SECRET_VALUE".to_owned(), "secret".to_owned());
     Ok(request)
+}
+
+fn session_marker_invocation(
+    _marker_path: &Path,
+    scope: &str,
+    message: &str,
+) -> Result<SkillInvocation, RuntimeError> {
+    let mut inputs = JsonObject::new();
+    inputs.insert("message".to_owned(), JsonValue::String(message.to_owned()));
+    let mut request = fixture_invocation("echo", Some(5), inputs)?;
+    request
+        .env
+        .insert("RUNX_MCP_SCOPE".to_owned(), scope.to_owned());
+    request.source.sandbox = Some(SkillSandbox {
+        profile: runx_core::policy::SandboxProfile::Readonly,
+        cwd_policy: Some(runx_core::policy::CwdPolicy::SkillDirectory),
+        env_allowlist: Some(vec![
+            "PATH".to_owned(),
+            "HOME".to_owned(),
+            "TMPDIR".to_owned(),
+            "TMP".to_owned(),
+            "TEMP".to_owned(),
+            "SystemRoot".to_owned(),
+            "WINDIR".to_owned(),
+            "COMSPEC".to_owned(),
+            "PATHEXT".to_owned(),
+            "RUNX_MCP_SCOPE".to_owned(),
+        ]),
+        network: None,
+        writable_paths: Vec::new(),
+        require_enforcement: None,
+        approved_escalation: None,
+        raw: JsonObject::new(),
+    });
+    Ok(request)
+}
+
+fn reset_transport_session_pool(transport: &ProcessMcpTransport) -> Result<(), RuntimeError> {
+    transport
+        .reset_session_pool()
+        .map_err(|error| runtime_test_error(error.sanitized_message()))
 }
 
 fn fixture_server() -> Result<SkillMcpServer, RuntimeError> {

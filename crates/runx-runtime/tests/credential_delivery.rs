@@ -322,7 +322,7 @@ fn mcp_process_transport_rejects_process_env_credential_delivery()
         "name".to_owned(),
         runx_contracts::JsonValue::String("GITHUB_TOKEN".to_owned()),
     );
-    let output = McpAdapter::new(ProcessMcpTransport).invoke(SkillInvocation {
+    let output = McpAdapter::new(ProcessMcpTransport::default()).invoke(SkillInvocation {
         skill_name: "credential.mcp.process".to_owned(),
         source: mcp_process_source()?,
         inputs,

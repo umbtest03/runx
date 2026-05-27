@@ -11,6 +11,7 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const SECRET: &str = "ghs_cli_local_provision_secret_value";
+const FIXTURE_SIGNING_SEED: &str = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=";
 
 #[test]
 fn cli_rejects_local_credential_for_cli_tool_before_spawn() -> Result<(), Box<dyn std::error::Error>>
@@ -158,6 +159,12 @@ fn native_command() -> Result<Command, Box<dyn std::error::Error>> {
         command.env("PATH", path);
     }
     command.env("NO_COLOR", "1");
+    command.env("RUNX_RECEIPT_SIGN_KID", "local-credential-test-key");
+    command.env(
+        "RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64",
+        FIXTURE_SIGNING_SEED,
+    );
+    command.env("RUNX_RECEIPT_SIGN_ISSUER_TYPE", "hosted");
     Ok(command)
 }
 

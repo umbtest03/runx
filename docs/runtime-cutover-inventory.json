@@ -311,7 +311,13 @@
   "session_policy": {
     "mcp": {
       "status": "persistent_session_required",
-      "phase": "phase5"
+      "phase": "phase5",
+      "implementation": "ProcessMcpTransport owns a per-instance McpSessionManager keyed by command, args, cwd, and sandboxed environment; cleanup-path sandbox plans remain one-shot.",
+      "evidence": [
+        "crates/runx-runtime/tests/mcp_adapter.rs::mcp_process_transport_reuses_session_for_matching_scope",
+        "crates/runx-runtime/tests/mcp_adapter.rs::mcp_process_transport_isolates_sessions_by_environment_scope",
+        "scripts/runtime-throughput.mjs::runx-mcp-session-probe"
+      ]
     },
     "external_adapter": {
       "status": "one_shot_until_reset_protocol",

@@ -548,6 +548,9 @@ fn resolve_sandbox_runtime(
     if runtime.enforces() {
         return Ok(Some(runtime));
     }
+    if sandbox.require_enforcement != Some(true) {
+        return Ok(Some(runtime));
+    }
     let reason = match runtime {
         SandboxRuntime::DeclaredPolicyOnly { reason } => reason,
         SandboxRuntime::Direct => {
@@ -567,32 +570,42 @@ fn platform_sandbox_runtime(profile: &str) -> SandboxRuntime {
             return SandboxRuntime::Bubblewrap { path };
         }
         return SandboxRuntime::DeclaredPolicyOnly {
-            reason: format!(
-                "local sandbox profile '{profile}' requires bubblewrap (bwrap) for filesystem and network enforcement"
-            ),
+            reason: missing_sandbox_backend_reason(profile),
         };
     }
 
     #[cfg(target_os = "macos")]
     {
-        if let Some(path) = find_trusted_executable("sandbox-exec") {
+        if let Some(path) = find_usable_sandbox_exec() {
             return SandboxRuntime::SandboxExec { path };
         }
         SandboxRuntime::DeclaredPolicyOnly {
-            reason: format!(
-                "local sandbox profile '{profile}' requires macOS sandbox-exec for filesystem and network enforcement"
-            ),
+            reason: missing_sandbox_backend_reason(profile),
         }
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     {
         SandboxRuntime::DeclaredPolicyOnly {
-            reason: format!(
-                "local sandbox profile '{profile}' requires Linux bubblewrap or macOS sandbox-exec for filesystem and network enforcement"
-            ),
+            reason: missing_sandbox_backend_reason(profile),
         }
     }
+}
+
+fn missing_sandbox_backend_reason(profile: &str) -> String {
+    format!(
+        "local sandbox profile '{profile}' requires Linux bubblewrap or macOS sandbox-exec for filesystem and network enforcement"
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn find_usable_sandbox_exec() -> Option<PathBuf> {
+    let path = find_trusted_executable("sandbox-exec")?;
+    let status = std::process::Command::new(&path)
+        .args(["-p", "(version 1)\n(allow default)", "/usr/bin/true"])
+        .status()
+        .ok()?;
+    status.success().then_some(path)
 }
 
 fn find_trusted_executable(command: &str) -> Option<PathBuf> {
