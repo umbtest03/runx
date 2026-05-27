@@ -5,7 +5,6 @@
 //! `cli-tool` runners must reject that process-env delivery path before spawn
 //! so local secrets cannot enter an unbounded child process.
 
-
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
