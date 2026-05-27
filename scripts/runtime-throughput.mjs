@@ -7,6 +7,7 @@ import { performance } from "node:perf_hooks";
 const schema = "runx.oss_runtime_throughput.v1";
 const repoRoot = process.cwd();
 const cargoTargetDir = path.join(repoRoot, "crates", "target", "runx-perf");
+const cargoPerfProfileDir = path.join(cargoTargetDir, "release");
 const criterionRoot = path.join(cargoTargetDir, "criterion");
 const runtimeBench = {
   package: "runx-runtime",
@@ -395,46 +396,43 @@ function mcpSessionProbe() {
   const binaryName = process.platform === "win32"
     ? "runx-mcp-session-probe.exe"
     : "runx-mcp-session-probe";
-  const probeBinary = path.join(cargoTargetDir, "debug", binaryName);
+  const probeBinary = path.join(cargoPerfProfileDir, binaryName);
+  const result = spawnSync(
+    "cargo",
+    [
+      "build",
+      "--manifest-path",
+      "crates/Cargo.toml",
+      "-p",
+      "runx-runtime",
+      "--release",
+      "--features",
+      "mcp",
+      "--bin",
+      "runx-mcp-session-probe",
+    ],
+    {
+      cwd: repoRoot,
+      stdio: "inherit",
+      env: cargoBenchEnv(),
+    },
+  );
+  if (result.status !== 0) {
+    throw new Error(`cargo build runx-mcp-session-probe failed with exit ${result.status ?? "signal"}`);
+  }
   if (!existsSync(probeBinary)) {
-    const result = spawnSync(
-      "cargo",
-      [
-        "build",
-        "--manifest-path",
-        "crates/Cargo.toml",
-        "-p",
-        "runx-runtime",
-        "--features",
-        "mcp",
-        "--bin",
-        "runx-mcp-session-probe",
-      ],
-      {
-        cwd: repoRoot,
-        stdio: "inherit",
-        env: cargoBenchEnv(),
-      },
-    );
-    if (result.status !== 0) {
-      throw new Error(`cargo build runx-mcp-session-probe failed with exit ${result.status ?? "signal"}`);
-    }
+    throw new Error(`cargo build runx-mcp-session-probe did not produce ${probeBinary}`);
   }
   return { command: probeBinary };
 }
 
 function measureNativeCliLaunch() {
   const probe = nativeCliProbe();
+  runNativeCliProbe(probe);
   const samples = [];
-  for (let index = 0; index < 3; index += 1) {
+  for (let index = 0; index < 5; index += 1) {
     const started = performance.now();
-    const result = spawnSync(probe.command, probe.args, {
-      cwd: repoRoot,
-      stdio: "ignore",
-    });
-    if (result.status !== 0) {
-      throw new Error(`native CLI launch probe failed with exit ${result.status ?? "signal"}`);
-    }
+    runNativeCliProbe(probe);
     samples.push((performance.now() - started) * 1_000_000);
   }
   return metricFromSamples("native_cli", samples, {
@@ -445,34 +443,42 @@ function measureNativeCliLaunch() {
 
 function nativeCliProbe() {
   const binaryName = process.platform === "win32" ? "runx.exe" : "runx";
-  const defaultBinary = path.join(repoRoot, "crates", "target", "debug", binaryName);
-  if (existsSync(defaultBinary)) {
-    return { command: defaultBinary, args: ["--version"] };
+  const perfBinary = path.join(cargoPerfProfileDir, binaryName);
+  const result = spawnSync(
+    "cargo",
+    [
+      "build",
+      "--manifest-path",
+      "crates/Cargo.toml",
+      "-p",
+      "runx-cli",
+      "--release",
+      "--bin",
+      "runx",
+    ],
+    {
+      cwd: repoRoot,
+      stdio: "inherit",
+      env: cargoBenchEnv(),
+    },
+  );
+  if (result.status !== 0) {
+    throw new Error(`cargo build runx-cli failed with exit ${result.status ?? "signal"}`);
   }
-  const perfBinary = path.join(cargoTargetDir, "debug", binaryName);
   if (!existsSync(perfBinary)) {
-    const result = spawnSync(
-      "cargo",
-      [
-        "build",
-        "--manifest-path",
-        "crates/Cargo.toml",
-        "-p",
-        "runx-cli",
-        "--bin",
-        "runx",
-      ],
-      {
-        cwd: repoRoot,
-        stdio: "inherit",
-        env: cargoBenchEnv(),
-      },
-    );
-    if (result.status !== 0) {
-      throw new Error(`cargo build runx-cli failed with exit ${result.status ?? "signal"}`);
-    }
+    throw new Error(`cargo build runx-cli did not produce ${perfBinary}`);
   }
   return { command: perfBinary, args: ["--version"] };
+}
+
+function runNativeCliProbe(probe) {
+  const result = spawnSync(probe.command, probe.args, {
+    cwd: repoRoot,
+    stdio: "ignore",
+  });
+  if (result.status !== 0) {
+    throw new Error(`native CLI launch probe failed with exit ${result.status ?? "signal"}`);
+  }
 }
 
 function measureLoop(source, operation, counters) {

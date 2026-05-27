@@ -57,6 +57,15 @@ require `spawn_count <= 1` and no p99 regression above the declared budget. MCP
 is the only pooled protocol lane in the S-tier cutover. External adapters remain
 one-shot until a reset-capable wire contract and negative isolation tests exist.
 
+Process/protocol rows are measured from release binaries built in
+`crates/target/runx-perf/release`. The perf harness intentionally does not reuse
+`crates/target/debug/runx`, because that binary may be stale or built from a
+different local checkout state. Each capture asks Cargo to refresh those release
+probe binaries before measuring so an existing perf artifact cannot silently
+stand in for the current checkout. The native launch row performs one unmeasured
+warm-up launch before collecting samples so p99 gates track steady local launch
+overhead rather than first-touch page-cache noise.
+
 ## Fanout Execution
 
 Fanout remains serial by default. Set `RUNX_MAX_FANOUT_CONCURRENCY` in

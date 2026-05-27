@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -49,6 +49,8 @@ try {
     process.stderr.write(fail.stdout);
     throw new Error("runtime perf harness accepted the intentionally bad candidate fixture");
   }
+
+  assertReleaseProbeInvariant();
 
   process.stdout.write("Runtime perf harness check passed.\n");
 } finally {
@@ -99,4 +101,40 @@ function writeFixture(filePath, metric) {
       },
     }, null, 2)}\n`,
   );
+}
+
+function assertReleaseProbeInvariant() {
+  const source = readFileSync(path.join(workspaceRoot, "scripts/runtime-throughput.mjs"), "utf8");
+  if (!/cargoPerfProfileDir\s*=\s*path\.join\(cargoTargetDir,\s*"release"\)/u.test(source)) {
+    throw new Error("runtime perf harness must use the release profile directory for process probes");
+  }
+  if (!/source:\s*"node"/u.test(source) || !/measureTsBridgeFraming/u.test(source)) {
+    throw new Error("runtime perf harness must keep the TypeScript framing row process-local");
+  }
+  const mcpProbeSource = functionSource(source, "mcpSessionProbe", "measureNativeCliLaunch");
+  const nativeProbeSource = functionSource(source, "nativeCliProbe", "runNativeCliProbe");
+  if (!/"--release"[\s\S]*"--bin"[\s\S]*"runx-mcp-session-probe"/u.test(mcpProbeSource)) {
+    throw new Error("runtime perf harness must build the MCP session probe with --release");
+  }
+  if (!/"--release"[\s\S]*"--bin"[\s\S]*"runx"/u.test(nativeProbeSource)) {
+    throw new Error("runtime perf harness must build the native runx launch probe with --release");
+  }
+  if (!/cargo build runx-mcp-session-probe did not produce/u.test(mcpProbeSource)) {
+    throw new Error("runtime perf harness must verify the MCP release probe exists after build");
+  }
+  if (!/cargo build runx-cli did not produce/u.test(nativeProbeSource)) {
+    throw new Error("runtime perf harness must verify the native runx release probe exists after build");
+  }
+  if (/crates",\s*"target",\s*"debug"/u.test(source)) {
+    throw new Error("runtime perf harness must not fall back to stale crates/target/debug probe binaries");
+  }
+}
+
+function functionSource(source, functionName, nextFunctionName) {
+  const start = source.indexOf(`function ${functionName}(`);
+  const end = source.indexOf(`function ${nextFunctionName}(`);
+  if (start < 0 || end < 0 || end <= start) {
+    throw new Error(`runtime perf harness is missing expected ${functionName} function boundary`);
+  }
+  return source.slice(start, end);
 }
