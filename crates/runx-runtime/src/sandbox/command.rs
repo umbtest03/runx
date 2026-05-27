@@ -251,7 +251,16 @@ pub(super) fn sandbox_exec_path_filter_path(path: &Path) -> PathBuf {
 }
 
 pub(super) fn sandbox_profile_string(path: &Path) -> String {
-    path_string(path).replace('\\', "\\\\").replace('"', "\\\"")
+    path_string(path)
+        .chars()
+        .map(|character| match character {
+            '\\' => "\\\\".to_owned(),
+            '"' => "\\\"".to_owned(),
+            '(' | ')' | ';' => "_".to_owned(),
+            character if character.is_control() => "_".to_owned(),
+            character => character.to_string(),
+        })
+        .collect()
 }
 
 fn find_package_root(start: &Path) -> Option<PathBuf> {

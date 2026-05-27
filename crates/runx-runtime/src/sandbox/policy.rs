@@ -248,18 +248,33 @@ fn containment_path(path: &Path, operation: &'static str) -> Result<PathBuf, Run
     if path.exists() {
         return fs::canonicalize(path).map_err(|source| RuntimeError::io(operation, source));
     }
-    let Some(parent) = path
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-    else {
-        return Ok(normalize_path(path));
-    };
-    let canonical_parent =
-        fs::canonicalize(parent).map_err(|source| RuntimeError::io(operation, source))?;
-    Ok(path
-        .file_name()
-        .map(|file_name| canonical_parent.join(file_name))
-        .unwrap_or(canonical_parent))
+    let normalized = normalize_path(path);
+    let mut ancestor = normalized.as_path();
+    let mut missing_tail = Vec::new();
+
+    loop {
+        if ancestor.exists() {
+            let mut resolved =
+                fs::canonicalize(ancestor).map_err(|source| RuntimeError::io(operation, source))?;
+            for component in missing_tail.iter().rev() {
+                resolved.push(component);
+            }
+            return Ok(resolved);
+        }
+
+        let Some(file_name) = ancestor.file_name() else {
+            return Ok(normalized);
+        };
+        missing_tail.push(PathBuf::from(file_name));
+
+        let Some(parent) = ancestor
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+        else {
+            return Ok(normalized);
+        };
+        ancestor = parent;
+    }
 }
 
 fn validate_readonly_sandbox(sandbox: &SkillSandbox) -> Result<(), RuntimeError> {

@@ -267,6 +267,19 @@ mod tests {
     }
 
     #[test]
+    fn sandbox_exec_profile_sanitizes_metacharacters_if_validation_is_bypassed() {
+        let profile = sandbox_exec_profile(
+            Path::new("/workspace"),
+            &["safe\")) (allow network*)".to_owned()],
+            false,
+            None,
+        );
+
+        assert!(!profile.contains("(allow network*)"));
+        assert!(!profile.contains("(subpath \"/\""));
+    }
+
+    #[test]
     fn declared_policy_runtime_gets_private_tmp_env() -> Result<(), String> {
         let sandbox = readonly_sandbox();
         let runtime = Some(SandboxRuntime::DeclaredPolicyOnly {
@@ -332,6 +345,31 @@ mod tests {
             "unexpected error: {error}"
         );
         Ok(())
+    }
+
+    #[test]
+    fn workspace_write_allows_uncreated_nested_workspace_path() -> Result<(), String> {
+        let temp = tempfile::tempdir().map_err(|source| source.to_string())?;
+        let workspace = temp.path().join("workspace");
+        fs::create_dir_all(&workspace).map_err(|source| source.to_string())?;
+        let sandbox = SkillSandbox {
+            profile: SandboxProfile::WorkspaceWrite,
+            cwd_policy: None,
+            env_allowlist: None,
+            network: None,
+            writable_paths: Vec::new(),
+            require_enforcement: None,
+            approved_escalation: None,
+            raw: JsonObject::new(),
+        };
+
+        validate_writable_paths(
+            Some(&sandbox),
+            &["dist/cache/output.json".to_owned()],
+            &workspace,
+            Some(&workspace),
+        )
+        .map_err(|source| source.to_string())
     }
 
     #[test]
