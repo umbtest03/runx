@@ -7,7 +7,6 @@
 //! building each file as its own binary.
 //! See .scafld/specs/drafts/test-surface-build-consolidation.md.
 
-mod support;
 mod doctor;
 mod kernel;
 mod launcher;
@@ -19,5 +18,6 @@ mod parser;
 mod policy;
 mod registry;
 mod skill;
+mod support;
 mod tool;
 mod x402_native_dogfood;

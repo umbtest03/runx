@@ -1,4 +1,3 @@
-
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Output};
@@ -58,7 +57,8 @@ fn native_x402_paid_echo_fixture_passes_only_refs_downstream()
 #[test]
 fn native_x402_ledger_projection() -> Result<(), Box<dyn std::error::Error>> {
     let receipt_dir = isolated_receipt_dir()?;
-    let fixture = crate::support::governed_harness_fixture("fixtures/harness/x402-pay-paid-echo.yaml")?;
+    let fixture =
+        crate::support::governed_harness_fixture("fixtures/harness/x402-pay-paid-echo.yaml")?;
     let output = native_command()?
         .env("RUNX_RECEIPT_DIR", &receipt_dir)
         .args(["harness", fixture.path_str()?, "--json"])
