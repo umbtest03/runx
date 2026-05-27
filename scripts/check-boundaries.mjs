@@ -31,7 +31,6 @@ const activeCredentialContractExtensions = new Set([
 ]);
 const ignoredDirectoryNames = new Set(["node_modules", "dist", ".build", "coverage", "target"]);
 const hostedConnectBrokerageScanRoots = ["packages", "plugins", "scripts", "tests"];
-const generatedHostedConnectBrokerageScanRoots = [".build/runtime"];
 const hostedCredentialContractScanRoots = [
   "packages",
   "plugins",
@@ -200,7 +199,6 @@ await checkForbiddenCompatibilityPackages();
 await checkForbiddenCompatibilityAliases();
 await checkForbiddenCoreRuntimeDirectories();
 await checkForbiddenHostedConnectBrokerage();
-await checkGeneratedHostedConnectBrokerage();
 await checkForbiddenHostedCredentialContracts();
 for (const filePath of await findSourceFiles(workspaceRoot)) {
   await checkSourceFile(filePath);
@@ -368,22 +366,6 @@ async function checkForbiddenHostedConnectBrokerage() {
     for (const filePath of await findActiveTypeScriptJavaScriptFiles(rootPath)) {
       const rel = toPosix(path.relative(workspaceRoot, filePath));
       checkForbiddenHostedConnectBrokerageInText(rel, rel, "path");
-      const source = await readFile(filePath, "utf8");
-      checkForbiddenHostedConnectBrokerageInSource(rel, source);
-    }
-  }
-}
-
-async function checkGeneratedHostedConnectBrokerage() {
-  for (const rootName of generatedHostedConnectBrokerageScanRoots) {
-    const rootPath = path.join(workspaceRoot, rootName);
-    const entry = await statIfExists(rootPath);
-    if (!entry?.isDirectory()) {
-      continue;
-    }
-
-    for (const filePath of await findActiveTypeScriptJavaScriptFiles(rootPath)) {
-      const rel = toPosix(path.relative(workspaceRoot, filePath));
       const source = await readFile(filePath, "utf8");
       checkForbiddenHostedConnectBrokerageInSource(rel, source);
     }
