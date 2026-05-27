@@ -23,7 +23,7 @@ harness:
         idempotency_seed: demo-search-001
       caller:
         answers:
-          agent_step.pay-quote.output:
+          agent_task.pay-quote.output:
             payment_quote:
               quote_id: quote_demo_001
               amount_minor: 125
@@ -80,7 +80,7 @@ harness:
 runners:
   quote:
     default: true
-    type: agent-step
+    type: agent-task
     agent: operator
     task: pay-quote
     outputs:

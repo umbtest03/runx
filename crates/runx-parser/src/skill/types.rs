@@ -48,6 +48,7 @@ pub enum SourceKind {
     Catalog,
     A2a,
     Agent,
+    #[serde(rename = "agent-task")]
     AgentStep,
     HarnessHook,
     Graph,
@@ -62,7 +63,7 @@ impl SourceKind {
             SourceKind::Catalog => "catalog",
             SourceKind::A2a => "a2a",
             SourceKind::Agent => "agent",
-            SourceKind::AgentStep => "agent-step",
+            SourceKind::AgentStep => "agent-task",
             SourceKind::HarnessHook => "harness-hook",
             SourceKind::Graph => "graph",
             SourceKind::ExternalAdapter => "external-adapter",

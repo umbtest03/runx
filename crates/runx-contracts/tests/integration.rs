@@ -3,7 +3,7 @@
 //! Each module below is one integration test file, compiled and linked once
 //! as a single binary instead of one binary per file. `autotests = false` in
 //! Cargo.toml keeps Cargo from also building each file as its own binary.
-//! See .scafld/specs/drafts/test-surface-build-consolidation.md.
+//! See .scafld/specs/active/test-surface-build-consolidation.md.
 
 mod act_assignment_fixtures;
 mod aster_control_fixtures;
@@ -19,6 +19,6 @@ mod post_merge_observer;
 mod reference;
 mod schema_generator_check;
 mod schema_validation;
-mod schema_wire_compat;
+mod schema_wire_conformance;
 mod target_runner;
 mod thread_outbox_provider_fixtures;

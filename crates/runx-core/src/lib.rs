@@ -1,7 +1,7 @@
 //! Pure Rust parity kernel for runx decisions.
 //!
-//! TypeScript remains authoritative until every kernel fixture passes in both
-//! languages and a later cutover spec changes ownership.
+//! This crate owns the pure Rust decision domains. Keep IO, adapter, runtime,
+//! and CLI presentation concerns outside this boundary.
 
 pub mod kernel_eval;
 pub mod policy;

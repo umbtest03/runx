@@ -473,7 +473,7 @@ describe("authority proof", () => {
     const metadata = buildAuthorityProofMetadata({
       runId: "rx_abc",
       skillName: "connected-review",
-      sourceType: "agent-step",
+      sourceType: "agent-task",
       auth: {
         type: "connected",
         provider: "github",
@@ -526,7 +526,7 @@ describe("authority proof", () => {
   it("records denied connected auth without resolving credential material", () => {
     const metadata = buildAuthorityProofMetadata({
       skillName: "connected-review",
-      sourceType: "agent-step",
+      sourceType: "agent-task",
       auth: {
         type: "connected",
         provider: "github",

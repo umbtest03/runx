@@ -19,7 +19,7 @@ harness:
           summary: Governance and package standard enforcement are the strongest signals.
       caller:
         answers:
-          agent_step.draft-content-draft.output:
+          agent_task.draft-content-draft.output:
             content_brief:
               angle: Show runx by demonstrating governed automation, not by making vague claims.
               audience: evaluator
@@ -47,7 +47,7 @@ harness:
           title: runx proves itself by governing its own work
       caller:
         answers:
-          agent_step.draft-content-package.output:
+          agent_task.draft-content-package.output:
             publish_packet:
               channel: blog
               headline: runx proves itself by governing its own work
@@ -74,7 +74,7 @@ harness:
           repo: runxhq/runx
       caller:
         answers:
-          agent_step.draft-content-handoff.output:
+          agent_task.draft-content-handoff.output:
             handoff_packet:
               channel: github_issue_comment
               body: The canonical output directory is `.sourcey/runx-docs`.
@@ -100,7 +100,7 @@ runners:
 
   draft:
     default: true
-    type: agent-step
+    type: agent-task
     agent: builder
     task: draft-content-draft
     outputs:
@@ -134,7 +134,7 @@ runners:
         description: "Tone or style guidance."
 
   package:
-    type: agent-step
+    type: agent-task
     agent: builder
     task: draft-content-package
     outputs:
@@ -159,7 +159,7 @@ runners:
         description: "Channel-specific notes from the draft runner."
 
   handoff:
-    type: agent-step
+    type: agent-task
     agent: builder
     task: draft-content-handoff
     outputs:

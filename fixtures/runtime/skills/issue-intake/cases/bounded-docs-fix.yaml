@@ -1,5 +1,5 @@
 name: "bounded-docs-fix"
-kind: "agent_step"
+kind: "agent_task"
 runner: "issue-intake"
 inputs:
   thread_title: "README should point users to issue-to-pr"
@@ -37,7 +37,7 @@ inputs:
   operator_context: "Prefer the canonical issue-to-pr name in user-facing replies."
 caller:
   answers:
-    agent_step.issue-intake.output:
+    agent_task.issue-intake.output:
       intake_report:
         category: "docs"
         severity: "low"
@@ -150,11 +150,11 @@ expect:
   status: "sealed"
   receipt:
     schema: "runx.receipt.v1"
-    receipt_id: "hrn_rcpt_bounded-docs-fix_bounded-docs-fix"
+    receipt_id: "sha256:91b487273fb369329a15395b9bcb97c473edd740f0e847dfe2be9ec8a5022b75"
     harness_id: "hrn_bounded-docs-fix_bounded-docs-fix"
     state: "sealed"
     disposition: "closed"
-    reason_code: "bounded-docs-fix_closed"
+    reason_code: "process_closed"
     act_ids:
       - "act_bounded-docs-fix"
     decision_ids:
@@ -162,4 +162,4 @@ expect:
 metadata:
   product_skill: "issue-intake"
   source_case: "bounded-docs-fix"
-  runner_kind: "agent_step"
+  runner_kind: "agent_task"

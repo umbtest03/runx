@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::{Component, Path, PathBuf};
 
 use runx_contracts::{
@@ -11,6 +10,7 @@ use runx_parser::{parse_runner_manifest_yaml, validate_runner_manifest};
 use serde::Deserialize;
 
 use crate::RuntimeError;
+use crate::runtime_fs::{read_dir_sorted, read_to_string};
 
 // rust-style-allow: large-file - this first doctor slice keeps parity checks and builders together until follow-up diagnostics add natural module boundaries.
 
@@ -680,51 +680,6 @@ fn extract_import_specifiers(contents: &str) -> Vec<String> {
     specifiers
 }
 
-#[derive(Clone, Debug)]
-struct DirectoryEntry {
-    name: String,
-    path: PathBuf,
-    is_dir: bool,
-    is_file: bool,
-}
-
-fn read_dir_sorted(directory: &Path) -> Result<Vec<DirectoryEntry>, RuntimeError> {
-    match fs::read_dir(directory) {
-        Ok(entries) => {
-            let mut output = Vec::new();
-            for entry in entries {
-                let entry = entry.map_err(|source| {
-                    RuntimeError::io(format!("reading directory {}", directory.display()), source)
-                })?;
-                let file_type = entry.file_type().map_err(|source| {
-                    RuntimeError::io(
-                        format!("reading file type {}", entry.path().display()),
-                        source,
-                    )
-                })?;
-                output.push(DirectoryEntry {
-                    name: entry.file_name().to_string_lossy().into_owned(),
-                    path: entry.path(),
-                    is_dir: file_type.is_dir(),
-                    is_file: file_type.is_file(),
-                });
-            }
-            output.sort_by(|left, right| left.name.cmp(&right.name));
-            Ok(output)
-        }
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
-        Err(source) => Err(RuntimeError::io(
-            format!("reading directory {}", directory.display()),
-            source,
-        )),
-    }
-}
-
-fn read_to_string(path: &Path) -> Result<String, RuntimeError> {
-    fs::read_to_string(path)
-        .map_err(|source| RuntimeError::io(format!("reading {}", path.display()), source))
-}
-
 fn count_file_lines(contents: &str) -> u64 {
     if contents.is_empty() {
         0
@@ -829,7 +784,7 @@ mod tests {
 runners:
   main:
     default: true
-    type: agent-step
+    type: agent-task
     agent: builder
     task: probe
     outputs:
@@ -846,7 +801,7 @@ harness:
         objective: x
       caller:
         answers:
-          agent_step.probe.output:
+          agent_task.probe.output:
             result: ok
       expect:
         status: sealed
@@ -860,7 +815,7 @@ harness:
 runners:
   main:
     default: true
-    type: agent-step
+    type: agent-task
     agent: builder
     task: probe
     outputs:
@@ -877,7 +832,7 @@ harness:
         objective: x
       caller:
         answers:
-          agent_step.probe.output:
+          agent_task.probe.output:
             result: ok
       expect:
         status: success

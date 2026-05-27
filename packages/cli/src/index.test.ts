@@ -90,7 +90,7 @@ Return the provided task id.
     expect(JSON.parse(result.execution.stdout)).toEqual({ task_id: "abc-123" });
   }, 15000);
 
-  it("continues native agent-step runs with canonical snake_case inputs", async () => {
+  it("continues native agent-task runs with canonical snake_case inputs", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-delegated-continuation-"));
     tempDirs.push(tempDir);
     const skillDir = path.join(tempDir, "child-task");
@@ -125,7 +125,7 @@ Return the provided task id.
       `${JSON.stringify(
         {
           answers: {
-            "agent_step.child-task.output": {
+            "agent_task.child-task.output": {
               echoed_task: "abc-123",
             },
           },
@@ -150,7 +150,7 @@ Return the provided task id.
       status: "needs_agent",
       requests: [
         {
-          id: "agent_step.child-task.output",
+          id: "agent_task.child-task.output",
           invocation: {
             envelope: {
               inputs: {
@@ -249,7 +249,7 @@ Return the provided task id.
     const stdout = createMemoryStream();
     const stderr = createMemoryStream();
     const exitCode = await runCli(
-      ["skill", "fixtures/skills/agent-step", "--answers", "/tmp/runx-missing-answers.json"],
+      ["skill", "fixtures/skills/agent-task", "--answers", "/tmp/runx-missing-answers.json"],
       { stdin: process.stdin, stdout, stderr },
       { ...process.env, RUNX_CWD: process.cwd() },
     );
@@ -260,12 +260,12 @@ Return the provided task id.
     expect(stderr.contents()).toContain("runx skill --answers requires --run-id");
   });
 
-  it("renders human-friendly needs-agent guidance for native agent-step runs", async () => {
+  it("renders human-friendly needs-agent guidance for native agent-task runs", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-native-agent-guidance-"));
     tempDirs.push(tempDir);
-    const skillDir = path.join(tempDir, "agent-step");
+    const skillDir = path.join(tempDir, "agent-task");
     await writeNativeAgentStepSkill(skillDir, {
-      name: "agent-step",
+      name: "agent-task",
       task: "review",
       outputs: {
         verdict: "string",
@@ -292,9 +292,9 @@ Return the provided task id.
     expect(stdout.contents()).toContain("waiting for verdict");
     expect(stdout.contents()).toContain("task      review");
     expect(stdout.contents()).toContain("Detected here: Claude Code, Codex");
-    expect(stdout.contents()).toContain(`runx skill ${skillDir} --run-id run_agent_step-review-output --answers answers.json`);
+    expect(stdout.contents()).toContain(`runx skill ${skillDir} --run-id run_agent_task-review-output --answers answers.json`);
     expect(stdout.contents()).not.toContain("Resolution requested");
-    expect(stdout.contents()).not.toContain("request   agent_step");
+    expect(stdout.contents()).not.toContain("request   agent_task");
   });
 
   it("rejects top-level skill invocation", async () => {
@@ -332,7 +332,7 @@ Return the provided task id.
       status: "needs_agent",
       requests: [
         {
-          id: "agent_step.sourcey-discover.output",
+          id: "agent_task.sourcey-discover.output",
           kind: "agent_act",
         },
       ],
@@ -342,9 +342,9 @@ Return the provided task id.
   it("keeps native needs-agent --json output machine-readable without progress lines", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-native-agent-json-"));
     tempDirs.push(tempDir);
-    const skillDir = path.join(tempDir, "agent-step");
+    const skillDir = path.join(tempDir, "agent-task");
     await writeNativeAgentStepSkill(skillDir, {
-      name: "agent-step",
+      name: "agent-task",
       task: "review",
       outputs: {
         verdict: "string",
@@ -372,10 +372,10 @@ Return the provided task id.
     expect(stdout.contents()).not.toContain("needs caller result");
     expect(JSON.parse(stdout.contents())).toMatchObject({
       status: "needs_agent",
-      run_id: "run_agent_step-review-output",
+      run_id: "run_agent_task-review-output",
       requests: [
         {
-          id: "agent_step.review.output",
+          id: "agent_task.review.output",
           kind: "agent_act",
         },
       ],
@@ -483,14 +483,14 @@ Return the provided task id.
     expect(result.findings.map((finding) => finding.code)).toContain("target_action_without_runner");
   });
 
-  it("does not route native agent-step runs through the TS OpenAI managed adapter", async () => {
+  it("does not route native agent-task runs through the TS OpenAI managed adapter", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-auto-agent-"));
     tempDirs.push(tempDir);
     const env = { ...process.env, RUNX_HOME: path.join(tempDir, ".runx"), RUNX_CWD: process.cwd() };
     await configureOpenAiAgent(env, "gpt-test");
-    const skillDir = path.join(tempDir, "agent-step");
+    const skillDir = path.join(tempDir, "agent-task");
     await writeNativeAgentStepSkill(skillDir, {
-      name: "agent-step",
+      name: "agent-task",
       task: "review",
       outputs: {
         verdict: "string",
@@ -543,21 +543,21 @@ Return the provided task id.
     expect(result.status).toBe("needs_agent");
     expect(result.requests).toEqual([
       expect.objectContaining({
-        id: "agent_step.review.output",
+        id: "agent_task.review.output",
         kind: "agent_act",
       }),
     ]);
     expect(requestCount).toBe(0);
   });
 
-  it("does not route native agent-step runs through the TS Anthropic managed adapter", async () => {
+  it("does not route native agent-task runs through the TS Anthropic managed adapter", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-auto-agent-anthropic-"));
     tempDirs.push(tempDir);
     const env = { ...process.env, RUNX_HOME: path.join(tempDir, ".runx"), RUNX_CWD: process.cwd() };
     await configureAnthropicAgent(env, "claude-test");
-    const skillDir = path.join(tempDir, "agent-step");
+    const skillDir = path.join(tempDir, "agent-task");
     await writeNativeAgentStepSkill(skillDir, {
-      name: "agent-step",
+      name: "agent-task",
       task: "review",
       outputs: {
         verdict: "string",
@@ -611,14 +611,14 @@ Return the provided task id.
     expect(result.status).toBe("needs_agent");
     expect(result.requests).toEqual([
       expect.objectContaining({
-        id: "agent_step.review.output",
+        id: "agent_task.review.output",
         kind: "agent_act",
       }),
     ]);
     expect(requestCount).toBe(0);
   });
 
-  it("does not invoke the TS managed tool loop for native agent-step runs with declared tools", async () => {
+  it("does not invoke the TS managed tool loop for native agent-task runs with declared tools", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-auto-tool-"));
     tempDirs.push(tempDir);
     const env = { ...process.env, RUNX_HOME: path.join(tempDir, ".runx"), RUNX_CWD: tempDir };
@@ -646,7 +646,7 @@ Return the provided task id.
 name: file-summary
 description: Summarize a file using the automatic CLI runtime.
 source:
-  type: agent-step
+  type: agent-task
   agent: codex
   task: summarize-file
   outputs:
@@ -694,7 +694,7 @@ Read note.txt and produce a grounded summary.
     expect(requestCount).toBe(0);
   });
 
-  it("continues native agent-step runs with caller answers", async () => {
+  it("continues native agent-task runs with caller answers", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-cli-managed-tool-pause-"));
     tempDirs.push(tempDir);
     const receiptDir = path.join(tempDir, "receipts");
@@ -726,7 +726,7 @@ Read note.txt and produce a grounded summary.
       path.join(skillDir, "SKILL.md"),
       `---
 name: file-summary
-description: Resolve a native agent-step through same-skill continuation.
+description: Resolve a native agent-task through same-skill continuation.
 ---
 Return the grounded label.
 `,
@@ -755,7 +755,7 @@ Return the grounded label.
     };
     expect(first.status).toBe("needs_agent");
     expect(first.requests[0]).toMatchObject({
-      id: "agent_step.summarize-label.output",
+      id: "agent_task.summarize-label.output",
       kind: "agent_act",
     });
 
@@ -764,7 +764,7 @@ Return the grounded label.
       `${JSON.stringify(
         {
           answers: {
-            "agent_step.summarize-label.output": {
+            "agent_task.summarize-label.output": {
               summary: "grounded from caller answer",
             },
           },
@@ -1073,7 +1073,7 @@ Answer the prompt directly.
       status: "needs_agent",
       requests: [
         {
-          id: "agent_step.sourcey-discover.output",
+          id: "agent_task.sourcey-discover.output",
           kind: "agent_act",
         },
       ],
@@ -1327,7 +1327,7 @@ runners:
       steps:
         - id: produce
           run:
-            type: agent-step
+            type: agent-task
             agent: builder
             task: produce
             outputs:
@@ -1341,7 +1341,7 @@ runners:
           tool: demo.profile
         - id: consume
           run:
-            type: agent-step
+            type: agent-task
             agent: builder
             task: consume
             outputs:
@@ -1355,10 +1355,10 @@ harness:
       inputs: {}
       caller:
         answers:
-          agent_step.produce.output:
+          agent_task.produce.output:
             profile:
               name: Acme
-          agent_step.consume.output:
+          agent_task.consume.output:
             ok: yes
       expect:
         status: sealed
@@ -2046,7 +2046,7 @@ async function writeNativeAgentStepSkill(directory: string, options: {
 runners:
   default:
     default: true
-    type: agent-step
+    type: agent-task
     agent: codex
     task: ${options.task}
 ${renderNativeOutputs(options.outputs, 4)}${renderNativeInputs(options.inputs, 4)}${renderAllowedTools(options.allowedTools, 4)}`,

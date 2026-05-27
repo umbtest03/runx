@@ -1,5 +1,5 @@
 name: "reply-only-question"
-kind: "agent_step"
+kind: "agent_task"
 runner: "issue-intake"
 inputs:
   thread_title: "How do I rotate my API key?"
@@ -7,7 +7,7 @@ inputs:
   thread_locator: "support://request/983"
 caller:
   answers:
-    agent_step.issue-intake.output:
+    agent_task.issue-intake.output:
       intake_report:
         category: "question"
         severity: "low"
@@ -81,11 +81,11 @@ expect:
   status: "sealed"
   receipt:
     schema: "runx.receipt.v1"
-    receipt_id: "hrn_rcpt_reply-only-question_reply-only-question"
+    receipt_id: "sha256:0161c4be9552f122830d968aef58af9b8c5ea36c51a7285177aef693cbe69e47"
     harness_id: "hrn_reply-only-question_reply-only-question"
     state: "sealed"
     disposition: "closed"
-    reason_code: "reply-only-question_closed"
+    reason_code: "process_closed"
     act_ids:
       - "act_reply-only-question"
     decision_ids:
@@ -93,4 +93,4 @@ expect:
 metadata:
   product_skill: "issue-intake"
   source_case: "reply-only-question"
-  runner_kind: "agent_step"
+  runner_kind: "agent_task"

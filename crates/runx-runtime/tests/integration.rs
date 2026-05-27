@@ -2,7 +2,7 @@
 //!
 //! Each module below is one integration test file. They are compiled and
 //! linked once as a single binary instead of one binary per file; see
-//! .scafld/specs/drafts/test-surface-build-consolidation.md. `autotests = false`
+//! .scafld/specs/active/test-surface-build-consolidation.md. `autotests = false`
 //! in Cargo.toml keeps Cargo from building each file as its own binary.
 
 mod a2a_parity;
@@ -44,6 +44,7 @@ mod skill_author_runtime_fixtures;
 mod skill_issue_intake;
 mod skill_issue_to_pr;
 mod skill_run;
+mod support;
 mod target_runner;
 mod thread_outbox_provider;
 mod tool_catalogs;

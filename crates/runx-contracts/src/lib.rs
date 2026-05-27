@@ -52,9 +52,9 @@ pub use act::assignment::{
     ActAssignmentIdempotency, ActAssignmentSchema, BuildActAssignment, IntentKeyInput,
     derive_content_hash, derive_intent_key, derive_trigger_key,
 };
-pub use act::receipt::{
-    ActReceiptEnvelope, ActReceiptNeedsAgentEnvelope, ActReceiptNeedsAgentStatus, ActReceiptNull,
-    ActReceiptSignal, ActReceiptTerminalEnvelope, ActReceiptTerminalStatus,
+pub use act::result::{
+    ActResultEnvelope, ActResultNeedsAgentEnvelope, ActResultNeedsAgentStatus, ActResultNull,
+    ActResultSignal, ActResultTerminalEnvelope, ActResultTerminalStatus,
 };
 pub use act::{
     Act, ActForm, ActSchema, ChangePlan, ChangeRequest, CriterionBinding, CriterionStatus,

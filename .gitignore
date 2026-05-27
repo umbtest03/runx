@@ -24,6 +24,8 @@ coverage/
 *.tsbuildinfo
 target/
 **/target/
+target-*/
+**/target-*/
 __pycache__/
 *.py[cod]
 build/

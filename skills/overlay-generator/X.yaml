@@ -16,7 +16,7 @@ harness:
         objective: Adopt the borrowed research skill into a docs graph under a governed bound.
       caller:
         answers:
-          agent_step.overlay-generator.output:
+          agent_task.overlay-generator.output:
             overlay_proposal:
               decision: ready
               wraps:
@@ -53,7 +53,7 @@ harness:
         objective: Pin and govern a local borrowed summarize skill.
       caller:
         answers:
-          agent_step.overlay-generator.output:
+          agent_task.overlay-generator.output:
             overlay_proposal:
               decision: ready
               wraps:
@@ -87,7 +87,7 @@ harness:
         objective: Author an overlay.
       caller:
         answers:
-          agent_step.overlay-generator.output:
+          agent_task.overlay-generator.output:
             overlay_proposal:
               decision: needs_input
               wraps:
@@ -120,7 +120,7 @@ harness:
 runners:
   generate:
     default: true
-    type: agent-step
+    type: agent-task
     agent: builder
     task: overlay-generator
     outputs:

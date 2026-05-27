@@ -137,6 +137,7 @@ pub struct AgentActInvocation {
 #[serde(rename_all = "kebab-case")]
 pub enum AgentActSourceType {
     Agent,
+    #[serde(rename = "agent-task")]
     AgentStep,
 }
 

@@ -159,23 +159,22 @@ export {
 } from "./schemas/agent-act.js";
 
 export {
-  inputResolutionRequestSchema,
-  approvalResolutionRequestSchema,
-  agentActResolutionRequestSchema,
   resolutionRequestSchema,
   resolutionResponseSchema,
-  actReceiptTerminalEnvelopeSchema,
-  actReceiptNeedsAgentEnvelopeSchema,
-  actReceiptEnvelopeSchema,
+  actResultEnvelopeSchema,
   validateResolutionRequestContract,
   validateResolutionResponseContract,
-  validateActReceiptEnvelopeContract,
+  validateActResultEnvelopeContract,
   type InputResolutionRequestContract,
   type ApprovalResolutionRequestContract,
   type AgentActResolutionRequestContract,
   type ResolutionRequestContract,
   type ResolutionResponseContract,
-  type ActReceiptEnvelopeContract,
+  type ActResultTerminalStatusContract,
+  type ActResultSignalContract,
+  type ActResultTerminalEnvelopeContract,
+  type ActResultNeedsAgentEnvelopeContract,
+  type ActResultEnvelopeContract,
 } from "./schemas/resolution.js";
 
 export {
@@ -548,7 +547,7 @@ import {
   threadOutboxProviderPushV1Schema,
 } from "./schemas/thread-outbox-provider.js";
 import { outputSchema } from "./schemas/output.js";
-import { actReceiptEnvelopeSchema, resolutionRequestSchema, resolutionResponseSchema } from "./schemas/resolution.js";
+import { actResultEnvelopeSchema, resolutionRequestSchema, resolutionResponseSchema } from "./schemas/resolution.js";
 import { doctorV1Schema } from "./schemas/doctor.js";
 import { devV1Schema } from "./schemas/dev.js";
 import { listV1Schema } from "./schemas/list.js";
@@ -599,7 +598,7 @@ export const runxContractSchemas = {
   approvalGate: runxSchemaArtifacts["approval-gate.schema.json"],
   resolutionRequest: runxSchemaArtifacts["resolution-request.schema.json"],
   resolutionResponse: runxSchemaArtifacts["resolution-response.schema.json"],
-  actReceiptEnvelope: runxSchemaArtifacts["act-receipt.schema.json"],
+  actResultEnvelope: runxSchemaArtifacts["act-result.schema.json"],
   credentialEnvelope: runxSchemaArtifacts["credential-envelope.schema.json"],
   scopeAdmission: runxSchemaArtifacts["scope-admission.schema.json"],
   authorityProof: runxSchemaArtifacts["authority-proof.schema.json"],

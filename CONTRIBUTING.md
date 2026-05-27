@@ -101,10 +101,9 @@ For Rust kernel parity work, run:
 pnpm rust:check
 ```
 
-This is Phase A advisory evidence while TypeScript remains the source of truth.
-It becomes blocking only after the `rust-kernel-blocking-promotion` spec
-confirms five clean kernel-touching PRs. The command uses `cargo-deny` and
-`cargo-public-api`; if they are missing, install them with:
+This is blocking evidence for Rust-owned kernel and contract surfaces. The
+command uses `cargo-deny` and `cargo-public-api`; if they are missing, install
+them with:
 
 ```bash
 cargo install cargo-deny cargo-public-api

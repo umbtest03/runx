@@ -205,15 +205,19 @@ fn oversized_inputs_spill_to_path_and_omit_inline_json() -> Result<(), Box<dyn s
         .get("RUNX_INPUTS_PATH")
         .cloned()
         .ok_or("missing RUNX_INPUTS_PATH")?;
-    assert!(inputs_path.starts_with(path_string(&temp_dir)?.as_str()));
-    let parsed: JsonObject = serde_json::from_str(&fs::read_to_string(inputs_path)?)?;
-    assert_eq!(parsed.get("message"), Some(&JsonValue::String(large)));
+    let inputs_path = Path::new(&inputs_path);
     let input_dir = plan
         .cleanup_paths
         .iter()
-        .find(|path| path.starts_with(&temp_dir))
+        .find(|path| inputs_path.starts_with(path))
         .cloned()
         .ok_or("missing input temp cleanup path")?;
+    assert!(
+        !inputs_path.starts_with(&temp_dir),
+        "enforced sandboxes must spill inputs into a private temp directory"
+    );
+    let parsed: JsonObject = serde_json::from_str(&fs::read_to_string(inputs_path)?)?;
+    assert_eq!(parsed.get("message"), Some(&JsonValue::String(large)));
     assert!(input_dir.exists());
     drop(plan);
     assert!(

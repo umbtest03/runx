@@ -60,7 +60,7 @@
     "run_id": "run_hosted_agent_001",
     "schema": "runx.external_adapter.invocation.v1",
     "skill_ref": "runx/hosted-agent/customer-reply",
-    "source_type": "agent-step",
+    "source_type": "agent-task",
     "step_id": "draft_reply"
   },
   "manifest": {
@@ -92,7 +92,7 @@
     "schema": "runx.external_adapter.manifest.v1",
     "supported_source_types": [
       "agent",
-      "agent-step"
+      "agent-task"
     ],
     "timeouts": {
       "invocation_ms": 30000,

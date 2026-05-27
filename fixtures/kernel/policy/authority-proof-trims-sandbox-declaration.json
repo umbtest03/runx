@@ -70,7 +70,7 @@
           "status": "allow"
         },
         "skill_name": "issue-intake",
-        "source_type": "agent-step"
+        "source_type": "agent-task"
       }
     }
   },
@@ -135,7 +135,7 @@
         "requireEnforcement": true
       },
       "skillName": "issue-intake",
-      "sourceType": "agent-step"
+      "sourceType": "agent-task"
     }
   },
   "name": "authority-proof-trims-sandbox-declaration"

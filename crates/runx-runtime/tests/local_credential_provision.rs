@@ -89,7 +89,8 @@ fn run_without_descriptor_delivers_no_credential() -> Result<(), Box<dyn std::er
     Ok(())
 }
 
-fn run_skill(request: SkillRunRequest) -> Result<RunResult, Box<dyn std::error::Error>> {
+fn run_skill(mut request: SkillRunRequest) -> Result<RunResult, Box<dyn std::error::Error>> {
+    crate::support::insert_test_signing_env(&mut request.env);
     LocalOrchestrator.run_skill(&request).map_err(Into::into)
 }
 

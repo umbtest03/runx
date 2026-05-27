@@ -304,7 +304,7 @@ fn history_merges_paused_ledgers_and_checkpoints() -> Result<(), Box<dyn std::er
             name: "checkpoint-skill".to_owned(),
             kind: "runx.receipt.v1".to_owned(),
             started_at: Some("2026-04-28T00:30:00Z".to_owned()),
-            selected_runner: Some("agent-step".to_owned()),
+            selected_runner: Some("agent-task".to_owned()),
             step_ids: vec!["plan".to_owned()],
             step_labels: vec!["plan work".to_owned()],
         }],
@@ -740,12 +740,12 @@ fn write_paused_ledger(
             "status": "waiting",
             "step_id": "discover",
             "detail": {
-                "request_ids": ["agent_step.test-step.output"],
+                "request_ids": ["agent_task.test-step.output"],
                 "resolution_kinds": ["agent_act"],
                 "step_ids": ["discover"],
                 "step_labels": ["inspect repo"],
                 "inputs": {},
-                "selected_runner": "agent-step"
+                "selected_runner": "agent-task"
             }
         },
         "meta": ledger_meta(run_id, "discover", producer, created_at, "ax_wait")

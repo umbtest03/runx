@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use runx_contracts::{JsonNumber, JsonObject, JsonValue, sha256_hex};
+use runx_contracts::{JsonObject, JsonValue, sha256_hex};
 use runx_parser::{SkillArtifactContract, SkillSource};
 
 use crate::RuntimeError;
@@ -11,6 +11,7 @@ use crate::adapter::{
 };
 use crate::adapter_pipeline::{AdapterCapture, AdapterProjection};
 use crate::adapters::cli_tool::CliToolAdapter;
+use crate::json_render::json_number_string;
 use crate::tool_catalogs::search::{FixtureTool, fixture_tool};
 use crate::tool_catalogs::{ToolCatalogError, ToolInspectOptions, resolve_local_tool};
 
@@ -283,15 +284,6 @@ fn json_string(value: Option<&JsonValue>) -> Option<String> {
         Some(JsonValue::Array(_)) | Some(JsonValue::Object(_)) => {
             Some("[object Object]".to_owned())
         }
-    }
-}
-
-fn json_number_string(value: &JsonNumber) -> String {
-    match value {
-        JsonNumber::I64(value) => value.to_string(),
-        JsonNumber::U64(value) => value.to_string(),
-        JsonNumber::F64(value) if value.fract() == 0.0 => format!("{value:.0}"),
-        JsonNumber::F64(value) => value.to_string(),
     }
 }
 

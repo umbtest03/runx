@@ -6,7 +6,7 @@ use serde_json as schema_json;
 
 use crate::schema::RunxSchema;
 use crate::{
-    Act, ActAssignment, ActReceiptEnvelope, AgentActInvocation, AgentContextEnvelope, ApprovalGate,
+    Act, ActAssignment, ActResultEnvelope, AgentActInvocation, AgentContextEnvelope, ApprovalGate,
     Artifact, Authority, AuthorityProof, AuthoritySubsetProof, CredentialDeliveryObservation,
     CredentialDeliveryProfile, CredentialDeliveryRequest, CredentialDeliveryResponse,
     CredentialEnvelope, Decision, DevReport, DoctorReport, ExternalAdapterCancellationFrame,
@@ -39,7 +39,7 @@ pub fn generated_schema_artifacts() -> Vec<SchemaArtifact> {
         artifact::<ApprovalGate>("approval-gate.schema.json"),
         artifact::<ResolutionRequest>("resolution-request.schema.json"),
         artifact::<ResolutionResponse>("resolution-response.schema.json"),
-        artifact::<ActReceiptEnvelope>("act-receipt.schema.json"),
+        artifact::<ActResultEnvelope>("act-result.schema.json"),
         artifact::<CredentialEnvelope>("credential-envelope.schema.json"),
         artifact::<ScopeAdmission>("scope-admission.schema.json"),
         artifact::<AuthorityProof>("authority-proof.schema.json"),

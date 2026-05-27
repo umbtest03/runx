@@ -20,7 +20,7 @@ harness:
         objective_focus: Lead with maturity and unused authority.
       caller:
         answers:
-          agent_step.run-history-analyst.output:
+          agent_task.run-history-analyst.output:
             history_report:
               decision: ready
               scope: workspace
@@ -74,7 +74,7 @@ harness:
           cite a payment cap exceeded. Seal rate on the non-refused runs is 1.0.
       caller:
         answers:
-          agent_step.run-history-analyst.output:
+          agent_task.run-history-analyst.output:
             history_report:
               decision: ready
               scope: skill
@@ -114,7 +114,7 @@ harness:
         objective: Show me how our skills are doing.
       caller:
         answers:
-          agent_step.run-history-analyst.output:
+          agent_task.run-history-analyst.output:
             history_report:
               decision: needs_more_evidence
               scope: all
@@ -144,7 +144,7 @@ harness:
 runners:
   analyze:
     default: true
-    type: agent-step
+    type: agent-task
     agent: researcher
     task: run-history-analyst
     outputs:

@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use runx_contracts::{ClosureDisposition, JsonValue};
 use runx_receipts::validate_receipt;
 use runx_runtime::{
-    HarnessExpectedStatus, HarnessReplayOutput, load_harness_fixture, run_harness_fixture,
+    HarnessExpectedStatus, HarnessReplayOutput, adapters::cli_tool::CliToolAdapter,
+    load_harness_fixture, run_harness_fixture_with_adapter,
 };
 
 #[test]
@@ -92,15 +93,19 @@ fn issue_intake_generated_fixtures_keep_product_skill_source_unchanged()
     Ok(())
 }
 
-fn run_case(case_name: &str) -> Result<HarnessReplayOutput, runx_runtime::HarnessReplayError> {
-    run_harness_fixture(case_path(case_name))
+fn run_case(case_name: &str) -> Result<HarnessReplayOutput, Box<dyn std::error::Error>> {
+    Ok(run_harness_fixture_with_adapter(
+        case_path(case_name),
+        CliToolAdapter,
+        crate::support::local_harness_runtime_options(),
+    )?)
 }
 
 fn skill_payload(output: &HarnessReplayOutput) -> Result<JsonValue, Box<dyn std::error::Error>> {
     let skill_output = output
         .skill_output
         .as_ref()
-        .ok_or("agent-step fixture did not produce skill output")?;
+        .ok_or("agent-task fixture did not produce skill output")?;
     Ok(serde_json::from_str(&skill_output.stdout)?)
 }
 

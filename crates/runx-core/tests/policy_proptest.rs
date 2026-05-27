@@ -594,7 +594,7 @@ fn auth_requirement() -> impl Strategy<Value = JsonValue> {
 fn source_type() -> impl Strategy<Value = String> {
     prop::sample::select(&[
         "agent",
-        "agent-step",
+        "agent-task",
         "approval",
         "cli-tool",
         "mcp",

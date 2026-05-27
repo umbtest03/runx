@@ -109,7 +109,7 @@ steps:
         repo_profile: repo_profile
   - id: plan
     run:
-      type: agent-step
+      type: agent-task
       agent: builder
       task: plan
     instructions: use the parent skill environment
@@ -130,7 +130,7 @@ steps:
       path: README.md
   - id: review
     run:
-      type: agent-step
+      type: agent-task
       agent: builder
       task: review
     allowed_tools:
@@ -262,7 +262,7 @@ runx:
 ---
 name: quality-profile
 source:
-  type: agent-step
+  type: agent-task
   agent: reviewer
   task: review
 ---
@@ -354,7 +354,7 @@ skill: issue-intake
 runners:
   intake:
     source:
-      type: agent-step
+      type: agent-task
       agent: codex
       task: triage
       outputs:
@@ -382,7 +382,7 @@ harness:
         status: sealed
         receipt:
           status: sealed
-          source_type: agent-step
+          source_type: agent-task
 `),
     runnerManifestSuccess("execution-evidence-refs", `
 runners:
@@ -452,7 +452,7 @@ runx:
     toolManifestYamlRejection("validation-agent-source-not-tool", "validation", `
 name: bad.tool
 source:
-  type: agent-step
+  type: agent-task
   agent: codex
   task: think
 `),

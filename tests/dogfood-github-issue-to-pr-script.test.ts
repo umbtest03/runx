@@ -99,8 +99,8 @@ describe("GitHub issue-to-PR dogfood script", () => {
             current: "issue-123",
           },
           runx_bin: {
-            status: "skipped",
-            source: "env:RUNX_BIN",
+            status: "ready",
+            source: "local:crates/target/runx",
           },
           github_publish_auth: {
             status: "ready",
@@ -157,7 +157,7 @@ describe("GitHub issue-to-PR dogfood script", () => {
         requested: missingRunx,
         resolved: missingRunx,
       });
-      expect(payload.checks.runx_bin.next).toContain("Unset RUNX_BIN");
+      expect(payload.checks.runx_bin.next).toContain("Set --runx-bin");
       expect(payload.next_action).toContain("Fix the blocked preflight checks");
     } finally {
       await rm(tempDir, { recursive: true, force: true });

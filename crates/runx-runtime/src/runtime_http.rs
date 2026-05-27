@@ -275,9 +275,7 @@ pub enum RuntimeHttpError {
     InvalidHeaderValue { name: String, message: String },
 }
 
-#[cfg(any(feature = "async-http", test))]
-#[allow(dead_code)]
-fn strip_one_trailing_slash(value: &str) -> String {
+pub(crate) fn strip_one_trailing_slash(value: &str) -> String {
     value.strip_suffix('/').unwrap_or(value).to_owned()
 }
 

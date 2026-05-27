@@ -94,7 +94,7 @@
       "stdoutIncludes": [
         "\"pendingRuns\"",
         "\"gx_needs_agent_oracle\"",
-        "\"selectedRunner\": \"agent-step\""
+        "\"selectedRunner\": \"agent-task\""
       ],
       "stderrIncludes": [],
       "proves": [

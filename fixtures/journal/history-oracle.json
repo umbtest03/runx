@@ -9,7 +9,7 @@
     "id": "gx_paused0000000000000000000000ab",
     "name": "sourcey",
     "status": "paused",
-    "selected_runner": "agent-step",
+    "selected_runner": "agent-task",
     "step_ids": [
       "discover"
     ],

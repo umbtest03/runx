@@ -1,4 +1,4 @@
-//! Non-authoritative wire-compatibility gate for the type-driven JSON Schema
+//! Non-authoritative wire-conformance gate for the type-driven JSON Schema
 //! emitter (Phase 1 of `rust-contract-pipeline-inversion`).
 //!
 //! For each covered contract: the Rust-emitted schema must preserve schema
@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 use runx_contracts::act::Act;
 use runx_contracts::act::assignment::ActAssignment;
-use runx_contracts::act::receipt::ActReceiptEnvelope;
+use runx_contracts::act::result::ActResultEnvelope;
 use runx_contracts::agent_context::AgentContextEnvelope;
 use runx_contracts::artifact::Artifact;
 use runx_contracts::aster::{
@@ -337,9 +337,9 @@ fn covered() -> Vec<Covered> {
             corpus: agent_act_invocation_corpus(),
         },
         Covered {
-            file_name: "act-receipt.schema.json",
-            emitted: ActReceiptEnvelope::json_schema(),
-            corpus: act_receipt_corpus(),
+            file_name: "act-result.schema.json",
+            emitted: ActResultEnvelope::json_schema(),
+            corpus: act_result_corpus(),
         },
         Covered {
             file_name: "dev.schema.json",
@@ -394,7 +394,7 @@ fn covered() -> Vec<Covered> {
     ]
 }
 
-fn act_receipt_corpus() -> Vec<(&'static str, Value)> {
+fn act_result_corpus() -> Vec<(&'static str, Value)> {
     let terminal = json!({
         "status": "sealed",
         "stdout": "ok",
@@ -3224,13 +3224,13 @@ fn resolution_response_corpus() -> Vec<(&'static str, Value)> {
 fn agent_act_invocation_corpus() -> Vec<(&'static str, Value)> {
     let valid = json!({
         "id": "inv_1",
-        "source_type": "agent-step",
+        "source_type": "agent-task",
         "agent": "assistant",
         "task": "draft",
         "envelope": agent_context_envelope(),
     });
     vec![
-        ("valid agent-step invocation", valid.clone()),
+        ("valid agent-task invocation", valid.clone()),
         (
             "valid agent invocation",
             set_field(valid.clone(), "source_type", json!("agent")),
@@ -4216,7 +4216,7 @@ fn legacy_provider_reference_key() -> String {
 }
 
 #[test]
-fn emitted_schemas_are_wire_compatible_with_committed() {
+fn emitted_schemas_conform_to_committed_value_domains() {
     let dir = committed_dir();
     let mut failures: Vec<String> = Vec::new();
 
@@ -4278,7 +4278,7 @@ fn emitted_schemas_are_wire_compatible_with_committed() {
 
     assert!(
         failures.is_empty(),
-        "schema wire-compat drift:\n{}",
+        "schema wire-conformance drift:\n{}",
         failures.join("\n")
     );
 }

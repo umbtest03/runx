@@ -1,5 +1,5 @@
 {
-  "$id": "https://runx.ai/spec/act-receipt.schema.json",
+  "$id": "https://runx.ai/spec/act-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "anyOf": [
     {
@@ -924,7 +924,7 @@
                           "type": "string"
                         },
                         {
-                          "const": "agent-step",
+                          "const": "agent-task",
                           "type": "string"
                         }
                       ]

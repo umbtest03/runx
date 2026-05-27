@@ -50,7 +50,7 @@ harness:
           key: payment:demo-search-001
       caller:
         answers:
-          agent_step.pay-fulfill-rail.output:
+          agent_task.pay-fulfill-rail.output:
             rail_result:
               status: fulfilled
               rail: mock
@@ -80,7 +80,7 @@ harness:
 runners:
   mock:
     default: true
-    type: agent-step
+    type: agent-task
     agent: operator
     task: pay-fulfill-rail-mock
     mutating: true
@@ -134,7 +134,7 @@ runners:
         description: "Source quote packet for evidence continuity."
 
   x402:
-    type: agent-step
+    type: agent-task
     agent: operator
     task: pay-fulfill-rail-x402
     mutating: true
@@ -160,7 +160,7 @@ runners:
     inputs: *rail_inputs
 
   mpp:
-    type: agent-step
+    type: agent-task
     agent: operator
     task: pay-fulfill-rail-mpp
     mutating: true
@@ -186,7 +186,7 @@ runners:
     inputs: *rail_inputs
 
   stripe-spt:
-    type: agent-step
+    type: agent-task
     agent: operator
     task: pay-fulfill-rail-stripe-spt
     mutating: true

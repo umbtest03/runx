@@ -3,7 +3,7 @@ use runx_contracts::JsonValue;
 use serde::{Deserialize, Serialize};
 
 // These wire contracts now have their authoritative Rust type in
-// `runx-contracts` (covered by the schema-wire-compat gate). Re-export them so
+// `runx-contracts` (covered by the schema wire-conformance gate). Re-export them so
 // every existing policy/runtime importer keeps compiling unchanged.
 pub use runx_contracts::policy_proof::{
     AuthorityKind, AuthorityProof, AuthorityProofApprovalDecision,

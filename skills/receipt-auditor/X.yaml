@@ -20,7 +20,7 @@ harness:
         objective: Confirm the triage run stayed within its read-only grant.
       caller:
         answers:
-          agent_step.receipt-auditor.output:
+          agent_task.receipt-auditor.output:
             receipt_audit:
               decision: ready
               run_ref: rcpt_issue_triage_4471
@@ -57,7 +57,7 @@ harness:
         objective: Audit whether the run exceeded its grant.
       caller:
         answers:
-          agent_step.receipt-auditor.output:
+          agent_task.receipt-auditor.output:
             receipt_audit:
               decision: ready
               run_ref: rcpt_doc_bot_5582
@@ -94,7 +94,7 @@ harness:
         objective: Audit the last run.
       caller:
         answers:
-          agent_step.receipt-auditor.output:
+          agent_task.receipt-auditor.output:
             receipt_audit:
               decision: needs_more_evidence
               run_ref: ""
@@ -119,7 +119,7 @@ harness:
 runners:
   audit:
     default: true
-    type: agent-step
+    type: agent-task
     agent: reviewer
     task: receipt-auditor
     outputs:

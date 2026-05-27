@@ -1,5 +1,5 @@
 name: "request-review-before-mutation"
-kind: "agent_step"
+kind: "agent_task"
 runner: "issue-intake"
 inputs:
   thread_title: "Clarify the affected repo before we start"
@@ -14,7 +14,7 @@ inputs:
   product_context: "Workspace repo with multiple bounded mutation surfaces"
 caller:
   answers:
-    agent_step.issue-intake.output:
+    agent_task.issue-intake.output:
       intake_report:
         category: "other"
         severity: "medium"
@@ -92,11 +92,11 @@ expect:
   status: "sealed"
   receipt:
     schema: "runx.receipt.v1"
-    receipt_id: "hrn_rcpt_request-review-before-mutation_request-review-before-mutation"
+    receipt_id: "sha256:6882b3e2d91a67b1bbcbc3685ac19a4e7c4680724d184bad38ec325fd6b389be"
     harness_id: "hrn_request-review-before-mutation_request-review-before-mutation"
     state: "sealed"
     disposition: "closed"
-    reason_code: "request-review-before-mutation_closed"
+    reason_code: "process_closed"
     act_ids:
       - "act_request-review-before-mutation"
     decision_ids:
@@ -104,4 +104,4 @@ expect:
 metadata:
   product_skill: "issue-intake"
   source_case: "request-review-before-mutation"
-  runner_kind: "agent_step"
+  runner_kind: "agent_task"

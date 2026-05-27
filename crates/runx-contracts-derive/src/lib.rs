@@ -1,4 +1,4 @@
-//! `#[derive(RunxSchema)]`: emit a wire-compatible JSON Schema document from a
+//! `#[derive(RunxSchema)]`: emit a wire-conformant JSON Schema document from a
 //! contract type's definition and its serde attributes. Part of Phase 1 of
 //! `rust-contract-pipeline-inversion`.
 //!

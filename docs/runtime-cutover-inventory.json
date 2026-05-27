@@ -119,7 +119,7 @@
       "disposition": "migrated_to_cli_json_helper",
       "target": "tests/helpers/runx-cli-json.ts"
     },
-    "tests/agent-step-boundary.test.ts": {
+    "tests/agent-task-boundary.test.ts": {
       "disposition": "migrated_to_cli_json_helper",
       "target": "tests/helpers/runx-cli-json.ts"
     },

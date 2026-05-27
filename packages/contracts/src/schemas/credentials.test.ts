@@ -40,7 +40,7 @@ const validAuthorityProof: AuthorityProofContract = {
   schema_version: authorityProofSchemaVersion,
   run_id: "rx_abc",
   skill_name: "connected-review",
-  source_type: "agent-step",
+  source_type: "agent-task",
   requested: {
     connected_auth: true,
     scopes: ["repo:read"],

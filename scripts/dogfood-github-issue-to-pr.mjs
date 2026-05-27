@@ -1094,7 +1094,7 @@ function primaryThreadBody(thread) {
 
 function selectPreferredPullFromThread(thread, branchName) {
   return selectPreferredGitHubPullRequest(
-    threadOutbox(thread).map((entry) => ({
+    pullRequestOutboxEntries(thread).map((entry) => ({
       number: optionalNumber(entry.metadata?.number),
       url: entry.locator,
       headRefName: entry.metadata?.branch,
@@ -1104,6 +1104,14 @@ function selectPreferredPullFromThread(thread, branchName) {
       mergedAt: entry.metadata?.merged_at,
     })),
     branchName,
+  );
+}
+
+function pullRequestOutboxEntries(thread) {
+  return threadOutbox(thread).filter((entry) =>
+    firstNonEmptyString(entry.kind) === "pull_request"
+    || firstNonEmptyString(entry.metadata?.schema_version) === "runx.outbox-entry.pull-request.v1"
+    || /\/pull\/\d+(?:$|[?#])/u.test(firstNonEmptyString(entry.locator) ?? "")
   );
 }
 
@@ -1515,7 +1523,7 @@ function observeDogfoodOutcome({ issueRef, workspace, taskId, branchName, env })
     cwd: workspace,
   });
   const preferredPull = selectPreferredGitHubPullRequest(
-    threadOutbox(thread).map((entry) => ({
+    pullRequestOutboxEntries(thread).map((entry) => ({
       number: optionalNumber(entry.metadata?.number),
       url: entry.locator,
       headRefName: entry.metadata?.branch,

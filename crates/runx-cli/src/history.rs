@@ -366,7 +366,7 @@ mod tests {
             format!(
                 "{}\n{}\n",
                 r#"{"entry":{"type":"run_event","version":"1","data":{"kind":"run_started","status":"started","step_id":null,"detail":{}},"meta":{"artifact_id":"ax_start","run_id":"gx_needs_agent_oracle","step_id":null,"producer":{"skill":"sourcey","runner":"graph"},"created_at":"2026-04-28T01:00:00.000Z","hash":"sha256:start","size_bytes":2,"parent_artifact_id":null,"receipt_id":null,"redacted":false}}}"#,
-                r#"{"entry":{"type":"run_event","version":"1","data":{"kind":"step_waiting_resolution","status":"waiting","step_id":"discover","detail":{"request_ids":["agent_step.test-step.output"],"resolution_kinds":["agent_act"],"step_ids":["discover"],"step_labels":["inspect repo"],"inputs":{},"selected_runner":"agent-step"}},"meta":{"artifact_id":"ax_wait","run_id":"gx_needs_agent_oracle","step_id":"discover","producer":{"skill":"sourcey","runner":"graph"},"created_at":"2026-04-28T01:00:00.000Z","hash":"sha256:wait","size_bytes":2,"parent_artifact_id":null,"receipt_id":null,"redacted":false}}}"#
+                r#"{"entry":{"type":"run_event","version":"1","data":{"kind":"step_waiting_resolution","status":"waiting","step_id":"discover","detail":{"request_ids":["agent_task.test-step.output"],"resolution_kinds":["agent_act"],"step_ids":["discover"],"step_labels":["inspect repo"],"inputs":{},"selected_runner":"agent-task"}},"meta":{"artifact_id":"ax_wait","run_id":"gx_needs_agent_oracle","step_id":"discover","producer":{"skill":"sourcey","runner":"graph"},"created_at":"2026-04-28T01:00:00.000Z","hash":"sha256:wait","size_bytes":2,"parent_artifact_id":null,"receipt_id":null,"redacted":false}}}"#
             ),
         )?;
         let oracle: CliParityOracle = serde_json::from_str(include_str!(
@@ -420,7 +420,7 @@ mod tests {
         );
         assert_eq!(
             first_pending_run.selected_runner,
-            Some("agent-step".to_owned())
+            Some("agent-task".to_owned())
         );
         Ok(())
     }

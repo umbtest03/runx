@@ -114,7 +114,7 @@ export const RUNX_CONTROL_SCHEMA_REFS = {
   approval_gate: "https://runx.ai/spec/approval-gate.schema.json",
   resolution_request: "https://runx.ai/spec/resolution-request.schema.json",
   resolution_response: "https://runx.ai/spec/resolution-response.schema.json",
-  act_receipt: "https://runx.ai/spec/act-receipt.schema.json",
+  act_result: "https://runx.ai/spec/act-result.schema.json",
   credential_envelope: "https://runx.ai/spec/credential-envelope.schema.json",
   scope_admission: "https://runx.ai/spec/scope-admission.schema.json",
   authority_proof: "https://runx.ai/spec/authority-proof.schema.json",

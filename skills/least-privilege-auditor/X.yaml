@@ -31,7 +31,7 @@ harness:
         objective: Tighten the campaign sender to the narrowest grant before renewal.
       caller:
         answers:
-          agent_step.least-privilege-auditor.output:
+          agent_task.least-privilege-auditor.output:
             audit_report:
               subject: growth/lifecycle-campaign-send
               scope_diff:
@@ -76,7 +76,7 @@ harness:
         objective: Confirm the grant is minimal before promoting the skill to stable.
       caller:
         answers:
-          agent_step.least-privilege-auditor.output:
+          agent_task.least-privilege-auditor.output:
             audit_report:
               subject: code/governed-issue-to-pr
               scope_diff:
@@ -103,7 +103,7 @@ harness:
         objective: Audit a freshly published skill that has not run yet.
       caller:
         answers:
-          agent_step.least-privilege-auditor.output:
+          agent_task.least-privilege-auditor.output:
             audit_report:
               subject: research/deep-research-brief
               scope_diff: []
@@ -120,7 +120,7 @@ harness:
 runners:
   audit:
     default: true
-    type: agent-step
+    type: agent-task
     agent: reviewer
     task: least-privilege-auditor
     outputs:

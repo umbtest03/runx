@@ -7,7 +7,7 @@
   "durationMs": 0,
   "metadata": {
     "agent_hook": {
-      "source_type": "agent-step",
+      "source_type": "agent-task",
       "agent": "assistant",
       "task": "structured release",
       "route": "native",

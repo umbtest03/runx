@@ -816,7 +816,7 @@ function agentActResolutionRequest(): Readonly<Record<string, unknown>> {
     kind: "agent_act",
     invocation: {
       id: "act_1",
-      source_type: "agent-step",
+      source_type: "agent-task",
       agent: "codex",
       task: "Summarize receipt",
       envelope: {
@@ -846,7 +846,7 @@ function terminalState(status: string, verificationStatus: string): Readonly<Rec
       status: verificationStatus,
       reason: verificationStatus === "verified" ? undefined : "fixture verification state",
     },
-    sourceType: "agent-step",
+    sourceType: "agent-task",
     startedAt: "2026-04-25T14:00:00Z",
     completedAt: "2026-04-25T14:01:00Z",
     disposition: status,

@@ -77,7 +77,7 @@ pub enum HarnessFixtureKind {
     Mcp,
     A2a,
     Agent,
-    #[serde(rename = "agent_step", alias = "agent-step")]
+    #[serde(rename = "agent_task")]
     AgentStep,
 }
 
@@ -310,7 +310,7 @@ pub(crate) fn fixture_kind_name(kind: &HarnessFixtureKind) -> &'static str {
         HarnessFixtureKind::Mcp => "mcp",
         HarnessFixtureKind::A2a => "a2a",
         HarnessFixtureKind::Agent => "agent",
-        HarnessFixtureKind::AgentStep => "agent_step",
+        HarnessFixtureKind::AgentStep => "agent_task",
     }
 }
 

@@ -415,7 +415,7 @@ fn step_output_object(step: &GraphStep, output: &SkillOutput) -> Result<JsonObje
     step_output_object_and_claim(step, output).map(|(outputs, _claim)| outputs)
 }
 
-fn agent_step_output_object(
+fn agent_task_output_object(
     step: &GraphStep,
     output: &SkillOutput,
 ) -> Result<JsonObject, RuntimeError> {
@@ -584,7 +584,7 @@ where
     let run_type = run_type(step)?;
     match run_type.as_str() {
         "approval" => run_approval_step(runtime, graph_name, step, attempt, inputs, host),
-        "agent-step" => run_agent_step(runtime, graph_dir, graph_name, step, attempt, inputs, host),
+        "agent-task" => run_agent_task(runtime, graph_dir, graph_name, step, attempt, inputs, host),
         other => Err(RuntimeError::UnsupportedRunStep {
             step_id: step.id.clone(),
             run_type: other.to_owned(),
@@ -592,9 +592,9 @@ where
     }
 }
 
-// rust-style-allow: long-function because agent-step execution is one
+// rust-style-allow: long-function because agent-task execution is one
 // request/resolve/seal trust-boundary path.
-fn run_agent_step<A>(
+fn run_agent_task<A>(
     runtime: &Runtime<A>,
     graph_dir: &Path,
     graph_name: &str,
@@ -606,7 +606,7 @@ fn run_agent_step<A>(
 where
     A: SkillAdapter,
 {
-    let source = agent_step_source(step)?;
+    let source = agent_task_source(step)?;
     let invocation = SkillInvocation {
         skill_name: step.id.clone(),
         source,
@@ -630,8 +630,8 @@ where
         });
     };
     let disposition = agent_answer_disposition_value(&response.payload);
-    let output = agent_step_output(response)?;
-    let outputs = agent_step_output_object(step, &output)?;
+    let output = agent_task_output(response)?;
+    let outputs = agent_task_output_object(step, &output)?;
     let disposition_label = closure_disposition_label(&disposition);
     let receipt = step_receipt_with_disposition_and_policy(
         StepReceiptWithDisposition {
@@ -650,7 +650,7 @@ where
     Ok(StepRun {
         step_id: step.id.clone(),
         attempt,
-        skill: "run:agent-step".to_owned(),
+        skill: "run:agent-task".to_owned(),
         runner: step.runner.clone(),
         fanout_group: step.fanout_group.clone(),
         output,
@@ -665,7 +665,7 @@ fn run_agent_skill_step<A>(
     graph_name: &str,
     step: &GraphStep,
     attempt: u32,
-    agent_step: AgentSkillStepInvocation,
+    agent_task: AgentSkillStepInvocation,
     host: &mut dyn Host,
 ) -> Result<StepRun, RuntimeError>
 where
@@ -675,7 +675,7 @@ where
         skill_name,
         invocation,
         source_type,
-    } = agent_step;
+    } = agent_task;
     let request_id = agent_act_invocation_id(&invocation, source_type);
     let request = agent_act_resolution_request(&invocation, source_type)?;
     let response = resolve_agent_act(
@@ -689,8 +689,8 @@ where
         ),
     )?;
     let disposition = agent_answer_disposition_value(&response.payload);
-    let output = agent_step_output(response)?;
-    let outputs = agent_step_output_object(step, &output)?;
+    let output = agent_task_output(response)?;
+    let outputs = agent_task_output_object(step, &output)?;
     let disposition_label = closure_disposition_label(&disposition);
     let receipt = step_receipt_with_disposition_and_policy(
         StepReceiptWithDisposition {
@@ -745,7 +745,7 @@ fn agent_skill_source_type(source_type: SourceKind) -> Option<AgentActInvocation
     }
 }
 
-fn agent_step_source(step: &GraphStep) -> Result<SkillSource, RuntimeError> {
+fn agent_task_source(step: &GraphStep) -> Result<SkillSource, RuntimeError> {
     let Some(run) = &step.run else {
         return Err(RuntimeError::InvalidRunStep {
             step_id: step.id.clone(),
@@ -889,11 +889,11 @@ fn catalog_source(tool_ref: &str) -> SkillSource {
     }
 }
 
-fn agent_step_output(response: ResolutionResponse) -> Result<SkillOutput, RuntimeError> {
+fn agent_task_output(response: ResolutionResponse) -> Result<SkillOutput, RuntimeError> {
     let disposition = agent_answer_disposition_value(&response.payload);
     let succeeded = disposition == ClosureDisposition::Closed;
     let stdout = serde_json::to_string(&response.payload)
-        .map_err(|source| RuntimeError::json("serializing agent-step response", source))?;
+        .map_err(|source| RuntimeError::json("serializing agent-task response", source))?;
     Ok(SkillOutput {
         status: if succeeded {
             InvocationStatus::Success
@@ -921,7 +921,7 @@ fn resolution_event_data(
 ) -> Result<JsonValue, RuntimeError> {
     let request_value = serde_json::to_value(request)
         .and_then(serde_json::from_value)
-        .map_err(|source| RuntimeError::json("serializing agent-step request", source))?;
+        .map_err(|source| RuntimeError::json("serializing agent-task request", source))?;
     let mut data = JsonObject::new();
     data.insert("step_id".to_owned(), JsonValue::String(step.id.clone()));
     data.insert("request".to_owned(), request_value);

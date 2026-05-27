@@ -110,7 +110,7 @@ wraps:
   digest: string                       # sha256:<digest> pin
 overlay_path: string                   # skills-overlays/<vendor>/<skill>/X.yaml
 runner:
-  type: agent | agent-step
+  type: agent | agent-task
   scopes: [string]
   allowed_tools: [string]
 diagnostics:

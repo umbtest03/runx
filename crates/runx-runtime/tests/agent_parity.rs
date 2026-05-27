@@ -17,7 +17,7 @@ use runx_runtime::{
 const FIXTURE_CREATED_AT: &str = "2026-05-18T00:00:00Z";
 
 #[test]
-fn agent_step_invocation_id_and_envelope_shape() -> Result<(), Box<dyn std::error::Error>> {
+fn agent_task_invocation_id_and_envelope_shape() -> Result<(), Box<dyn std::error::Error>> {
     let resolver = RecordingResolver::success(JsonValue::String("done".to_owned()), None);
     let mut env = BTreeMap::new();
     env.insert(
@@ -25,7 +25,7 @@ fn agent_step_invocation_id_and_envelope_shape() -> Result<(), Box<dyn std::erro
         "/tmp/runx-tools:/opt/runx-tools".to_owned(),
     );
 
-    let output = AgentAdapter::agent_step(config(), &resolver).invoke(SkillInvocation {
+    let output = AgentAdapter::agent_task(config(), &resolver).invoke(SkillInvocation {
         env,
         ..invocation(
             runx_parser::SourceKind::AgentStep,
@@ -46,8 +46,8 @@ fn agent_step_invocation_id_and_envelope_shape() -> Result<(), Box<dyn std::erro
     let ResolutionRequest::AgentAct { id, invocation } = &requests[0] else {
         return Err(std::io::Error::other("missing agent_act request").into());
     };
-    assert_eq!(id, "agent_step.draft_release_notes.output");
-    assert_eq!(invocation.id, "agent_step.draft_release_notes.output");
+    assert_eq!(id, "agent_task.draft_release_notes.output");
+    assert_eq!(invocation.id, "agent_task.draft_release_notes.output");
     assert_eq!(invocation.source_type, AgentActSourceType::AgentStep);
     assert_eq!(invocation.agent.as_deref(), Some("assistant"));
     assert_eq!(invocation.task.as_deref(), Some("draft release notes"));
@@ -76,7 +76,7 @@ fn agent_step_invocation_id_and_envelope_shape() -> Result<(), Box<dyn std::erro
     );
 
     let agent_hook = object_field(&output.metadata, "agent_hook")?;
-    assert_eq!(agent_hook.get("source_type"), Some(&string("agent-step")));
+    assert_eq!(agent_hook.get("source_type"), Some(&string("agent-task")));
     assert_eq!(agent_hook.get("agent"), Some(&string("assistant")));
     assert_eq!(agent_hook.get("task"), Some(&string("draft release notes")));
     assert_eq!(agent_hook.get("route"), Some(&string("native")));
@@ -144,7 +144,7 @@ fn agent_plain_text_success() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn agent_step_structured_json_payload_success() -> Result<(), Box<dyn std::error::Error>> {
+fn agent_task_structured_json_payload_success() -> Result<(), Box<dyn std::error::Error>> {
     let payload = JsonValue::Object(
         [
             ("title".to_owned(), JsonValue::String("Release".to_owned())),
@@ -159,7 +159,7 @@ fn agent_step_structured_json_payload_success() -> Result<(), Box<dyn std::error
     ]
     .into();
 
-    let output = AgentAdapter::agent_step(config(), &resolver).invoke(invocation(
+    let output = AgentAdapter::agent_task(config(), &resolver).invoke(invocation(
         runx_parser::SourceKind::AgentStep,
         "fixture.structured",
         source(
@@ -193,7 +193,7 @@ fn provider_error_failure_sanitizes_stderr_and_metadata() -> Result<(), Box<dyn 
 {
     let resolver = RecordingResolver::failure("provider leaked sk-secret-value");
 
-    let output = AgentAdapter::agent_step(config(), &resolver).invoke(invocation(
+    let output = AgentAdapter::agent_task(config(), &resolver).invoke(invocation(
         runx_parser::SourceKind::AgentStep,
         "fixture.fail",
         source(
@@ -235,7 +235,7 @@ fn unsupported_source_type_returns_runtime_error() -> Result<(), Box<dyn std::er
 
     match error {
         Err(RuntimeError::UnsupportedAdapter { adapter_type }) => {
-            assert_eq!(adapter_type, "agent-step");
+            assert_eq!(adapter_type, "agent-task");
             Ok(())
         }
         Ok(_) => Err(std::io::Error::other("adapter unexpectedly succeeded").into()),

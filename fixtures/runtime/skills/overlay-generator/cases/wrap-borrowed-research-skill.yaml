@@ -1,5 +1,5 @@
 name: "wrap-borrowed-research-skill"
-kind: "agent_step"
+kind: "agent_task"
 runner: "overlay-generator"
 inputs:
   skill_ref: vendor/research@1.2.0
@@ -7,7 +7,7 @@ inputs:
   objective: Adopt the borrowed research skill into a docs graph under a governed bound.
 caller:
   answers:
-    agent_step.overlay-generator.output:
+    agent_task.overlay-generator.output:
       overlay_proposal:
         decision: ready
         wraps:

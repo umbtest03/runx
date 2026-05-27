@@ -1,6 +1,6 @@
 //! Act algebra: intents, governed acts, success criteria, and verification details.
 pub mod assignment;
-pub mod receipt;
+pub mod result;
 
 use serde::{Deserialize, Serialize};
 

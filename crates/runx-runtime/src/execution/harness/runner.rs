@@ -183,7 +183,7 @@ where
         HarnessFixtureKind::Skill | HarnessFixtureKind::A2a | HarnessFixtureKind::Agent => {
             run_skill_fixture(&fixture, target_path, adapter, options)?
         }
-        HarnessFixtureKind::AgentStep => run_agent_step_fixture(&fixture, options)?,
+        HarnessFixtureKind::AgentStep => run_agent_task_fixture(&fixture, options)?,
         HarnessFixtureKind::Graph if is_fixture_replay_graph(&fixture) => {
             run_graph_replay_fixture(&fixture, options)?
         }
@@ -202,13 +202,13 @@ where
     Ok(output)
 }
 
-fn run_agent_step_fixture(
+fn run_agent_task_fixture(
     fixture: &HarnessFixture,
     options: RuntimeOptions,
 ) -> Result<HarnessReplayOutput, HarnessReplayError> {
     let replay_name = fixture.runner.as_deref().unwrap_or(&fixture.name);
-    let request_id = format!("agent_step.{replay_name}.output");
-    let output = agent_step_output(fixture, &request_id)?;
+    let request_id = format!("agent_task.{replay_name}.output");
+    let output = agent_task_output(fixture, &request_id)?;
     let disposition = fixture
         .expect
         .status
@@ -230,7 +230,7 @@ fn run_agent_step_fixture(
             created_at: &options.created_at,
             disposition: disposition.clone(),
             reason_code: process_reason_code(&disposition),
-            summary: format!("agent-step {} completed", fixture.name),
+            summary: format!("agent-task {} completed", fixture.name),
         },
         options.signature_policy(),
     )?;
@@ -391,7 +391,7 @@ fn run_graph_replay_fixture(
 ) -> Result<HarnessReplayOutput, HarnessReplayError> {
     let mut runs = Vec::new();
     for replay_step in graph_replay_steps(fixture)? {
-        let output = agent_step_output(fixture, &replay_step.request_id)?;
+        let output = agent_task_output(fixture, &replay_step.request_id)?;
         let disposition = if output.succeeded() {
             ClosureDisposition::Closed
         } else {
@@ -407,7 +407,7 @@ fn run_graph_replay_fixture(
                 disposition: disposition.clone(),
                 reason_code: process_reason_code(&disposition),
                 summary: if output.succeeded() {
-                    format!("agent-step {} replayed", replay_step.task)
+                    format!("agent-task {} replayed", replay_step.task)
                 } else {
                     output.stderr.clone()
                 },
@@ -512,7 +512,7 @@ fn graph_replay_steps(
                 "task",
             )?;
             Ok(GraphReplayStep {
-                request_id: format!("agent_step.{task}.output"),
+                request_id: format!("agent_task.{task}.output"),
                 step_id,
                 task,
             })
@@ -788,7 +788,7 @@ fn create_harness_temp_dir(name: &str) -> Result<PathBuf, HarnessReplayError> {
     Ok(path)
 }
 
-fn agent_step_output(
+fn agent_task_output(
     fixture: &HarnessFixture,
     request_id: &str,
 ) -> Result<SkillOutput, HarnessReplayError> {
@@ -1089,7 +1089,7 @@ where
     let skill_name = invocation.skill_name.clone();
     let (skill_output, disposition, reason_code, summary) =
         match invocation.source.source_type.as_str() {
-            "agent" | "agent-step" => replay_agent_skill_fixture(fixture, &invocation)?,
+            "agent" | "agent-task" => replay_agent_skill_fixture(fixture, &invocation)?,
             _ => {
                 let output = adapter.invoke(invocation)?;
                 let disposition = if output.succeeded() {

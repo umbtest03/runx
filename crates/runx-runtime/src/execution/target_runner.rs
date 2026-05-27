@@ -32,6 +32,8 @@ use runx_receipts::{
     canonical_receipt_body_digest, content_addressed_receipt_id, validate_receipt,
 };
 
+use crate::reference_match::same_reference;
+use crate::runtime_http::strip_one_trailing_slash;
 pub use crate::runtime_http::{
     HttpMethod as TargetRepoRunnerHttpMethod,
     ReqwestHttpTransport as TargetRepoRunnerDefaultHttpTransport,
@@ -1504,10 +1506,6 @@ fn github_search_item_to_pull_request(
     })
 }
 
-fn strip_one_trailing_slash(value: &str) -> String {
-    value.strip_suffix('/').unwrap_or(value).to_owned()
-}
-
 // rust-style-allow: long-function because revision receipt assembly must keep
 // the act, seal, metadata, and signature hash in one auditable construction.
 fn target_repo_runner_revision_receipt(
@@ -2320,10 +2318,6 @@ fn reference_id_fragment(reference: &Reference) -> String {
         .as_deref()
         .map(safe_id)
         .unwrap_or_else(|| safe_id(&reference.uri))
-}
-
-fn same_reference(left: &Reference, right: &Reference) -> bool {
-    left.reference_type == right.reference_type && left.uri == right.uri
 }
 
 fn metadata_path_string<'a>(object: &'a JsonObject, path: &[&str]) -> Option<&'a str> {

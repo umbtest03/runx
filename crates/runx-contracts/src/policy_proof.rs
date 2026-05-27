@@ -3,7 +3,7 @@
 //!
 //! These carry the legacy bare `runx.ai/spec` `$id` (no `x-runx-schema`). They
 //! are produced by the local policy engine and guarded as wire contracts; their
-//! authoritative Rust shape lives here so the schema-wire-compat gate can cover
+//! authoritative Rust shape lives here so the schema wire-conformance gate can cover
 //! them.
 use serde::{Deserialize, Serialize};
 

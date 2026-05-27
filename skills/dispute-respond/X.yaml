@@ -21,7 +21,7 @@ harness:
           - receipt:charge:mock:paid-search-001
       caller:
         answers:
-          agent_step.dispute-respond.output:
+          agent_task.dispute-respond.output:
             dispute_response:
               dispute_id: dispute_mock_001
               original_receipt_ref: receipt:charge:mock:paid-search-001
@@ -47,7 +47,7 @@ harness:
 runners:
   respond:
     default: true
-    type: agent-step
+    type: agent-task
     agent: operator
     task: dispute-respond
     outputs:

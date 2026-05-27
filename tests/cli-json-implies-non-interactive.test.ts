@@ -13,22 +13,36 @@ async function writeUnrestrictedSkill(tempDir: string): Promise<string> {
   const skillPath = path.join(tempDir, SKILL_NAME);
   await mkdir(skillPath, { recursive: true });
   await writeFile(
-    path.join(skillPath, "SKILL.md"),
-    `---
-name: ${SKILL_NAME}
-source:
-  type: cli-tool
-  command: node
-  args:
-    - -e
-    - "process.stdout.write('ok')"
-  sandbox:
-    profile: unrestricted-local-dev
----
-Unrestricted fixture for the json-implies-non-interactive test.
+    path.join(skillPath, "X.yaml"),
+    `skill: ${SKILL_NAME}
+version: "0.1.0"
+
+runners:
+  default:
+    default: true
+    type: cli-tool
+    command: node
+    args:
+      - -e
+      - "process.stdout.write('ok')"
+    sandbox:
+      profile: unrestricted-local-dev
 `,
   );
   return skillPath;
+}
+
+function cliEnv(): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    RUNX_CWD: process.cwd(),
+    RUNX_DEV_RUST_CLI_BIN:
+      process.env.RUNX_DEV_RUST_CLI_BIN ?? path.join(process.cwd(), "crates", "target", "debug", "runx"),
+    RUNX_RECEIPT_SIGN_KID: process.env.RUNX_RECEIPT_SIGN_KID ?? "cli-json-test-key",
+    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64:
+      process.env.RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64 ?? "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=",
+    RUNX_RECEIPT_SIGN_ISSUER_TYPE: process.env.RUNX_RECEIPT_SIGN_ISSUER_TYPE ?? "hosted",
+  };
 }
 
 function createMemoryStream(): NodeJS.WriteStream & { contents: () => string } {
@@ -71,7 +85,7 @@ describe("--json implies --non-interactive", () => {
       const exitCode = await runCli(
         ["skill", skillPath, "--receipt-dir", path.join(tempDir, "receipts"), "--json"],
         createIo("", stdout, stderr),
-        { ...process.env, RUNX_CWD: process.cwd() },
+        cliEnv(),
       );
 
       // Exit must NOT be 0 (no answer given, gate cannot have approved).
@@ -83,7 +97,7 @@ describe("--json implies --non-interactive", () => {
       // Output is parseable JSON.
       expect(() => JSON.parse(out)).not.toThrow();
       const parsed = JSON.parse(out) as { status: string };
-      expect(typeof parsed.status).toBe("string");
+      expect(parsed.status).toBe("failure");
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -99,7 +113,7 @@ describe("--json implies --non-interactive", () => {
       const exitCode = await runCli(
         ["skill", skillPath, "--receipt-dir", path.join(tempDir, "receipts"), "--json", "--non-interactive"],
         createIo("", stdout, stderr),
-        { ...process.env, RUNX_CWD: process.cwd() },
+        cliEnv(),
       );
 
       expect(exitCode).not.toBe(0);

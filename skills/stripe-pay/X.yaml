@@ -26,7 +26,7 @@ harness:
         idempotency_seed: demo-search-001
       caller:
         answers:
-          agent_step.pay-quote.output:
+          agent_task.pay-quote.output:
             payment_quote:
               quote_id: quote_demo_001
               amount_minor: 125
@@ -60,7 +60,7 @@ harness:
               issued_by_ref:
                 type: host
                 uri: authority:payment:test
-          agent_step.pay-reserve.output:
+          agent_task.pay-reserve.output:
             payment_decision:
               decision_id: decision_payment_demo_001
               selected: true
@@ -101,7 +101,7 @@ harness:
               - reserve_before_rail
               - receipt_before_success
             open_questions: []
-          agent_step.pay-fulfill-rail-stripe-spt.output:
+          agent_task.pay-fulfill-rail-stripe-spt.output:
             rail_result:
               status: fulfilled
               rail: stripe-spt

@@ -1,4 +1,4 @@
-//! Act receipt envelope returned across adapter boundaries.
+//! Act result envelope returned across adapter boundaries.
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Value, json};
 
@@ -7,19 +7,19 @@ use crate::{JsonObject, ResolutionRequest};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum ActReceiptTerminalStatus {
+pub enum ActResultTerminalStatus {
     Sealed,
     Failure,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
-pub enum ActReceiptNeedsAgentStatus {
+pub enum ActResultNeedsAgentStatus {
     #[serde(rename = "needs_agent")]
     NeedsAgent,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
-pub enum ActReceiptSignal {
+pub enum ActResultSignal {
     SIGABRT,
     SIGALRM,
     SIGBUS,
@@ -60,9 +60,9 @@ pub enum ActReceiptSignal {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct ActReceiptNull;
+pub struct ActResultNull;
 
-impl Serialize for ActReceiptNull {
+impl Serialize for ActResultNull {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -71,7 +71,7 @@ impl Serialize for ActReceiptNull {
     }
 }
 
-impl<'de> Deserialize<'de> for ActReceiptNull {
+impl<'de> Deserialize<'de> for ActResultNull {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -83,7 +83,7 @@ impl<'de> Deserialize<'de> for ActReceiptNull {
     }
 }
 
-impl RunxSchema for ActReceiptNull {
+impl RunxSchema for ActResultNull {
     fn json_schema() -> Value {
         json!({ "type": "null" })
     }
@@ -91,12 +91,12 @@ impl RunxSchema for ActReceiptNull {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ActReceiptTerminalEnvelope {
-    pub status: ActReceiptTerminalStatus,
+pub struct ActResultTerminalEnvelope {
+    pub status: ActResultTerminalStatus,
     pub stdout: String,
     pub stderr: String,
     pub exit_code: Option<i64>,
-    pub signal: Option<ActReceiptSignal>,
+    pub signal: Option<ActResultSignal>,
     pub duration_ms: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error_message: Option<String>,
@@ -106,12 +106,12 @@ pub struct ActReceiptTerminalEnvelope {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ActReceiptNeedsAgentEnvelope {
-    pub status: ActReceiptNeedsAgentStatus,
+pub struct ActResultNeedsAgentEnvelope {
+    pub status: ActResultNeedsAgentStatus,
     pub stdout: String,
     pub stderr: String,
-    pub exit_code: ActReceiptNull,
-    pub signal: ActReceiptNull,
+    pub exit_code: ActResultNull,
+    pub signal: ActResultNull,
     pub duration_ms: u64,
     pub request: ResolutionRequest,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -122,8 +122,8 @@ pub struct ActReceiptNeedsAgentEnvelope {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(untagged)]
-#[runx_schema(spec_id = "https://runx.ai/spec/act-receipt.schema.json")]
-pub enum ActReceiptEnvelope {
-    Terminal(ActReceiptTerminalEnvelope),
-    NeedsAgent(Box<ActReceiptNeedsAgentEnvelope>),
+#[runx_schema(spec_id = "https://runx.ai/spec/act-result.schema.json")]
+pub enum ActResultEnvelope {
+    Terminal(ActResultTerminalEnvelope),
+    NeedsAgent(Box<ActResultNeedsAgentEnvelope>),
 }

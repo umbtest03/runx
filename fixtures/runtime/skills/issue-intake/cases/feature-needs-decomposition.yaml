@@ -1,5 +1,5 @@
 name: "feature-needs-decomposition"
-kind: "agent_step"
+kind: "agent_task"
 runner: "issue-intake"
 inputs:
   thread_title: "Add abandoned cart recovery across email and SMS"
@@ -8,7 +8,7 @@ inputs:
   product_context: "Multi-channel marketing automation product"
 caller:
   answers:
-    agent_step.issue-intake.output:
+    agent_task.issue-intake.output:
       intake_report:
         category: "feature_request"
         severity: "medium"
@@ -118,11 +118,11 @@ expect:
   status: "sealed"
   receipt:
     schema: "runx.receipt.v1"
-    receipt_id: "hrn_rcpt_feature-needs-decomposition_feature-needs-decomposition"
+    receipt_id: "sha256:f2b2c6db73c8b7b5902d1eecc1940779c2a6ea325917ac5805ea5431588c086a"
     harness_id: "hrn_feature-needs-decomposition_feature-needs-decomposition"
     state: "sealed"
     disposition: "closed"
-    reason_code: "feature-needs-decomposition_closed"
+    reason_code: "process_closed"
     act_ids:
       - "act_feature-needs-decomposition"
     decision_ids:
@@ -130,4 +130,4 @@ expect:
 metadata:
   product_skill: "issue-intake"
   source_case: "feature-needs-decomposition"
-  runner_kind: "agent_step"
+  runner_kind: "agent_task"

@@ -33,7 +33,7 @@ harness:
             - One bounded governed content plan is produced.
       caller:
         answers:
-          agent_step.work-plan.output:
+          agent_task.work-plan.output:
             change_set:
               change_set_id: change_set_ecosystem_brief
               thread_locator: objective://ecosystem-brief
@@ -153,7 +153,7 @@ harness:
             - Integration checks verify api, app, and mcp remain aligned.
       caller:
         answers:
-          agent_step.work-plan.output:
+          agent_task.work-plan.output:
             change_set:
               change_set_id: change_set_abandoned_cart_982
               thread_locator: support://request/982
@@ -290,7 +290,7 @@ harness:
 runners:
   work-plan-agent:
     default: true
-    type: agent-step
+    type: agent-task
     agent: builder
     task: work-plan
     outputs:

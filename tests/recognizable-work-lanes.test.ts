@@ -24,7 +24,7 @@ describe("recognizable work lanes", () => {
         `${JSON.stringify(
           {
             answers: {
-              "agent_step.issue-intake.output": {
+              "agent_task.issue-intake.output": {
                 intake_report: {
                   category: "docs",
                   severity: "low",
@@ -187,10 +187,10 @@ describe("recognizable work lanes", () => {
         `${JSON.stringify(
           {
             answers: {
-              "agent_step.issue-to-pr-author-spec.output": {
+              "agent_task.issue-to-pr-author-spec.output": {
                 spec_contents: buildIssueToPrSpec(taskId),
               },
-              "agent_step.issue-to-pr-apply-fix.output": {
+              "agent_task.issue-to-pr-apply-fix.output": {
                 fix_bundle: {
                   summary: "Apply the bounded fixture fix across the tracked docs fixture files.",
                   files: [

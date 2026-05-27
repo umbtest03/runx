@@ -1,10 +1,10 @@
 {
-  "case": "agent-step-structured-success",
+  "case": "agent-task-structured-success",
   "mode": "agent-adapter",
   "skillName": "fixture.structured",
   "skillBody": "Return a structured release summary.",
   "source": {
-    "type": "agent-step",
+    "type": "agent-task",
     "args": [],
     "agent": "assistant",
     "task": "structured release",
@@ -13,7 +13,7 @@
       "ready": "boolean"
     },
     "raw": {
-      "type": "agent-step",
+      "type": "agent-task",
       "agent": "assistant",
       "task": "structured release",
       "outputs": {

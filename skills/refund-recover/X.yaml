@@ -19,7 +19,7 @@ harness:
           status: timeout_after_mutation
       caller:
         answers:
-          agent_step.refund-recover.output:
+          agent_task.refund-recover.output:
             recovery_assessment:
               status: recovered
               already_mutated: true
@@ -43,7 +43,7 @@ harness:
 runners:
   recover:
     default: true
-    type: agent-step
+    type: agent-task
     agent: operator
     task: refund-recover
     outputs:

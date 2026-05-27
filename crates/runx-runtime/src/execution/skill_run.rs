@@ -656,10 +656,10 @@ fn runner_invocation(
 ) -> Result<SkillInvocation, SkillRunError> {
     if !matches!(
         runner.source.source_type.as_str(),
-        "agent" | "agent-step" | "cli-tool" | "graph"
+        "agent" | "agent-task" | "cli-tool" | "graph"
     ) {
         return Err(invalid(format!(
-            "runx skill native execution only supports agent, agent-step, graph, and cli-tool runners, got {}",
+            "runx skill native execution only supports agent, agent-task, graph, and cli-tool runners, got {}",
             runner.source.source_type
         )));
     }

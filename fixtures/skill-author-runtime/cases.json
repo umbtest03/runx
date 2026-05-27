@@ -119,7 +119,7 @@
     {
       "id": "timeout-descendant",
       "mode": "timeout-descendant",
-      "timeout_seconds": 0.1,
+      "timeout_seconds": 0,
       "sandbox": {
         "profile": "readonly",
         "cwd_policy": "skill-directory"

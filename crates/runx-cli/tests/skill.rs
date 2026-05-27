@@ -5,7 +5,7 @@ use std::process::Command;
 #[test]
 fn native_skill_pauses_and_resumes_with_run_id() -> Result<(), Box<dyn std::error::Error>> {
     let root = crate::support::temp_root("runx-skill");
-    let skill_dir = write_agent_step_skill(&root)?;
+    let skill_dir = write_agent_task_skill(&root)?;
     let receipt_dir = root.join("receipts");
 
     let pause = runx_command()
@@ -22,7 +22,7 @@ fn native_skill_pauses_and_resumes_with_run_id() -> Result<(), Box<dyn std::erro
         .output()?;
     let pause_json = assert_json(&pause, Some(2))?;
     assert_eq!(pause_json["status"], "needs_agent");
-    assert_eq!(pause_json["run_id"], "run_agent_step-issue-intake-output");
+    assert_eq!(pause_json["run_id"], "run_agent_task-issue-intake-output");
     assert_eq!(pause_json["requests"][0]["kind"], "agent_act");
 
     let answers_path = root.join("answers.json");
@@ -30,7 +30,7 @@ fn native_skill_pauses_and_resumes_with_run_id() -> Result<(), Box<dyn std::erro
         &answers_path,
         serde_json::json!({
             "answers": {
-                "agent_step.issue-intake.output": {
+                "agent_task.issue-intake.output": {
                     "intake_report": {
                         "summary": "Docs bug is bounded."
                     }
@@ -70,7 +70,7 @@ fn native_skill_pauses_and_resumes_with_run_id() -> Result<(), Box<dyn std::erro
 #[test]
 fn native_skill_rejects_answers_without_run_id() -> Result<(), Box<dyn std::error::Error>> {
     let root = crate::support::temp_root("runx-skill-reject-answers");
-    let skill_dir = write_agent_step_skill(&root)?;
+    let skill_dir = write_agent_task_skill(&root)?;
     let answers_path = root.join("answers.json");
     fs::write(&answers_path, "{}")?;
     let output = runx_command()
@@ -92,7 +92,7 @@ fn native_skill_rejects_answers_without_run_id() -> Result<(), Box<dyn std::erro
 #[test]
 fn native_skill_rejects_run_id_without_answers() -> Result<(), Box<dyn std::error::Error>> {
     let root = crate::support::temp_root("runx-skill-reject-run-id");
-    let skill_dir = write_agent_step_skill(&root)?;
+    let skill_dir = write_agent_task_skill(&root)?;
     let output = runx_command()
         .args([
             "skill",
@@ -112,7 +112,7 @@ fn native_skill_rejects_run_id_without_answers() -> Result<(), Box<dyn std::erro
 #[test]
 fn native_skill_rejects_retired_receipt_options() -> Result<(), Box<dyn std::error::Error>> {
     let root = crate::support::temp_root("runx-skill-reject-retired-receipt");
-    let skill_dir = write_agent_step_skill(&root)?;
+    let skill_dir = write_agent_task_skill(&root)?;
     let receipt_dir = root.join("receipts");
     let retired_receipt = format!("--{}", "receipt");
     let retired_receipt_dir = format!("--{}", ["receipt", "Dir"].concat());
@@ -184,7 +184,7 @@ fn assert_json(
     Ok(serde_json::from_slice(&output.stdout)?)
 }
 
-fn write_agent_step_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn write_agent_task_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let skill_dir = root.join("issue-intake");
     fs::create_dir_all(&skill_dir)?;
     fs::write(
@@ -198,7 +198,7 @@ skill: issue-intake
 runners:
   intake:
     default: true
-    type: agent-step
+    type: agent-task
     agent: builder
     task: issue-intake
     outputs:

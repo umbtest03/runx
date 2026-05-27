@@ -12,7 +12,7 @@ describe("renderHistory", () => {
         name: "issue-intake",
         kind: "runx.receipt.v1",
         status: "success",
-        sourceType: "agent-step",
+        sourceType: "agent-task",
         verification: {
           status: "verified",
           reason: "ok",

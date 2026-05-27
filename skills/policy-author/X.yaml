@@ -19,7 +19,7 @@ harness:
         objective: Stand up a fail-closed issue-flow policy for the three repos.
       caller:
         answers:
-          agent_step.policy-author.output:
+          agent_task.policy-author.output:
             policy_proposal:
               decision: ready
               policy:
@@ -77,7 +77,7 @@ harness:
         objective: Narrow the policy to close the audit findings; do not widen anything.
       caller:
         answers:
-          agent_step.policy-author.output:
+          agent_task.policy-author.output:
             policy_proposal:
               decision: ready
               policy:
@@ -128,7 +128,7 @@ harness:
         objective: Author a policy from the brief.
       caller:
         answers:
-          agent_step.policy-author.output:
+          agent_task.policy-author.output:
             policy_proposal:
               decision: needs_input
               policy:
@@ -174,7 +174,7 @@ harness:
 runners:
   author:
     default: true
-    type: agent-step
+    type: agent-task
     agent: builder
     task: policy-author
     outputs:

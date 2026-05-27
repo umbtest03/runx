@@ -2,40 +2,28 @@
 
 Shared Rust contract types at runx JSON and protocol boundaries.
 
-This crate owns stable serde shapes for host protocol, act assignment,
-idempotency hashes, CLI JSON envelopes, receipts, registry/tool records, and
-other public wire contracts as those surfaces gain fixture parity. It does not
-execute skills, evaluate policy, perform IO, or replace the TypeScript
-implementation.
+This crate owns stable serde shapes and JSON Schema emission for runx JSON and
+protocol boundaries. It does not execute skills, evaluate policy, perform IO,
+or host runtime behavior.
 
-The current surface is intentionally small:
+The surface is contract-only:
 
 - `json`: contract-owned JSON values backed by deterministic `BTreeMap`
   objects.
-- `act::assignment`: typed act assignment envelopes and
-  fixture-backed idempotency hashes.
-- `host_protocol`: the serializable host result/state/event subset consumed by
-  SDK v0. `AgentActInvocation` is typed, but its `envelope` remains an opaque
-  contract JSON payload until `rust-resolution-payload-parity` owns the deeper
-  agent-act payload model.
+- `act`: governed act payloads and act assignment envelopes.
+- `receipt`: signed governed proof records.
+- `authority`, `decision`, `signal`, `verification`, and Aster objects:
+  spine contracts used at governed boundaries.
+- `schema_artifacts`: the Rust-owned manifest that emits `oss/schemas/*.json`
+  and the generated TypeScript schema artifact table.
 
-Deferred contract module homes:
-
-- `cli`: Deferred contract module home for CLI JSON. Owned by
-  `rust-contracts-cli-json-parity` after `rust-cli-feature-parity-matrix`
-  produces the CLI JSON oracle.
-- `receipts`: deferred to `rust-receipts-parity`.
-- `registry`: deferred to `rust-registry-parity`.
-- `tools`: deferred to `rust-tools-parity`.
-
-contracts-first-ordering: SDK Phase 2 consumes `runx-contracts` for JSON,
-act assignment, host protocol, and hashes. It must not duplicate these
-types in `runx-sdk`.
+SDKs and TypeScript packages consume these schemas and generated artifacts;
+they must not hand-maintain mirror schemas for Rust-owned contracts.
 
 Workspace fixtures under `fixtures/contracts` are not vendored into this crate.
 The Cargo package `include allowlist` ships only `Cargo.toml`, `README.md`, and
 `src/**/*.rs`, so fixture files are excluded from the packaged crate.
 
-Deferred surfaces are declared only when their parity fixture owner exists.
-That keeps this crate useful without turning it into a dumping ground for every
-TypeScript interface.
+New modules belong here only when they define a portable wire contract. Runtime
+services, adapters, fixture runners, and presentation helpers belong in their
+own crates.

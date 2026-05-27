@@ -1,6 +1,7 @@
-use runx_contracts::{JsonNumber, JsonObject, JsonValue};
+use runx_contracts::{JsonObject, JsonValue};
 
 use crate::RuntimeError;
+use crate::json_render::json_number_string;
 
 const TEMPLATE_OPEN: &str = "\x7b\x7b";
 const TEMPLATE_CLOSE: &str = "\x7d\x7d";
@@ -140,14 +141,5 @@ pub(super) fn js_string(value: Option<&JsonValue>) -> String {
             .collect::<Vec<_>>()
             .join(","),
         Some(JsonValue::Object(_)) => "[object Object]".to_owned(),
-    }
-}
-
-fn json_number_string(value: &JsonNumber) -> String {
-    match value {
-        JsonNumber::I64(value) => value.to_string(),
-        JsonNumber::U64(value) => value.to_string(),
-        JsonNumber::F64(value) if value.fract() == 0.0 => format!("{value:.0}"),
-        JsonNumber::F64(value) => value.to_string(),
     }
 }

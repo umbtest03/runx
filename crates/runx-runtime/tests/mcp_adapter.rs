@@ -533,7 +533,7 @@ fn session_marker_invocation(
         .env
         .insert("RUNX_MCP_SCOPE".to_owned(), scope.to_owned());
     request.source.sandbox = Some(SkillSandbox {
-        profile: runx_core::policy::SandboxProfile::Readonly,
+        profile: runx_core::policy::SandboxProfile::UnrestrictedLocalDev,
         cwd_policy: Some(runx_core::policy::CwdPolicy::SkillDirectory),
         env_allowlist: Some(vec![
             "PATH".to_owned(),
@@ -550,7 +550,7 @@ fn session_marker_invocation(
         network: None,
         writable_paths: Vec::new(),
         require_enforcement: None,
-        approved_escalation: None,
+        approved_escalation: Some(true),
         raw: JsonObject::new(),
     });
     Ok(request)

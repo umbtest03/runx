@@ -7,6 +7,7 @@ use super::types::{
     AcquiredRegistrySkill, RegistrySearchResult, RegistrySkillDetail, ResolvedRegistryRef,
 };
 
+use crate::runtime_http::strip_one_trailing_slash;
 pub use crate::runtime_http::{
     HttpMethod, ReqwestHttpTransport as DefaultRuntimeHttpTransport, RuntimeHttpError,
     RuntimeHttpHeader, RuntimeHttpRequest as HttpRequest, RuntimeHttpResponse as HttpResponse,
@@ -174,10 +175,6 @@ pub enum RegistryClientError {
     },
     #[error("remote registry installs require an installation id")]
     MissingInstallationId,
-}
-
-fn strip_one_trailing_slash(value: &str) -> String {
-    value.strip_suffix('/').unwrap_or(value).to_owned()
 }
 
 fn ensure_success(route: &str, status: u16) -> Result<(), RegistryClientError> {

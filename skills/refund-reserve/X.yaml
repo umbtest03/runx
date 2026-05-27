@@ -28,7 +28,7 @@ harness:
         idempotency_seed: refund-paid-search-001
       caller:
         answers:
-          agent_step.refund-reserve.output:
+          agent_task.refund-reserve.output:
             payment_decision:
               decision_id: decision_refund_demo_001
               choice: continue
@@ -93,7 +93,7 @@ harness:
 runners:
   reserve:
     default: true
-    type: agent-step
+    type: agent-task
     agent: operator
     task: refund-reserve
     mutating: true

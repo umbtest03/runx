@@ -26,7 +26,7 @@ Package names carry trust claims:
 
 - contracts define portable schemas and generated validators.
 - core owns pure decision domains such as parser, state-machine, and policy.
-- runtime-local coordinates local execution, caller interaction, and receipts.
+- runx-runtime coordinates local execution, caller interaction, and receipts.
 - adapters touch external processes and protocols.
 - cli is a command shell over the runtime.
 

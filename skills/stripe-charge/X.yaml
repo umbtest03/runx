@@ -28,7 +28,7 @@ harness:
         idempotency_seed: paid-search-001
       caller:
         answers:
-          agent_step.price.output:
+          agent_task.price.output:
             charge_price:
               price_id: charge_price_demo_001
               amount_minor: 125
@@ -37,7 +37,7 @@ harness:
                 - stripe
             requested_payment_authority:
               authority_ref: authority:payment:charge-price-demo-001
-          agent_step.challenge.output:
+          agent_task.challenge.output:
             payment_required_signal:
               signal_type: payment_required
               challenge_id: charge_challenge_demo_001
@@ -48,7 +48,7 @@ harness:
               key: charge:paid-search-001
             accepted_settlement_families:
               - stripe
-          agent_step.verify.output:
+          agent_task.verify.output:
             verification_result:
               status: verified
               settlement_family: stripe
@@ -60,10 +60,10 @@ harness:
               - credential_material
             recovery_hint:
               status: sealed
-          agent_step.seal.output:
+          agent_task.seal.output:
             sealed: true
             receipt_ref: receipt:charge:stripe:paid-search-001
-          agent_step.forward.output:
+          agent_task.forward.output:
             forwarded: true
             result_ref: result:search:paid-search-001
       expect:

@@ -1,6 +1,6 @@
 # Trusted Kernel Package Truth
 
-Status: accepted OSS addendum for the Rust parity track.
+Status: accepted OSS addendum for the Rust cutover track.
 
 The repo-root `docs/trusted-kernel-package-truth.md` remains the broad package
 authority document for the full runx repository. This OSS-local addendum
@@ -9,12 +9,11 @@ plan, so scafld specs that run from `oss/` have a stable local path.
 
 ## Rust Cutover Rule
 
-TypeScript remains the source of truth only for trusted-kernel behavior that
-has not crossed a named cutover boundary. Rust is now canonical for advertised
-native local CLI behavior, graph execution, harness and dogfood execution,
-receipt sealing and verification, policy and registry configuration, authority
-admission, and payment authority. TypeScript packages may wrap those paths for
-distribution or compatibility, but they do not own the local behavior.
+Rust is canonical for advertised native local CLI behavior, graph execution,
+harness and dogfood execution, receipt sealing and verification, policy and
+registry configuration, authority admission, and payment authority. TypeScript
+packages may wrap those paths for distribution, but they do not own the local
+behavior.
 
 Rust crates that are still in parity-only mode remain conformance evidence
 until a separate cutover spec changes a consumer and passes the relevant gate.

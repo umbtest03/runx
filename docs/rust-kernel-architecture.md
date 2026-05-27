@@ -22,7 +22,7 @@ OS sandbox enforcement belongs in `runx-runtime`, but current sandbox
 declarations are not confinement by themselves.
 TypeScript remains for generated contracts,
 CLI/client wrappers, cloud/product integrations, host adapters, authoring
-tooling, docs, compatibility tests, and helper SDKs over language-neutral
+tooling, docs, conformance tests, and helper SDKs over language-neutral
 protocols. It is not a runtime-local or adapters fallback for trusted local
 behavior.
 

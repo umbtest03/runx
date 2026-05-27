@@ -629,7 +629,10 @@ fn prepare_enforced_env(
     env: &mut BTreeMap<String, String>,
     cleanup_paths: &mut Vec<PathBuf>,
 ) -> Result<(), RuntimeError> {
-    if !matches!(runtime, Some(SandboxRuntime::Bubblewrap { .. })) {
+    if !matches!(
+        runtime,
+        Some(SandboxRuntime::Bubblewrap { .. } | SandboxRuntime::SandboxExec { .. })
+    ) {
         return Ok(());
     }
     let private_tmp = create_private_tmp()?;
@@ -687,6 +690,7 @@ fn sandbox_spawn_command(input: SandboxSpawnCommand<'_>) -> (String, Vec<String>
                 input.cwd,
                 input.writable_paths,
                 input.network,
+                input.private_tmp,
             ),
         ),
         Some(SandboxRuntime::Direct | SandboxRuntime::DeclaredPolicyOnly { .. }) | None => {
@@ -823,27 +827,35 @@ fn sandbox_exec_args(
     cwd: &Path,
     writable_paths: &[String],
     network: bool,
+    private_tmp: Option<&Path>,
 ) -> Vec<String> {
     let mut args = vec![
         "-p".to_owned(),
-        sandbox_exec_profile(cwd, writable_paths, network),
+        sandbox_exec_profile(cwd, writable_paths, network, private_tmp),
     ];
     args.push(command);
     args.extend(command_args);
     args
 }
 
-fn sandbox_exec_profile(cwd: &Path, writable_paths: &[String], network: bool) -> String {
+fn sandbox_exec_profile(
+    cwd: &Path,
+    writable_paths: &[String],
+    network: bool,
+    private_tmp: Option<&Path>,
+) -> String {
     let mut profile = [
         "(version 1)",
         "(deny default)",
         "(allow process*)",
         "(allow sysctl*)",
         "(allow file-read*)",
+        "(allow file-write* (literal \"/dev/null\"))",
     ]
     .join("\n");
     if network {
         profile.push_str("\n(allow network*)");
+        profile.push_str("\n(allow mach-lookup)");
     }
     for writable_path in writable_paths {
         let declared = resolve_path(cwd, writable_path);
@@ -860,6 +872,14 @@ fn sandbox_exec_profile(cwd: &Path, writable_paths: &[String], network: bool) ->
                 sandbox_profile_string(&path)
             ));
         }
+    }
+    if let Some(private_tmp) = private_tmp {
+        let path = sandbox_exec_path_filter_path(private_tmp);
+        profile.push_str(&format!(
+            "\n(allow file-write* (literal \"{}\") (subpath \"{}\"))",
+            sandbox_profile_string(&path),
+            sandbox_profile_string(&path)
+        ));
     }
     profile
 }
@@ -1274,6 +1294,37 @@ mod tests {
     fn trusted_enforcer_lookup_ignores_caller_path() {
         let trusted = find_trusted_executable("runx-test-enforcer-that-should-not-exist");
         assert!(trusted.is_none());
+    }
+
+    #[test]
+    fn sandbox_exec_runtime_gets_private_writable_tmp_env() -> Result<(), String> {
+        let runtime = Some(SandboxRuntime::SandboxExec {
+            path: PathBuf::from("/usr/bin/sandbox-exec"),
+        });
+        let mut env = BTreeMap::new();
+        let mut cleanup_paths = Vec::new();
+        prepare_enforced_env(&runtime, &mut env, &mut cleanup_paths)
+            .map_err(|source| source.to_string())?;
+
+        let tmpdir = env
+            .get("TMPDIR")
+            .ok_or_else(|| "TMPDIR was not set".to_owned())?;
+        assert_eq!(env.get("TMP"), Some(tmpdir));
+        assert_eq!(env.get("TEMP"), Some(tmpdir));
+        assert_eq!(cleanup_paths, vec![PathBuf::from(tmpdir)]);
+        assert!(Path::new(tmpdir).is_dir());
+
+        let profile =
+            sandbox_exec_profile(Path::new("/workspace"), &[], true, Some(Path::new(tmpdir)));
+        assert!(profile.contains("(allow file-write* (literal \"/dev/null\"))"));
+        assert!(profile.contains("(allow mach-lookup)"));
+        let tmp_filter_path = sandbox_exec_path_filter_path(Path::new(tmpdir));
+        assert!(profile.contains(&format!(
+            "(subpath \"{}\")",
+            sandbox_profile_string(&tmp_filter_path)
+        )));
+        cleanup_paths_quietly(&cleanup_paths);
+        Ok(())
     }
 
     #[test]

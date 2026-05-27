@@ -26,7 +26,7 @@ harness:
           open_questions: []
       caller:
         answers:
-          agent_step.prior-art.output:
+          agent_task.prior-art.output:
             findings:
               - claim: Use separate read and post runners for Moltbook.
                 source: plans/runx.md
@@ -67,7 +67,7 @@ harness:
           open_questions: []
       caller:
         answers:
-          agent_step.prior-art.output:
+          agent_task.prior-art.output:
             findings:
               - claim: moltbook already exposes a scan runner with the required scopes.
                 source: skills/moltbook/X.yaml
@@ -88,7 +88,7 @@ harness:
 runners:
   prior-art-agent:
     default: true
-    type: agent-step
+    type: agent-task
     agent: researcher
     task: prior-art
     outputs:

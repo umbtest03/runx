@@ -52,7 +52,7 @@ harness:
         idempotency_seed: demo-search-001
       caller:
         answers:
-          agent_step.pay-reserve.output:
+          agent_task.pay-reserve.output:
             payment_decision:
               decision_id: decision_payment_demo_001
               choice: continue
@@ -114,7 +114,7 @@ harness:
 runners:
   reserve:
     default: true
-    type: agent-step
+    type: agent-task
     agent: operator
     task: pay-reserve
     mutating: true

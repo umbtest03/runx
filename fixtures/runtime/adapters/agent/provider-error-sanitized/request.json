@@ -4,12 +4,12 @@
   "skillName": "fixture.fail",
   "skillBody": "Fail without leaking credentials.",
   "source": {
-    "type": "agent-step",
+    "type": "agent-task",
     "args": [],
     "agent": "assistant",
     "task": "fail",
     "raw": {
-      "type": "agent-step",
+      "type": "agent-task",
       "agent": "assistant",
       "task": "fail"
     }

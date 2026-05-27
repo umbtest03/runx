@@ -78,7 +78,7 @@ The hot-path runtime changes keep ownership narrow:
   verification, and receipt tree resolution.
 - TypeScript packages remain generated contracts, host/client wrappers,
   authoring tools, and cloud/product code. Deleted executor packages do not
-  remain as compatibility bridges.
+  remain as runtime bridges.
 - MCP keeps protocol-specific Content-Length session handling with explicit
   session safety rules. The pool is keyed by server command, args, cwd, and
   sandboxed environment; plans with cleanup paths remain one-shot. Arbitrary

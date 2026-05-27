@@ -17,12 +17,6 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     env:
-      # sccache keys compilation on inputs, so unchanged deps are reused even when
-      # Cargo.lock churns (the cold-cache case that dominated the long CI run).
-      # It wraps the base rustc for deps and coexists with clippy's own wrapper;
-      # incremental compilation must be off for sccache to cache.
-      RUSTC_WRAPPER: sccache
-      SCCACHE_GHA_ENABLED: "true"
       CARGO_INCREMENTAL: "0"
     steps:
       - name: Checkout
@@ -39,10 +33,6 @@ jobs:
           node-version: 24
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-
-      - name: Set up sccache
-        # Must precede any cargo invocation (verify:fast builds the kernel bin).
-        uses: mozilla-actions/sccache-action@v0.0.6
 
       - name: Restore check caches
         uses: actions/cache@v5
@@ -95,8 +85,7 @@ jobs:
           # nextest does not run doctests; keep this gated (currently zero doctests)
           # so an added doctest cannot slip through uncovered.
           cargo test --workspace --all-features --doc
-          cargo package -p runx-cli
-          sccache --show-stats
+          cargo package -p runx-cli --list
 
       - name: License boundary guard
         run: |

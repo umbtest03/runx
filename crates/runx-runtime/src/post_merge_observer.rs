@@ -22,6 +22,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use url::Url;
 
+use crate::reference_match::same_reference;
+use crate::runtime_http::strip_one_trailing_slash;
 pub use crate::runtime_http::{
     HttpMethod as PostMergeObserverHttpMethod,
     ReqwestHttpTransport as PostMergeObserverDefaultHttpTransport,
@@ -561,12 +563,6 @@ fn non_empty_str(value: &str) -> Option<&str> {
     } else {
         Some(value)
     }
-}
-
-fn strip_one_trailing_slash(value: &str) -> String {
-    value
-        .strip_suffix('/')
-        .map_or_else(|| value.to_owned(), str::to_owned)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -1227,10 +1223,6 @@ fn require_readback_reference_metadata(
         ));
     }
     Ok(())
-}
-
-fn same_reference(left: &Reference, right: &Reference) -> bool {
-    left.reference_type == right.reference_type && left.uri == right.uri
 }
 
 fn same_reference_identity(left: &Reference, right: &Reference) -> bool {

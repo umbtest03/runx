@@ -1,5 +1,5 @@
 // rust-style-allow: large-file because the managed-agent parity slice keeps
-// agent and agent-step invocation, telemetry, and metadata together until live
+// agent and agent-task invocation, telemetry, and metadata together until live
 // provider adapters create natural module boundaries.
 use std::time::Instant;
 
@@ -27,7 +27,7 @@ impl AgentAdapterSourceType {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Agent => "agent",
-            Self::AgentStep => "agent-step",
+            Self::AgentStep => "agent-task",
         }
     }
 
@@ -131,7 +131,7 @@ impl<T> AgentAdapter<T> {
     }
 
     #[must_use]
-    pub fn agent_step(config: ManagedAgentConfig, resolver: T) -> Self {
+    pub fn agent_task(config: ManagedAgentConfig, resolver: T) -> Self {
         Self::new(AgentAdapterSourceType::AgentStep, config, resolver)
     }
 }
@@ -185,7 +185,7 @@ fn skill_name(request: &SkillInvocation, source_type: AgentAdapterSourceType) ->
     if request.skill_name.is_empty() {
         return match source_type {
             AgentAdapterSourceType::Agent => "skill".to_owned(),
-            AgentAdapterSourceType::AgentStep => "agent-step".to_owned(),
+            AgentAdapterSourceType::AgentStep => "agent-task".to_owned(),
         };
     }
     request.skill_name.clone()
@@ -232,7 +232,7 @@ fn native_agent_metadata(
         AgentAdapterSourceType::AgentStep => {
             entry.insert(
                 "source_type".to_owned(),
-                JsonValue::String("agent-step".to_owned()),
+                JsonValue::String("agent-task".to_owned()),
             );
             if let Some(agent) = &request.source.agent {
                 entry.insert("agent".to_owned(), JsonValue::String(agent.clone()));

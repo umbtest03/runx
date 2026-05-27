@@ -462,7 +462,7 @@ function fixtureCases(): readonly KernelFixtureCase[] {
         options: {
           runId: "run_policy_fixture",
           skillName: "issue-intake",
-          sourceType: "agent-step",
+          sourceType: "agent-task",
           auth: githubReadAuth,
           grants: [githubReadGrant],
           connectedAuthCheckedAt,
@@ -511,7 +511,7 @@ function fixtureCases(): readonly KernelFixtureCase[] {
         options: {
           runId: "run_policy_fixture",
           skillName: "issue-intake",
-          sourceType: "agent-step",
+          sourceType: "agent-task",
           auth: githubReadAuth,
           grants: [githubReadGrant],
           connectedAuthCheckedAt,
@@ -533,7 +533,7 @@ function fixtureCases(): readonly KernelFixtureCase[] {
         options: {
           runId: "run_policy_fixture",
           skillName: "issue-intake",
-          sourceType: "agent-step",
+          sourceType: "agent-task",
           auth: githubReadAuth,
           grants: [githubReadGrant],
           connectedAuthCheckedAt,

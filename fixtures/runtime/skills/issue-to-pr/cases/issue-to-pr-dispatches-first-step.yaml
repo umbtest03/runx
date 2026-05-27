@@ -16,15 +16,13 @@ expect:
   status: "needs_agent"
   receipt:
     schema: "runx.receipt.v1"
-    receipt_id: "hrn_rcpt_issue-to-pr-dispatches-first-step"
+    receipt_id: "sha256:e8495049b65c83efacc6872b822023260714618bdbaab5d2b1b9e398e921f292"
     harness_id: "hrn_issue-to-pr-dispatches-first-step_graph"
-    state: "sealed"
+    state: "deferred"
     disposition: "deferred"
     reason_code: "issue-to-pr-dispatches-first-step_deferred"
-    decision_ids:
-      - "dec_graph"
     child_receipt_refs:
-      - "runx:receipt:hrn_rcpt_issue-to-pr-dispatches-first-step_author-spec"
+      - "runx:receipt:sha256:2bd5f8a7fd1913cd683937becd109b168333b2ec12ba2a56b9ba37aa49291516"
   steps:
     - "author-spec"
 metadata:

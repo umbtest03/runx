@@ -10,7 +10,7 @@ use runx_runtime::{
 const FIXTURE_CREATED_AT: &str = "2026-05-18T00:00:00Z";
 
 #[test]
-fn aster_agent_step_replays_current_rust_bridge_terminal_report()
+fn aster_agent_task_replays_current_rust_bridge_terminal_report()
 -> Result<(), Box<dyn std::error::Error>> {
     let output = run_case()?;
 
@@ -46,10 +46,10 @@ fn aster_agent_step_replays_current_rust_bridge_terminal_report()
     let skill_output = output
         .skill_output
         .as_ref()
-        .ok_or("agent-step fixture did not produce skill output")?;
+        .ok_or("agent-task fixture did not produce skill output")?;
     assert_eq!(
         string_field(&skill_output.metadata, "agent_request_id")?,
-        "agent_step.aster-rust-bridge.output"
+        "agent_task.aster-rust-bridge.output"
     );
 
     Ok(())
@@ -109,7 +109,7 @@ fn skill_payload(output: &HarnessReplayOutput) -> Result<JsonValue, Box<dyn std:
     let skill_output = output
         .skill_output
         .as_ref()
-        .ok_or("agent-step fixture did not produce skill output")?;
+        .ok_or("agent-task fixture did not produce skill output")?;
     Ok(serde_json::from_str(&skill_output.stdout)?)
 }
 
@@ -205,7 +205,7 @@ fn is_retired_bridge_field(field: &str) -> bool {
 }
 
 fn case_path() -> PathBuf {
-    repo_root().join("fixtures/external/aster/agent-step/rust-bridge-sealed-skill.yaml")
+    repo_root().join("fixtures/external/aster/agent-task/rust-bridge-sealed-skill.yaml")
 }
 
 fn repo_root() -> PathBuf {

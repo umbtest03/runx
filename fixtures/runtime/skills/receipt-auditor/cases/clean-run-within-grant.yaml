@@ -1,5 +1,5 @@
 name: "clean-run-within-grant"
-kind: "agent_step"
+kind: "agent_task"
 runner: "receipt-auditor"
 inputs:
   receipt_id: rcpt_issue_triage_4471
@@ -11,7 +11,7 @@ inputs:
   objective: Confirm the triage run stayed within its read-only grant.
 caller:
   answers:
-    agent_step.receipt-auditor.output:
+    agent_task.receipt-auditor.output:
       receipt_audit:
         decision: ready
         run_ref: rcpt_issue_triage_4471

@@ -45,8 +45,16 @@ export async function runCli(
     return await dispatchCli(parsed, io, env, services);
   } catch (error) {
     const message = errorMessage(error);
+    if (parsed.json) {
+      return writeCliJsonError(io, message);
+    }
     return writeCliError(io, message);
   }
+}
+
+function writeCliJsonError(io: CliIo, message: string): number {
+  io.stdout.write(`${JSON.stringify({ status: "failure", error: { message } }, null, 2)}\n`);
+  return 1;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {

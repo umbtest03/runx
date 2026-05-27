@@ -5,7 +5,7 @@
 //! helper module (tests/support/), referenced by test modules as
 //! `crate::support`. `autotests = false` in Cargo.toml keeps Cargo from also
 //! building each file as its own binary.
-//! See .scafld/specs/drafts/test-surface-build-consolidation.md.
+//! See .scafld/specs/active/test-surface-build-consolidation.md.
 
 mod doctor;
 mod kernel;

@@ -63,7 +63,7 @@ harness:
           key: charge:paid-search-001
       caller:
         answers:
-          agent_step.charge-verify.output:
+          agent_task.charge-verify.output:
             verification_result:
               status: verified
               settlement_family: mock
@@ -89,7 +89,7 @@ harness:
 runners:
   verify:
     default: true
-    type: agent-step
+    type: agent-task
     agent: operator
     task: charge-verify
     mutating: true

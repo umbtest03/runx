@@ -25,7 +25,7 @@ harness:
         idempotency_seed: paid-search-001
       caller:
         answers:
-          agent_step.charge-challenge.output:
+          agent_task.charge-challenge.output:
             payment_required_signal:
               signal_type: payment_required
               challenge_id: charge_challenge_demo_001
@@ -56,7 +56,7 @@ harness:
 runners:
   challenge:
     default: true
-    type: agent-step
+    type: agent-task
     agent: operator
     task: charge-challenge
     outputs:

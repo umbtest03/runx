@@ -1,7 +1,7 @@
 //! Type-driven JSON Schema for runx contracts (Phase 1 of
 //! `rust-contract-pipeline-inversion`).
 //!
-//! A contract type that derives [`RunxSchema`] emits its own wire-compatible
+//! A contract type that derives [`RunxSchema`] emits its own wire-conformant
 //! JSON Schema document, so the Rust type is the single source of truth and the
 //! parallel TypeScript schema sources stay deleted. The emitted document
 //! reproduces the committed shape: fully inlined, closed string enums as

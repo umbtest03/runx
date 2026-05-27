@@ -17,7 +17,7 @@ harness:
         repo_root: .
       caller:
         answers:
-          agent_step.evolve-introspect.output:
+          agent_task.evolve-introspect.output:
             opportunity_report:
               summary: Documentation and release hygiene are the highest-leverage gaps.
               opportunities:
@@ -55,7 +55,7 @@ harness:
         terminate: spec
       caller:
         answers:
-          agent_step.evolve-plan.output:
+          agent_task.evolve-plan.output:
             objective_brief:
               objective: add release notes
               target_type: repo
@@ -113,7 +113,7 @@ runners:
         - id: introspect
           label: recommend next improvement
           run:
-            type: agent-step
+            type: agent-task
             agent: builder
             task: evolve-introspect
             outputs:
@@ -190,7 +190,7 @@ runners:
         - id: plan
           label: draft evolve plan
           run:
-            type: agent-step
+            type: agent-task
             agent: builder
             task: evolve-plan
             outputs:

@@ -24,7 +24,7 @@ process.chdir(workspaceRoot);
 
 const cases: readonly OracleCase[] = [
   { name: "agent-plain-success", expectedStatus: "sealed" },
-  { name: "agent-step-structured-success", expectedStatus: "sealed" },
+  { name: "agent-task-structured-success", expectedStatus: "sealed" },
   { name: "provider-error-sanitized", expectedStatus: "failure" },
 ];
 
@@ -57,8 +57,8 @@ async function assertCaseFixture(oracleCase: OracleCase): Promise<void> {
   assertEqual(request.case, oracleCase.name, `${relative(requestPath)} case`);
   assertEqual(request.mode, "agent-adapter", `${relative(requestPath)} mode`);
   const sourceType = recordField(request, "source").type;
-  if (sourceType !== "agent" && sourceType !== "agent-step") {
-    throw new Error(`${relative(requestPath)} source.type must be agent or agent-step.`);
+  if (sourceType !== "agent" && sourceType !== "agent-task") {
+    throw new Error(`${relative(requestPath)} source.type must be agent or agent-task.`);
   }
   assertNoPackageBoundary(requestPath, JSON.stringify(request));
 

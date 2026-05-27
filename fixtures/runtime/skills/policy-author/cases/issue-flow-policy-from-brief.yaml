@@ -1,5 +1,5 @@
 name: "issue-flow-policy-from-brief"
-kind: "agent_step"
+kind: "agent_task"
 runner: "policy-author"
 inputs:
   governance_brief: >-
@@ -10,7 +10,7 @@ inputs:
   objective: Stand up a fail-closed issue-flow policy for the three repos.
 caller:
   answers:
-    agent_step.policy-author.output:
+    agent_task.policy-author.output:
       policy_proposal:
         decision: ready
         policy:

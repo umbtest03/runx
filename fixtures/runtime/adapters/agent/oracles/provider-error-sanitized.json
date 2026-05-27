@@ -8,7 +8,7 @@
   "errorMessage": "OpenAI Responses API 500: managed provider failure",
   "metadata": {
     "agent_hook": {
-      "source_type": "agent-step",
+      "source_type": "agent-task",
       "agent": "assistant",
       "task": "fail",
       "route": "native",

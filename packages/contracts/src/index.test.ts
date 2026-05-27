@@ -8,7 +8,7 @@ import {
   agentContextEnvelopeSchema,
   agentActInvocationSchema,
   approvalGateSchema,
-  actReceiptEnvelopeSchema,
+  actResultEnvelopeSchema,
   actAssignmentV1Schema,
   authorityProofSchema,
   credentialDeliveryResponseV1Schema,
@@ -49,7 +49,7 @@ import {
   threadOutboxProviderPushV1Schema,
   toolManifestV1Schema,
   contractSchemaMatches,
-  validateActReceiptEnvelopeContract,
+  validateActResultEnvelopeContract,
   validateActContract,
   validateAgentContextEnvelopeContract,
   validateAuthorityProofContract,
@@ -108,7 +108,7 @@ describe("@runxhq/contracts", () => {
     expect(approvalGateSchema).toBe(runxContractSchemas.approvalGate);
     expect(resolutionRequestSchema).toBe(runxContractSchemas.resolutionRequest);
     expect(resolutionResponseSchema).toBe(runxContractSchemas.resolutionResponse);
-    expect(actReceiptEnvelopeSchema).toBe(runxContractSchemas.actReceiptEnvelope);
+    expect(actResultEnvelopeSchema).toBe(runxContractSchemas.actResultEnvelope);
     expect(credentialEnvelopeSchema).toBe(runxContractSchemas.credentialEnvelope);
     expect(scopeAdmissionSchema).toBe(runxContractSchemas.scopeAdmission);
     expect(authorityProofSchema).toBe(runxContractSchemas.authorityProof);
@@ -210,7 +210,7 @@ describe("@runxhq/contracts", () => {
     expect(validateAuthorityProofContract({
       schema_version: "runx.authority-proof.v1",
       skill_name: "connected-review",
-      source_type: "agent-step",
+      source_type: "agent-task",
       requested: {
         connected_auth: true,
         scopes: ["repo:read"],
@@ -247,10 +247,10 @@ describe("@runxhq/contracts", () => {
   it("owns executor control protocol schemas and runtime validation", () => {
     expect(outputSchema.$id).toBe(RUNX_CONTROL_SCHEMA_REFS.output);
     expect(agentContextEnvelopeSchema.$id).toBe(RUNX_CONTROL_SCHEMA_REFS.agent_context_envelope);
-    expect(actReceiptEnvelopeSchema.$id).toBe(RUNX_CONTROL_SCHEMA_REFS.act_receipt);
+    expect(actResultEnvelopeSchema.$id).toBe(RUNX_CONTROL_SCHEMA_REFS.act_result);
     expect(runxGeneratedSchemaArtifacts["output.schema.json"].$id).toBe(outputSchema.$id);
     expect(runxGeneratedSchemaArtifacts["agent-context-envelope.schema.json"].$id).toBe(agentContextEnvelopeSchema.$id);
-    expect(runxGeneratedSchemaArtifacts["act-receipt.schema.json"].$id).toBe(actReceiptEnvelopeSchema.$id);
+    expect(runxGeneratedSchemaArtifacts["act-result.schema.json"].$id).toBe(actResultEnvelopeSchema.$id);
 
     expect(validateOutputContract({
       summary: "string",
@@ -329,7 +329,7 @@ describe("@runxhq/contracts", () => {
       },
     });
 
-    expect(validateActReceiptEnvelopeContract({
+    expect(validateActResultEnvelopeContract({
       status: "needs_agent",
       stdout: "",
       stderr: "",

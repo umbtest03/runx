@@ -4,10 +4,7 @@ use std::path::{Path, PathBuf};
 
 use runx_contracts::JsonValue;
 use runx_runtime::{
-    LocalOrchestrator, LocalReceiptStore, RUNX_RECEIPT_DIR_ENV,
-    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV,
-    RUNX_RECEIPT_SIGN_KID_ENV, RunResult, RuntimeOptions, RuntimeReceiptSignatureConfig,
-    SkillRunRequest,
+    LocalOrchestrator, RUNX_RECEIPT_DIR_ENV, RunResult, RuntimeOptions, SkillRunRequest,
 };
 use tempfile::tempdir;
 
@@ -25,7 +22,7 @@ fn runtime_options_local_development_uses_live_timestamp() {
 #[test]
 fn native_skill_run_pauses_with_agent_act_request() -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
-    let skill_dir = write_agent_step_skill(temp.path())?;
+    let skill_dir = write_agent_task_skill(temp.path())?;
     let result = run_skill(SkillRunRequest {
         skill_path: skill_dir,
         receipt_dir: None,
@@ -47,7 +44,7 @@ fn native_skill_run_pauses_with_agent_act_request() -> Result<(), Box<dyn std::e
     assert_eq!(string_field(output, "status"), Some("needs_agent"));
     assert_eq!(
         string_field(output, "run_id"),
-        Some("run_agent_step-issue-intake-output")
+        Some("run_agent_task-issue-intake-output")
     );
     let requests = array_field(output, "requests").ok_or("missing requests")?;
     assert_eq!(requests.len(), 1);
@@ -55,10 +52,10 @@ fn native_skill_run_pauses_with_agent_act_request() -> Result<(), Box<dyn std::e
     assert_eq!(string_field(request, "kind"), Some("agent_act"));
     assert_eq!(
         string_field(request, "id"),
-        Some("agent_step.issue-intake.output")
+        Some("agent_task.issue-intake.output")
     );
     let invocation = object_field(request, "invocation").ok_or("missing invocation")?;
-    assert_eq!(string_field(invocation, "source_type"), Some("agent-step"));
+    assert_eq!(string_field(invocation, "source_type"), Some("agent-task"));
     let envelope = object_field(invocation, "envelope").ok_or("missing envelope")?;
     let inputs = object_field(envelope, "inputs").ok_or("missing inputs")?;
     assert_eq!(
@@ -77,14 +74,14 @@ fn native_skill_run_pauses_with_agent_act_request() -> Result<(), Box<dyn std::e
 #[test]
 fn native_skill_run_resumes_and_seals_receipt() -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
-    let skill_dir = write_agent_step_skill(temp.path())?;
+    let skill_dir = write_agent_task_skill(temp.path())?;
     let receipt_dir = temp.path().join("receipts");
     let answers_path = temp.path().join("answers.json");
     fs::write(
         &answers_path,
         serde_json::json!({
             "answers": {
-                "agent_step.issue-intake.output": {
+                "agent_task.issue-intake.output": {
                     "intake_report": {
                         "summary": "Docs bug is bounded."
                     },
@@ -118,7 +115,7 @@ fn native_skill_run_resumes_and_seals_receipt() -> Result<(), Box<dyn std::error
     assert!(receipt_id.starts_with("sha256:"));
     assert!(receipt_dir.join(format!("{receipt_id}.json")).exists());
 
-    let receipt = LocalReceiptStore::new(&receipt_dir).read_exact(receipt_id)?;
+    let receipt = crate::support::read_test_signed_receipt(&receipt_dir, receipt_id)?;
     assert_ne!(receipt.created_at, FIXTURE_CREATED_AT);
     assert_eq!(
         serde_json::to_value(&receipt.schema)?,
@@ -141,14 +138,14 @@ fn native_skill_run_resumes_and_seals_receipt() -> Result<(), Box<dyn std::error
 fn native_skill_run_treats_structured_stdout_as_claim_not_receipt_proof()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
-    let skill_dir = write_agent_step_skill(temp.path())?;
+    let skill_dir = write_agent_task_skill(temp.path())?;
     let receipt_dir = temp.path().join("receipts");
     let answers_path = temp.path().join("answers.json");
     fs::write(
         &answers_path,
         serde_json::json!({
             "answers": {
-                "agent_step.issue-intake.output": {
+                "agent_task.issue-intake.output": {
                     "intake_report": {
                         "summary": "Malicious proof refs stay claim-scoped."
                     },
@@ -190,7 +187,7 @@ fn native_skill_run_treats_structured_stdout_as_claim_not_receipt_proof()
     let execution = object_field(output, "execution").ok_or("missing execution")?;
     assert!(object_field(execution, "skill_claim").is_some());
     let receipt_id = string_field(output, "receipt_id").ok_or("missing receipt_id")?;
-    let receipt = LocalReceiptStore::new(&receipt_dir).read_exact(receipt_id)?;
+    let receipt = crate::support::read_test_signed_receipt(&receipt_dir, receipt_id)?;
     let refs = receipt.acts[0]
         .criterion_bindings
         .iter()
@@ -217,14 +214,14 @@ fn native_skill_run_treats_structured_stdout_as_claim_not_receipt_proof()
 fn native_skill_run_preserves_deferred_closure_disposition()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
-    let skill_dir = write_agent_step_skill(temp.path())?;
+    let skill_dir = write_agent_task_skill(temp.path())?;
     let receipt_dir = temp.path().join("receipts");
     let answers_path = temp.path().join("answers.json");
     fs::write(
         &answers_path,
         serde_json::json!({
             "answers": {
-                "agent_step.issue-intake.output": {
+                "agent_task.issue-intake.output": {
                     "intake_report": {
                         "summary": "Docs bug needs more context."
                     },
@@ -255,7 +252,7 @@ fn native_skill_run_preserves_deferred_closure_disposition()
     let execution = object_field(output, "execution").ok_or("missing execution")?;
     assert_eq!(execution.get("exit_code"), Some(&JsonValue::Null));
     let receipt_id = string_field(output, "receipt_id").ok_or("missing receipt_id")?;
-    let receipt = LocalReceiptStore::new(&receipt_dir).read_exact(receipt_id)?;
+    let receipt = crate::support::read_test_signed_receipt(&receipt_dir, receipt_id)?;
     assert_eq!(serde_json::to_value(&receipt.seal.disposition)?, "deferred");
 
     Ok(())
@@ -265,14 +262,14 @@ fn native_skill_run_preserves_deferred_closure_disposition()
 fn native_skill_run_uses_runtime_receipt_path_resolution() -> Result<(), Box<dyn std::error::Error>>
 {
     let temp = tempdir()?;
-    let skill_dir = write_agent_step_skill(temp.path())?;
+    let skill_dir = write_agent_task_skill(temp.path())?;
     let env_receipt_dir = temp.path().join("env-receipts");
     let answers_path = temp.path().join("answers.json");
     fs::write(
         &answers_path,
         serde_json::json!({
             "answers": {
-                "agent_step.issue-intake.output": {
+                "agent_task.issue-intake.output": {
                     "intake_report": {
                         "summary": "Docs bug is bounded."
                     }
@@ -309,14 +306,14 @@ fn native_skill_run_uses_runtime_receipt_path_resolution() -> Result<(), Box<dyn
 fn native_skill_run_uses_production_receipt_signing_env() -> Result<(), Box<dyn std::error::Error>>
 {
     let temp = tempdir()?;
-    let skill_dir = write_agent_step_skill(temp.path())?;
+    let skill_dir = write_agent_task_skill(temp.path())?;
     let receipt_dir = temp.path().join("receipts");
     let answers_path = temp.path().join("answers.json");
     fs::write(
         &answers_path,
         serde_json::json!({
             "answers": {
-                "agent_step.issue-intake.output": {
+                "agent_task.issue-intake.output": {
                     "intake_report": {
                         "summary": "Docs bug is bounded."
                     }
@@ -325,7 +322,7 @@ fn native_skill_run_uses_production_receipt_signing_env() -> Result<(), Box<dyn 
         })
         .to_string(),
     )?;
-    let env = test_signing_env();
+    let env = crate::support::test_signing_env();
 
     let result = run_skill(SkillRunRequest {
         skill_path: skill_dir,
@@ -340,8 +337,8 @@ fn native_skill_run_uses_production_receipt_signing_env() -> Result<(), Box<dyn 
 
     let output = object(&result.output, "skill run result")?;
     let receipt_id = string_field(output, "receipt_id").ok_or("missing receipt_id")?;
-    let signature_config = RuntimeReceiptSignatureConfig::from_env(&env)?;
-    let receipt = LocalReceiptStore::new(&receipt_dir)
+    let signature_config = crate::support::test_signature_config()?;
+    let receipt = runx_runtime::LocalReceiptStore::new(&receipt_dir)
         .read_exact_with_policy(receipt_id, signature_config.signature_policy())?;
     assert_eq!(receipt.issuer.kid, "runx-runtime-prod-fixture-key");
     assert!(receipt.signature.value.starts_with("base64:"));
@@ -354,7 +351,7 @@ fn native_skill_run_uses_production_receipt_signing_env() -> Result<(), Box<dyn 
 fn native_skill_run_rejects_missing_production_receipt_signing_env()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
-    let skill_dir = write_agent_step_skill(temp.path())?;
+    let skill_dir = write_agent_task_skill(temp.path())?;
     let error = LocalOrchestrator
         .run_skill(&SkillRunRequest {
             skill_path: skill_dir,
@@ -377,10 +374,10 @@ fn native_skill_run_rejects_missing_production_receipt_signing_env()
 }
 
 #[test]
-fn native_graph_skill_run_pauses_and_resumes_agent_step() -> Result<(), Box<dyn std::error::Error>>
+fn native_graph_skill_run_pauses_and_resumes_agent_task() -> Result<(), Box<dyn std::error::Error>>
 {
     let temp = tempdir()?;
-    let skill_dir = write_graph_agent_step_skill(temp.path())?;
+    let skill_dir = write_graph_agent_task_skill(temp.path())?;
     let receipt_dir = temp.path().join("receipts");
     let inputs = [(
         "thread_title".to_owned(),
@@ -408,7 +405,7 @@ fn native_graph_skill_run_pauses_and_resumes_agent_step() -> Result<(), Box<dyn 
     let request = object(&requests[0], "request")?;
     assert_eq!(
         string_field(request, "id"),
-        Some("agent_step.graph-decide.output")
+        Some("agent_task.graph-decide.output")
     );
     let invocation = object_field(request, "invocation").ok_or("missing invocation")?;
     let envelope = object_field(invocation, "envelope").ok_or("missing envelope")?;
@@ -462,7 +459,7 @@ fn native_graph_skill_run_pauses_and_resumes_agent_step() -> Result<(), Box<dyn 
         &answers_path,
         serde_json::json!({
             "answers": {
-                "agent_step.graph-decide.output": {
+                "agent_task.graph-decide.output": {
                     "approved": true,
                     "proof_ref": "receipt-proof:evil:step-output",
                     "receipt_id": "sha256:evil-step-output",
@@ -514,7 +511,7 @@ fn native_graph_skill_run_pauses_and_resumes_agent_step() -> Result<(), Box<dyn 
 fn native_graph_transition_gate_allows_declared_agent_output()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
-    let skill_dir = write_graph_gated_agent_step_skill_with_field(temp.path(), "decide.approved")?;
+    let skill_dir = write_graph_gated_agent_task_skill_with_field(temp.path(), "decide.approved")?;
     let receipt_dir = temp.path().join("receipts");
 
     let initial = run_skill(SkillRunRequest {
@@ -535,7 +532,7 @@ fn native_graph_transition_gate_allows_declared_agent_output()
         &answers_path,
         serde_json::json!({
             "answers": {
-                "agent_step.gated-decide.output": {
+                "agent_task.gated-decide.output": {
                     "approved": true
                 }
             }
@@ -561,7 +558,7 @@ fn native_graph_transition_gate_allows_declared_agent_output()
     let request = object(&requests[0], "request")?;
     assert_eq!(
         string_field(request, "id"),
-        Some("agent_step.gated-followup.output")
+        Some("agent_task.gated-followup.output")
     );
 
     Ok(())
@@ -571,7 +568,7 @@ fn native_graph_transition_gate_allows_declared_agent_output()
 fn native_graph_transition_gate_rejects_skill_claim_as_fact()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
-    let skill_dir = write_graph_gated_agent_step_skill(temp.path())?;
+    let skill_dir = write_graph_gated_agent_task_skill(temp.path())?;
     let receipt_dir = temp.path().join("receipts");
 
     let initial = run_skill(SkillRunRequest {
@@ -592,7 +589,7 @@ fn native_graph_transition_gate_rejects_skill_claim_as_fact()
         &answers_path,
         serde_json::json!({
             "answers": {
-                "agent_step.gated-decide.output": {
+                "agent_task.gated-decide.output": {
                     "approved": true
                 }
             }
@@ -701,10 +698,10 @@ fn native_graph_skill_run_pauses_and_resumes_nested_agent_skill()
 }
 
 #[test]
-fn native_graph_skill_run_pauses_and_resumes_nested_agent_step_skill()
+fn native_graph_skill_run_pauses_and_resumes_nested_agent_task_skill()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
-    let skill_dir = write_graph_nested_agent_skill(temp.path(), "agent-step")?;
+    let skill_dir = write_graph_nested_agent_skill(temp.path(), "agent-task")?;
     let receipt_dir = temp.path().join("receipts");
 
     let initial = run_skill(SkillRunRequest {
@@ -718,7 +715,7 @@ fn native_graph_skill_run_pauses_and_resumes_nested_agent_step_skill()
         local_credential: None,
     })?;
 
-    let output = object(&initial.output, "nested agent-step graph result")?;
+    let output = object(&initial.output, "nested agent-task graph result")?;
     assert_eq!(string_field(output, "status"), Some("needs_agent"));
     let run_id = string_field(output, "run_id").ok_or("missing run_id")?;
     let requests = array_field(output, "requests").ok_or("missing requests")?;
@@ -726,19 +723,19 @@ fn native_graph_skill_run_pauses_and_resumes_nested_agent_step_skill()
     let request = object(&requests[0], "request")?;
     assert_eq!(
         string_field(request, "id"),
-        Some("agent_step.child-agent-step.output")
+        Some("agent_task.child-agent-task.output")
     );
     let invocation = object_field(request, "invocation").ok_or("missing invocation")?;
-    assert_eq!(string_field(invocation, "source_type"), Some("agent-step"));
+    assert_eq!(string_field(invocation, "source_type"), Some("agent-task"));
 
-    let answers_path = temp.path().join("nested-agent-step-answers.json");
+    let answers_path = temp.path().join("nested-agent-task-answers.json");
     fs::write(
         &answers_path,
         serde_json::json!({
             "answers": {
-                "agent_step.child-agent-step.output": {
+                "agent_task.child-agent-task.output": {
                     "result": {
-                        "summary": "Nested agent-step fix authored."
+                        "summary": "Nested agent-task fix authored."
                     }
                 }
             }
@@ -756,14 +753,14 @@ fn native_graph_skill_run_pauses_and_resumes_nested_agent_step_skill()
         local_credential: None,
     })?;
 
-    let output = object(&resumed.output, "resumed nested agent-step graph result")?;
+    let output = object(&resumed.output, "resumed nested agent-task graph result")?;
     assert_eq!(string_field(output, "status"), Some("sealed"));
     let payload = object_field(output, "payload").ok_or("missing payload")?;
     let nested_claim = step_claim(payload, "nested").ok_or("missing nested skill claim")?;
     let result = object_field(nested_claim, "result").ok_or("missing result")?;
     assert_eq!(
         string_field(result, "summary"),
-        Some("Nested agent-step fix authored.")
+        Some("Nested agent-task fix authored.")
     );
 
     Ok(())
@@ -813,7 +810,7 @@ fn native_graph_skill_run_executes_local_tool_step() -> Result<(), Box<dyn std::
 
 #[cfg(feature = "catalog")]
 #[test]
-fn native_graph_skill_run_resolves_agent_step_named_emit_context()
+fn native_graph_skill_run_resolves_agent_task_named_emit_context()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
     let skill_dir = write_graph_agent_artifact_context_skill(temp.path())?;
@@ -825,7 +822,7 @@ fn native_graph_skill_run_resolves_agent_step_named_emit_context()
         &answers_path,
         serde_json::json!({
             "answers": {
-                "agent_step.graph-author.output": {
+                "agent_task.graph-author.output": {
                     "fix_bundle": {
                         "message": "Graph tool bug"
                     }
@@ -879,7 +876,7 @@ fn native_graph_skill_run_resolves_agent_step_named_emit_context()
 
 #[cfg(feature = "catalog")]
 #[test]
-fn native_graph_skill_run_resolves_agent_step_output_envelope_named_emit_context()
+fn native_graph_skill_run_resolves_agent_task_output_envelope_named_emit_context()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
     let skill_dir = write_graph_agent_artifact_context_skill(temp.path())?;
@@ -891,7 +888,7 @@ fn native_graph_skill_run_resolves_agent_step_output_envelope_named_emit_context
         &answers_path,
         serde_json::json!({
             "answers": {
-                "agent_step.graph-author.output": {
+                "agent_task.graph-author.output": {
                     "output": {
                         "fix_bundle": {
                             "message": "Graph tool bug"
@@ -960,7 +957,7 @@ fn native_graph_skill_run_rejects_reserved_artifact_output_names()
         &answers_path,
         serde_json::json!({
             "answers": {
-                "agent_step.graph-author.output": {
+                "agent_task.graph-author.output": {
                     "result": "claimed",
                     "closure": {
                         "disposition": "closed"
@@ -1174,7 +1171,7 @@ fn native_graph_skill_run_executes_nested_x_yaml_runner_skill()
 #[test]
 fn native_skill_run_rejects_partial_continuation_shape() -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
-    let skill_dir = write_agent_step_skill(temp.path())?;
+    let skill_dir = write_agent_task_skill(temp.path())?;
 
     let run_id_only = match run_skill(SkillRunRequest {
         skill_path: skill_dir.clone(),
@@ -1225,32 +1222,11 @@ fn run_skill(request: SkillRunRequest) -> Result<RunResult, Box<dyn std::error::
 }
 
 fn with_test_signing_env(mut request: SkillRunRequest) -> SkillRunRequest {
-    for (key, value) in test_signing_env() {
-        request.env.entry(key).or_insert(value);
-    }
+    crate::support::insert_test_signing_env(&mut request.env);
     request
 }
 
-fn test_signing_env() -> BTreeMap<String, String> {
-    [
-        (
-            RUNX_RECEIPT_SIGN_KID_ENV.to_owned(),
-            "runx-runtime-prod-fixture-key".to_owned(),
-        ),
-        (
-            RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV.to_owned(),
-            "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=".to_owned(),
-        ),
-        (
-            RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV.to_owned(),
-            "hosted".to_owned(),
-        ),
-    ]
-    .into_iter()
-    .collect()
-}
-
-fn write_agent_step_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn write_agent_task_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let skill_dir = root.join("issue-intake");
     fs::create_dir_all(&skill_dir)?;
     fs::write(
@@ -1264,7 +1240,7 @@ skill: issue-intake
 runners:
   intake:
     default: true
-    type: agent-step
+    type: agent-task
     agent: builder
     task: issue-intake
     outputs:
@@ -1278,7 +1254,7 @@ runners:
     Ok(skill_dir.to_path_buf())
 }
 
-fn write_graph_agent_step_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn write_graph_agent_task_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let skill_dir = root.join("graph-issue-to-pr");
     fs::create_dir_all(&skill_dir)?;
     fs::write(
@@ -1298,7 +1274,7 @@ runners:
       steps:
         - id: decide
           run:
-            type: agent-step
+            type: agent-task
             agent: builder
             task: graph-decide
             outputs:
@@ -1309,42 +1285,42 @@ runners:
     Ok(skill_dir.to_path_buf())
 }
 
-fn write_graph_gated_agent_step_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    write_graph_gated_agent_step_skill_with_field(root, "decide.skill_claim.approved")
+fn write_graph_gated_agent_task_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    write_graph_gated_agent_task_skill_with_field(root, "decide.skill_claim.approved")
 }
 
-fn write_graph_gated_agent_step_skill_with_field(
+fn write_graph_gated_agent_task_skill_with_field(
     root: &Path,
     gate_field: &str,
 ) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let skill_dir = root.join("graph-gated-agent-step");
+    let skill_dir = root.join("graph-gated-agent-task");
     fs::create_dir_all(&skill_dir)?;
     fs::write(
         skill_dir.join("SKILL.md"),
-        "---\nname: graph-gated-agent-step\n---\n# Graph Gated Agent Step\n",
+        "---\nname: graph-gated-agent-task\n---\n# Graph Gated Agent Step\n",
     )?;
     fs::write(
         skill_dir.join("X.yaml"),
         format!(
             r#"
-skill: graph-gated-agent-step
+skill: graph-gated-agent-task
 runners:
   graph:
     default: true
     type: graph
     graph:
-      name: graph-gated-agent-step
+      name: graph-gated-agent-task
       steps:
         - id: decide
           run:
-            type: agent-step
+            type: agent-task
             agent: builder
             task: gated-decide
             outputs:
               approved: boolean
         - id: gated
           run:
-            type: agent-step
+            type: agent-task
             agent: builder
             task: gated-followup
             outputs:
@@ -1366,17 +1342,17 @@ fn write_graph_nested_agent_skill(
 ) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let child_name = match source_type {
         "agent" => "child-agent",
-        "agent-step" => "child-agent-step",
+        "agent-task" => "child-agent-task",
         _ => return Err(format!("unsupported nested agent source type {source_type}").into()),
     };
     let child_dir = root.join(child_name);
     fs::create_dir_all(&child_dir)?;
-    let source = if source_type == "agent-step" {
+    let source = if source_type == "agent-task" {
         r#"
 source:
-  type: agent-step
+  type: agent-task
   agent: builder
-  task: child-agent-step
+  task: child-agent-task
   outputs:
     result: object
 "#
@@ -1486,7 +1462,7 @@ runners:
       steps:
         - id: author
           run:
-            type: agent-step
+            type: agent-task
             agent: builder
             task: graph-author
             outputs:
@@ -1526,7 +1502,7 @@ runners:
       steps:
         - id: author
           run:
-            type: agent-step
+            type: agent-task
             agent: builder
             task: graph-author
             outputs:

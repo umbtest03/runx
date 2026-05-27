@@ -1,5 +1,5 @@
 name: "catalog-behavior-overview"
-kind: "agent_step"
+kind: "agent_task"
 runner: "run-history-analyst"
 inputs:
   objective: How is the skill catalog behaving this month, and what should we tighten?
@@ -11,7 +11,7 @@ inputs:
   objective_focus: Lead with maturity and unused authority.
 caller:
   answers:
-    agent_step.run-history-analyst.output:
+    agent_task.run-history-analyst.output:
       history_report:
         decision: ready
         scope: workspace

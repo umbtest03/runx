@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { sanitizePublicMarkdown } from "../public_markdown.mjs";
 
@@ -1609,9 +1610,12 @@ function isRunxGeneratedBranch(branch) {
 }
 
 function runCommand(command, args, options) {
+  const commandEnv = command === "git"
+    ? gitCommandEnv(options?.env)
+    : options?.env ?? process.env;
   const result = spawnSync(command, args, {
     cwd: options?.cwd,
-    env: options?.env ?? process.env,
+    env: commandEnv,
     input: options?.input,
     encoding: "utf8",
   });
@@ -1621,4 +1625,41 @@ function runCommand(command, args, options) {
     );
   }
   return result.stdout;
+}
+
+function gitCommandEnv(env) {
+  const baseEnv = env ?? process.env;
+  const token = githubTokenCandidates(baseEnv)[0]?.value;
+  if (!token) {
+    return baseEnv;
+  }
+  const tmpRoot = firstNonEmptyString(baseEnv.TMPDIR, baseEnv.TMP, baseEnv.TEMP);
+  if (!tmpRoot) {
+    return {
+      ...baseEnv,
+      GIT_TERMINAL_PROMPT: "0",
+    };
+  }
+  const askpassDir = path.join(tmpRoot, "runx-git-askpass");
+  mkdirSync(askpassDir, { recursive: true, mode: 0o700 });
+  const askpassPath = path.join(askpassDir, `askpass-${process.pid}-${randomUUID()}.sh`);
+  writeFileSync(
+    askpassPath,
+    [
+      "#!/bin/sh",
+      "case \"$1\" in",
+      "  *Username*) printf '%s\\n' 'x-access-token' ;;",
+      "  *) printf '%s\\n' \"$RUNX_GIT_ASKPASS_TOKEN\" ;;",
+      "esac",
+      "",
+    ].join("\n"),
+    { mode: 0o700 },
+  );
+  chmodSync(askpassPath, 0o700);
+  return {
+    ...baseEnv,
+    GIT_ASKPASS: askpassPath,
+    GIT_TERMINAL_PROMPT: "0",
+    RUNX_GIT_ASKPASS_TOKEN: token,
+  };
 }

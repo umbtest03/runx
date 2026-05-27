@@ -7,7 +7,7 @@ use super::{
 
 const DEFAULT_ALLOWED_SOURCE_TYPES: [&str; 8] = [
     "agent",
-    "agent-step",
+    "agent-task",
     "approval",
     "cli-tool",
     "mcp",

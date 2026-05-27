@@ -129,7 +129,7 @@ fn routes_canonical_skill_run_to_native_plan() {
             "--receipt-dir",
             ".runx/receipts",
             "--run-id",
-            "run_agent_step.issue-intake.output",
+            "run_agent_task.issue-intake.output",
             "--answers",
             "/tmp/answers.json",
             "--json",
@@ -140,7 +140,7 @@ fn routes_canonical_skill_run_to_native_plan() {
         LauncherAction::RunSkill(SkillPlan {
             skill_path: PathBuf::from("skills/issue-intake"),
             receipt_dir: Some(PathBuf::from(".runx/receipts")),
-            run_id: Some("run_agent_step.issue-intake.output".to_owned()),
+            run_id: Some("run_agent_task.issue-intake.output".to_owned()),
             answers: Some(PathBuf::from("/tmp/answers.json")),
             json: true,
             inputs: [(

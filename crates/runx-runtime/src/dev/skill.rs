@@ -91,11 +91,7 @@ fn run_skill_or_graph_fixture_inner(
 fn run_dev_harness_fixture(path: &Path) -> Result<HarnessReplayOutput, HarnessReplayError> {
     #[cfg(feature = "cli-tool")]
     {
-        return run_harness_fixture_with_adapter(
-            path,
-            CliToolAdapter,
-            RuntimeOptions::local_development(),
-        );
+        run_harness_fixture_with_adapter(path, CliToolAdapter, RuntimeOptions::local_development())
     }
     #[cfg(not(feature = "cli-tool"))]
     {

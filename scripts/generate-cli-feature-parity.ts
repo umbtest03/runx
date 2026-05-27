@@ -132,7 +132,7 @@ const cases: readonly OracleCase[] = [
       firstPendingRunId: "gx_needs_agent_oracle",
       firstPendingRunStatus: "paused",
     },
-    stdoutIncludes: ["\"pendingRuns\"", "\"gx_needs_agent_oracle\"", "\"selectedRunner\": \"agent-step\""],
+    stdoutIncludes: ["\"pendingRuns\"", "\"gx_needs_agent_oracle\"", "\"selectedRunner\": \"agent-task\""],
     stderrIncludes: [],
     proves: ["history", "ledger", "receipts", "cli-presentation"],
   },

@@ -1,6 +1,6 @@
 [package]
 # Integration tests compile as a single binary (tests/integration.rs); see
-# .scafld/specs/drafts/test-surface-build-consolidation.md.
+# .scafld/specs/active/test-surface-build-consolidation.md.
 autotests = false
 name = "runx-receipts"
 version = "0.0.1"

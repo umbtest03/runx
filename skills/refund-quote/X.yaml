@@ -24,7 +24,7 @@ harness:
         prior_refund_receipt_refs: []
       caller:
         answers:
-          agent_step.refund-quote.output:
+          agent_task.refund-quote.output:
             refund_quote:
               quote_id: refund_quote_demo_001
               original_receipt_ref: receipt:charge:mock:paid-search-001
@@ -52,7 +52,7 @@ harness:
 runners:
   quote:
     default: true
-    type: agent-step
+    type: agent-task
     agent: operator
     task: refund-quote
     outputs:

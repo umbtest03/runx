@@ -43,7 +43,7 @@ fn native_cli_smoke_runs_without_node_or_typescript_env() -> Result<(), Box<dyn 
         "runx-runtime.local-history.v1"
     );
 
-    let skill_dir = write_agent_step_skill(&temp)?;
+    let skill_dir = write_agent_task_skill(&temp)?;
     let skill = native_command()?
         .args([
             "skill",
@@ -102,7 +102,7 @@ fn assert_success(output: &std::process::Output) -> Result<(), Box<dyn std::erro
     Ok(())
 }
 
-fn write_agent_step_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn write_agent_task_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let skill_dir = root.join("issue-intake");
     fs::create_dir_all(&skill_dir)?;
     fs::write(
@@ -116,7 +116,7 @@ skill: issue-intake
 runners:
   intake:
     default: true
-    type: agent-step
+    type: agent-task
     agent: builder
     task: issue-intake
     outputs:

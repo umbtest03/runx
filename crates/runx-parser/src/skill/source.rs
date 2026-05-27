@@ -64,7 +64,7 @@ fn parse_source_kind(value: &str, field: &str) -> Result<SourceKind, ValidationE
         "catalog" => Ok(SourceKind::Catalog),
         "a2a" => Ok(SourceKind::A2a),
         "agent" => Ok(SourceKind::Agent),
-        "agent-step" => Ok(SourceKind::AgentStep),
+        "agent-task" => Ok(SourceKind::AgentStep),
         "harness-hook" => Ok(SourceKind::HarnessHook),
         "graph" => Ok(SourceKind::Graph),
         "external-adapter" => Ok(SourceKind::ExternalAdapter),
@@ -149,7 +149,7 @@ fn validate_agent(
     source: &JsonObject,
     source_type: &str,
 ) -> Result<Option<String>, ValidationError> {
-    if source_type == "agent-step" {
+    if source_type == "agent-task" {
         return Ok(Some(required_string(source.get("agent"), "source.agent")?));
     }
     optional_string(source.get("agent"), "source.agent")
@@ -159,7 +159,7 @@ fn validate_task(
     source: &JsonObject,
     source_type: &str,
 ) -> Result<Option<String>, ValidationError> {
-    if matches!(source_type, "agent-step" | "a2a") {
+    if matches!(source_type, "agent-task" | "a2a") {
         return Ok(Some(required_string(source.get("task"), "source.task")?));
     }
     optional_string(source.get("task"), "source.task")
@@ -190,7 +190,7 @@ fn validate_agent_command_boundary(
     source: &JsonObject,
     source_type: &str,
 ) -> Result<(), ValidationError> {
-    if matches!(source_type, "agent-step" | "harness-hook")
+    if matches!(source_type, "agent-task" | "harness-hook")
         && (source.contains_key("command") || source.contains_key("args"))
     {
         return Err(validation_error(format!(

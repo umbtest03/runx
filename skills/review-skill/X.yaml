@@ -24,7 +24,7 @@ harness:
         test_constraints: Keep the evaluation bounded to repo-visible evidence and local harness signals.
       caller:
         answers:
-          agent_step.review-skill.output:
+          agent_task.review-skill.output:
             capability_profile:
               skill_ref: sourcey/sourcey
               summary: Generates a bounded docs site with approval and verification steps.
@@ -57,7 +57,7 @@ runners:
 
   evaluate:
     default: true
-    type: agent-step
+    type: agent-task
     runx:
       post_run:
         reflect: never

@@ -35,6 +35,13 @@ pub use runx_core::policy::CredentialEnvelopeKind
 pub use runx_core::policy::CredentialGrantReference
 pub use runx_core::policy::ScopeAdmission
 pub use runx_core::policy::ScopeAdmissionStatus
+pub mod runx_core::policy::authority_algebra
+pub fn runx_core::policy::authority_algebra::items_subset<T: core::cmp::PartialEq>(child: &[T], parent: &[T]) -> bool
+pub fn runx_core::policy::authority_algebra::optional_bound_subset<T: core::cmp::Ord + core::marker::Copy>(child: core::option::Option<T>, parent: core::option::Option<T>) -> bool
+pub fn runx_core::policy::authority_algebra::optional_exact_or_narrower<T: core::cmp::Eq>(child: &core::option::Option<T>, parent: &core::option::Option<T>) -> bool
+pub fn runx_core::policy::authority_algebra::optional_ref_bound_subset<T: core::cmp::Ord>(child: core::option::Option<&T>, parent: core::option::Option<&T>) -> bool
+pub fn runx_core::policy::authority_algebra::parent_items_preserved<T: core::cmp::PartialEq>(child: &[T], parent: &[T]) -> bool
+pub fn runx_core::policy::authority_algebra::same_reference_address(child: &runx_contracts::reference::Reference, parent: &runx_contracts::reference::Reference) -> bool
 pub mod runx_core::policy::authority_proof
 pub fn runx_core::policy::authority_proof::build_authority_proof(options: &runx_core::policy::BuildAuthorityProofOptions) -> runx_contracts::policy_proof::AuthorityProof
 pub fn runx_core::policy::authority_proof::build_authority_proof_metadata(options: &runx_core::policy::BuildAuthorityProofOptions) -> runx_core::policy::AuthorityProofMetadata
@@ -443,6 +450,9 @@ pub runx_core::state_machine::SequentialGraphStepDefinition::context_from: core:
 pub runx_core::state_machine::SequentialGraphStepDefinition::fanout_group: core::option::Option<alloc::string::String>
 pub runx_core::state_machine::SequentialGraphStepDefinition::id: alloc::string::String
 pub runx_core::state_machine::SequentialGraphStepDefinition::retry: core::option::Option<runx_core::state_machine::RetryPolicy>
+pub struct runx_core::state_machine::SequentialGraphStepIndex
+impl runx_core::state_machine::SequentialGraphStepIndex
+pub fn runx_core::state_machine::SequentialGraphStepIndex::new(steps: &[runx_core::state_machine::SequentialGraphStepDefinition]) -> Self
 pub struct runx_core::state_machine::SequentialGraphStepState
 pub runx_core::state_machine::SequentialGraphStepState::attempts: u32
 pub runx_core::state_machine::SequentialGraphStepState::completed_at: core::option::Option<alloc::string::String>
@@ -466,10 +476,13 @@ impl runx_core::state_machine::StepAdmissionWitness
 pub fn runx_core::state_machine::StepAdmissionWitness::local_runtime(step_id: impl core::convert::Into<alloc::string::String>, receipt_id: impl core::convert::Into<alloc::string::String>) -> Self
 pub fn runx_core::state_machine::StepAdmissionWitness::matches_step_receipt(&self, step_id: &str, receipt_id: &str) -> bool
 pub fn runx_core::state_machine::StepAdmissionWitness::with_authority(step_id: impl core::convert::Into<alloc::string::String>, receipt_id: impl core::convert::Into<alloc::string::String>, authority: runx_core::state_machine::AuthorityAdmissionWitness) -> Self
+pub fn runx_core::state_machine::apply_sequential_graph_event(state: &mut runx_core::state_machine::SequentialGraphState, event: &runx_core::state_machine::SequentialGraphEvent)
 pub fn runx_core::state_machine::create_sequential_graph_state(graph_id: impl core::convert::Into<alloc::string::String>, steps: &[runx_core::state_machine::SequentialGraphStepDefinition]) -> runx_core::state_machine::SequentialGraphState
+pub fn runx_core::state_machine::create_sequential_graph_step_index(steps: &[runx_core::state_machine::SequentialGraphStepDefinition]) -> runx_core::state_machine::SequentialGraphStepIndex
 pub fn runx_core::state_machine::create_single_step_state(step_id: impl core::convert::Into<alloc::string::String>) -> runx_core::state_machine::SingleStepState
 pub fn runx_core::state_machine::evaluate_fanout_sync(policy: &runx_core::state_machine::FanoutGroupPolicy, results: &[runx_core::state_machine::FanoutBranchResult], resolved_gate_keys: core::option::Option<&alloc::collections::btree::set::BTreeSet<alloc::string::String>>) -> runx_core::state_machine::FanoutSyncDecision
 pub fn runx_core::state_machine::fanout_sync_decision_key(group_id: &str, rule_fired: &str) -> alloc::string::String
 pub fn runx_core::state_machine::plan_sequential_graph_transition(state: &runx_core::state_machine::SequentialGraphState, steps: &[runx_core::state_machine::SequentialGraphStepDefinition], fanout_policies: &alloc::collections::btree::map::BTreeMap<alloc::string::String, runx_core::state_machine::FanoutGroupPolicy>, resolved_fanout_gate_keys: core::option::Option<&alloc::collections::btree::set::BTreeSet<alloc::string::String>>) -> runx_core::state_machine::SequentialGraphPlan
+pub fn runx_core::state_machine::plan_sequential_graph_transition_indexed(state: &runx_core::state_machine::SequentialGraphState, steps: &[runx_core::state_machine::SequentialGraphStepDefinition], step_index: &runx_core::state_machine::SequentialGraphStepIndex, fanout_policies: &alloc::collections::btree::map::BTreeMap<alloc::string::String, runx_core::state_machine::FanoutGroupPolicy>, resolved_fanout_gate_keys: core::option::Option<&alloc::collections::btree::set::BTreeSet<alloc::string::String>>) -> runx_core::state_machine::SequentialGraphPlan
 pub fn runx_core::state_machine::transition_sequential_graph(state: &runx_core::state_machine::SequentialGraphState, event: &runx_core::state_machine::SequentialGraphEvent) -> runx_core::state_machine::SequentialGraphState
 pub fn runx_core::state_machine::transition_single_step(state: &runx_core::state_machine::SingleStepState, event: &runx_core::state_machine::SingleStepEvent) -> runx_core::state_machine::SingleStepState

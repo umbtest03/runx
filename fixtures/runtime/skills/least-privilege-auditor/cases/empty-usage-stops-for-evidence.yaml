@@ -1,5 +1,5 @@
 name: "empty-usage-stops-for-evidence"
-kind: "agent_step"
+kind: "agent_task"
 runner: "least-privilege-auditor"
 inputs:
   subject: "research/deep-research-brief"
@@ -10,7 +10,7 @@ inputs:
   objective: "Audit a freshly published skill that has not run yet."
 caller:
   answers:
-    agent_step.least-privilege-auditor.output:
+    agent_task.least-privilege-auditor.output:
       audit_report:
         subject: "research/deep-research-brief"
         scope_diff: []

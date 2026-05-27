@@ -82,7 +82,7 @@ async function generateSkillFixtures(skillName: typeof skillNames[number]): Prom
 function intakeFixture(entry: Record<string, unknown>, skillName: string): Record<string, unknown> {
   return {
     name: entry.name,
-    kind: "agent_step",
+    kind: "agent_task",
     runner: "issue-intake",
     inputs: entry.inputs ?? {},
     caller: entry.caller ?? {},
@@ -98,7 +98,7 @@ function intakeFixture(entry: Record<string, unknown>, skillName: string): Recor
     metadata: {
       product_skill: skillName,
       source_case: entry.name,
-      runner_kind: "agent_step",
+      runner_kind: "agent_task",
     },
   };
 }
@@ -148,7 +148,7 @@ function graphReplaySteps(
   return steps.flatMap((rawStep, index) => {
     const step = record(rawStep, `runners.${skillName}.graph.steps[${index}]`);
     const run = record(step?.run, `runners.${skillName}.graph.steps[${index}].run`);
-    if (!step || !run || run.type !== "agent-step" || typeof step.id !== "string" || typeof run.task !== "string") {
+    if (!step || !run || run.type !== "agent-task" || typeof step.id !== "string" || typeof run.task !== "string") {
       return [];
     }
     return [{ step_id: step.id, task: run.task }];
@@ -163,7 +163,7 @@ function replayedChildSteps(
   const childSteps = [];
   for (const step of replaySteps) {
     childSteps.push(step);
-    if (!answers[`agent_step.${step.task}.output`]) {
+    if (!answers[`agent_task.${step.task}.output`]) {
       break;
     }
   }
@@ -174,7 +174,7 @@ function withIntakeDecision(entry: Record<string, unknown>): Record<string, unkn
   const clone = JSON.parse(JSON.stringify(entry)) as Record<string, unknown>;
   const caller = record(clone.caller, "caller");
   const answers = record(caller?.answers, "caller.answers");
-  const output = record(answers?.["agent_step.issue-intake.output"], "caller.answers.agent_step.issue-intake.output");
+  const output = record(answers?.["agent_task.issue-intake.output"], "caller.answers.agent_task.issue-intake.output");
   if (!output || output.decision) {
     return clone;
   }

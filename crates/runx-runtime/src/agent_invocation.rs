@@ -22,7 +22,7 @@ impl AgentActInvocationSourceType {
     pub(crate) fn from_contract_value(value: &str) -> Option<Self> {
         match value {
             "agent" => Some(Self::Agent),
-            "agent-step" => Some(Self::AgentStep),
+            "agent-task" => Some(Self::AgentStep),
             _ => None,
         }
     }
@@ -57,7 +57,7 @@ pub(crate) fn agent_act_invocation_id(
         }
         AgentActInvocationSourceType::AgentStep => {
             let name = request.source.task.as_deref().unwrap_or(&skill_name);
-            format!("agent_step.{}.output", normalize_request_id(name))
+            format!("agent_task.{}.output", normalize_request_id(name))
         }
     }
 }
@@ -170,7 +170,7 @@ fn skill_name(request: &SkillInvocation, source_type: AgentActInvocationSourceTy
     if request.skill_name.is_empty() {
         return match source_type {
             AgentActInvocationSourceType::Agent => "skill".to_owned(),
-            AgentActInvocationSourceType::AgentStep => "agent-step".to_owned(),
+            AgentActInvocationSourceType::AgentStep => "agent-task".to_owned(),
         };
     }
     request.skill_name.clone()

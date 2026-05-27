@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use runx_contracts::{ClosureDisposition, JsonValue};
 use runx_receipts::{validate_receipt, validate_receipt_tree};
 use runx_runtime::{
-    HarnessExpectedStatus, HarnessReplayOutput, load_harness_fixture, run_harness_fixture,
+    HarnessExpectedStatus, HarnessReplayOutput, adapters::cli_tool::CliToolAdapter,
+    load_harness_fixture, run_harness_fixture_with_adapter,
 };
 
 #[test]
@@ -60,7 +61,7 @@ fn issue_to_pr_graph_replay_preserves_agent_request_boundaries()
         first.step_receipts[0]
             .seal
             .summary
-            .contains("agent_step.issue-to-pr-author-spec.output")
+            .contains("agent_task.issue-to-pr-author-spec.output")
     );
 
     let fix_boundary = run_case("issue-to-pr-reaches-fix-boundary")?;
@@ -77,7 +78,7 @@ fn issue_to_pr_graph_replay_preserves_agent_request_boundaries()
         fix_boundary.step_receipts[1]
             .seal
             .summary
-            .contains("agent_step.issue-to-pr-apply-fix.output")
+            .contains("agent_task.issue-to-pr-apply-fix.output")
     );
     Ok(())
 }
@@ -119,15 +120,19 @@ fn issue_to_pr_generated_fixtures_preserve_product_graph_metadata()
     Ok(())
 }
 
-fn run_case(case_name: &str) -> Result<HarnessReplayOutput, runx_runtime::HarnessReplayError> {
-    run_harness_fixture(case_path(case_name))
+fn run_case(case_name: &str) -> Result<HarnessReplayOutput, Box<dyn std::error::Error>> {
+    Ok(run_harness_fixture_with_adapter(
+        case_path(case_name),
+        CliToolAdapter,
+        crate::support::local_harness_runtime_options(),
+    )?)
 }
 
 fn skill_payload(output: &HarnessReplayOutput) -> Result<JsonValue, Box<dyn std::error::Error>> {
     let skill_output = output
         .skill_output
         .as_ref()
-        .ok_or("agent-step fixture did not produce skill output")?;
+        .ok_or("agent-task fixture did not produce skill output")?;
     Ok(serde_json::from_str(&skill_output.stdout)?)
 }
 

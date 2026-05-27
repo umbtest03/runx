@@ -25,7 +25,7 @@ harness:
         idempotency_seed: paid-search-001
       caller:
         answers:
-          agent_step.charge-price.output:
+          agent_task.charge-price.output:
             charge_price:
               price_id: charge_price_demo_001
               amount_minor: 125
@@ -86,7 +86,7 @@ harness:
 runners:
   price:
     default: true
-    type: agent-step
+    type: agent-task
     agent: operator
     task: charge-price
     outputs:

@@ -10,7 +10,7 @@ import {
 } from "../internal.js";
 import { agentContextEnvelopeSchema } from "./context.js";
 
-const agentActSourceTypes = ["agent", "agent-step"] as const;
+const agentActSourceTypes = ["agent", "agent-task"] as const;
 
 const agentActInvocationTypeSchema = Type.Object(
   {

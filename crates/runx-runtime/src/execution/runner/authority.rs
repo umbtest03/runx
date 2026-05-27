@@ -30,6 +30,7 @@ use crate::payment::supervisor::{
     RuntimePaymentSupervisor, payment_supervisor_evidence_metadata_value,
     validate_payment_supervisor_proof, verify_payment_rail_supervisor_proof,
 };
+use crate::reference_match::same_reference;
 
 /// Trusted supervisor producer: attach rail settlement evidence from the
 /// runtime-owned supervisor before the receipt-before-success gate verifies it.
@@ -440,10 +441,6 @@ fn payment_context(input: &OwnedStepAuthoritySubmission) -> Option<StepPaymentAu
         amount_minor: binding.amount_minor,
         currency: binding.currency.clone(),
     })
-}
-
-fn same_reference(left: &runx_contracts::Reference, right: &runx_contracts::Reference) -> bool {
-    left.reference_type == right.reference_type && left.uri == right.uri
 }
 
 fn step_authority_submission(

@@ -132,8 +132,8 @@ export const runxSchemaArtifacts = {
     "type": "object",
     "x-runx-schema": "runx.act_assignment.v1"
   } as JsonSchema,
-  "act-receipt.schema.json": {
-    "$id": "https://runx.ai/spec/act-receipt.schema.json",
+  "act-result.schema.json": {
+    "$id": "https://runx.ai/spec/act-result.schema.json",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "anyOf": [
       {
@@ -1058,7 +1058,7 @@ export const runxSchemaArtifacts = {
                             "type": "string"
                           },
                           {
-                            "const": "agent-step",
+                            "const": "agent-task",
                             "type": "string"
                           }
                         ]
@@ -6070,7 +6070,7 @@ export const runxSchemaArtifacts = {
             "type": "string"
           },
           {
-            "const": "agent-step",
+            "const": "agent-task",
             "type": "string"
           }
         ]
@@ -18860,7 +18860,7 @@ export const runxSchemaArtifacts = {
                         "type": "string"
                       },
                       {
-                        "const": "agent-step",
+                        "const": "agent-task",
                         "type": "string"
                       }
                     ]
@@ -40916,7 +40916,7 @@ export const runxSchemaArtifacts = {
                     "type": "string"
                   },
                   {
-                    "const": "agent-step",
+                    "const": "agent-task",
                     "type": "string"
                   }
                 ]

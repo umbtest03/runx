@@ -65,7 +65,7 @@
           "status": "allow"
         },
         "skill_name": "issue-intake",
-        "source_type": "agent-step"
+        "source_type": "agent-task"
       }
     }
   },
@@ -130,7 +130,7 @@
         "runtime": {}
       },
       "skillName": "issue-intake",
-      "sourceType": "agent-step"
+      "sourceType": "agent-task"
     }
   },
   "name": "authority-proof-prunes-empty-sandbox-objects"

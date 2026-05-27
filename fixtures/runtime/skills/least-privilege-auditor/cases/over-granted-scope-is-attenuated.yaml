@@ -1,5 +1,5 @@
 name: "over-granted-scope-is-attenuated"
-kind: "agent_step"
+kind: "agent_task"
 runner: "least-privilege-auditor"
 inputs:
   subject: "growth/lifecycle-campaign-send"
@@ -22,7 +22,7 @@ inputs:
   objective: "Tighten the campaign sender to the narrowest grant before renewal."
 caller:
   answers:
-    agent_step.least-privilege-auditor.output:
+    agent_task.least-privilege-auditor.output:
       audit_report:
         subject: "growth/lifecycle-campaign-send"
         scope_diff:
