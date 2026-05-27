@@ -59,15 +59,9 @@ For any still-dual command, full CLI/runtime cutover still requires the
 `fixtures/cli-parity` feature matrix and one-to-one parity evidence; kernel
 parity alone is not a CLI or runtime cutover gate.
 
-The Rust CLI cutover gate also requires the negative release-artifact verifier:
-
-```bash
-node scripts/check-rust-cli-cutover-negative.mjs --candidate <candidate-package-or-binary>
-```
-
-That verifier is read-only. It rejects candidate package or binary surfaces
-that still expose JavaScript fallback hooks, retired receipt/legacy shapes, v2
-alias modes, or hidden references to TypeScript runtime packages where static
+The Rust CLI cutover gate rejects candidate package or binary surfaces that
+still expose JavaScript fallback hooks, retired receipt shapes, alias modes, or
+hidden references to deleted TypeScript runtime packages where static
 inspection can see them. Passing the guard means the package surface delegates
 to Rust cleanly; it does not authorize new command behavior by itself.
 

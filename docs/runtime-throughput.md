@@ -1,9 +1,9 @@
 # Runtime Throughput
 
-This note defines the OSS runtime performance contract for the
-`oss-runtime-throughput-architecture-v1` scafld task. The target is throughput
-on runx-controlled overhead: graph planning, context and output projection,
-fanout synchronization, receipt sealing, receipt store maintenance, and thin
+This note defines the OSS runtime performance contract for the runtime cutover
+tasks. The target is throughput on runx-controlled overhead: graph planning,
+context and output projection, fanout synchronization, receipt sealing, receipt
+store maintenance, MCP session framing, native CLI launch overhead, and thin
 TypeScript bridge framing. It does not claim speedups for external LLMs,
 network APIs, or user subprocess work.
 
@@ -42,6 +42,21 @@ Receipt canonicalization workloads live in
 The capture script also records `ts_bridge_framing`, a bounded Node framing
 microbenchmark for the TypeScript bridge surface.
 
+S-tier protocol/session workloads are orchestrated by
+`scripts/runtime-throughput.mjs` because they are process/protocol overhead
+rather than Criterion benches:
+
+- `mcp_session_start`
+- `mcp_session_reuse`
+- `native_cli_launch`
+
+The MCP rows are measured through the Rust `runx-mcp-session-probe` binary, which
+invokes `McpAdapter<ProcessMcpTransport>` and reports the transport spawn
+counter. These rows include `spawn_count`. The MCP reuse and native launch gates
+require `spawn_count <= 1` and no p99 regression above the declared budget. MCP
+is the only pooled protocol lane in the S-tier cutover. External adapters remain
+one-shot until a reset-capable wire contract and negative isolation tests exist.
+
 ## Fanout Execution
 
 Fanout remains serial by default. Set `RUNX_MAX_FANOUT_CONCURRENCY` in
@@ -61,10 +76,13 @@ The hot-path runtime changes keep ownership narrow:
   supervision, receipt linking, receipt store indexing, and journal projection.
 - `runx-receipts` owns canonical byte output, body/full digesting, proof
   verification, and receipt tree resolution.
-- TypeScript packages remain compatibility bridges. Parser/kernel bridges now
-  share one bounded native process helper, but Rust remains the behavior owner.
-  MCP keeps its protocol-specific Content-Length session handling rather than
-  being forced through the one-shot parser/kernel helper.
+- TypeScript packages remain generated contracts, host/client wrappers,
+  authoring tools, and cloud/product code. Deleted executor packages do not
+  remain as compatibility bridges.
+- MCP keeps protocol-specific Content-Length session handling with explicit
+  session safety rules. The pool is keyed by server command, args, cwd, and
+  sandboxed environment; plans with cleanup paths remain one-shot. Arbitrary
+  CLI/user subprocesses and external adapters are not pooled.
 
 The shared Rust process supervisor is intentionally private to
 `runx-runtime`. It owns only process lifecycle mechanics: environment/cwd
@@ -75,12 +93,12 @@ adapter modules.
 
 ## Limits
 
-The 2x gate applies to deterministic runx-controlled overhead. It does not
-claim a 2x end-to-end speedup when wall time is dominated by external models,
-remote APIs, user subprocess work, package manager startup, or operating system
-sandbox setup. Subprocess pooling is not enabled for arbitrary user commands;
-pooling is only appropriate for protocol-safe sessions after sandbox,
-credential, and cleanup isolation are proven.
+The 2x gate applies to deterministic runx-controlled graph/projection
+overhead. Receipt canonicalization and store maintenance use a 1.75x
+throughput gate plus allocation and growth-shape budgets. Session gates track
+spawn count and p99 regression. These gates do not claim an end-to-end speedup
+when wall time is dominated by external models, remote APIs, user subprocess
+work, package manager startup, or operating system sandbox setup.
 
 ## Gates
 
@@ -94,3 +112,14 @@ pnpm --dir oss perf:runtime:check -- --baseline ../.scafld/perf/oss-runtime-thro
 
 The check command exits non-zero when any requested workload misses its declared
 throughput ratio.
+
+The S-tier final gate captures all runtime-owned workloads into
+`.scafld/perf/oss-runtime-s-tier-final.json` and compares them against
+`.scafld/perf/oss-runtime-s-tier-baseline.json`:
+
+```bash
+pnpm --dir oss perf:runtime:capture -- --output ../.scafld/perf/oss-runtime-s-tier-final.json --workloads graph_planning,context_projection,output_projection,wide_fanout,receipt_canonicalization,graph_receipt_sealing,receipt_store_append,receipt_store_index,mcp_session_start,mcp_session_reuse,native_cli_launch
+pnpm --dir oss perf:runtime:check -- --baseline ../.scafld/perf/oss-runtime-s-tier-baseline.json --candidate ../.scafld/perf/oss-runtime-s-tier-final.json --workloads graph_planning,context_projection,output_projection,wide_fanout --min-throughput-ratio 2.00 --max-p99-regression 1.10
+pnpm --dir oss perf:runtime:check -- --baseline ../.scafld/perf/oss-runtime-s-tier-baseline.json --candidate ../.scafld/perf/oss-runtime-s-tier-final.json --workloads receipt_canonicalization,graph_receipt_sealing,receipt_store_append,receipt_store_index --min-throughput-ratio 1.75 --max-growth-exponent 1.10 --max-allocation-regression 1.10
+pnpm --dir oss perf:runtime:check -- --baseline ../.scafld/perf/oss-runtime-s-tier-baseline.json --candidate ../.scafld/perf/oss-runtime-s-tier-final.json --workloads mcp_session_reuse,native_cli_launch --max-spawn-count 1 --max-p99-regression 1.10
+```

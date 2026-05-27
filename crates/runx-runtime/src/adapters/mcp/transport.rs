@@ -1,10 +1,14 @@
 // rust-style-allow: large-file because the client-side transport keeps stdio
 // framing, response buffering, and bounded read/write helpers adjacent to the
 // transport implementations they coordinate.
+use std::collections::BTreeMap;
 use std::future::Future;
+use std::path::PathBuf;
 use std::process::Stdio;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use runx_contracts::{JsonObject, JsonValue};
 use serde_json::{self, Value as JsonWireValue};
@@ -21,6 +25,8 @@ use super::types::{
 
 const MAX_CLIENT_RESPONSE_BYTES: usize = 1024 * 1024;
 const FORCE_KILL_GRACE: Duration = Duration::from_millis(100);
+const MAX_POOLED_MCP_SESSIONS: usize = 8;
+const MAX_POOLED_MCP_SESSION_IDLE: Duration = Duration::from_secs(300);
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct FixtureMcpTransport;
@@ -78,67 +84,253 @@ fn text_content(text: String) -> JsonValue {
     )
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct ProcessMcpTransport;
+#[derive(Clone)]
+pub struct ProcessMcpTransport {
+    session_manager: Arc<Mutex<McpSessionManager>>,
+    spawn_count: Arc<AtomicU64>,
+    runtime: Arc<OnceLock<tokio::runtime::Runtime>>,
+}
 
 impl ProcessMcpTransport {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            session_manager: Arc::new(Mutex::new(McpSessionManager::default())),
+            spawn_count: Arc::new(AtomicU64::new(0)),
+            runtime: Arc::new(OnceLock::new()),
+        }
+    }
+
     pub fn list_tools(
         &self,
         request: McpListToolsRequest,
     ) -> Result<Vec<McpToolDescriptor>, McpTransportError> {
-        list_tools_with_rmcp(request)
+        block_on_transport_runtime(
+            Arc::clone(&self.runtime),
+            list_tools_with_rmcp_async(request, Arc::clone(&self.spawn_count)),
+        )
+    }
+
+    pub fn reset_session_pool(&self) -> Result<(), McpTransportError> {
+        block_on_transport_runtime(
+            Arc::clone(&self.runtime),
+            reset_mcp_session_pool_async(Arc::clone(&self.session_manager)),
+        )
+    }
+
+    pub fn reset_spawn_count(&self) {
+        self.spawn_count.store(0, Ordering::SeqCst);
+    }
+
+    #[must_use]
+    pub fn spawned_process_count(&self) -> u64 {
+        self.spawn_count.load(Ordering::SeqCst)
+    }
+}
+
+impl Default for ProcessMcpTransport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl std::fmt::Debug for ProcessMcpTransport {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ProcessMcpTransport")
+            .field("spawn_count", &self.spawned_process_count())
+            .finish_non_exhaustive()
     }
 }
 
 impl McpTransport for ProcessMcpTransport {
     fn call_tool(&self, request: McpToolCallRequest) -> Result<JsonValue, McpTransportError> {
-        call_tool_with_rmcp(request)
+        block_on_transport_runtime(
+            Arc::clone(&self.runtime),
+            call_tool_with_rmcp_async(
+                request,
+                Arc::clone(&self.session_manager),
+                Arc::clone(&self.spawn_count),
+            ),
+        )
     }
 }
 
-fn list_tools_with_rmcp(
-    request: McpListToolsRequest,
-) -> Result<Vec<McpToolDescriptor>, McpTransportError> {
-    block_on_rmcp(list_tools_with_rmcp_async(request))
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+struct McpSessionKey {
+    command: String,
+    args: Vec<String>,
+    cwd: PathBuf,
+    env: BTreeMap<String, String>,
 }
 
-fn call_tool_with_rmcp(request: McpToolCallRequest) -> Result<JsonValue, McpTransportError> {
-    block_on_rmcp(call_tool_with_rmcp_async(request))
+impl McpSessionKey {
+    fn from_plan(plan: &SandboxPlan) -> Self {
+        Self {
+            command: plan.command.clone(),
+            args: plan.args.clone(),
+            cwd: plan.cwd.clone(),
+            env: plan.env.clone(),
+        }
+    }
 }
 
-fn block_on_rmcp<T>(
+type RmcpClientService = rmcp::service::RunningService<rmcp::RoleClient, rmcp::model::ClientInfo>;
+
+struct McpSession {
+    child: tokio::process::Child,
+    service: RmcpClientService,
+}
+
+impl McpSession {
+    async fn start(plan: &SandboxPlan, spawn_count: &AtomicU64) -> Result<Self, McpTransportError> {
+        let mut child = spawn_tokio_mcp_server(plan, spawn_count)?;
+        drain_tokio_stderr(child.stderr.take());
+        let error_state = RmcpTransportErrorState::default();
+        let service = serve_rmcp_client(&mut child, error_state).await?;
+        Ok(Self { child, service })
+    }
+
+    async fn call_tool(
+        &mut self,
+        tool: String,
+        arguments: JsonObject,
+    ) -> Result<JsonValue, McpTransportError> {
+        let arguments = rmcp_json_object(arguments)?;
+        let result = self
+            .service
+            .peer()
+            .call_tool(rmcp::model::CallToolRequestParams::new(tool).with_arguments(arguments))
+            .await
+            .map_err(|error| {
+                let error_state = RmcpTransportErrorState::default();
+                rmcp_service_error(error, &error_state)
+            })?;
+        rmcp_call_tool_result_json(result)
+    }
+
+    async fn close(mut self) {
+        let _closed = self
+            .service
+            .close_with_timeout(Duration::from_millis(100))
+            .await;
+        terminate_tokio_child(&mut self.child).await;
+    }
+}
+
+impl Drop for McpSession {
+    fn drop(&mut self) {
+        let _ = self.child.start_kill();
+    }
+}
+
+struct McpSessionEntry {
+    session: McpSession,
+    last_used: Instant,
+}
+
+#[derive(Default)]
+struct McpSessionManager {
+    sessions: BTreeMap<McpSessionKey, McpSessionEntry>,
+}
+
+impl McpSessionManager {
+    fn take(&mut self, key: &McpSessionKey) -> (Option<McpSession>, Vec<McpSession>) {
+        let stale = self.drain_stale();
+        let session = self.sessions.remove(key).map(|entry| entry.session);
+        (session, stale)
+    }
+
+    fn put(&mut self, key: McpSessionKey, session: McpSession) -> Vec<McpSession> {
+        let mut stale = self.drain_stale();
+        if let Some(replaced) = self.sessions.insert(
+            key,
+            McpSessionEntry {
+                session,
+                last_used: Instant::now(),
+            },
+        ) {
+            stale.push(replaced.session);
+        }
+        while self.sessions.len() > MAX_POOLED_MCP_SESSIONS {
+            let Some(oldest_key) = self
+                .sessions
+                .iter()
+                .min_by_key(|(_key, entry)| entry.last_used)
+                .map(|(key, _entry)| key.clone())
+            else {
+                break;
+            };
+            if let Some(oldest) = self.sessions.remove(&oldest_key) {
+                stale.push(oldest.session);
+            }
+        }
+        stale
+    }
+
+    fn drain_all(&mut self) -> Vec<McpSession> {
+        std::mem::take(&mut self.sessions)
+            .into_values()
+            .map(|entry| entry.session)
+            .collect()
+    }
+
+    fn drain_stale(&mut self) -> Vec<McpSession> {
+        let now = Instant::now();
+        let stale_keys = self
+            .sessions
+            .iter()
+            .filter(|(_key, entry)| {
+                now.duration_since(entry.last_used) > MAX_POOLED_MCP_SESSION_IDLE
+            })
+            .map(|(key, _entry)| key.clone())
+            .collect::<Vec<_>>();
+        stale_keys
+            .into_iter()
+            .filter_map(|key| self.sessions.remove(&key).map(|entry| entry.session))
+            .collect()
+    }
+}
+
+fn block_on_transport_runtime<T>(
+    runtime: Arc<OnceLock<tokio::runtime::Runtime>>,
     future: impl Future<Output = Result<T, McpTransportError>> + Send + 'static,
 ) -> Result<T, McpTransportError>
 where
     T: Send + 'static,
 {
     if tokio::runtime::Handle::try_current().is_ok() {
-        let join = thread::spawn(move || block_on_rmcp_without_context(future));
+        let join = thread::spawn(move || runtime_for(&runtime)?.block_on(future));
         return join
             .join()
             .map_err(|_| McpTransportError::failed("MCP client runtime thread failed."))?;
     }
-    block_on_rmcp_without_context(future)
+    runtime_for(&runtime)?.block_on(future)
 }
 
-fn block_on_rmcp_without_context<T>(
-    future: impl Future<Output = Result<T, McpTransportError>>,
-) -> Result<T, McpTransportError>
-where
-    T: Send + 'static,
-{
-    tokio::runtime::Builder::new_current_thread()
+fn runtime_for(
+    runtime: &OnceLock<tokio::runtime::Runtime>,
+) -> Result<&tokio::runtime::Runtime, McpTransportError> {
+    if let Some(runtime) = runtime.get() {
+        return Ok(runtime);
+    }
+    let built = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
         .enable_io()
         .enable_time()
         .build()
-        .map_err(|_| McpTransportError::failed("MCP client runtime initialization failed."))?
-        .block_on(future)
+        .map_err(|_| McpTransportError::failed("MCP client runtime initialization failed."))?;
+    let _ = runtime.set(built);
+    runtime
+        .get()
+        .ok_or_else(|| McpTransportError::failed("MCP client runtime initialization failed."))
 }
 
 async fn list_tools_with_rmcp_async(
     request: McpListToolsRequest,
+    spawn_count: Arc<AtomicU64>,
 ) -> Result<Vec<McpToolDescriptor>, McpTransportError> {
-    let mut child = spawn_tokio_mcp_server(&request.sandbox)?;
+    let mut child = spawn_tokio_mcp_server(&request.sandbox, &spawn_count)?;
     drain_tokio_stderr(child.stderr.take());
     let result = tokio::time::timeout(request.timeout, async {
         let error_state = RmcpTransportErrorState::default();
@@ -164,35 +356,106 @@ async fn list_tools_with_rmcp_async(
 
 async fn call_tool_with_rmcp_async(
     request: McpToolCallRequest,
+    session_manager: Arc<Mutex<McpSessionManager>>,
+    spawn_count: Arc<AtomicU64>,
 ) -> Result<JsonValue, McpTransportError> {
     if !request.secret_env.is_empty() {
         return Err(McpTransportError::failed(
             "MCP process credential delivery must use structured credential refs, not ambient child environment.",
         ));
     }
-    let mut child = spawn_tokio_mcp_server(&request.sandbox)?;
-    drain_tokio_stderr(child.stderr.take());
     let timeout = request.timeout;
-    let result = tokio::time::timeout(timeout, async {
-        let error_state = RmcpTransportErrorState::default();
-        let mut service = serve_rmcp_client(&mut child, error_state.clone()).await?;
-        let arguments = rmcp_json_object(request.arguments)?;
-        let result = service
-            .peer()
-            .call_tool(
-                rmcp::model::CallToolRequestParams::new(request.tool).with_arguments(arguments),
-            )
-            .await
-            .map_err(|error| rmcp_service_error(error, &error_state))?;
-        let _closed = service.close_with_timeout(Duration::from_millis(100)).await;
-        rmcp_call_tool_result_json(result)
-    })
+    let result = tokio::time::timeout(
+        timeout,
+        call_tool_with_pooled_rmcp_session(request, session_manager, spawn_count),
+    )
     .await;
-    terminate_tokio_child(&mut child).await;
     match result {
         Ok(result) => result,
         Err(_) => Err(McpTransportError::timeout(timeout)),
     }
+}
+
+async fn call_tool_with_pooled_rmcp_session(
+    request: McpToolCallRequest,
+    session_manager: Arc<Mutex<McpSessionManager>>,
+    spawn_count: Arc<AtomicU64>,
+) -> Result<JsonValue, McpTransportError> {
+    if !request.sandbox.cleanup_paths.is_empty() {
+        return call_tool_with_one_shot_rmcp_session(request, spawn_count).await;
+    }
+
+    let key = McpSessionKey::from_plan(&request.sandbox);
+    let (session, stale) = {
+        let mut manager = lock_session_manager(&session_manager)?;
+        manager.take(&key)
+    };
+    close_mcp_sessions(stale).await;
+
+    let mut session = match session {
+        Some(session) => session,
+        None => McpSession::start(&request.sandbox, &spawn_count).await?,
+    };
+    let result = session.call_tool(request.tool, request.arguments).await;
+    match result {
+        Ok(value) => {
+            let stale = {
+                let mut manager = lock_session_manager(&session_manager)?;
+                manager.put(key, session)
+            };
+            close_mcp_sessions(stale).await;
+            Ok(value)
+        }
+        Err(error) => {
+            session.close().await;
+            Err(error)
+        }
+    }
+}
+
+async fn call_tool_with_one_shot_rmcp_session(
+    request: McpToolCallRequest,
+    spawn_count: Arc<AtomicU64>,
+) -> Result<JsonValue, McpTransportError> {
+    let mut child = spawn_tokio_mcp_server(&request.sandbox, &spawn_count)?;
+    drain_tokio_stderr(child.stderr.take());
+    let error_state = RmcpTransportErrorState::default();
+    let mut service = serve_rmcp_client(&mut child, error_state.clone()).await?;
+    let arguments = rmcp_json_object(request.arguments)?;
+    let result = service
+        .peer()
+        .call_tool(rmcp::model::CallToolRequestParams::new(request.tool).with_arguments(arguments))
+        .await
+        .map_err(|error| rmcp_service_error(error, &error_state))
+        .and_then(rmcp_call_tool_result_json);
+    let _closed = service.close_with_timeout(Duration::from_millis(100)).await;
+    terminate_tokio_child(&mut child).await;
+    result
+}
+
+async fn reset_mcp_session_pool_async(
+    session_manager: Arc<Mutex<McpSessionManager>>,
+) -> Result<(), McpTransportError> {
+    let sessions = {
+        let mut manager = lock_session_manager(&session_manager)?;
+        manager.drain_all()
+    };
+    close_mcp_sessions(sessions).await;
+    Ok(())
+}
+
+async fn close_mcp_sessions(sessions: Vec<McpSession>) {
+    for session in sessions {
+        session.close().await;
+    }
+}
+
+fn lock_session_manager(
+    session_manager: &Arc<Mutex<McpSessionManager>>,
+) -> Result<MutexGuard<'_, McpSessionManager>, McpTransportError> {
+    session_manager
+        .lock()
+        .map_err(|_| McpTransportError::failed("MCP session manager lock failed."))
 }
 
 async fn serve_rmcp_client(
@@ -235,7 +498,10 @@ where
         .map_err(|error| rmcp_initialization_error(error, error_state))
 }
 
-fn spawn_tokio_mcp_server(plan: &SandboxPlan) -> Result<tokio::process::Child, McpTransportError> {
+fn spawn_tokio_mcp_server(
+    plan: &SandboxPlan,
+    spawn_count: &AtomicU64,
+) -> Result<tokio::process::Child, McpTransportError> {
     let mut command = tokio::process::Command::new(&plan.command);
     command
         .args(&plan.args)
@@ -246,9 +512,11 @@ fn spawn_tokio_mcp_server(plan: &SandboxPlan) -> Result<tokio::process::Child, M
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     configure_process_group(&mut command);
-    command
+    let child = command
         .spawn()
-        .map_err(|_| McpTransportError::failed("MCP server failed to spawn."))
+        .map_err(|_| McpTransportError::failed("MCP server failed to spawn."))?;
+    spawn_count.fetch_add(1, Ordering::SeqCst);
+    Ok(child)
 }
 
 #[cfg(unix)]

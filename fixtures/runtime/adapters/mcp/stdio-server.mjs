@@ -2,6 +2,10 @@ import { appendFileSync } from "node:fs";
 
 let input = Buffer.alloc(0);
 const MAX_RESPONSE_BYTES = 1024 * 1024;
+const startMarkerPath = process.env.RUNX_MCP_START_MARKER;
+if (typeof startMarkerPath === "string" && startMarkerPath.length > 0) {
+  appendLifecycle(startMarkerPath, "start");
+}
 
 process.stdin.on("data", (chunk) => {
   input = Buffer.concat([input, chunk]);

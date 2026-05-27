@@ -894,12 +894,6 @@ pub(crate) struct RuntimeReceiptProofContextProvider<'a> {
     signature_verifier: Option<RuntimeReceiptSignatureVerifier<'a>>,
 }
 
-impl RuntimeReceiptProofContextProvider<'static> {
-    pub(crate) fn local_development() -> Self {
-        Self::new(RuntimeReceiptSignaturePolicy::local_development())
-    }
-}
-
 impl<'a> RuntimeReceiptProofContextProvider<'a> {
     pub(crate) fn new(signature_policy: RuntimeReceiptSignaturePolicy<'a>) -> Self {
         Self {

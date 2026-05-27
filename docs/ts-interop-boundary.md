@@ -15,13 +15,13 @@ in the Rust runtime; TypeScript is not a fallback confinement layer.
 TypeScript remains for generated contracts, CLI/client wrappers,
 cloud/product integrations, host adapters, authoring tooling, docs,
 and helper SDKs over language-neutral external protocols. TypeScript does not
-own a runtime-local or adapters fallback for trusted local behavior.
+own a local executor-package fallback for trusted local behavior.
 
 MCP follows the same rule. `rmcp` is an adapter-tier Rust dependency for MCP
 protocol behavior, while runx keeps graph state, policy, authority, approvals,
 and receipts in the Rust kernel. TypeScript MCP code may survive only as
 generated contracts, hosted cloud code, helper SDKs over documented protocol
-surfaces, or compatibility fixtures. It must not execute trusted local fallback
+surfaces, or contract fixtures. It must not execute trusted local fallback
 behavior.
 
 The package CLI is a distribution and UX shim, not a second runtime. A usable
@@ -29,8 +29,7 @@ installation must be able to execute the Rust `runx` binary without TypeScript
 source, tsx, or a local workspace. If the wrapper cannot find a supported
 native binary, it should fail closed with installation guidance rather than
 falling back to a TypeScript implementation of local behavior. No wrapper may
-import `@runxhq/runtime-local` or `@runxhq/adapters` as a hidden execution
-fallback.
+import deleted executor packages as a hidden execution fallback.
 
 Four crossing families exist between the surviving TypeScript surface and the
 Rust runtime. Each crossing has a contract surface that owns the wire shape.
@@ -65,15 +64,13 @@ Rust runtime. Each crossing has a contract surface that owns the wire shape.
 No fifth boundary is added without updating this document. No published
 TypeScript package is silently broken: each package disposition is named here.
 Stable-boundary edits to consume new `runx-contracts` versions are normal
-maintenance. Sunset means deletion or rename through
-`oss-runtime-s-tier-engine-cutover-v1`; old package names must not survive as
-aliases.
+maintenance. Sunset means deletion or rename through the S-tier runtime
+cutover; old executor package names must not survive as aliases.
 
 ## OSS package dispositions
 
 | Package | Disposition |
 | --- | --- |
-| `@runxhq/adapters` | Sunset as a trusted runtime-local adapter implementation with `oss-runtime-s-tier-engine-cutover-v1`. It must not survive as a package name, alias, TypeScript path, Vitest alias, or workspace dependency. Surviving protocol/client behavior moves to generated contracts, CLI JSON, or a future language-neutral protocol package with a new explicit name. |
 | `@runxhq/authoring` | Stays as authoring tooling for skills, manifests, protocol fixtures, and generated artifacts until the authoring DX plan decides whether any piece moves to Rust or scafld. It does not own trusted local execution. |
 | `@runxhq/cli` | Stays as a platform-aware npm launcher that resolves and execs the Rust binary. It must remain useful from an installed package without TypeScript sources and must fail closed instead of falling back to TypeScript local execution. |
 | `@runxhq/contracts` | Stays as the published generated TypeScript view of `runx-contracts`, maintained with fixture cross-validation. |
@@ -81,8 +78,12 @@ aliases.
 | `@runxhq/create-skill` | Stays as a thin npm bootstrapper that wraps `runx new` through the CLI. |
 | `@runxhq/host-adapters` | Stays as thin host response adapters over the runx host protocol, retargeted to `@runxhq/contracts` types. It can shape host/client responses, not execute trusted local runtime behavior. |
 | `@runxhq/langchain` | Stays as an optional LangChain bridge that shells the `runx` CLI or uses documented external protocols for governed skill and tool invocation. |
-| `@runxhq/runtime-local` | Sunset with `oss-runtime-s-tier-engine-cutover-v1`; runner, sandbox, harness, MCP, SDK caller, and host-protocol execution move to Rust. The package name must not survive as an alias, TypeScript path, Vitest alias, or workspace dependency. No trusted local orchestration starts here, and it must not be used as a fallback after native Rust cutover. |
 | `runx-py` | Stays as a thin Python client over `runx` CLI JSON output. |
+
+The deleted trusted executor packages and their npm deprecation text are
+tracked in `docs/runtime-cutover-inventory.json`. They are intentionally absent
+from the surviving package table because they no longer have a TypeScript
+runtime surface, alias, path mapping, workspace dependency, or API export.
 
 Cloud packages remain TypeScript. The Rust runtime consumes cloud through the
 cloud HTTP contracts; cloud cutovers are separate future specs. Local registry

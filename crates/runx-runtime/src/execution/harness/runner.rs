@@ -178,6 +178,7 @@ where
     let fixture_path = fixture_path.as_ref();
     let fixture = load_harness_fixture(fixture_path)?;
     let target_path = resolve_target_path(fixture_path, &fixture.target)?;
+    let receipt_signature = options.receipt_signature.clone();
     let output = match fixture.kind {
         HarnessFixtureKind::Skill | HarnessFixtureKind::A2a | HarnessFixtureKind::Agent => {
             run_skill_fixture(&fixture, target_path, adapter, options)?
@@ -197,7 +198,7 @@ where
             });
         }
     };
-    assert_expectations(&output)?;
+    assert_expectations(&output, receipt_signature.signature_policy())?;
     Ok(output)
 }
 

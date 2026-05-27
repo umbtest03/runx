@@ -6,7 +6,7 @@ use runx_receipts::{
 
 use crate::execution::harness::fixtures::{HarnessExpectedStatus, ReceiptExpectation};
 use crate::execution::harness::runner::{HarnessReplayError, HarnessReplayOutput};
-use crate::receipts::RuntimeReceiptProofContextProvider;
+use crate::receipts::{RuntimeReceiptProofContextProvider, RuntimeReceiptSignaturePolicy};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HarnessReplayReceipt {
@@ -21,7 +21,10 @@ pub struct HarnessReplayReceipt {
     pub verification_refs: Vec<String>,
 }
 
-pub(super) fn assert_expectations(output: &HarnessReplayOutput) -> Result<(), HarnessReplayError> {
+pub(super) fn assert_expectations(
+    output: &HarnessReplayOutput,
+    signature_policy: RuntimeReceiptSignaturePolicy<'_>,
+) -> Result<(), HarnessReplayError> {
     if let Some(expected_status) = &output.fixture.expect.status {
         assert_equal(
             "expect.status",
@@ -30,7 +33,7 @@ pub(super) fn assert_expectations(output: &HarnessReplayOutput) -> Result<(), Ha
         )?;
     }
     if let Some(expected_receipt) = &output.fixture.expect.receipt {
-        assert_receipt(expected_receipt, &output.receipt)?;
+        assert_receipt(expected_receipt, &output.receipt, signature_policy)?;
     }
     if !output.fixture.expect.steps.is_empty() {
         let actual = output
@@ -67,8 +70,9 @@ pub(super) fn status_from_disposition(disposition: &ClosureDisposition) -> Harne
 fn assert_receipt(
     expected: &ReceiptExpectation,
     actual: &Receipt,
+    signature_policy: RuntimeReceiptSignaturePolicy<'_>,
 ) -> Result<(), HarnessReplayError> {
-    assert_receipt_proof(actual)?;
+    assert_receipt_proof(actual, signature_policy)?;
     if crate::services::process_env_value("RUNX_REGEN_FIXTURES").is_some() {
         let summary = summarize_receipt(actual);
         let body_digest = canonical_receipt_body_digest(actual).map_err(receipt_digest_error)?;
@@ -181,8 +185,11 @@ fn assert_receipt_digests(
     Ok(())
 }
 
-fn assert_receipt_proof(receipt: &Receipt) -> Result<(), HarnessReplayError> {
-    let proof_contexts = RuntimeReceiptProofContextProvider::local_development();
+fn assert_receipt_proof(
+    receipt: &Receipt,
+    signature_policy: RuntimeReceiptSignaturePolicy<'_>,
+) -> Result<(), HarnessReplayError> {
+    let proof_contexts = RuntimeReceiptProofContextProvider::new(signature_policy);
     let context = proof_contexts.proof_context(receipt);
     let verification = verify_receipt_proof(receipt, &context);
     if verification.valid {

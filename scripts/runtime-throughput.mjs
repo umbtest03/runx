@@ -36,6 +36,9 @@ const defaultWorkloads = [
   "context_projection",
   "output_projection",
   "wide_fanout",
+  "mcp_session_start",
+  "mcp_session_reuse",
+  "native_cli_launch",
   "receipt_canonicalization",
   "graph_receipt_sealing",
   "receipt_store_append",
@@ -93,11 +96,23 @@ function capture(workloads, options) {
   const requested = [...new Set(workloads)];
   clearCriterionMetrics(requested);
   runRequiredBenches(requested, options);
-  const criterionMetrics = readCriterionMetrics(requested);
+  const criterionMetrics = readCriterionMetricsWithRetry(requested);
   const metrics = {};
   for (const workload of requested) {
     if (workload === "ts_bridge_framing") {
       metrics[workload] = measureTsBridgeFraming();
+      continue;
+    }
+    if (workload === "mcp_session_start") {
+      metrics[workload] = measureMcpSessionStart();
+      continue;
+    }
+    if (workload === "mcp_session_reuse") {
+      metrics[workload] = measureMcpSessionReuse();
+      continue;
+    }
+    if (workload === "native_cli_launch") {
+      metrics[workload] = measureNativeCliLaunch();
       continue;
     }
     const metric = criterionMetrics[workload];
@@ -128,8 +143,9 @@ function runRequiredBenches(workloads, options) {
 
 function runCargoBench(bench, sampleSize, workloads, options) {
   const executable = buildCargoBench(bench);
-  for (const filter of criterionFilters(bench, workloads)) {
-    runCriterionBench(executable, sampleSize, filter, options);
+  for (const run of criterionRuns(bench, workloads)) {
+    runCriterionBench(executable, sampleSize, run.filter, options);
+    waitForCriterionEstimates(run.workloads);
   }
 }
 
@@ -219,34 +235,10 @@ function cargoBenchEnv() {
   };
 }
 
-function criterionFilters(bench, workloads) {
-  const unique = [...new Set(workloads)].filter((workload) => bench.workloads.has(workload));
-  if (unique.length === bench.workloads.size) {
-    return [null];
-  }
-  const prefix = commonPrefix(unique);
-  const prefixMatches = [...bench.workloads].filter((workload) => workload.startsWith(prefix));
-  if (
-    prefix.length >= 4
-    && prefixMatches.length === unique.length
-    && prefixMatches.every((workload) => unique.includes(workload))
-  ) {
-    return [prefix];
-  }
-  return unique;
-}
-
-function commonPrefix(values) {
-  if (values.length === 0) {
-    return "";
-  }
-  let prefix = values[0];
-  for (const value of values.slice(1)) {
-    while (!value.startsWith(prefix) && prefix.length > 0) {
-      prefix = prefix.slice(0, -1);
-    }
-  }
-  return prefix;
+function criterionRuns(bench, workloads) {
+  return [...new Set(workloads)]
+    .filter((workload) => bench.workloads.has(workload))
+    .map((workload) => ({ filter: workload, workloads: [workload] }));
 }
 
 function clearCriterionMetrics(workloads) {
@@ -256,6 +248,33 @@ function clearCriterionMetrics(workloads) {
       rmSync(workloadPath, { recursive: true, force: true });
     }
   }
+}
+
+function readCriterionMetricsWithRetry(requested) {
+  const expectedCriterionWorkloads = requested.filter((workload) =>
+    runtimeBench.workloads.has(workload) || receiptBench.workloads.has(workload)
+  );
+  const deadline = performance.now() + 2_000;
+  let metrics = {};
+  do {
+    metrics = readCriterionMetrics(requested);
+    if (expectedCriterionWorkloads.every((workload) => metrics[workload])) {
+      return metrics;
+    }
+    sleepSync(50);
+  } while (performance.now() < deadline);
+  return metrics;
+}
+
+function waitForCriterionEstimates(workloads) {
+  const deadline = performance.now() + 120_000;
+  do {
+    const metrics = readCriterionMetrics(workloads);
+    if (workloads.every((workload) => metrics[workload])) {
+      return;
+    }
+    sleepSync(100);
+  } while (performance.now() < deadline);
 }
 
 function readCriterionMetrics(requested) {
@@ -287,6 +306,10 @@ function readCriterionMetrics(requested) {
     };
   }
   return metrics;
+}
+
+function sleepSync(milliseconds) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 }
 
 function findEstimateFiles(directory) {
@@ -341,6 +364,166 @@ function measureTsBridgeFraming() {
   };
 }
 
+function measureMcpSessionStart() {
+  return measureMcpSessionProbe("start");
+}
+
+function measureMcpSessionReuse() {
+  return measureMcpSessionProbe("reuse");
+}
+
+function measureMcpSessionProbe(mode) {
+  const probe = mcpSessionProbe();
+  const result = spawnSync(probe.command, [mode], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.status !== 0) {
+    throw new Error(`MCP session probe ${mode} failed with exit ${result.status ?? "signal"}: ${result.stderr.trim()}`);
+  }
+  const metric = JSON.parse(result.stdout);
+  for (const field of ["mean_ns", "p95_ns", "p99_ns", "throughput", "spawn_count"]) {
+    if (typeof metric[field] !== "number" || !Number.isFinite(metric[field])) {
+      throw new Error(`MCP session probe ${mode} returned invalid ${field}`);
+    }
+  }
+  return metric;
+}
+
+function mcpSessionProbe() {
+  const binaryName = process.platform === "win32"
+    ? "runx-mcp-session-probe.exe"
+    : "runx-mcp-session-probe";
+  const probeBinary = path.join(cargoTargetDir, "debug", binaryName);
+  if (!existsSync(probeBinary)) {
+    const result = spawnSync(
+      "cargo",
+      [
+        "build",
+        "--manifest-path",
+        "crates/Cargo.toml",
+        "-p",
+        "runx-runtime",
+        "--features",
+        "mcp",
+        "--bin",
+        "runx-mcp-session-probe",
+      ],
+      {
+        cwd: repoRoot,
+        stdio: "inherit",
+        env: cargoBenchEnv(),
+      },
+    );
+    if (result.status !== 0) {
+      throw new Error(`cargo build runx-mcp-session-probe failed with exit ${result.status ?? "signal"}`);
+    }
+  }
+  return { command: probeBinary };
+}
+
+function measureNativeCliLaunch() {
+  const probe = nativeCliProbe();
+  const samples = [];
+  for (let index = 0; index < 3; index += 1) {
+    const started = performance.now();
+    const result = spawnSync(probe.command, probe.args, {
+      cwd: repoRoot,
+      stdio: "ignore",
+    });
+    if (result.status !== 0) {
+      throw new Error(`native CLI launch probe failed with exit ${result.status ?? "signal"}`);
+    }
+    samples.push((performance.now() - started) * 1_000_000);
+  }
+  return metricFromSamples("native_cli", samples, {
+    allocation_count: 0,
+    spawn_count: 1,
+  });
+}
+
+function nativeCliProbe() {
+  const binaryName = process.platform === "win32" ? "runx.exe" : "runx";
+  const defaultBinary = path.join(repoRoot, "crates", "target", "debug", binaryName);
+  if (existsSync(defaultBinary)) {
+    return { command: defaultBinary, args: ["--version"] };
+  }
+  const perfBinary = path.join(cargoTargetDir, "debug", binaryName);
+  if (!existsSync(perfBinary)) {
+    const result = spawnSync(
+      "cargo",
+      [
+        "build",
+        "--manifest-path",
+        "crates/Cargo.toml",
+        "-p",
+        "runx-cli",
+        "--bin",
+        "runx",
+      ],
+      {
+        cwd: repoRoot,
+        stdio: "inherit",
+        env: cargoBenchEnv(),
+      },
+    );
+    if (result.status !== 0) {
+      throw new Error(`cargo build runx-cli failed with exit ${result.status ?? "signal"}`);
+    }
+  }
+  return { command: perfBinary, args: ["--version"] };
+}
+
+function measureLoop(source, operation, counters) {
+  const samples = [];
+  for (let sample = 0; sample < 5; sample += 1) {
+    let iterations = 0;
+    const started = performance.now();
+    const deadline = started + 50;
+    do {
+      operation();
+      iterations += 1;
+    } while (performance.now() < deadline);
+    samples.push(((performance.now() - started) * 1_000_000) / iterations);
+  }
+  return metricFromSamples(source, samples, counters);
+}
+
+function metricFromSamples(source, samples, counters) {
+  const sorted = [...samples].sort((left, right) => left - right);
+  const meanNs = samples.reduce((sum, value) => sum + value, 0) / samples.length;
+  const p95Ns = percentile(sorted, 0.95);
+  const p99Ns = percentile(sorted, 0.99);
+  return {
+    source,
+    unit: "iterations_per_second",
+    mean_ns: meanNs,
+    p95_ns: p95Ns,
+    p99_ns: p99Ns,
+    throughput: 1_000_000_000 / meanNs,
+    ...counters,
+  };
+}
+
+function percentile(sorted, percentileValue) {
+  if (sorted.length === 0) {
+    return Number.NaN;
+  }
+  const index = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.ceil(sorted.length * percentileValue) - 1),
+  );
+  return sorted[index];
+}
+
+function encodeContentLengthFrame(body) {
+  return Buffer.concat([
+    Buffer.from(`Content-Length: ${body.length}\r\n\r\n`, "ascii"),
+    body,
+  ]);
+}
+
 function decodeContentLengthFrame(frame) {
   const marker = frame.indexOf("\r\n\r\n");
   if (marker < 0) {
@@ -378,12 +561,14 @@ function compareReports(baseline, current, workloads, options) {
     }
     const ratio = currentMetric.throughput / baseMetric.throughput;
     const exponent = currentMetric.growth_exponent;
+    const hasGrowthMetric = typeof exponent === "number";
     const p99Ratio = metricRatio(currentMetric.p99_ns ?? currentMetric.mean_ns, baseMetric.p99_ns ?? baseMetric.mean_ns);
     const allocationRatio = metricRatio(currentMetric.allocation_count, baseMetric.allocation_count);
     const ratioPassed = Number.isFinite(ratio) && ratio >= minRatio;
     const exponentPassed =
       maxGrowthExponent === undefined
-      || (typeof exponent === "number" && exponent <= maxGrowthExponent);
+      || !hasGrowthMetric
+      || exponent <= maxGrowthExponent;
     const spawnPassed =
       maxSpawnCount === undefined
       || (typeof currentMetric.spawn_count === "number" && currentMetric.spawn_count <= maxSpawnCount);
@@ -398,7 +583,7 @@ function compareReports(baseline, current, workloads, options) {
       status: ratioPassed && exponentPassed && spawnPassed && p99Passed && allocationPassed ? "passed" : "failed",
       throughput_ratio: ratio,
       min_throughput_ratio: minRatio,
-      ...(maxGrowthExponent === undefined ? {} : {
+      ...(maxGrowthExponent === undefined || !hasGrowthMetric ? {} : {
         growth_exponent: exponent,
         max_growth_exponent: maxGrowthExponent,
       }),

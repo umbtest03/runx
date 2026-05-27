@@ -6,6 +6,12 @@ import { describe, expect, it } from "vitest";
 
 const execFileAsync = promisify(execFile);
 const nativeRunx = `crates/target/debug/${process.platform === "win32" ? "runx.exe" : "runx"}`;
+const fixtureSigningEnv = {
+  RUNX_RECEIPT_SIGN_KID: process.env.RUNX_RECEIPT_SIGN_KID ?? "hello-graph-test-key",
+  RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64:
+    process.env.RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64 ?? "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=",
+  RUNX_RECEIPT_SIGN_ISSUER_TYPE: process.env.RUNX_RECEIPT_SIGN_ISSUER_TYPE ?? "hosted",
+};
 
 describe("hello-graph example", () => {
   it("runs through the native graph harness", async () => {
@@ -13,7 +19,7 @@ describe("hello-graph example", () => {
       requireNativeRunx(),
       ["harness", "examples/hello-graph/harness.yaml", "--json"],
       {
-        env: { ...process.env, NO_COLOR: "1" },
+        env: { ...process.env, ...fixtureSigningEnv, NO_COLOR: "1" },
       },
     );
 
