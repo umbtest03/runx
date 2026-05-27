@@ -1,0 +1,24 @@
+{
+  "name": "fixture.multi_command",
+  "version": "0.0.1",
+  "description": "Fixture tool with multiple command arguments.",
+  "source": {
+    "type": "cli-tool",
+    "command": "node",
+    "args": [
+      "./run.mjs",
+      "--mode",
+      "summary"
+    ]
+  },
+  "inputs": {
+    "limit": {
+      "type": "number",
+      "required": false,
+      "default": 3
+    }
+  },
+  "scopes": [
+    "fixture.multi_command"
+  ]
+}

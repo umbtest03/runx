@@ -1,0 +1,15 @@
+{
+  "name": "fixture.invalid",
+  "version": "0.0.1",
+  "description": "Invalid fixture tool.",
+  "source": {
+    "type": "cli-tool",
+    "args": [
+      "./run.mjs"
+    ]
+  },
+  "inputs": {},
+  "scopes": [
+    "fixture.invalid"
+  ]
+}

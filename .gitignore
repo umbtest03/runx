@@ -29,6 +29,8 @@ target-*/
 __pycache__/
 *.py[cod]
 build/
+!fixtures/tool-catalogs/build/
+!fixtures/tool-catalogs/build/**
 *.egg-info/
 *.egg
 .eggs/
