@@ -8,6 +8,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde_json::{Value, json};
 
+const FIXTURE_SIGNING_SEED: &str = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=";
+
 #[test]
 fn mcp_native_binary_dogfoods_streaming_skill_calls_and_receipts()
 -> Result<(), Box<dyn std::error::Error>> {
@@ -138,6 +140,12 @@ fn spawn_mcp_server(args: &[String]) -> Result<McpProcess, Box<dyn std::error::E
     let mut child = Command::new(env!("CARGO_BIN_EXE_runx"))
         .current_dir(&repo_root)
         .env("RUNX_CWD", &repo_root)
+        .env("RUNX_RECEIPT_SIGN_KID", "mcp-dogfood-test-key")
+        .env(
+            "RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64",
+            FIXTURE_SIGNING_SEED,
+        )
+        .env("RUNX_RECEIPT_SIGN_ISSUER_TYPE", "hosted")
         .arg("mcp")
         .arg("serve")
         .args(args)

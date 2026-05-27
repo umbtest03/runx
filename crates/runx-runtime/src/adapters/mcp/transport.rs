@@ -27,6 +27,7 @@ const MAX_CLIENT_RESPONSE_BYTES: usize = 1024 * 1024;
 const FORCE_KILL_GRACE: Duration = Duration::from_millis(100);
 const MAX_POOLED_MCP_SESSIONS: usize = 8;
 const MAX_POOLED_MCP_SESSION_IDLE: Duration = Duration::from_secs(300);
+static MCP_CLIENT_RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct FixtureMcpTransport;
@@ -88,7 +89,6 @@ fn text_content(text: String) -> JsonValue {
 pub struct ProcessMcpTransport {
     session_manager: Arc<Mutex<McpSessionManager>>,
     spawn_count: Arc<AtomicU64>,
-    runtime: Arc<OnceLock<tokio::runtime::Runtime>>,
 }
 
 impl ProcessMcpTransport {
@@ -97,7 +97,6 @@ impl ProcessMcpTransport {
         Self {
             session_manager: Arc::new(Mutex::new(McpSessionManager::default())),
             spawn_count: Arc::new(AtomicU64::new(0)),
-            runtime: Arc::new(OnceLock::new()),
         }
     }
 
@@ -105,17 +104,16 @@ impl ProcessMcpTransport {
         &self,
         request: McpListToolsRequest,
     ) -> Result<Vec<McpToolDescriptor>, McpTransportError> {
-        block_on_transport_runtime(
-            Arc::clone(&self.runtime),
-            list_tools_with_rmcp_async(request, Arc::clone(&self.spawn_count)),
-        )
+        block_on_transport_runtime(list_tools_with_rmcp_async(
+            request,
+            Arc::clone(&self.spawn_count),
+        ))
     }
 
     pub fn reset_session_pool(&self) -> Result<(), McpTransportError> {
-        block_on_transport_runtime(
-            Arc::clone(&self.runtime),
-            reset_mcp_session_pool_async(Arc::clone(&self.session_manager)),
-        )
+        block_on_transport_runtime(reset_mcp_session_pool_async(Arc::clone(
+            &self.session_manager,
+        )))
     }
 
     pub fn reset_spawn_count(&self) {
@@ -145,14 +143,11 @@ impl std::fmt::Debug for ProcessMcpTransport {
 
 impl McpTransport for ProcessMcpTransport {
     fn call_tool(&self, request: McpToolCallRequest) -> Result<JsonValue, McpTransportError> {
-        block_on_transport_runtime(
-            Arc::clone(&self.runtime),
-            call_tool_with_rmcp_async(
-                request,
-                Arc::clone(&self.session_manager),
-                Arc::clone(&self.spawn_count),
-            ),
-        )
+        block_on_transport_runtime(call_tool_with_rmcp_async(
+            request,
+            Arc::clone(&self.session_manager),
+            Arc::clone(&self.spawn_count),
+        ))
     }
 }
 
@@ -293,25 +288,22 @@ impl McpSessionManager {
 }
 
 fn block_on_transport_runtime<T>(
-    runtime: Arc<OnceLock<tokio::runtime::Runtime>>,
     future: impl Future<Output = Result<T, McpTransportError>> + Send + 'static,
 ) -> Result<T, McpTransportError>
 where
     T: Send + 'static,
 {
     if tokio::runtime::Handle::try_current().is_ok() {
-        let join = thread::spawn(move || runtime_for(&runtime)?.block_on(future));
+        let join = thread::spawn(move || runtime_for()?.block_on(future));
         return join
             .join()
             .map_err(|_| McpTransportError::failed("MCP client runtime thread failed."))?;
     }
-    runtime_for(&runtime)?.block_on(future)
+    runtime_for()?.block_on(future)
 }
 
-fn runtime_for(
-    runtime: &OnceLock<tokio::runtime::Runtime>,
-) -> Result<&tokio::runtime::Runtime, McpTransportError> {
-    if let Some(runtime) = runtime.get() {
+fn runtime_for() -> Result<&'static tokio::runtime::Runtime, McpTransportError> {
+    if let Some(runtime) = MCP_CLIENT_RUNTIME.get() {
         return Ok(runtime);
     }
     let built = tokio::runtime::Builder::new_multi_thread()
@@ -320,8 +312,8 @@ fn runtime_for(
         .enable_time()
         .build()
         .map_err(|_| McpTransportError::failed("MCP client runtime initialization failed."))?;
-    let _ = runtime.set(built);
-    runtime
+    let _ = MCP_CLIENT_RUNTIME.set(built);
+    MCP_CLIENT_RUNTIME
         .get()
         .ok_or_else(|| McpTransportError::failed("MCP client runtime initialization failed."))
 }
