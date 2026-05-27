@@ -41,6 +41,10 @@ parser API or any serde wire shapes.
 - Move runner-definition parsing support to `skill/runner_definition.rs`.
 - Move catalog metadata parsing to `skill/catalog.rs`.
 - Move harness fixture parsing to `skill/fixtures.rs`.
+- Move skill governance validation to `skill/governance.rs`.
+- Move source-kind validation to `skill/source.rs`.
+- Move sandbox declaration normalization to `skill/sandbox.rs`.
+- Move execution-semantics validation to `skill/execution_semantics.rs`.
 - Do not change parser rejection messages, fixture semantics, serde names,
   or source-kind behavior.
 
@@ -64,5 +68,8 @@ All commands passed.
 - The split is intentionally internal. External callers still import
   `parse_skill_markdown`, `validate_skill`, `validate_skill_source`,
   `SkillSource`, `SourceKind`, and related types from the same paths.
-- `skill.rs` now owns orchestration and source/execution validation while
-  type definitions and parser support surfaces live in named modules.
+- `skill.rs` now owns orchestration and shared field helpers. Source,
+  sandbox, governance, execution-semantics, catalog, fixture, markdown, and
+  runner-definition details live in named modules.
+- No `runx-parser/src/skill*.rs` file carries a large-file waiver after the
+  split.

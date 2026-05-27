@@ -1,15 +1,64 @@
 use std::collections::BTreeMap;
 
 use runx_contracts::{JsonObject, JsonValue};
+use serde::{Deserialize, Serialize};
 
 use crate::ValidationError;
 
 use super::{
-    HarnessCallerFixture, HarnessExpectation, ReceiptExpectation, RunnerHarnessCase,
-    RunnerHarnessManifest, optional_non_empty_string, optional_object, optional_string,
-    optional_string_array, required_object, required_plain_array, required_string,
-    validation_error,
+    optional_non_empty_string, optional_object, optional_string, optional_string_array,
+    required_object, required_plain_array, required_string, validation_error,
 };
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct HarnessCallerFixture {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub answers: Option<JsonObject>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approvals: Option<BTreeMap<String, bool>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReceiptExpectation {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub graph_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HarnessExpectation {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub receipt: Option<ReceiptExpectation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub steps: Option<Vec<String>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RunnerHarnessCase {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runner: Option<String>,
+    pub inputs: JsonObject,
+    pub env: BTreeMap<String, String>,
+    pub caller: HarnessCallerFixture,
+    pub expect: HarnessExpectation,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RunnerHarnessManifest {
+    pub cases: Vec<RunnerHarnessCase>,
+}
 
 pub(crate) fn validate_harness_manifest(
     value: Option<JsonObject>,

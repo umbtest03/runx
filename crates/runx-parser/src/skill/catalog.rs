@@ -1,11 +1,66 @@
 use runx_contracts::JsonObject;
+use serde::{Deserialize, Serialize};
 
 use crate::ValidationError;
 
-use super::{
-    CatalogAudience, CatalogKind, CatalogMetadata, CatalogVisibility, optional_string,
-    required_string, validation_error,
-};
+use super::{optional_string, required_string, validation_error};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CatalogKind {
+    Skill,
+    Graph,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CatalogAudience {
+    Public,
+    Builder,
+    Operator,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CatalogVisibility {
+    Public,
+    Private,
+}
+
+impl CatalogKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            CatalogKind::Skill => "skill",
+            CatalogKind::Graph => "graph",
+        }
+    }
+}
+
+impl CatalogAudience {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            CatalogAudience::Public => "public",
+            CatalogAudience::Builder => "builder",
+            CatalogAudience::Operator => "operator",
+        }
+    }
+}
+
+impl CatalogVisibility {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            CatalogVisibility::Public => "public",
+            CatalogVisibility::Private => "private",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CatalogMetadata {
+    pub kind: CatalogKind,
+    pub audience: CatalogAudience,
+    pub visibility: CatalogVisibility,
+}
 
 pub(crate) fn validate_catalog_metadata(
     value: Option<JsonObject>,
