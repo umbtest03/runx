@@ -47,7 +47,9 @@ pub(crate) fn test_signature_config()
 
 #[cfg(feature = "cli-tool")]
 pub(crate) fn signed_runtime_options() -> Result<RuntimeOptions, runx_runtime::RuntimeError> {
-    RuntimeOptions::from_env(test_signing_env())
+    let mut env = RuntimeOptions::local_development().env;
+    insert_test_signing_env(&mut env);
+    RuntimeOptions::from_env(env)
 }
 
 #[cfg(feature = "cli-tool")]
