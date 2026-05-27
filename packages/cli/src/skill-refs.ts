@@ -10,15 +10,12 @@ import {
   resolveRunxProjectDir,
   resolveSkillInstallRoot,
 } from "@runxhq/core/config";
-import {
-  createFixtureMarketplaceAdapter,
-  searchMarketplaceAdapters,
-} from "@runxhq/core/marketplaces";
-import { acquireRegistrySkill, type AcquiredRegistrySkill, type SkillSearchResult } from "@runxhq/core/registry";
+import { type SkillSearchResult } from "@runxhq/core/registry";
 
-import { asRecord, errorMessage, hashString, readOptionalFile } from "@runxhq/core/util";
+import { asRecord, errorMessage, firstNonEmpty, hashString, parsePositiveInt, readOptionalFile } from "@runxhq/core/util";
 
 import { searchRegistryViaRustCli } from "./native-registry.js";
+import { runNativeRunx } from "./native-runx.js";
 import { ensureRunxInstallState } from "./runx-state.js";
 
 let cachedBundledSkillsDir: string | undefined | null = null;
@@ -60,13 +57,6 @@ export async function runSkillSearch(
     results.push(...(await searchRegistryViaRustCli(query, { env, registryOverride })));
   }
 
-  const marketplaceAdapters =
-    env.RUNX_ENABLE_FIXTURE_MARKETPLACE === "1" &&
-    (!normalizedSource || normalizedSource === "marketplace" || normalizedSource === "fixture-marketplace")
-      ? [createFixtureMarketplaceAdapter()]
-      : [];
-  results.push(...(await searchMarketplaceAdapters(marketplaceAdapters, query)));
-
   if (!normalizedSource || normalizedSource === "bundled" || normalizedSource === "builtin") {
     results.push(...(await searchBundledSkills(query)));
   }
@@ -99,6 +89,7 @@ export async function resolveRunnableSkillReference(ref: string, env: NodeJS.Pro
     registryBaseUrl,
     installationId: install.state.installation_id,
     entry: official,
+    env,
   });
   await rewriteOfficialSkillSiblingRefs(cache.skillPath, official.skill_id);
   return cache.skillPath;
@@ -123,6 +114,7 @@ export function createOfficialSkillResolver(env: NodeJS.ProcessEnv): OfficialSki
         registryBaseUrl,
         installationId: install.state.installation_id,
         entry,
+        env,
       });
       await rewriteOfficialSkillSiblingRefs(cache.skillPath, entry.skill_id);
       return cache.skillPath;
@@ -135,6 +127,7 @@ async function ensureOfficialSkillCached(options: {
   readonly registryBaseUrl: string;
   readonly installationId: string;
   readonly entry: OfficialSkillLockEntry;
+  readonly env: NodeJS.ProcessEnv;
 }): Promise<{ readonly skillPath: string; readonly fromCache: boolean }> {
   const skillPath = officialSkillCachePath(options.cacheRoot, options.entry);
   const cachedMarkdown = await readOptionalFile(path.join(skillPath, "SKILL.md"));
@@ -144,34 +137,56 @@ async function ensureOfficialSkillCached(options: {
     return { skillPath, fromCache: true };
   }
 
-  const acquisition = await acquireRegistrySkill(options.entry.skill_id, {
-    baseUrl: options.registryBaseUrl,
-    installationId: options.installationId,
-    version: options.entry.version,
-    channel: "cli",
+  // Delegate acquire + digest/signed-manifest verification + on-disk write to the
+  // native runx binary. The Rust install verifies the acquired markdown against
+  // --digest (the locked digest) before writing, and emits the same
+  // runx.skill-profile.v1 `.runx/profile.json` the official cache expects, so the
+  // X.yaml runner manifest is restored below from that state.
+  const installArgs = [
+    "registry",
+    "install",
+    options.entry.skill_id,
+    "--registry",
+    options.registryBaseUrl,
+    "--version",
+    options.entry.version,
+    "--digest",
+    options.entry.digest,
+    "--installation-id",
+    options.installationId,
+    "--to",
+    options.cacheRoot,
+    "--json",
+  ];
+  const result = await runNativeRunx(installArgs, {
+    env: options.env,
+    timeoutMs: parsePositiveInt(options.env.RUNX_RUST_REGISTRY_TIMEOUT_MS) ?? 30_000,
   });
-  const computedDigest = hashString(acquisition.markdown);
-  if (
-    acquisition.version !== options.entry.version ||
-    acquisition.digest !== options.entry.digest ||
-    computedDigest !== options.entry.digest
-  ) {
+  if (result.status !== 0) {
     throw new Error(
-      `Official skill verification failed for ${options.entry.skill_id}: expected ${options.entry.version} sha256:${options.entry.digest}, received ${acquisition.version} sha256:${acquisition.digest} (computed sha256:${computedDigest}).`,
+      `Official skill install failed for ${options.entry.skill_id} (exit ${result.status}): ${firstNonEmpty(result.stderr, result.stdout, "no output")}`,
     );
   }
 
-  await mkdir(skillPath, { recursive: true });
-  await writeFile(path.join(skillPath, "SKILL.md"), acquisition.markdown, "utf8");
-  await writeOfficialRunnerManifest(skillPath, acquisition);
-  await writeOfficialProfileState(skillPath, acquisition);
-  await syncPackagedOfficialSkillAssets(skillPath, acquisition.skill_id);
+  const installedMarkdown = await readOptionalFile(path.join(skillPath, "SKILL.md"));
+  const computedDigest = installedMarkdown ? hashString(installedMarkdown) : undefined;
+  if (!installedMarkdown || computedDigest !== options.entry.digest) {
+    throw new Error(
+      `Official skill verification failed for ${options.entry.skill_id}: expected sha256:${options.entry.digest}, installed sha256:${computedDigest ?? "missing"}.`,
+    );
+  }
+
+  await syncPackagedOfficialSkillAssets(skillPath, options.entry.skill_id);
+  await restoreOfficialRunnerManifestFromProfileState(skillPath);
   return { skillPath, fromCache: false };
 }
 
 function officialSkillCachePath(cacheRoot: string, entry: OfficialSkillLockEntry): string {
+  // The native `registry install --to <cacheRoot>` writes the package under
+  // <cacheRoot>/<owner>/<name>; the locked digest (verified on install and on
+  // cache hit) distinguishes versions, so no version path segment is needed.
   const [owner, name] = splitSkillId(entry.skill_id);
-  return path.join(cacheRoot, owner, name, entry.version);
+  return path.join(cacheRoot, owner, name);
 }
 
 async function syncPackagedOfficialSkillAssets(targetSkillPath: string, skillId: string): Promise<void> {
@@ -199,49 +214,6 @@ function resolvePackagedOfficialSkillDir(skillId: string): string | undefined {
   const [, name] = splitSkillId(skillId);
   const candidate = path.join(bundledSkillsDir, name);
   return existsSync(candidate) ? candidate : undefined;
-}
-
-async function writeOfficialProfileState(skillPath: string, acquisition: AcquiredRegistrySkill): Promise<void> {
-  if (!acquisition.profile_document) {
-    return;
-  }
-  const profileStatePath = path.join(skillPath, ".runx", "profile.json");
-  await mkdir(path.dirname(profileStatePath), { recursive: true });
-  await writeFile(
-    profileStatePath,
-    `${JSON.stringify(
-      {
-        schema_version: "runx.skill-profile.v1",
-        skill: {
-          name: acquisition.name,
-          path: "SKILL.md",
-          digest: acquisition.digest,
-        },
-        profile: {
-          document: acquisition.profile_document,
-          digest: acquisition.profile_digest,
-          runner_names: acquisition.runner_names,
-        },
-        origin: {
-          source: "runx-registry",
-          skill_id: acquisition.skill_id,
-          version: acquisition.version,
-        },
-      },
-      null,
-      2,
-    )}\n`,
-    "utf8",
-  );
-}
-
-async function writeOfficialRunnerManifest(skillPath: string, acquisition: AcquiredRegistrySkill): Promise<void> {
-  const document = acquisition.profile_document;
-  if (!document) {
-    return;
-  }
-  verifyProfileDigest(acquisition.skill_id, document, acquisition.profile_digest);
-  await writeFile(path.join(skillPath, "X.yaml"), document, "utf8");
 }
 
 async function restoreOfficialRunnerManifestFromProfileState(skillPath: string): Promise<void> {
