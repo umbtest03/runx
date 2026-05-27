@@ -21,7 +21,13 @@ use super::types::{
     DevError, DevFixtureAssertion, DevFixtureAssertionKind, DevFixtureResult, DevFixtureStatus,
     ParsedDevFixture, PreparedDevFixtureWorkspace,
 };
-use crate::harness::{HarnessExpectedStatus, HarnessReplayOutput, run_harness_fixture};
+#[cfg(feature = "cli-tool")]
+use crate::adapters::cli_tool::CliToolAdapter;
+#[cfg(not(feature = "cli-tool"))]
+use crate::harness::run_harness_fixture;
+use crate::harness::{HarnessExpectedStatus, HarnessReplayError, HarnessReplayOutput};
+#[cfg(feature = "cli-tool")]
+use crate::{RuntimeOptions, run_harness_fixture_with_adapter};
 
 pub(super) fn run_skill_or_graph_fixture(
     root: &Path,
@@ -61,7 +67,7 @@ fn run_skill_or_graph_fixture_inner(
     };
     let harness_fixture_path =
         write_harness_replay_fixture(fixture, kind, target_path, workspace, &execution_roots)?;
-    let output = run_harness_fixture(&harness_fixture_path);
+    let output = run_dev_harness_fixture(&harness_fixture_path);
     let _ = fs::remove_file(&harness_fixture_path);
     if let Some(parent) = harness_fixture_path.parent() {
         let _ = fs::remove_dir(parent);
@@ -79,6 +85,21 @@ fn run_skill_or_graph_fixture_inner(
                 message: "Native skill or graph dev fixture execution failed.".to_owned(),
             }],
         )),
+    }
+}
+
+fn run_dev_harness_fixture(path: &Path) -> Result<HarnessReplayOutput, HarnessReplayError> {
+    #[cfg(feature = "cli-tool")]
+    {
+        return run_harness_fixture_with_adapter(
+            path,
+            CliToolAdapter,
+            RuntimeOptions::local_development(),
+        );
+    }
+    #[cfg(not(feature = "cli-tool"))]
+    {
+        run_harness_fixture(path)
     }
 }
 
