@@ -62,9 +62,10 @@ pub fn prepare_process_sandbox(
     let writable_paths = resolved_writable_paths(sandbox, inputs, base_env);
     validate_writable_paths(sandbox, &writable_paths, &cwd, workspace_cwd.as_deref())?;
     let runtime = resolve_sandbox_runtime(sandbox, base_env)?;
+    let private_tmp_enabled = sandbox_private_tmp_enabled(sandbox, runtime.as_ref());
     let mut cleanup_paths = Vec::new();
     let mut sandbox_base_env = base_env.clone();
-    prepare_enforced_env(&runtime, &mut sandbox_base_env, &mut cleanup_paths)?;
+    prepare_sandbox_tmp_env(sandbox, &runtime, &mut sandbox_base_env, &mut cleanup_paths)?;
     let env = match child_env(sandbox, &sandbox_base_env, inputs, &mut cleanup_paths) {
         Ok(env) => env,
         Err(error) => {
@@ -88,7 +89,12 @@ pub fn prepare_process_sandbox(
         args,
         cwd,
         env,
-        metadata: sandbox_metadata_with_runtime(sandbox, &writable_paths, runtime.as_ref()),
+        metadata: sandbox_metadata_with_runtime(
+            sandbox,
+            &writable_paths,
+            runtime.as_ref(),
+            private_tmp_enabled,
+        ),
         cleanup_paths,
     })
 }
@@ -111,9 +117,10 @@ pub fn prepare_mcp_process_sandbox(
     let writable_paths = resolved_writable_paths(sandbox, &JsonObject::new(), base_env);
     validate_writable_paths(sandbox, &writable_paths, &cwd, workspace_cwd.as_deref())?;
     let runtime = resolve_sandbox_runtime(sandbox, base_env)?;
+    let private_tmp_enabled = sandbox_private_tmp_enabled(sandbox, runtime.as_ref());
     let mut cleanup_paths = Vec::new();
     let mut sandbox_base_env = base_env.clone();
-    prepare_enforced_env(&runtime, &mut sandbox_base_env, &mut cleanup_paths)?;
+    prepare_sandbox_tmp_env(sandbox, &runtime, &mut sandbox_base_env, &mut cleanup_paths)?;
     let env = match child_base_env(sandbox, &sandbox_base_env) {
         Ok(env) => env,
         Err(error) => {
@@ -137,7 +144,12 @@ pub fn prepare_mcp_process_sandbox(
         args,
         cwd,
         env,
-        metadata: sandbox_metadata_with_runtime(sandbox, &writable_paths, runtime.as_ref()),
+        metadata: sandbox_metadata_with_runtime(
+            sandbox,
+            &writable_paths,
+            runtime.as_ref(),
+            private_tmp_enabled,
+        ),
         cleanup_paths,
     })
 }
@@ -299,7 +311,7 @@ fn child_env(
     if serialized.len() > MAX_INLINE_INPUTS_BYTES {
         let (inputs_path, cleanup_path) = write_inputs_file(base_env, &serialized)?;
         env.insert("RUNX_INPUTS_PATH".to_owned(), inputs_path);
-        cleanup_paths.push(cleanup_path);
+        push_cleanup_path(cleanup_paths, cleanup_path);
     } else {
         env.insert("RUNX_INPUTS_JSON".to_owned(), serialized);
     }
@@ -625,15 +637,13 @@ fn default_executable_search_paths(command: &str) -> Vec<PathBuf> {
     paths
 }
 
-fn prepare_enforced_env(
+fn prepare_sandbox_tmp_env(
+    sandbox: Option<&SkillSandbox>,
     runtime: &Option<SandboxRuntime>,
     env: &mut BTreeMap<String, String>,
     cleanup_paths: &mut Vec<PathBuf>,
 ) -> Result<(), RuntimeError> {
-    if !matches!(
-        runtime,
-        Some(SandboxRuntime::Bubblewrap { .. } | SandboxRuntime::SandboxExec { .. })
-    ) {
+    if !sandbox_private_tmp_enabled(sandbox, runtime.as_ref()) {
         return Ok(());
     }
     let private_tmp = create_private_tmp()?;
@@ -645,6 +655,14 @@ fn prepare_enforced_env(
     Ok(())
 }
 
+fn sandbox_private_tmp_enabled(
+    sandbox: Option<&SkillSandbox>,
+    runtime: Option<&SandboxRuntime>,
+) -> bool {
+    sandbox.is_some_and(|sandbox| sandbox.profile != SandboxProfile::UnrestrictedLocalDev)
+        && !matches!(runtime, Some(SandboxRuntime::Direct))
+}
+
 fn create_private_tmp() -> Result<PathBuf, RuntimeError> {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -654,6 +672,16 @@ fn create_private_tmp() -> Result<PathBuf, RuntimeError> {
     fs::create_dir_all(&path)
         .map_err(|source| RuntimeError::io("creating sandbox private temp dir", source))?;
     Ok(path)
+}
+
+fn push_cleanup_path(cleanup_paths: &mut Vec<PathBuf>, cleanup_path: PathBuf) {
+    if cleanup_paths
+        .iter()
+        .any(|existing| cleanup_path.starts_with(existing))
+    {
+        return;
+    }
+    cleanup_paths.push(cleanup_path);
 }
 
 struct SandboxSpawnCommand<'a> {
@@ -1000,13 +1028,14 @@ pub fn sandbox_metadata(sandbox: Option<&SkillSandbox>) -> JsonObject {
     let writable_paths = sandbox
         .map(|sandbox| sandbox.writable_paths.clone())
         .unwrap_or_default();
-    sandbox_metadata_with_runtime(sandbox, &writable_paths, None)
+    sandbox_metadata_with_runtime(sandbox, &writable_paths, None, false)
 }
 
 fn sandbox_metadata_with_runtime(
     sandbox: Option<&SkillSandbox>,
     writable_paths: &[String],
     runtime: Option<&SandboxRuntime>,
+    private_tmp_enabled: bool,
 ) -> JsonObject {
     let mut metadata = JsonObject::new();
     if let Some(sandbox) = sandbox {
@@ -1030,7 +1059,7 @@ fn sandbox_metadata_with_runtime(
             "require_enforcement".to_owned(),
             JsonValue::Bool(sandbox.require_enforcement.unwrap_or(false)),
         );
-        insert_filesystem_metadata(&mut metadata, sandbox, runtime);
+        insert_filesystem_metadata(&mut metadata, sandbox, runtime, private_tmp_enabled);
         insert_approval_metadata(&mut metadata, sandbox);
         insert_runtime_metadata(&mut metadata, sandbox, runtime);
     }
@@ -1101,6 +1130,7 @@ fn insert_filesystem_metadata(
     metadata: &mut JsonObject,
     sandbox: &SkillSandbox,
     runtime: Option<&SandboxRuntime>,
+    private_tmp_enabled: bool,
 ) {
     metadata.insert(
         "filesystem".to_owned(),
@@ -1123,7 +1153,7 @@ fn insert_filesystem_metadata(
                 ),
                 (
                     "private_tmp".to_owned(),
-                    JsonValue::Bool(matches!(runtime, Some(SandboxRuntime::Bubblewrap { .. }))),
+                    JsonValue::Bool(private_tmp_enabled),
                 ),
             ]
             .into(),
@@ -1299,12 +1329,13 @@ mod tests {
 
     #[test]
     fn sandbox_exec_runtime_gets_private_writable_tmp_env() -> Result<(), String> {
+        let sandbox = readonly_sandbox();
         let runtime = Some(SandboxRuntime::SandboxExec {
             path: PathBuf::from("/usr/bin/sandbox-exec"),
         });
         let mut env = BTreeMap::new();
         let mut cleanup_paths = Vec::new();
-        prepare_enforced_env(&runtime, &mut env, &mut cleanup_paths)
+        prepare_sandbox_tmp_env(Some(&sandbox), &runtime, &mut env, &mut cleanup_paths)
             .map_err(|source| source.to_string())?;
 
         let tmpdir = env
@@ -1326,6 +1357,42 @@ mod tests {
         )));
         cleanup_paths_quietly(&cleanup_paths);
         Ok(())
+    }
+
+    #[test]
+    fn declared_policy_runtime_gets_private_tmp_env() -> Result<(), String> {
+        let sandbox = readonly_sandbox();
+        let runtime = Some(SandboxRuntime::DeclaredPolicyOnly {
+            reason: "missing test backend".to_owned(),
+        });
+        let mut env = BTreeMap::new();
+        let mut cleanup_paths = Vec::new();
+        prepare_sandbox_tmp_env(Some(&sandbox), &runtime, &mut env, &mut cleanup_paths)
+            .map_err(|source| source.to_string())?;
+
+        let tmpdir = env
+            .get("TMPDIR")
+            .ok_or_else(|| "TMPDIR was not set".to_owned())?;
+        assert_eq!(env.get("TMP"), Some(tmpdir));
+        assert_eq!(env.get("TEMP"), Some(tmpdir));
+        assert_eq!(cleanup_paths, vec![PathBuf::from(tmpdir)]);
+        assert!(Path::new(tmpdir).is_dir());
+
+        cleanup_paths_quietly(&cleanup_paths);
+        Ok(())
+    }
+
+    fn readonly_sandbox() -> SkillSandbox {
+        SkillSandbox {
+            profile: SandboxProfile::Readonly,
+            cwd_policy: None,
+            env_allowlist: None,
+            network: None,
+            writable_paths: Vec::new(),
+            require_enforcement: None,
+            approved_escalation: None,
+            raw: JsonObject::new(),
+        }
     }
 
     #[test]
