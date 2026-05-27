@@ -25,10 +25,15 @@ recognizable; wire contracts must use the spine vocabulary.
 Package names carry trust claims:
 
 - contracts define portable schemas and generated validators.
-- core owns pure decision domains such as parser, state-machine, and policy.
-- runx-runtime coordinates local execution, caller interaction, and receipts.
-- adapters touch external processes and protocols.
-- cli is a command shell over the runtime.
+- Rust `runx-core` owns pure state-machine and policy decisions.
+- TypeScript `@runxhq/core` owns parser, policy-helper, registry, config,
+  source, knowledge, artifact, marketplace, and utility subpaths for client and
+  sunset surfaces. It must not own local execution, receipt sealing, or runtime
+  fallback behavior.
+- `runx-runtime` coordinates local execution, adapters, sandbox planning,
+  caller interaction, and receipts.
+- host adapters and protocol adapters touch external processes and protocols.
+- `runx-cli` is the native command shell over the runtime.
 
 OSS packages must not import cloud code. Core must not import runtime, adapter,
 CLI, host-adapter, filesystem, network, or subprocess concerns.

@@ -3,7 +3,9 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const workspaceRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
+const workspaceRoot = path.resolve(
+  process.env.RUNX_BOUNDARY_WORKSPACE_ROOT ?? fileURLToPath(new URL("..", import.meta.url)),
+);
 const boundaryGuardPath = path.resolve(fileURLToPath(import.meta.url));
 
 const sourceExtensions = new Set([".ts", ".tsx", ".mts", ".cts"]);
@@ -29,7 +31,15 @@ const activeCredentialContractExtensions = new Set([
   ".rs",
   ".json",
 ]);
-const ignoredDirectoryNames = new Set(["node_modules", "dist", ".build", "coverage", "target"]);
+const ignoredDirectoryNames = new Set([
+  ".git",
+  ".turbo",
+  "node_modules",
+  "dist",
+  ".build",
+  "coverage",
+  "target",
+]);
 const hostedConnectBrokerageScanRoots = ["packages", "plugins", "scripts", "tests"];
 const hostedCredentialContractScanRoots = [
   "packages",
@@ -657,7 +667,7 @@ async function findActiveCredentialContractFiles(root) {
 async function walkActiveTypeScriptJavaScript(directory, files) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      if (!ignoredDirectoryNames.has(entry.name)) {
+      if (!isIgnoredDirectoryName(entry.name)) {
         await walkActiveTypeScriptJavaScript(path.join(directory, entry.name), files);
       }
       continue;
@@ -676,7 +686,7 @@ async function walkActiveTypeScriptJavaScript(directory, files) {
 async function walkActiveCredentialContract(directory, files) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      if (!ignoredDirectoryNames.has(entry.name)) {
+      if (!isIgnoredDirectoryName(entry.name)) {
         await walkActiveCredentialContract(path.join(directory, entry.name), files);
       }
       continue;
@@ -695,7 +705,7 @@ async function walkActiveCredentialContract(directory, files) {
 async function walk(directory, files) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      if (!ignoredDirectoryNames.has(entry.name)) {
+      if (!isIgnoredDirectoryName(entry.name)) {
         await walk(path.join(directory, entry.name), files);
       }
       continue;
@@ -737,6 +747,10 @@ function isNotFound(error) {
 
 function isTestFile(fileName) {
   return /\.(test|spec)\.(ts|tsx|mts|cts)$/.test(fileName);
+}
+
+function isIgnoredDirectoryName(name) {
+  return ignoredDirectoryNames.has(name) || name.startsWith("target-");
 }
 
 function toPosix(input) {

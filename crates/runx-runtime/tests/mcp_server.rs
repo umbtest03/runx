@@ -9,6 +9,8 @@ use std::sync::{Arc, Mutex};
 use runx_contracts::{ClosureDisposition, ReceiptSchema};
 use runx_contracts::{JsonObject, JsonValue};
 #[cfg(feature = "mcp")]
+use runx_runtime::RuntimeReceiptSignatureConfig;
+#[cfg(feature = "mcp")]
 use runx_runtime::adapters::mcp::McpServerExecutionOptions;
 use runx_runtime::adapters::mcp::{
     McpContent, McpHostRunResult, McpServerOptions, McpServerTool, McpServerToolBehavior,
@@ -16,11 +18,6 @@ use runx_runtime::adapters::mcp::{
 };
 #[cfg(feature = "mcp")]
 use runx_runtime::receipts::store::LocalReceiptStore;
-#[cfg(feature = "mcp")]
-use runx_runtime::{
-    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV,
-    RUNX_RECEIPT_SIGN_KID_ENV, RuntimeReceiptSignatureConfig,
-};
 
 const FIXTURE_CREATED_AT: &str = "2026-05-18T00:00:00Z";
 
@@ -263,7 +260,8 @@ fn mcp_server_single_skill_call_writes_sealed_receipt() -> Result<(), Box<dyn st
         return Err("runx receipt id must be a string".into());
     };
 
-    let signature_config = RuntimeReceiptSignatureConfig::from_env(&test_signing_env())?;
+    let signature_config =
+        RuntimeReceiptSignatureConfig::from_env(&crate::support::test_signing_env())?;
     let receipt = LocalReceiptStore::new(receipt_root.path())
         .read_exact_with_policy(receipt_id, signature_config.signature_policy())?;
     assert_ne!(receipt.created_at, FIXTURE_CREATED_AT);
@@ -654,32 +652,12 @@ fn mcp_server_execution_options(
         "RUNX_CWD".to_owned(),
         repo_root()?.to_string_lossy().into_owned(),
     );
-    env.extend(test_signing_env());
+    env.extend(crate::support::test_signing_env());
     Ok(McpServerExecutionOptions {
         runner: None,
         receipt_dir,
         env,
     })
-}
-
-#[cfg(feature = "mcp")]
-fn test_signing_env() -> std::collections::BTreeMap<String, String> {
-    [
-        (
-            RUNX_RECEIPT_SIGN_KID_ENV.to_owned(),
-            "runx-runtime-prod-fixture-key".to_owned(),
-        ),
-        (
-            RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV.to_owned(),
-            "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=".to_owned(),
-        ),
-        (
-            RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV.to_owned(),
-            "hosted".to_owned(),
-        ),
-    ]
-    .into_iter()
-    .collect()
 }
 
 #[cfg(feature = "mcp")]

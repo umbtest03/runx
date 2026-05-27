@@ -1,5 +1,7 @@
-import { spawnSync } from "node:child_process";
+#!/usr/bin/env node
+import { spawn } from "node:child_process";
 import path from "node:path";
+import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -19,48 +21,6 @@ const rustHarnessFixtureOracleBin = path.join(
   process.platform === "win32" ? "runx-harness-fixture-oracles.exe" : "runx-harness-fixture-oracles",
 );
 
-const commands = [
-  ["pnpm", ["boundary:check"]],
-  ["pnpm", ["typecheck"]],
-  ["node", ["scripts/build-workspace.mjs"]],
-  ["node", ["scripts/check-publishable-package-manifests.mjs"]],
-  ["pnpm", ["rust:crate-graph"]],
-  ["pnpm", ["rust:style"]],
-  ["node", ["scripts/check-integration-test-modules.mjs"]],
-  ["node", ["scripts/check-authoring-package-contract.mjs"]],
-  ["node", ["scripts/check-create-skill-package-contract.mjs"]],
-  ["pnpm", ["fixtures:kernel:validate"]],
-  ["pnpm", ["fixtures:kernel:check"]],
-  ["pnpm", ["fixtures:kernel:keys"]],
-  ["pnpm", ["fixtures:contracts:check"]],
-  ["pnpm", ["fixtures:contracts:keys"]],
-  ["pnpm", ["fixtures:harness:check"]],
-  ["pnpm", ["fixtures:adapters:a2a:check"]],
-  ["pnpm", ["fixtures:adapters:agent:check"]],
-  ["pnpm", ["fixtures:cli-parity:check"]],
-  ["pnpm", ["fixtures:cli-help:check"]],
-  ["pnpm", ["docs:exit-codes"]],
-  ["pnpm", ["exec", "tsx", "packages/cli/src/index.ts", "doctor", "--json"]],
-  ["pnpm", ["test:fast"]],
-];
-
-buildRustBin(["build", "--quiet", "--manifest-path", "crates/Cargo.toml", "-p", "runx-cli", "--bin", "runx"]);
-buildRustBin([
-  "build",
-  "--quiet",
-  "--manifest-path",
-  "crates/Cargo.toml",
-  "-p",
-  "runx-runtime",
-  "--features",
-  "cli-tool",
-  "--bin",
-  "runx-harness-fixture-oracles",
-]);
-
-// The binary is built once above; point the kernel / parser / CLI eval paths at
-// that single prebuilt binary so subprocess-backed suites never cold-start a
-// debug binary under parallel load.
 const evalBinEnv = {
   RUNX_KERNEL_EVAL_BIN: rustKernelBin,
   RUNX_PARSER_EVAL_BIN: rustKernelBin,
@@ -73,24 +33,147 @@ const evalBinEnv = {
   RUNX_RECEIPT_SIGN_ISSUER_TYPE: process.env.RUNX_RECEIPT_SIGN_ISSUER_TYPE ?? "hosted",
 };
 
-for (const [command, args] of commands) {
-  const result = spawnSync(command, args, {
-    cwd: workspaceRoot,
-    env: { ...process.env, ...evalBinEnv },
-    stdio: "inherit",
-  });
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
+const results = [];
+
+await runParallelGroup("source checks", [
+  step("boundary:check", "pnpm", ["boundary:check"]),
+  step("test:boundary", "pnpm", ["test:boundary"]),
+  step("typecheck", "pnpm", ["typecheck"]),
+  step("integration module guard", "node", ["scripts/check-integration-test-modules.mjs"]),
+]);
+
+await runSerialGroup("package contract checks", [
+  step("authoring package contract", "node", ["scripts/check-authoring-package-contract.mjs"]),
+  step("create-skill package contract", "node", ["scripts/check-create-skill-package-contract.mjs"]),
+]);
+
+await runSerialGroup("rust structure checks", [
+  step("rust:crate-graph", "pnpm", ["rust:crate-graph"]),
+  step("rust:style", "pnpm", ["rust:style"]),
+]);
+
+const cliBuild = await runStep(
+  step("build native runx binary", cargo, [
+    "build",
+    "--quiet",
+    "--manifest-path",
+    "crates/Cargo.toml",
+    "-p",
+    "runx-cli",
+    "--bin",
+    "runx",
+  ]),
+);
+const oracleBuild = await runStep(
+  step("build harness fixture oracle binary", cargo, [
+    "build",
+    "--quiet",
+    "--manifest-path",
+    "crates/Cargo.toml",
+    "-p",
+    "runx-runtime",
+    "--features",
+    "cli-tool",
+    "--bin",
+    "runx-harness-fixture-oracles",
+  ]),
+);
+
+if (cliBuild.status === 0 && oracleBuild.status === 0) {
+  await runSerialGroup(
+    "generated artifacts and fixtures",
+    [
+      step("build workspace", "node", ["scripts/build-workspace.mjs"]),
+      step("publishable manifests", "node", ["scripts/check-publishable-package-manifests.mjs"]),
+      step("fixtures:kernel:validate", "pnpm", ["fixtures:kernel:validate"]),
+      step("fixtures:kernel:check", "pnpm", ["fixtures:kernel:check"]),
+      step("fixtures:kernel:keys", "pnpm", ["fixtures:kernel:keys"]),
+      step("fixtures:contracts:check", "pnpm", ["fixtures:contracts:check"]),
+      step("fixtures:contracts:keys", "pnpm", ["fixtures:contracts:keys"]),
+      step("fixtures:harness:check", "pnpm", ["fixtures:harness:check"]),
+      step("fixtures:adapters:a2a:check", "pnpm", ["fixtures:adapters:a2a:check"]),
+      step("fixtures:adapters:agent:check", "pnpm", ["fixtures:adapters:agent:check"]),
+      step("fixtures:cli-parity:check", "pnpm", ["fixtures:cli-parity:check"]),
+      step("fixtures:cli-help:check", "pnpm", ["fixtures:cli-help:check"]),
+      step("docs:exit-codes", "pnpm", ["docs:exit-codes"]),
+      step("doctor json", "pnpm", ["exec", "tsx", "packages/cli/src/index.ts", "doctor", "--json"]),
+      step("test:fast", "pnpm", ["test:fast"]),
+    ],
+    evalBinEnv,
+  );
+} else {
+  console.error("Skipping eval-binary-dependent checks because a required Rust binary failed to build.");
+}
+
+printSummaryAndExit();
+
+function step(name, command, args) {
+  return { name, command, args };
+}
+
+async function runSerialGroup(name, steps, envExtra = {}) {
+  console.log(`\n== ${name} ==`);
+  for (const current of steps) {
+    await runStep(current, envExtra);
   }
 }
 
-function buildRustBin(args) {
-  const result = spawnSync(cargo, args, {
-    cwd: workspaceRoot,
-    env: process.env,
-    stdio: "inherit",
+async function runParallelGroup(name, steps, envExtra = {}) {
+  console.log(`\n== ${name} ==`);
+  await Promise.all(steps.map((current) => runStep(current, envExtra)));
+}
+
+function runStep(current, envExtra = {}) {
+  const started = performance.now();
+  console.log(`\n[verify:fast] start ${current.name}`);
+  return new Promise((resolve) => {
+    const child = spawn(current.command, current.args, {
+      cwd: workspaceRoot,
+      env: { ...process.env, ...envExtra },
+      stdio: "inherit",
+    });
+    child.on("close", (status, signal) => {
+      const durationMs = Math.round(performance.now() - started);
+      const result = {
+        ...current,
+        status: status ?? 1,
+        signal,
+        durationMs,
+      };
+      results.push(result);
+      const label = result.status === 0 ? "pass" : "fail";
+      const signalSuffix = signal ? ` signal=${signal}` : "";
+      console.log(`[verify:fast] ${label} ${current.name} (${durationMs}ms)${signalSuffix}`);
+      resolve(result);
+    });
+    child.on("error", (error) => {
+      const durationMs = Math.round(performance.now() - started);
+      const result = {
+        ...current,
+        status: 1,
+        signal: undefined,
+        durationMs,
+        error,
+      };
+      results.push(result);
+      console.log(`[verify:fast] fail ${current.name} (${durationMs}ms): ${error.message}`);
+      resolve(result);
+    });
   });
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
+}
+
+function printSummaryAndExit() {
+  const failed = results.filter((result) => result.status !== 0);
+  console.log("\n== verify:fast summary ==");
+  for (const result of results) {
+    const label = result.status === 0 ? "PASS" : "FAIL";
+    console.log(`${label} ${result.name} ${result.durationMs}ms`);
+  }
+  if (failed.length > 0) {
+    console.error(`\nverify:fast failed ${failed.length} required step(s):`);
+    for (const result of failed) {
+      console.error(`- ${result.name}`);
+    }
+    process.exit(1);
   }
 }

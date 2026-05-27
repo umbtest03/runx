@@ -35,6 +35,7 @@
     "test:fast": "vitest run --config vitest.fast.config.ts",
     "test:heavy:graph": "node scripts/test-workspace.mjs --testTimeout 30000 --hookTimeout 30000 tests/payment-graph-harness.test.ts tests/examples/hello-graph.test.ts",
     "boundary:check": "node scripts/check-boundaries.mjs",
+    "test:boundary": "node scripts/test-boundaries.mjs",
     "tests:integration-modules:check": "node scripts/check-integration-test-modules.mjs",
     "cutover:legacy-check": "node scripts/check-runtime-cutover-legacy.mjs",
     "fixtures:kernel:check": "tsx scripts/generate-kernel-parity-fixtures.ts --check",
@@ -66,6 +67,7 @@
     "receipts:importer-audit": "tsx scripts/check-receipt-importers.ts",
     "receipts:canonical-check": "node scripts/check-receipt-canonical-production-path.mjs",
     "verify:fast": "node scripts/verify-fast.mjs",
+    "verify:fast:plan-check": "node scripts/check-verify-fast-plan.mjs",
     "lint": "pnpm typecheck"
   },
   "devDependencies": {

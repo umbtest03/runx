@@ -100,10 +100,32 @@ The global link points at `oss/packages/cli` in this checkout. Rebuild with
 
 ## Package Topology
 
-`@runxhq/core` is the trusted kernel package. Its public subpaths are parser,
-state-machine, policy, executor, receipts, registry, config, knowledge,
-artifacts, and marketplaces. Policy and state-machine are the pure decision
-domains.
+Rust owns the trusted local runtime path. The Rust crate graph is the enforced
+boundary map:
+
+- `runx-contracts`: Rust-owned public contract types and schema emission.
+- `runx-core`: pure state-machine and policy decisions.
+- `runx-parser`: pure skill, graph, runner, and tool manifest parsing.
+- `runx-receipts`: canonical receipt model, hashing, signatures, and tree
+  verification.
+- `runx-runtime`: impure local runtime, adapters, sandbox planning, harness
+  replay, journals, registry clients, payment gates, MCP, and execution.
+- `runx-cli`: native `runx` binary over the runtime.
+- `runx-sdk`: blocking CLI-backed SDK over stable contracts.
+
+The TypeScript package graph is the client, authoring, wrapper, and generated
+contract layer:
+
+- `@runxhq/contracts`: generated validators and TypeScript types over the
+  Rust-owned schema artifacts.
+- `@runxhq/cli`: npm distribution wrapper and client presentation around the
+  native CLI.
+- `@runxhq/core`: TypeScript parser, policy helpers, registry, config,
+  knowledge, source, artifacts, marketplaces, and util subpaths. It is not the
+  trusted local runtime and must not regain executor or receipt authority.
+- `@runxhq/authoring`, `@runxhq/create-skill`, `@runxhq/host-adapters`, and
+  `@runxhq/langchain`: authoring, scaffolding, host presentation, and bridge
+  packages over language-neutral contracts.
 
 For the generated package export index, see [docs/api-surface.md](docs/api-surface.md).
 
@@ -112,12 +134,6 @@ harness, receipt, history, policy, authority, payment, sandbox admission and
 metadata, MCP, built-in adapter execution, and external execution-adapter
 supervision for the native CLI path. OS sandbox enforcement remains a separate
 runtime hardening lane and must not be assumed from sandbox declarations alone.
-
-`@runxhq/runtime-local` and `@runxhq/adapters` are TypeScript support packages
-for wrappers, generated protocol types, helper SDKs, and tests. They must not
-execute trusted local runtime fallback behavior. New local orchestration work
-belongs in Rust first, and package wrappers must fail closed when a supported
-native binary is not available.
 
 TypeScript remains for generated contracts, CLI/client wrappers,
 cloud/product integrations, host adapters, authoring tooling, and helper SDKs
@@ -206,7 +222,10 @@ surface stays readable.
 
 ## Skill And X Model
 
-Executable skills now split authored skill content from execution profiles:
+Executable skills split authored skill content from execution profiles. `X.yaml`
+is the runx execution profile file; the short name is public compatibility for
+existing skill packages, but docs and code should describe it as the execution
+profile:
 
 ```text
 skills/sourcey/

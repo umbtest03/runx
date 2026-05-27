@@ -36,7 +36,7 @@ Version: `0.2.5`
 
 ## @runxhq/core
 
-Runx trusted kernel domains: parser, state machine, policy, registry, knowledge, config, and artifacts.
+Runx TypeScript client domains: parser, policy helpers, registry, config, knowledge, source, artifacts, marketplaces, and utilities.
 
 Kernel parity fixtures under `fixtures/kernel/` provide conformance evidence for stable `@runxhq/core/policy` exports and Rust-owned state-machine behavior during the Rust port.
 

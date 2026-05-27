@@ -1,7 +1,7 @@
 {
   "name": "@runxhq/core",
   "version": "0.1.6",
-  "description": "Runx trusted kernel domains: parser, state machine, policy, registry, knowledge, config, and artifacts.",
+  "description": "Runx TypeScript client domains: parser, policy helpers, registry, config, knowledge, source, artifacts, marketplaces, and utilities.",
   "private": false,
   "license": "MIT",
   "type": "module",

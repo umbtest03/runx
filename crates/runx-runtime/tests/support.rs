@@ -11,20 +11,23 @@ use runx_runtime::{
 
 #[cfg(feature = "cli-tool")]
 pub(crate) const TEST_CREATED_AT: &str = "2026-05-18T00:00:00Z";
+pub(crate) const TEST_SIGNING_KID: &str = "runx-runtime-prod-fixture-key";
+pub(crate) const TEST_SIGNING_SEED_BASE64: &str = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=";
+pub(crate) const TEST_SIGNING_ISSUER_TYPE: &str = "hosted";
 
 pub(crate) fn test_signing_env() -> BTreeMap<String, String> {
     [
         (
             RUNX_RECEIPT_SIGN_KID_ENV.to_owned(),
-            "runx-runtime-prod-fixture-key".to_owned(),
+            TEST_SIGNING_KID.to_owned(),
         ),
         (
             RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV.to_owned(),
-            "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=".to_owned(),
+            TEST_SIGNING_SEED_BASE64.to_owned(),
         ),
         (
             RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV.to_owned(),
-            "hosted".to_owned(),
+            TEST_SIGNING_ISSUER_TYPE.to_owned(),
         ),
     ]
     .into_iter()
@@ -40,6 +43,11 @@ pub(crate) fn insert_test_signing_env(env: &mut BTreeMap<String, String>) {
 pub(crate) fn test_signature_config()
 -> Result<RuntimeReceiptSignatureConfig, Box<dyn std::error::Error>> {
     Ok(RuntimeReceiptSignatureConfig::from_env(&test_signing_env())?)
+}
+
+#[cfg(feature = "cli-tool")]
+pub(crate) fn signed_runtime_options() -> Result<RuntimeOptions, runx_runtime::RuntimeError> {
+    RuntimeOptions::from_env(test_signing_env())
 }
 
 #[cfg(feature = "cli-tool")]

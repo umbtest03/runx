@@ -20,7 +20,9 @@ use super::scheduler::{
     FanoutSchedule, FanoutScheduler, ParallelFanoutSchedule, ScheduledFanoutStep,
     parallel_safe_step_shape, scheduled_step,
 };
-use super::step_execution::{run_step_with_loaded_skill, run_step_with_loaded_skill_index};
+use super::step_execution::{
+    LoadedStepExecutionRequest, run_step_with_loaded_skill, run_step_with_loaded_skill_index,
+};
 use super::steps::{output_error, runtime_error_step_run};
 use super::sync::{fanout_sync_point, latest_fanout_receipt_ids};
 use super::{GraphCheckpoint, GraphRun, Runtime, RuntimeOptions, StepRun};
@@ -683,14 +685,16 @@ impl GraphExecution {
     {
         let loaded_skill = self.cached_step_skill(graph_dir, step)?;
         run_step_with_loaded_skill(
-            runtime,
-            graph_dir,
-            &graph.name,
-            step,
-            plan.attempt,
-            loaded_skill,
+            LoadedStepExecutionRequest {
+                runtime,
+                graph_dir,
+                graph_name: &graph.name,
+                step,
+                attempt: plan.attempt,
+                loaded_skill,
+                host,
+            },
             &self.runs,
-            host,
         )
     }
 
@@ -709,14 +713,16 @@ impl GraphExecution {
         let loaded_skill = self.cached_step_skill(graph_dir, step)?;
         let prior_run_index = PriorRunIndex::from_positions(&self.runs, &self.run_positions);
         run_step_with_loaded_skill_index(
-            runtime,
-            graph_dir,
-            &graph.name,
-            step,
-            plan.attempt,
-            loaded_skill,
+            LoadedStepExecutionRequest {
+                runtime,
+                graph_dir,
+                graph_name: &graph.name,
+                step,
+                attempt: plan.attempt,
+                loaded_skill,
+                host,
+            },
             &prior_run_index,
-            host,
         )
     }
 
@@ -949,14 +955,16 @@ fn execute_parallel_fanout_step(
     let prior_run_index = PriorRunIndex::from_positions(prior_runs, run_positions);
     let mut host = NoopHost;
     match run_step_with_loaded_skill_index(
-        &runtime,
-        graph_dir,
-        graph_name,
-        step,
-        attempt,
-        loaded_skill,
+        LoadedStepExecutionRequest {
+            runtime: &runtime,
+            graph_dir,
+            graph_name,
+            step,
+            attempt,
+            loaded_skill,
+            host: &mut host,
+        },
         &prior_run_index,
-        &mut host,
     ) {
         Ok(run) => Ok(run),
         Err(error) => runtime_error_step_run(&runtime, graph_name, step, attempt, error),

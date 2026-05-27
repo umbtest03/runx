@@ -59,11 +59,12 @@ Build opens one phase at a time. After implementing the opened phase, run
 
 `.scafld/prompts/*` overrides `.scafld/core/prompts/*` overrides built-ins.
 
-# scafld - Agent Guide
+# runx OSS Agent Guide
 
-Canonical reference for AI coding agents working with this codebase. Agent-agnostic.
-
-> **Template file.** When setting up scafld in your project, customize the invariants, forbidden actions, and domain rules below to match your architecture. The generic defaults are a solid starting point.
+Canonical reference for AI coding agents working in the runx OSS workspace.
+This repo uses scafld for non-trivial work, but the architecture rules are the
+runx rules in `CONVENTIONS.md`, `docs/rust-kernel-architecture.md`, and
+`docs/trusted-kernel-package-truth.md`.
 
 **Key files:**
 
@@ -110,13 +111,23 @@ Valid transitions:
 
 These rules must not be violated. See `config.yaml` for the canonical invariant list.
 
-### Layer Separation
+### Rust Trusted Runtime
 
-Domain logic stays in domain modules. HTTP/transport concerns stay in handlers. External integrations go through ports/adapters. No circular dependencies between layers.
+Rust owns trusted local execution, receipt sealing, runtime policy, harness
+replay, MCP, payment gates, and sandbox planning. TypeScript packages may wrap
+or present those paths, but must not reintroduce local execution fallback logic.
 
-### Stable Public APIs
+### Pure Kernel Boundaries
 
-Public API changes (HTTP endpoints, event schemas, public interfaces) require explicit approval. Breaking changes require migration plans.
+Pure crates and packages stay pure. `runx-core`, `runx-contracts`,
+`runx-parser`, and `runx-receipts` must not import filesystem, network,
+subprocess, CLI, adapter, or runtime concerns.
+
+### Stable Public Contracts
+
+Public contract changes require a clean cutover through Rust-owned schemas and
+fixtures. Do not add compatibility aliases, `.v2` ids, or dual-read runtime
+shims for governed wire shapes.
 
 ### No Legacy Fallbacks
 
@@ -196,8 +207,10 @@ See `CONVENTIONS.md` for full coding standards. Key points:
 - Match existing code style; keep diffs focused
 - Prefer existing helpers; keep code DRY
 - Explicit named imports, no confusing aliases
-- Bounded database queries with pagination
-- Idempotent migrations executed out of band
+- Clear module ownership; split mixed responsibility files when boundaries are
+  already visible in the code
+- Idempotent one-off migrations executed out of band, never hidden runtime
+  compatibility paths
 
 ---
 
