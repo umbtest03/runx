@@ -1,4 +1,7 @@
 //! Operational proposal contract: reviewable handoffs over existing actions.
+// rust-style-allow: large-file because the proposal schema, the open reference
+// type vocabulary, the human-gate and outcome shapes, and the RunxSchema
+// reflection together form one cross-language wire surface.
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};

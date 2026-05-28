@@ -1679,8 +1679,8 @@ pub(super) fn operational_proposal_corpus() -> Vec<(&'static str, Value)> {
             v["recommended_actions"][0]["action_intent"] = json!("reply-only");
             v["recommended_actions"][0]["mutating"] = json!(false);
             v["human_gates"][0]["gate_kind"] = json!("customer_send_approval");
-            v.as_object_mut().expect("object").remove("result_refs");
-            v.as_object_mut().expect("object").remove("final_outcome");
+            remove_field(&mut v, "result_refs");
+            remove_field(&mut v, "final_outcome");
             v
         }),
         (
@@ -3956,12 +3956,12 @@ pub(super) fn reference_link_corpus() -> Vec<(&'static str, Value)> {
         ("valid", valid.clone()),
         ("missing role", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("role");
+            remove_field(&mut v, "role");
             v
         }),
         ("missing ref", {
             let mut v = valid.clone();
-            v.as_object_mut().unwrap().remove("ref");
+            remove_field(&mut v, "ref");
             v
         }),
         ("empty role", {
