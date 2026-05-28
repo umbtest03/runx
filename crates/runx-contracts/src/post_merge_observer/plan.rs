@@ -14,9 +14,8 @@ use super::{
     PostMergeObserverPublicationPlan, PostMergeObserverPublicationProjection,
     PostMergeObserverRuntimeDecision, PostMergeObserverRuntimeDedupePlan,
     PostMergeObserverSignalSource, PostMergeObserverSourceIssuePlan,
-    PostMergeObserverVerificationPlan, PostMergeProvider, PostMergePullRequestObservation,
-    PostMergePullRequestState, PostMergeSourceIssueDisposition, PostMergeVerificationObservation,
-    PostMergeVerificationStatus,
+    PostMergeObserverVerificationPlan, PostMergePullRequestObservation, PostMergePullRequestState,
+    PostMergeSourceIssueDisposition, PostMergeVerificationObservation, PostMergeVerificationStatus,
 };
 
 pub fn normalize_post_merge_observer_command(
@@ -93,7 +92,7 @@ pub fn plan_post_merge_observer_closure(
         closure_key,
         observed_at: request.pull_request.observed_at.clone(),
         provider: PostMergeObserverProviderPlan {
-            provider: request.pull_request.provider,
+            provider: request.pull_request.provider.clone(),
             pull_request_ref,
             merged: request.pull_request.merged,
             merge_sha: request.pull_request.merge_sha.clone(),
@@ -829,7 +828,7 @@ fn pull_request_ref(observation: &PostMergePullRequestObservation) -> Reference 
     Reference {
         reference_type: ReferenceType::GithubPullRequest,
         uri: observation.uri.clone().into(),
-        provider: Some(provider_name(observation.provider).to_owned().into()),
+        provider: Some(observation.provider.clone()),
         locator: Some(format!("{}#{}", observation.repo, observation.number).into()),
         label: Some("observed pull request".to_owned().into()),
         observed_at: Some(observation.observed_at.clone().into()),
@@ -955,12 +954,6 @@ fn closure_summary(final_state: PostMergeObserverClosureState) -> &'static str {
         PostMergeObserverClosureState::ClosedUnmerged => {
             "target PR was closed without merge; source issue remains unresolved"
         }
-    }
-}
-
-fn provider_name(provider: PostMergeProvider) -> &'static str {
-    match provider {
-        PostMergeProvider::Github => "github",
     }
 }
 

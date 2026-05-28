@@ -1,11 +1,12 @@
 use std::cell::RefCell;
 
+use runx_contracts::post_merge_observer::post_merge_provider;
 use runx_contracts::{
     ActForm, ClosureDisposition, CriterionStatus, PostMergeObserverPlanError,
     PostMergeObserverRuntimeDecision, PostMergeObserverRuntimeDedupePlan,
-    PostMergeObserverSignalSource, PostMergeProvider, PostMergePullRequestObservation,
-    PostMergePullRequestState, PostMergeVerificationObservation, PostMergeVerificationStatus,
-    Receipt, Reference, ReferenceType,
+    PostMergeObserverSignalSource, PostMergePullRequestObservation, PostMergePullRequestState,
+    PostMergeVerificationObservation, PostMergeVerificationStatus, Receipt, Reference,
+    ReferenceType,
 };
 use runx_runtime::post_merge_observer::{
     FixtureBackedGitHubPostMergeObserverAdapter, GithubPostMergePullRequestObserverAdapter,
@@ -298,7 +299,7 @@ fn live_adapter_projects_observed_closure_into_publication_commands_without_netw
             Some("runxhq/nitrosend/delivery/evt_01HX")
         ))
     );
-    assert_eq!(live.pull_request.provider, PostMergeProvider::Github);
+    assert_eq!(live.pull_request.provider, post_merge_provider::GITHUB);
     assert_eq!(live.pull_request.repo, "runxhq/nitrosend");
     assert_eq!(live.pull_request.number, 188);
     assert!(live.pull_request.merged);
@@ -553,7 +554,7 @@ fn github_pr_http_observer_maps_pull_request_readback_without_network()
             pull_request_ref: fixture_pull_request_ref(),
         })?;
 
-    assert_eq!(observation.provider, PostMergeProvider::Github);
+    assert_eq!(observation.provider, post_merge_provider::GITHUB);
     assert_eq!(observation.repo, "runxhq/nitrosend");
     assert_eq!(observation.number, 188);
     assert_eq!(observation.uri, "github://runxhq/nitrosend/pulls/188");
@@ -681,7 +682,7 @@ fn fixture_backed_github_pr_adapter_observes_readback_without_network()
         &mut ledger,
     )?;
 
-    assert_eq!(live.pull_request.provider, PostMergeProvider::Github);
+    assert_eq!(live.pull_request.provider, post_merge_provider::GITHUB);
     assert_eq!(live.pull_request.repo, "runxhq/nitrosend");
     assert_eq!(live.pull_request.number, 188);
     assert_eq!(
@@ -892,7 +893,7 @@ impl PostMergeObserverAdapter for FakePostMergeObserverAdapter {
         );
         assert_eq!(request.pull_request_ref.provider.as_deref(), Some("github"));
         Ok(PostMergePullRequestObservation {
-            provider: PostMergeProvider::Github,
+            provider: post_merge_provider::GITHUB.into(),
             repo: "runxhq/nitrosend".to_owned(),
             number: 188,
             uri: request.pull_request_ref.uri.clone().into_string(),

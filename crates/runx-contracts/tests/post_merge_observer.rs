@@ -1,11 +1,11 @@
 use runx_contracts::post_merge_observer::{
-    PostMergeObserverCommandRequest, normalize_post_merge_observer_command,
+    PostMergeObserverCommandRequest, normalize_post_merge_observer_command, post_merge_provider,
 };
 use runx_contracts::{
     ActForm, ClosureDisposition, CriterionStatus, OperationalPolicy, OperationalPolicyAction,
     OperationalPolicySourceProvider, PostMergeObserverClosureState, PostMergeObserverCriterionPlan,
     PostMergeObserverPlan, PostMergeObserverPlanError, PostMergeObserverPlanRequest,
-    PostMergeObserverRuntimeDecision, PostMergeObserverSignalSource, PostMergeProvider,
+    PostMergeObserverRuntimeDecision, PostMergeObserverSignalSource,
     PostMergePullRequestObservation, PostMergePullRequestState, PostMergeSourceIssueDisposition,
     PostMergeVerificationObservation, PostMergeVerificationStatus, Receipt, Reference,
     ReferenceType, TargetRepoRunnerExistingPullRequest, TargetRepoRunnerPlanRequest,
@@ -692,7 +692,7 @@ fn observer_request(
         source_issue_ref: source_issue_ref(),
         source_thread_ref: include_source_thread.then(source_thread_ref),
         pull_request: PostMergePullRequestObservation {
-            provider: PostMergeProvider::Github,
+            provider: post_merge_provider::GITHUB.into(),
             repo: "nitrosend/api".to_owned(),
             number: 144,
             uri: "github://nitrosend/api/pulls/144".to_owned(),

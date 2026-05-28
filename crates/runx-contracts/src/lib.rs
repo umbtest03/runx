@@ -188,10 +188,10 @@ pub use post_merge_observer::{
     PostMergeObserverPlanRequest, PostMergeObserverProviderPlan, PostMergeObserverPublicationPlan,
     PostMergeObserverPublicationProjection, PostMergeObserverRuntimeDecision,
     PostMergeObserverRuntimeDedupePlan, PostMergeObserverSignalSource,
-    PostMergeObserverSourceIssuePlan, PostMergeProvider, PostMergePullRequestObservation,
-    PostMergePullRequestState, PostMergeSourceIssueDisposition, PostMergeVerificationObservation,
-    PostMergeVerificationStatus, plan_post_merge_observer_closure,
-    plan_post_merge_observer_runtime_dedupe, project_post_merge_observer_publication_from_receipt,
+    PostMergeObserverSourceIssuePlan, PostMergePullRequestObservation, PostMergePullRequestState,
+    PostMergeSourceIssueDisposition, PostMergeVerificationObservation, PostMergeVerificationStatus,
+    plan_post_merge_observer_closure, plan_post_merge_observer_runtime_dedupe, post_merge_provider,
+    project_post_merge_observer_publication_from_receipt,
 };
 pub use receipt::{
     FanoutReceiptDecision, FanoutReceiptStrategy, FanoutReceiptSyncPoint, Lineage,

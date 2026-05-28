@@ -1,8 +1,8 @@
 use serde::Deserialize;
 
+use runx_contracts::post_merge_observer::post_merge_provider;
 use runx_contracts::{
-    PostMergeProvider, PostMergePullRequestObservation, PostMergeVerificationObservation,
-    Reference, ReferenceType,
+    PostMergePullRequestObservation, PostMergeVerificationObservation, Reference, ReferenceType,
 };
 
 use super::{
@@ -83,9 +83,9 @@ fn require_github_fixture_request(
     request: &PostMergeObserverPullRequestObservationRequest,
     fixture: &FixtureBackedGitHubPostMergeObservation,
 ) -> Result<(), PostMergeObserverAdapterError> {
-    if fixture.pull_request.provider != PostMergeProvider::Github
+    if fixture.pull_request.provider != post_merge_provider::GITHUB
         || fixture.pull_request_ref.reference_type != ReferenceType::GithubPullRequest
-        || fixture.pull_request_ref.provider.as_deref() != Some("github")
+        || fixture.pull_request_ref.provider.as_deref() != Some(post_merge_provider::GITHUB)
     {
         return Err(PostMergeObserverAdapterError::new(
             "observe_pull_request_fixture",

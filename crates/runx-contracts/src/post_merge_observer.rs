@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::schema::NonEmptyString;
 use crate::{
     ActForm, ClosureDisposition, CriterionStatus, OperationalPolicyPublishMode, Reference,
 };
@@ -15,10 +16,13 @@ pub use plan::{
     plan_post_merge_observer_runtime_dedupe, project_post_merge_observer_publication_from_receipt,
 };
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PostMergeProvider {
-    Github,
+/// Canonical provider identifiers for post-merge observation. Documented for
+/// discoverability; the wire form is an open `NonEmptyString` so adapters that
+/// implement `PostMergeObserverAdapter` in the runtime can publish their own
+/// identifier without a contract edit.
+pub mod post_merge_provider {
+    /// GitHub-hosted pull requests.
+    pub const GITHUB: &str = "github";
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -31,7 +35,9 @@ pub enum PostMergePullRequestState {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PostMergePullRequestObservation {
-    pub provider: PostMergeProvider,
+    /// Open provider identifier (e.g. `post_merge_provider::GITHUB`). Any value
+    /// an adapter publishes is accepted on the wire.
+    pub provider: NonEmptyString,
     pub repo: String,
     pub number: u64,
     pub uri: String,
@@ -144,7 +150,9 @@ pub struct PostMergeObserverPlan {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct PostMergeObserverProviderPlan {
-    pub provider: PostMergeProvider,
+    /// Open provider identifier mirroring the observation field; see
+    /// [`post_merge_provider`].
+    pub provider: NonEmptyString,
     pub pull_request_ref: Reference,
     pub merged: bool,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -4,9 +4,10 @@
 use serde::Deserialize;
 use url::Url;
 
+use runx_contracts::post_merge_observer::post_merge_provider;
 use runx_contracts::{
-    PostMergeProvider, PostMergePullRequestObservation, PostMergePullRequestState,
-    PostMergeVerificationObservation, Reference, ReferenceType,
+    PostMergePullRequestObservation, PostMergePullRequestState, PostMergeVerificationObservation,
+    Reference, ReferenceType,
 };
 
 use super::{
@@ -340,7 +341,7 @@ fn github_pull_request_observation_from_response(
         .map(|login| format!("github:user:{login}"));
 
     Ok(PostMergePullRequestObservation {
-        provider: PostMergeProvider::Github,
+        provider: post_merge_provider::GITHUB.into(),
         repo: identity.repo.clone(),
         number: identity.number,
         uri: request.pull_request_ref.uri.clone().into_string(),
