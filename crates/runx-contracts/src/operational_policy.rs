@@ -52,48 +52,33 @@ impl fmt::Display for OperationalPolicyAction {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum OperationalPolicySourceProvider {
-    Slack,
-    Sentry,
-    Github,
-    File,
-    Api,
-    Other,
+/// Canonical source provider identifiers for operational policies. Documented
+/// for discoverability; the wire form is an open `NonEmptyString` so adapters
+/// implementing source ingestion can publish their own identifier without a
+/// contract edit.
+pub mod operational_policy_source_provider {
+    /// Slack workspaces and threads.
+    pub const SLACK: &str = "slack";
+    /// Sentry issue/event streams.
+    pub const SENTRY: &str = "sentry";
+    /// GitHub issues and pull requests.
+    pub const GITHUB: &str = "github";
+    /// Files on a workspace volume.
+    pub const FILE: &str = "file";
+    /// Generic HTTP API source.
+    pub const API: &str = "api";
 }
 
-impl fmt::Display for OperationalPolicySourceProvider {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            Self::Slack => "slack",
-            Self::Sentry => "sentry",
-            Self::Github => "github",
-            Self::File => "file",
-            Self::Api => "api",
-            Self::Other => "other",
-        })
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum OperationalPolicyRunnerKind {
-    Local,
-    GithubActions,
-    Aster,
-    Other,
-}
-
-impl fmt::Display for OperationalPolicyRunnerKind {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            Self::Local => "local",
-            Self::GithubActions => "github-actions",
-            Self::Aster => "aster",
-            Self::Other => "other",
-        })
-    }
+/// Canonical runner kind identifiers for operational policies. The wire form
+/// is an open `NonEmptyString`; adapters that schedule work on a new substrate
+/// can publish their own identifier without a contract edit.
+pub mod operational_policy_runner_kind {
+    /// In-process local runner.
+    pub const LOCAL: &str = "local";
+    /// GitHub Actions hosted runner.
+    pub const GITHUB_ACTIONS: &str = "github-actions";
+    /// Aster operator runner.
+    pub const ASTER: &str = "aster";
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
@@ -183,7 +168,10 @@ pub struct OperationalPolicy {
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicySourceRule {
     pub source_id: NonEmptyString,
-    pub provider: OperationalPolicySourceProvider,
+    /// Open provider identifier (e.g.
+    /// `operational_policy_source_provider::SLACK`). Any value an adapter
+    /// publishes is accepted on the wire.
+    pub provider: NonEmptyString,
     pub allowed_locators: Vec<NonEmptyString>,
     pub allowed_actions: Vec<OperationalPolicyAction>,
     pub source_thread: OperationalPolicySourceThreadPolicy,
@@ -214,7 +202,10 @@ pub struct OperationalPolicySentryPolicy {
 #[serde(deny_unknown_fields)]
 pub struct OperationalPolicyRunnerRule {
     pub runner_id: NonEmptyString,
-    pub kind: OperationalPolicyRunnerKind,
+    /// Open runner kind identifier (e.g.
+    /// `operational_policy_runner_kind::LOCAL`). Any value an adapter publishes
+    /// is accepted on the wire.
+    pub kind: NonEmptyString,
     pub state: OperationalPolicyRunnerState,
     pub allowed_actions: Vec<OperationalPolicyAction>,
     pub target_repos: Vec<String>,
@@ -328,11 +319,7 @@ impl RunxSchema for OperationalPolicySourceRule {
         object_schema(
             vec![
                 Property::new("source_id", id_schema(), true),
-                Property::new(
-                    "provider",
-                    OperationalPolicySourceProvider::json_schema(),
-                    true,
-                ),
+                Property::new("provider", NonEmptyString::json_schema(), true),
                 Property::new(
                     "allowed_locators",
                     non_empty_array(NonEmptyString::json_schema()),
@@ -366,7 +353,7 @@ impl RunxSchema for OperationalPolicyRunnerRule {
         object_schema(
             vec![
                 Property::new("runner_id", id_schema(), true),
-                Property::new("kind", OperationalPolicyRunnerKind::json_schema(), true),
+                Property::new("kind", NonEmptyString::json_schema(), true),
                 Property::new("state", OperationalPolicyRunnerState::json_schema(), true),
                 Property::new(
                     "allowed_actions",
@@ -579,7 +566,7 @@ pub struct OperationalPolicyReadback {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct OperationalPolicySourceReadback {
     pub source_id: String,
-    pub provider: OperationalPolicySourceProvider,
+    pub provider: NonEmptyString,
     pub locator_count: usize,
     pub allowed_actions: Vec<OperationalPolicyAction>,
     pub source_thread_required: bool,
@@ -589,7 +576,7 @@ pub struct OperationalPolicySourceReadback {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct OperationalPolicyRunnerReadback {
     pub runner_id: String,
-    pub kind: OperationalPolicyRunnerKind,
+    pub kind: NonEmptyString,
     pub state: OperationalPolicyRunnerState,
     pub target_repos: Vec<String>,
     pub allowed_actions: Vec<OperationalPolicyAction>,

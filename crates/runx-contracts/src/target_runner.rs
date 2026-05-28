@@ -7,12 +7,12 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::schema::NonEmptyString;
 use crate::{
     JsonObject, OperationalPolicyAction, OperationalPolicyAdmission,
     OperationalPolicyDedupeStrategy, OperationalPolicyDuplicateBehavior, OperationalPolicyError,
-    OperationalPolicyOutcomeCloseMode, OperationalPolicyPublishMode, OperationalPolicyRunnerKind,
-    OperationalPolicyRunnerRule, OperationalPolicySourceProvider, OperationalPolicySourceRule,
-    OperationalPolicyTargetRule, Reference,
+    OperationalPolicyOutcomeCloseMode, OperationalPolicyPublishMode, OperationalPolicyRunnerRule,
+    OperationalPolicySourceRule, OperationalPolicyTargetRule, Reference,
 };
 
 mod plan;
@@ -41,7 +41,7 @@ pub struct TargetRepoRunnerPlanRequest {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TargetRepoRunnerSourceContext {
-    pub provider: OperationalPolicySourceProvider,
+    pub provider: NonEmptyString,
     pub locator: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_locator: Option<String>,
@@ -79,7 +79,7 @@ pub struct TargetRepoRunnerPlan {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct TargetRepoRunnerSourcePlan {
     pub source_id: String,
-    pub provider: OperationalPolicySourceProvider,
+    pub provider: NonEmptyString,
     pub locator: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub issue_url: Option<String>,
@@ -103,7 +103,7 @@ pub struct TargetRepoRunnerTargetPlan {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct TargetRepoRunnerRunnerPlan {
     pub runner_id: String,
-    pub kind: OperationalPolicyRunnerKind,
+    pub kind: NonEmptyString,
     pub scafld_required: bool,
 }
 
@@ -170,7 +170,7 @@ pub struct TargetRepoRunnerCheckoutPlan {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct TargetRepoRunnerReadinessPlan {
     pub runner_id: String,
-    pub runner_kind: OperationalPolicyRunnerKind,
+    pub runner_kind: NonEmptyString,
     pub runner_scafld_required: bool,
     pub target_scafld_required: bool,
     pub scafld_ready: bool,

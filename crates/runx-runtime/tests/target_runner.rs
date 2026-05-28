@@ -1027,7 +1027,7 @@ fn nitrosend_request(target_repo: &str) -> TargetRepoRunnerPlanRequest {
         action: OperationalPolicyAction::IssueToPr,
         runner_id: None,
         source: TargetRepoRunnerSourceContext {
-            provider: runx_contracts::OperationalPolicySourceProvider::Slack,
+            provider: runx_contracts::operational_policy_source_provider::SLACK.into(),
             locator: "slack://nitrosend/C0APFMY0V8Q".to_owned(),
             thread_locator: Some("slack://nitrosend/C0APFMY0V8Q/1778834840.485629".to_owned()),
             thread_ts: Some("1778834840.485629".to_owned()),
