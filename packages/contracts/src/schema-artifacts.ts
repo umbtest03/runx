@@ -25871,6 +25871,14 @@ export const runxSchemaArtifacts = {
         "items": {
           "additionalProperties": false,
           "properties": {
+            "adapter_policy": {
+              "additionalProperties": {},
+              "propertyNames": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "object"
+            },
             "allowed_actions": {
               "items": {
                 "anyOf": [
@@ -25927,25 +25935,6 @@ export const runxSchemaArtifacts = {
             "provider": {
               "minLength": 1,
               "type": "string"
-            },
-            "sentry": {
-              "additionalProperties": false,
-              "properties": {
-                "production_only": {
-                  "type": "boolean"
-                },
-                "regressed_only": {
-                  "type": "boolean"
-                },
-                "unresolved_only": {
-                  "type": "boolean"
-                }
-              },
-              "required": [
-                "production_only",
-                "unresolved_only"
-              ],
-              "type": "object"
             },
             "source_id": {
               "minLength": 1,

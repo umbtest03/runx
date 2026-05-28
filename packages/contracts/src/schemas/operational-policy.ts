@@ -11,13 +11,17 @@ import {
 
 export const operationalPolicySchemaVersion = "runx.operational_policy.v1" as const;
 
+/**
+ * Canonical source provider identifiers. The wire schema accepts any non-empty
+ * string so adapters can publish their own identifier without a schema edit;
+ * this list is for discoverability and shared default constants.
+ */
 export const operationalPolicySourceProviders = [
   "slack",
   "sentry",
   "github",
   "file",
   "api",
-  "other",
 ] as const;
 
 export const operationalPolicyActions = [
@@ -31,11 +35,14 @@ export const operationalPolicyActions = [
   "merge-assist",
 ] as const;
 
+/**
+ * Canonical runner kind identifiers. The wire schema accepts any non-empty
+ * string so adapters can publish their own identifier without a schema edit.
+ */
 export const operationalPolicyRunnerKinds = [
   "local",
   "github-actions",
   "aster",
-  "other",
 ] as const;
 
 export const operationalPolicyRunnerStates = [
@@ -68,9 +75,9 @@ const idSchema = Type.String({
 
 const actionSchema = stringEnum(operationalPolicyActions);
 
-const sourceProviderSchema = stringEnum(operationalPolicySourceProviders);
+const sourceProviderSchema = Type.String({ minLength: 1 });
 
-const runnerKindSchema = stringEnum(operationalPolicyRunnerKinds);
+const runnerKindSchema = Type.String({ minLength: 1 });
 
 const runnerStateSchema = stringEnum(operationalPolicyRunnerStates);
 
@@ -95,13 +102,9 @@ const sourceRuleSchema = Type.Object(
     allowed_actions: Type.Array(actionSchema, { minItems: 1 }),
     source_thread: sourceThreadPolicySchema,
     minimum_confidence: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })),
-    sentry: Type.Optional(Type.Object(
-      {
-        production_only: Type.Boolean(),
-        unresolved_only: Type.Boolean(),
-        regressed_only: Type.Optional(Type.Boolean()),
-      },
-      { additionalProperties: false },
+    adapter_policy: Type.Optional(Type.Record(
+      Type.String({ minLength: 1 }),
+      Type.Unknown(),
     )),
   },
   { additionalProperties: false },

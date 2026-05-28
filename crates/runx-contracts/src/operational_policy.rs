@@ -4,11 +4,13 @@
 // logic lives in the private `evaluate` submodule.
 // rust-style-allow: large-file because the operational policy schema, rules,
 // and decision shapes form one cross-language wire surface.
+use std::collections::BTreeMap;
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use crate::JsonValue;
 use crate::schema::{Identity, IsoDateTime, NonEmptyString, Property, RunxSchema, object_schema};
 
 mod evaluate;
@@ -177,8 +179,12 @@ pub struct OperationalPolicySourceRule {
     pub source_thread: OperationalPolicySourceThreadPolicy,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub minimum_confidence: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sentry: Option<OperationalPolicySentryPolicy>,
+    /// Open per-provider adapter policy bag, keyed by adapter identifier
+    /// (typically the source provider id). Adapters validate their own slice;
+    /// the contract layer carries the JSON through untyped so new providers do
+    /// not require a contract edit.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub adapter_policy: BTreeMap<NonEmptyString, JsonValue>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
@@ -187,15 +193,6 @@ pub struct OperationalPolicySourceThreadPolicy {
     pub required: bool,
     pub publish_mode: OperationalPolicyPublishMode,
     pub missing_behavior: OperationalPolicyMissingBehavior,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
-#[serde(deny_unknown_fields)]
-pub struct OperationalPolicySentryPolicy {
-    pub production_only: bool,
-    pub unresolved_only: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub regressed_only: Option<bool>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -336,11 +333,7 @@ impl RunxSchema for OperationalPolicySourceRule {
                     true,
                 ),
                 Property::new("minimum_confidence", confidence_schema(), false),
-                Property::new(
-                    "sentry",
-                    OperationalPolicySentryPolicy::json_schema(),
-                    false,
-                ),
+                Property::new("adapter_policy", adapter_policy_schema(), false),
             ],
             true,
             None,
@@ -476,6 +469,14 @@ fn non_empty_array(item_schema: Value) -> Value {
 
 fn const_bool(value: bool) -> Value {
     json!({ "const": value, "type": "boolean" })
+}
+
+fn adapter_policy_schema() -> Value {
+    json!({
+        "additionalProperties": JsonValue::json_schema(),
+        "propertyNames": NonEmptyString::json_schema(),
+        "type": "object",
+    })
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

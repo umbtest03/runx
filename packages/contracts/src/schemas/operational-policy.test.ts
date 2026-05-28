@@ -44,10 +44,12 @@ const validPolicy: OperationalPolicyContract = {
         publish_mode: "reply",
         missing_behavior: "fail_closed",
       },
-      sentry: {
-        production_only: true,
-        unresolved_only: true,
-        regressed_only: true,
+      adapter_policy: {
+        sentry: {
+          production_only: true,
+          unresolved_only: true,
+          regressed_only: true,
+        },
       },
     },
   ],

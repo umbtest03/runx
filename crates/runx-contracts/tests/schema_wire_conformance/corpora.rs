@@ -1517,7 +1517,9 @@ pub(super) fn operational_policy_corpus() -> Vec<(&'static str, Value)> {
             let mut v = valid.clone();
             v["created_at"] = json!("2026-01-01T00:00:00Z");
             v["sources"][0]["minimum_confidence"] = json!(0.5);
-            v["sources"][0]["sentry"] = json!({ "production_only": true, "unresolved_only": true });
+            v["sources"][0]["adapter_policy"] = json!({
+                "sentry": { "production_only": true, "unresolved_only": true },
+            });
             v["owner_routes"][0]["labels"] = json!(["bug"]);
             v["owner_routes"][0]["project"] = json!("Roadmap");
             v["targets"][0]["base_branch"] = json!("main");

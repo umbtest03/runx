@@ -38,10 +38,12 @@
         "missing_behavior": "fail_closed"
       },
       "minimum_confidence": 0.82,
-      "sentry": {
-        "production_only": true,
-        "unresolved_only": true,
-        "regressed_only": true
+      "adapter_policy": {
+        "sentry": {
+          "production_only": true,
+          "unresolved_only": true,
+          "regressed_only": true
+        }
       }
     }
   ],
