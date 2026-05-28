@@ -2,10 +2,11 @@ export const knowledgePackage = "@runxhq/core/knowledge";
 
 import { RUNX_CONTRACT_IDS } from "@runxhq/contracts";
 
+// Schema refs for the live local knowledge store + handoff/suppression contracts
+// (still owned by @runxhq/contracts). The thread/outbox/feed/story projection
+// shared library was retired; if a kernel-side projection capability is needed
+// later, it lives in the Rust kernel alongside its execution and contracts.
 export const RUNX_SCHEMA_REFS = {
-  thread: "https://runx.ai/spec/thread.schema.json",
-  outbox_entry: "https://runx.ai/spec/outbox-entry.schema.json",
-  thread_decision: "https://runx.ai/spec/thread-decision.schema.json",
   knowledge_entry: "https://runx.ai/spec@runxhq/core/knowledge-entry.schema.json",
   handoff_signal: RUNX_CONTRACT_IDS.handoffSignal,
   handoff_state: RUNX_CONTRACT_IDS.handoffState,
@@ -17,97 +18,6 @@ export {
   type EvidenceRef,
   type ThreadAdapterDescriptor,
 } from "./internal-validators.js";
-
-export {
-  type ThreadEntryKind,
-  type ThreadDecisionValue,
-  type ThreadEntry,
-  type ThreadDecision,
-  type Thread,
-  type ThreadFetchRequest,
-  type PushOutboxEntryRequest,
-  type PushOutboxEntryResult,
-  validateThread,
-  validateThreadDecision,
-  validateThreadEntry,
-  latestDecisionForGate,
-  threadAllowsGate,
-  summarizeThread,
-} from "./thread.js";
-
-export {
-  type OutboxEntryKind,
-  type OutboxEntryStatus,
-  type OutboxEntry,
-  type OutboxControlEntrySelector,
-  type MaterializedOutboxFile,
-  type MaterializeOutboxEntryFilesOptions,
-  validateOutboxEntry,
-  findOutboxEntry,
-  readOutboxEntryControl,
-  findLatestOutboxEntry,
-  findLatestControlOutboxEntry,
-  sortOutboxEntriesByRecency,
-  materializeOutboxEntryFiles,
-} from "./outbox.js";
-
-export {
-  type FeedStoryMilestoneKind,
-  type FeedStoryMilestoneStatus,
-  type FeedStoryMilestone,
-  type FeedStory,
-  type BuildFeedStoryOutboxEntryOptions,
-  type RenderIssueToPrReviewerMarkdownOptions,
-  validateFeedStoryMilestone,
-  validateFeedStory,
-  renderFeedStoryMarkdown,
-  buildFeedStoryOutboxEntry,
-  renderIssueToPrReviewerMarkdown,
-  summarizePublicHandoffMarkdown,
-  sanitizePublicMarkdown,
-} from "./feed-entry.js";
-
-export {
-  type ThreadStorySectionId,
-  type ThreadStoryLink,
-  type ThreadStorySection,
-  type BuildThreadStoryMarkdownOptions,
-  type BuildThreadStoryMessageOutboxEntryOptions,
-  type ThreadStatusTriageSummary,
-  type BuildThreadStatusMarkdownOptions,
-  type BuildThreadMilestoneNotificationTextOptions,
-  type BuildThreadPullRequestReviewerPacketMarkdownOptions,
-  THREAD_STORY_CONTROL_SCHEMA_VERSION,
-  THREAD_STORY_MESSAGE_SCHEMA_VERSION,
-  sanitizeThreadStoryText,
-  buildThreadStoryMarkdown,
-  buildThreadStatusMarkdown,
-  buildThreadMilestoneNotificationText,
-  buildThreadPullRequestReviewerPacketMarkdown,
-  buildThreadStoryMessageOutboxEntry,
-} from "./thread-story.js";
-
-export {
-  type HandoffSignal,
-  type HandoffState,
-  type SuppressionRecord,
-  type HandoffRef,
-  type ReduceHandoffStateRequest,
-  validateHandoffSignal,
-  validateHandoffState,
-  validateSuppressionRecord,
-  latestHandoffSignal,
-  findActiveSuppressionRecord,
-  handoffIsSuppressed,
-  reduceHandoffState,
-  handoffStateAllowsSignalDisposition,
-  handoffStateAllowsOutboxPush,
-} from "./handoff.js";
-
-export {
-  fetchThreadViaAdapter,
-  pushOutboxEntryViaAdapter,
-} from "./file-thread.js";
 
 export {
   type LocalKnowledgeEntryKind,

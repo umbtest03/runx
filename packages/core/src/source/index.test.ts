@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildThreadStoryMessageOutboxEntry,
-  readOutboxEntryControl,
-} from "../knowledge/index.js";
-
-import {
   buildRunxCommandResponse,
   buildRunxSourceDedupeKey,
   normalizeRunxSourceCommand,
@@ -141,47 +136,4 @@ describe("runx source command contracts", () => {
       .toBe("failed in [local path] with [redacted token]");
   });
 
-  it("feeds safe source command summaries into thread story outbox entries", () => {
-    const command = normalizeRunxSourceCommand({
-      action: "issue-intake",
-      source: "https://nitrosend.slack.com/archives/C0APFMY0V8Q/p1778834840485629",
-      defaultTargetRepo: "nitrosend/api",
-      title: "Checkout webhook alert",
-      body: "Operator asked runx to triage the source thread.",
-      sourceId: "slack-support",
-    });
-    const summary = buildRunxCommandResponse({
-      status: "blocked",
-      source: command,
-      summary: "Hydration failed in /Users/kam/dev/nitrosend with GITHUB_TOKEN=ghp_123456789012345678901234567890123456",
-      nextAction: "Hydrate the Slack source thread, then rerun issue intake.",
-    });
-
-    const entry = buildThreadStoryMessageOutboxEntry({
-      entryId: "message:runx-source-command:test",
-      threadLocator: command.threadLocator ?? "local://missing-thread",
-      workflow: "issue-intake",
-      lane: "triage",
-      sourceLocator: command.sourceLocator,
-      story: {
-        title: "Runx source command",
-        sections: [
-          {
-            section_id: "triage_results",
-            summary,
-          },
-        ],
-      },
-    });
-
-    expect(entry.thread_locator).toBe(command.threadLocator);
-    expect(readOutboxEntryControl(entry)).toMatchObject({
-      workflow: "issue-intake",
-      lane: "triage",
-      source_locator: command.sourceLocator,
-    });
-    expect(JSON.stringify(entry)).not.toContain("/Users/kam");
-    expect(JSON.stringify(entry)).not.toContain("ghp_");
-    expect(JSON.stringify(entry)).toContain("[local path]");
-  });
 });
