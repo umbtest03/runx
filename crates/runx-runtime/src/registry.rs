@@ -1,4 +1,5 @@
 mod http;
+mod index;
 mod install;
 mod local;
 mod payload;
@@ -9,8 +10,12 @@ mod types;
 use runx_contracts::{JsonNumber, JsonObject, JsonValue};
 
 pub use http::{
-    AcquireOptions, HttpMethod, HttpRequest, HttpResponse, RegistryClient, RegistryClientError,
-    RuntimeHttpError, RuntimeHttpHeader, Transport,
+    AcquireOptions, DefaultRuntimeHttpTransport, HttpMethod, HttpRequest, HttpResponse,
+    RegistryClient, RegistryClientError, RuntimeHttpError, RuntimeHttpHeader, Transport,
+};
+pub use index::{
+    GithubRepoRef, IndexError, IndexGithubRepoOptions, IndexResponse, IndexWarning, IndexedListing,
+    IndexedRepo, index_github_repo, parse_github_repo_ref,
 };
 pub use install::{
     InstallCandidate, InstallError, InstallLocalSkillOptions, InstallLocalSkillResult,

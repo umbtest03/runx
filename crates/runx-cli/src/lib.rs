@@ -12,3 +12,4 @@ pub mod registry;
 pub mod scaffold;
 pub mod skill;
 pub mod tool;
+pub mod url_add;

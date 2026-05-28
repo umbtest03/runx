@@ -34,6 +34,7 @@ fn main() -> ExitCode {
         LauncherAction::RunDoctor(plan) => runx_cli::doctor::run_native_doctor(plan),
         LauncherAction::RunDev(plan) => runx_cli::dev::run_native_dev(plan),
         LauncherAction::RunTool(plan) => runx_cli::tool::run_native_tool(plan),
+        LauncherAction::RunUrlAdd(plan) => runx_cli::url_add::run_native_url_add(plan),
     }
 }
 

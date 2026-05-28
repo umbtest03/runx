@@ -28,8 +28,18 @@ pub enum LauncherAction {
     RunRegistry(RegistryPlan),
     RunSkill(SkillPlan),
     RunTool(ToolPlan),
+    RunUrlAdd(UrlAddPlan),
     PrintHelp,
     PrintVersion,
+}
+
+/// Arguments for `runx url-add <repo> [--ref <git-ref>] [--api-base-url <url>] [--json]`.
+#[derive(Debug, Eq, PartialEq)]
+pub struct UrlAddPlan {
+    pub repo: String,
+    pub repo_ref: Option<String>,
+    pub api_base_url: Option<String>,
+    pub json: bool,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -195,6 +205,11 @@ pub fn plan_launcher(args: Vec<OsString>) -> LauncherAction {
             .map_or_else(LauncherAction::Error, LauncherAction::RunSkill);
     }
 
+    if first_arg_is(&args, "url-add") {
+        return parse_url_add_plan(&args)
+            .map_or_else(LauncherAction::Error, LauncherAction::RunUrlAdd);
+    }
+
     LauncherAction::Error(format!(
         "unknown command {}",
         args.first()
@@ -230,6 +245,7 @@ Commands:
   runx tool search <query> [--source source] [--json]
   runx tool inspect <ref> [--source source] [--json]
   runx registry search|read|resolve|install|publish ... --json
+  runx url-add <repo> [--ref <git-ref>] [--api-base-url <url>] [--json]
 "
     .to_owned()
 }
@@ -333,6 +349,57 @@ fn parse_new_plan(args: &[OsString]) -> Result<NewPlan, String> {
     Ok(NewPlan {
         name: name.ok_or_else(|| "runx new requires a package name".to_owned())?,
         directory: directory.or(positional_directory),
+        json,
+    })
+}
+
+fn parse_url_add_plan(args: &[OsString]) -> Result<UrlAddPlan, String> {
+    let mut repo: Option<String> = None;
+    let mut repo_ref: Option<String> = None;
+    let mut api_base_url: Option<String> = None;
+    let mut json = false;
+    let mut index = 1;
+
+    while index < args.len() {
+        let token = os_arg(args, index, "url-add")?;
+        if !token.starts_with("--") {
+            if repo.is_some() {
+                return Err("runx url-add accepts exactly one repository argument".to_owned());
+            }
+            repo = Some(token.to_owned());
+            index += 1;
+            continue;
+        }
+
+        let (flag, inline_value) = split_flag(token);
+        match flag {
+            "--json" => {
+                if inline_value.is_some() {
+                    return Err("--json does not take a value".to_owned());
+                }
+                json = true;
+                index += 1;
+            }
+            "--ref" => {
+                let (value, next_index) = flag_value(args, index, flag, inline_value, "url-add")?;
+                repo_ref = Some(value);
+                index = next_index;
+            }
+            "--api-base-url" => {
+                let (value, next_index) = flag_value(args, index, flag, inline_value, "url-add")?;
+                api_base_url = Some(value);
+                index = next_index;
+            }
+            _ => return Err(format!("unknown url-add flag {flag}")),
+        }
+    }
+
+    let repo = repo.ok_or_else(|| "runx url-add requires a repository URL argument".to_owned())?;
+
+    Ok(UrlAddPlan {
+        repo,
+        repo_ref,
+        api_base_url,
         json,
     })
 }
