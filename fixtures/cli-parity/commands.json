@@ -668,6 +668,40 @@
       "cases": [
         "registry.validate"
       ]
+    },
+    {
+      "id": "url-add",
+      "usage": "runx url-add <repo> [--ref <git-ref>] [--api-base-url <url>] [--json]",
+      "aliases": [],
+      "requiredPositionals": [
+        "<repo>",
+        "<git-ref>",
+        "<url>"
+      ],
+      "flags": [
+        "--ref",
+        "--api-base-url",
+        "--json"
+      ],
+      "exitCodes": [
+        0,
+        1,
+        2,
+        64
+      ],
+      "parity": {
+        "humanOutput": "semantic",
+        "jsonOutput": "schema-exact",
+        "receipt": "none",
+        "sideEffect": "external-stub",
+        "surfaces": [
+          "registry",
+          "cli-presentation"
+        ]
+      },
+      "cases": [
+        "url-add.validate"
+      ]
     }
   ]
 }

@@ -273,6 +273,15 @@
         "registry",
         "cli-presentation"
       ]
+    },
+    {
+      "id": "url-add.validate",
+      "commandId": "url-add",
+      "mode": "validate",
+      "proves": [
+        "registry",
+        "cli-presentation"
+      ]
     }
   ]
 }
