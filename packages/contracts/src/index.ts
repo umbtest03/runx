@@ -270,7 +270,12 @@ export {
   type OperationalProposalIdempotencyContract,
   type OperationalProposalOutcomeContract,
   type OperationalProposalRecommendedActionContract,
+  type OperationalProposalReferenceContract,
+  type OperationalProposalReferenceLinkContract,
+  type OperationalProposalReferenceTypeContract,
   type OperationalProposalRedactionStatusContract,
+  type OperationalProposalEscalationExtensionContract,
+  type OperationalProposalExtensionsContract,
 } from "./schemas/operational-proposal.js";
 
 export {

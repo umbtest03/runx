@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::schema::{Identity, IsoDateTime, NonEmptyString, Property, RunxSchema, object_schema};
-use crate::{JsonObject, Reference, ReferenceLink};
+use crate::{JsonObject, ProofKind};
 
 pub const OPERATIONAL_PROPOSAL_SCHEMA: &str = "runx.operational_proposal.v1";
 
@@ -22,6 +22,80 @@ pub enum OperationalProposalRedactionStatus {
     Blocked,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize, RunxSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OperationalProposalReferenceType {
+    ProviderThread,
+    ProviderEvent,
+    ProviderComment,
+    TrackingItem,
+    ChangeRequest,
+    Repository,
+    SupportTicket,
+    Signal,
+    Act,
+    Receipt,
+    GraphReceipt,
+    Artifact,
+    Verification,
+    Harness,
+    Host,
+    Deployment,
+    Surface,
+    Target,
+    Opportunity,
+    ThesisAssessment,
+    Selection,
+    SkillBinding,
+    TargetTransitionEntry,
+    SelectionCycle,
+    Decision,
+    ReflectionEntry,
+    FeedEntry,
+    Principal,
+    AuthorityProof,
+    ScopeAdmission,
+    Grant,
+    Mandate,
+    Credential,
+    WebhookDelivery,
+    RedactionPolicy,
+    ExternalUrl,
+}
+
+/// Provider-neutral reference shape for operational proposal packets.
+///
+/// GitHub, Slack, Sentry, and similar systems remain adapters/providers. Their
+/// concrete names belong in `provider`, `locator`, and `uri`, not in the
+/// shared reference `type` vocabulary used by proposals.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+#[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.operational_proposal.reference.v1")]
+pub struct OperationalProposalReference {
+    #[serde(rename = "type")]
+    pub reference_type: OperationalProposalReferenceType,
+    pub uri: NonEmptyString,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<NonEmptyString>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locator: Option<NonEmptyString>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<NonEmptyString>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub observed_at: Option<IsoDateTime>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_kind: Option<ProofKind>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+#[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.operational_proposal.reference_link.v1")]
+pub struct OperationalProposalReferenceLink {
+    pub role: NonEmptyString,
+    #[serde(rename = "ref")]
+    pub reference: OperationalProposalReference,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OperationalProposalRecommendedAction {
@@ -29,7 +103,7 @@ pub struct OperationalProposalRecommendedAction {
     pub summary: NonEmptyString,
     pub mutating: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub target_refs: Vec<Reference>,
+    pub target_refs: Vec<OperationalProposalReference>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
@@ -89,7 +163,7 @@ pub struct OperationalProposalOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub observed_at: Option<IsoDateTime>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub refs: Vec<Reference>,
+    pub refs: Vec<OperationalProposalReference>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -100,27 +174,27 @@ pub struct OperationalProposal {
     pub proposal_kind: NonEmptyString,
     pub source_event_id: NonEmptyString,
     pub idempotency: OperationalProposalIdempotency,
-    pub source_ref: Reference,
+    pub source_ref: OperationalProposalReference,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub source_thread_ref: Option<Reference>,
-    pub hydrated_context_ref: Reference,
+    pub source_thread_ref: Option<OperationalProposalReference>,
+    pub hydrated_context_ref: OperationalProposalReference,
     pub redaction_status: OperationalProposalRedactionStatus,
     pub decision_summary: NonEmptyString,
     pub rationale: NonEmptyString,
     #[serde(default)]
     pub recommended_actions: Vec<OperationalProposalRecommendedAction>,
     #[serde(default)]
-    pub evidence_refs: Vec<Reference>,
+    pub evidence_refs: Vec<OperationalProposalReference>,
     #[serde(default)]
-    pub artifact_refs: Vec<Reference>,
+    pub artifact_refs: Vec<OperationalProposalReference>,
     #[serde(default)]
-    pub receipt_refs: Vec<Reference>,
+    pub receipt_refs: Vec<OperationalProposalReference>,
     #[serde(default)]
-    pub story_refs: Vec<Reference>,
+    pub story_refs: Vec<OperationalProposalReference>,
     #[serde(default)]
-    pub result_refs: Vec<ReferenceLink>,
+    pub result_refs: Vec<OperationalProposalReferenceLink>,
     #[serde(default)]
-    pub publication_refs: Vec<ReferenceLink>,
+    pub publication_refs: Vec<OperationalProposalReferenceLink>,
     pub owner_route_id: NonEmptyString,
     pub confidence: f64,
     #[serde(default)]
@@ -137,6 +211,8 @@ pub struct OperationalProposal {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub final_outcome: Option<OperationalProposalOutcome>,
     pub public_summary: NonEmptyString,
+    /// Product-neutral extensions. `runx.escalation` carries escalation
+    /// severity and urgency without adding provider-specific core fields.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extensions: Option<JsonObject>,
 }
@@ -157,9 +233,21 @@ impl RunxSchema for OperationalProposal {
                     OperationalProposalIdempotency::json_schema(),
                     true,
                 ),
-                Property::new("source_ref", Reference::json_schema(), true),
-                Property::new("source_thread_ref", Reference::json_schema(), false),
-                Property::new("hydrated_context_ref", Reference::json_schema(), true),
+                Property::new(
+                    "source_ref",
+                    OperationalProposalReference::json_schema(),
+                    true,
+                ),
+                Property::new(
+                    "source_thread_ref",
+                    OperationalProposalReference::json_schema(),
+                    false,
+                ),
+                Property::new(
+                    "hydrated_context_ref",
+                    OperationalProposalReference::json_schema(),
+                    true,
+                ),
                 Property::new(
                     "redaction_status",
                     OperationalProposalRedactionStatus::json_schema(),
@@ -172,14 +260,34 @@ impl RunxSchema for OperationalProposal {
                     Vec::<OperationalProposalRecommendedAction>::json_schema(),
                     false,
                 ),
-                Property::new("evidence_refs", Vec::<Reference>::json_schema(), false),
-                Property::new("artifact_refs", Vec::<Reference>::json_schema(), false),
-                Property::new("receipt_refs", Vec::<Reference>::json_schema(), false),
-                Property::new("story_refs", Vec::<Reference>::json_schema(), false),
-                Property::new("result_refs", Vec::<ReferenceLink>::json_schema(), false),
+                Property::new(
+                    "evidence_refs",
+                    Vec::<OperationalProposalReference>::json_schema(),
+                    false,
+                ),
+                Property::new(
+                    "artifact_refs",
+                    Vec::<OperationalProposalReference>::json_schema(),
+                    false,
+                ),
+                Property::new(
+                    "receipt_refs",
+                    Vec::<OperationalProposalReference>::json_schema(),
+                    false,
+                ),
+                Property::new(
+                    "story_refs",
+                    Vec::<OperationalProposalReference>::json_schema(),
+                    false,
+                ),
+                Property::new(
+                    "result_refs",
+                    Vec::<OperationalProposalReferenceLink>::json_schema(),
+                    false,
+                ),
                 Property::new(
                     "publication_refs",
-                    Vec::<ReferenceLink>::json_schema(),
+                    Vec::<OperationalProposalReferenceLink>::json_schema(),
                     false,
                 ),
                 Property::new("owner_route_id", id_schema(), true),

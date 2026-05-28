@@ -10,6 +10,6 @@ export function sanitizePublicMarkdown(value) {
     .replace(/\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b/g, "[secret]")
     .replace(/\b[A-Za-z0-9]+(?:[-_](?:secret|token|password|api[-_]?key))+[A-Za-z0-9_-]*\b(?!\s*=)/gi, "[secret]")
     .replace(/\b([A-Z][A-Z0-9_]*=)(?:\/Users|\/home|\/var|\/private|\/tmp|[A-Za-z]:\\)[^\s`)]+/g, "$1[local-path]")
-    .replace(/(?:\/Users|\/home|\/var|\/private|\/tmp)\/[^\s`)]+/g, "[local-path]")
+    .replace(/(^|[\s=("'`])(?:\/Users|\/home|\/var|\/private|\/tmp)\/[^\s`)]+/g, "$1[local-path]")
     .replace(/[A-Za-z]:\\[^\s`)]+/g, "[local-path]");
 }

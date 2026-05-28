@@ -19,6 +19,9 @@ import {
   pushGitHubMessage,
   pushGitHubPullRequest,
 } from "../../github_adapter.mjs";
+import {
+  assertStoryMilestoneId,
+} from "../../../../packages/core/src/knowledge/thread-story.ts";
 
 const githubPublishEnvAllowlist = [
   "PATH",
@@ -95,6 +98,7 @@ async function runPushOutbox({ inputs, env }) {
   const adapterType = firstNonEmptyString(adapter.type);
   const adapterRef = firstNonEmptyString(adapter.adapter_ref);
   const outboxKind = firstNonEmptyString(outboxEntry.kind);
+  validateStoryMessageMilestone(outboxEntry);
   const pullRequestControlMetadata = buildPullRequestControlMetadata({
     outboxEntry,
     draftPullRequest,
@@ -461,7 +465,7 @@ function buildPullRequestControlMetadata({ outboxEntry, draftPullRequest }) {
     source_thread: normalizeSourceThreadMetadata(optionalRecord(metadata.source_thread)),
     human_merge_gate: safeMetadataString(metadata.human_merge_gate, "outbox_entry.metadata.human_merge_gate"),
     post_merge_observation: safeMetadataString(metadata.post_merge_observation, "outbox_entry.metadata.post_merge_observation"),
-    story_milestones: safeStringArray(metadata.story_milestones, "outbox_entry.metadata.story_milestones"),
+    story_milestones: normalizeStoryMilestones(metadata.story_milestones, "outbox_entry.metadata.story_milestones"),
   });
 }
 
@@ -542,6 +546,26 @@ function safeStringArray(value, label) {
     .map((entry) => safeMetadataString(entry, label))
     .filter((entry) => entry !== undefined);
   return items.length > 0 ? items : undefined;
+}
+
+function normalizeStoryMilestones(value, label) {
+  const items = safeStringArray(value, label);
+  if (!items) {
+    return undefined;
+  }
+  return items.map((item) => assertStoryMilestoneId(item, label));
+}
+
+function validateStoryMessageMilestone(outboxEntry) {
+  if (firstNonEmptyString(outboxEntry?.kind) !== "message") {
+    return;
+  }
+  const metadata = optionalRecord(outboxEntry.metadata) ?? {};
+  const milestone = firstNonEmptyString(metadata.milestone_kind);
+  if (!milestone) {
+    return;
+  }
+  assertStoryMilestoneId(milestone, "outbox_entry.metadata.milestone_kind");
 }
 
 function safeMetadataString(...values) {

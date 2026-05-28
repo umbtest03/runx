@@ -2,9 +2,10 @@ use serde::Deserialize;
 
 use runx_contracts::OperationalProposal;
 
-const POSITIVE_FIXTURES: &[&str] = &[include_str!(
-    "../../../fixtures/contracts/operational-proposal/proposal-prepared.json"
-)];
+const POSITIVE_FIXTURES: &[&str] = &[
+    include_str!("../../../fixtures/contracts/operational-proposal/proposal-prepared.json"),
+    include_str!("../../../fixtures/contracts/operational-proposal/proposal-blocked.json"),
+];
 
 const INVALID_FIXTURES: &[&str] = &[
     include_str!("../../../fixtures/contracts/operational-proposal/invalid-authority-claim.json"),
@@ -17,6 +18,9 @@ const INVALID_FIXTURES: &[&str] = &[
     ),
     include_str!(
         "../../../fixtures/contracts/operational-proposal/invalid-product-specific-field.json"
+    ),
+    include_str!(
+        "../../../fixtures/contracts/operational-proposal/invalid-provider-locked-reference-type.json"
     ),
 ];
 

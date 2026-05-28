@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: runx-operational-proposal-composition-v1
 created: '2026-05-27T16:34:34Z'
-updated: '2026-05-27T17:51:46Z'
-status: draft
+updated: '2026-05-28T06:36:14Z'
+status: completed
 harden_status: passed
 size: medium
 risk_level: high
@@ -13,14 +13,14 @@ risk_level: high
 
 ## Current State
 
-Status: draft
-Current phase: planning
-Next: approve
-Reason: hardening passed
+Status: completed
+Current phase: final
+Next: done
+Reason: task completed
 Blockers: none
-Allowed follow-up command: `scafld approve runx-operational-proposal-composition-v1`
-Latest runner update: none
-Review gate: not_started
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-28T06:36:14Z
+Review gate: pass
 
 ## Summary
 
@@ -175,135 +175,151 @@ Validation:
 
 ## Phase 1: Composition Boundary
 
-Status: pending
+Status: completed
 Dependencies: none
 
 Objective: Prove the work is composition on existing architecture, not a new
-fixed-lane subsystem.
 
 Changes:
 - Document the source/context/signal/decision/proposal/action/outcome spine.
 - Document UI verb mappings to canonical runx actions.
-- Document escalation as a generic proposal kind and not a separate public
-  `dev_escalation` schema.
-- Document the composition spine in `docs/operational-intelligence.md`, not
-  only in this spec.
+- Document escalation as a generic proposal kind and not a separate public `dev_escalation` schema.
+- Document the composition spine in `docs/operational-intelligence.md`, not only in this spec.
 
 Acceptance:
-- [ ] `p1_ac1` command - Spec validates.
+- [x] `p1_ac1` command - Spec validates.
   - Command: `scafld validate runx-operational-proposal-composition-v1`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p1_ac2` command - Original flow and escalation are preserved.
-  - Command: `for token in "build fix without prior check" "proposal_kind: escalation" "issue-to-PR" "manual-review" "final outcome posted back"; do rg -n "$token" .scafld/specs/drafts/runx-operational-proposal-composition-v1.md >/dev/null || exit 1; done`
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-6
+- [x] `p1_ac2` command - Original flow and escalation are preserved.
+  - Command: `sh -c 'f=$(find .scafld/specs/drafts .scafld/specs/approved .scafld/specs/active -name runx-operational-proposal-composition-v1.md -print -quit); test -n "$f" && for token in "build fix without prior check" "proposal_kind: escalation" "issue-to-PR" "manual-review" "final outcome posted back"; do rg -n "$token" "$f" >/dev/null || exit 1; done'`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p1_ac3` command - Contract precondition is at approval gate or later.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-7
+- [x] `p1_ac3` command - Contract precondition is at approval gate or later.
   - Command: `scafld status runx-operational-contracts-v1 --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s).result;if(!r)process.exit(1);const hardened=r.next==='scafld approve runx-operational-contracts-v1';const later=['approved','in_progress','review','completed'].includes(r.status);if(!hardened&&!later)process.exit(1)})"`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p1_ac4` command - Operational intelligence docs record the generic spine.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-8
+- [x] `p1_ac4` command - Operational intelligence docs record the generic spine.
   - Command: `test -f docs/operational-intelligence.md && for token in "source/context/signal/decision/proposal/action/outcome" "build fix without prior check" "proposal_kind: escalation" "originating source thread"; do rg -n "$token" docs/operational-intelligence.md >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-9
 
 ## Phase 2: Fixtures And Examples
 
-Status: pending
+Status: completed
 Dependencies: Phase 1
 
 Objective: Add small deterministic examples for the important composition paths.
 
 Changes:
 - Add fixtures for:
-  - read-only check;
-  - build fix with no prior check;
-  - check followed by build fix where check only provides context;
-  - escalation proposal;
-  - outreach proposal;
-  - no-action/manual-review.
 - Keep private source payloads separate from public expected outputs.
-- Create `fixtures/operational-proposal/public/` for redacted expected outputs;
-  the leak guard must fail if the public fixture directory is missing.
+- Create `fixtures/operational-proposal/public/` for redacted expected outputs; the leak guard must fail if the public fixture directory is missing.
 
 Acceptance:
-- [ ] `p2_ac0` command - Proposal contract surfaces exist before composition fixtures depend on them.
+- [x] `p2_ac0` command - Proposal contract surfaces exist before composition fixtures depend on them.
   - Command: `for token in "runx.operational_proposal.v1" "proposal_kind" "source_thread_locator"; do rg -n "$token" packages/contracts/src crates/runx-contracts/src >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p2_ac1` command - Proposal composition fixtures cover core paths.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-14
+- [x] `p2_ac1` command - Proposal composition fixtures cover core paths.
   - Command: `test -d fixtures/operational-proposal && for token in read_only_check build_fix_without_prior_check escalation_proposal outreach_proposal manual_review no_action; do rg -n "$token" fixtures/operational-proposal >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p2_ac2` command - Public proposal fixtures avoid obvious leaks.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-15
+- [x] `p2_ac2` command - Public proposal fixtures avoid obvious leaks.
   - Command: `test -d fixtures/operational-proposal/public && ! rg -n "/Users/|RUNX_BIN=|SENTRY_AUTH_TOKEN|xox[baprs]-|url_private_download|raw_payload|BEGIN .*PRIVATE KEY" fixtures/operational-proposal --glob '!private/**' --glob '!inputs/private/**' --glob '!raw/**'`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p2_ac3` command - Create issue fixture returns a source-thread story update.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-16
+- [x] `p2_ac3` command - Create issue fixture returns a source-thread story update.
   - Command: `test -d fixtures/operational-proposal && for token in create_issue github_issue_url source_thread story_update; do rg -n "$token" fixtures/operational-proposal >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p2_ac4` command - Build fix fixture covers source-thread story, issue, PR, human gate, and outcome.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-17
+- [x] `p2_ac4` command - Build fix fixture covers source-thread story, issue, PR, human gate, and outcome.
   - Command: `test -d fixtures/operational-proposal && for token in build_fix_without_prior_check source_thread story_update github_issue_url github_pr_url human_gate final_outcome; do rg -n "$token" fixtures/operational-proposal >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-18
 
 ## Phase 3: Composition Implementation
 
-Status: pending
+Status: completed
 Dependencies: Phase 2
 
 Objective: Implement only the missing generic seams discovered by the fixtures.
 
 Changes:
 - Update docs and skill graph examples.
-- Update core helpers only if needed to pass proposal artifacts through graph
-  steps and render story milestones.
+- Update core helpers only if needed to pass proposal artifacts through graph steps and render story milestones.
 - Avoid creating fixed domain action variants.
-- Add tests proving build fix does not require a prior check and check does not
-  grant mutation permission.
+- Add tests proving build fix does not require a prior check and check does not grant mutation permission.
 
 Acceptance:
-- [ ] `p3_ac1` command - TypeScript compiles.
+- [x] `p3_ac1` command - TypeScript compiles.
   - Command: `pnpm typecheck`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p3_ac2` command - Fast tests pass.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-23
+- [x] `p3_ac2` command - Fast tests pass.
   - Command: `pnpm test:fast`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p3_ac3` command - Boundary checks pass.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-24
+- [x] `p3_ac3` command - Boundary checks pass.
   - Command: `pnpm boundary:check`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p3_ac4` command - No fixed domain action enum variants are added.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-25
+- [x] `p3_ac4` command - No fixed domain action enum variants are added.
   - Command: `sh -c 'if rg -n "support-response|dev-escalation|outreach-proposal|roadmap-signal|support_response|dev_escalation|outreach_proposal|roadmap_signal|SupportResponse|DevEscalation|OutreachProposal|RoadmapSignal" packages crates skills; then exit 1; fi; test -z "$(find skills -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sed "s#^.*/##" | rg -x "dev-escalation|outreach-proposal|roadmap-signal|support-response" || true)"'`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p3_ac5` command - Build fix/no-prior-check and check/no-mutation tests are explicit.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-26
+- [x] `p3_ac5` command - Build fix/no-prior-check and check/no-mutation tests are explicit.
   - Command: `for token in "build fix without prior check" "check.*does not grant mutation" "prior check.*advisory"; do rg -n "$token" packages/core --glob '*.test.ts' >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-27
 
 ## Phase 4: Consumer Notes
 
-Status: pending
+Status: completed
 Dependencies: Phase 3
 
 Objective: Make app-specific proposal skills straightforward without leaking app
-meaning into runx core.
 
 Changes:
 - Document how products define proposal kinds and route ids.
-- Document Aster/hosted readback expectations for proposal queues, approvals,
-  runners, receipts, and outcomes.
+- Document Aster/hosted readback expectations for proposal queues, approvals, runners, receipts, and outcomes.
 - Include Nitrosend examples only as consuming-app examples, not core policy.
 
 Acceptance:
-- [ ] `p4_ac1` command - Consumer boundary docs mention proposal kinds and route ids.
+- [x] `p4_ac1` command - Consumer boundary docs mention proposal kinds and route ids.
   - Command: `test -f docs/operational-intelligence.md && for token in "## Consuming Application Boundary" "proposal_kind" "owner_route_id" "Aster" "source-thread"; do rg -n "$token" docs/operational-intelligence.md >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-32
 
 ## Rollback
 
@@ -313,18 +329,25 @@ Acceptance:
 
 ## Review
 
-Status: not_started
-Verdict: none
+Status: completed
+Verdict: pass
+Mode: verify
+Provider: codex
+Output: codex.output_file
+Summary: Verified the prior completion-blocking action-id regression is fixed: the build-fix fixture and test now use canonical `issue-to-pr`, matching the existing policy action lane. No remaining completion blockers found in the scoped docs, fixture, contract consumers, authority gates, or fixed-lane scans.
+
+Attack log:
+- `workspace`: Workspace classification and review state check -> clean (Read git status and scafld status --json. Confirmed task remains in review and observed the same task-scoped/ambient split from the packet; did not mutate files.)
+- `fixtures/operational-proposal/public/composition-paths.json, packages/core/src/knowledge/operational-proposal-composition.test.ts`: Open blocker verification: canonical issue-to-pr action id -> clean (Previous blocker was the build-fix fixture/test using non-canonical issue-to-PR. Verified fixture action_intent and allowed_next_actions now use issue-to-pr, matching TS and Rust policy action ids.)
+- `docs/operational-intelligence.md`: Spec compliance for composition spine and authority model -> clean (Read docs/operational-intelligence.md. It documents source/context/signal/decision/proposal/action/outcome, source-thread continuity, proposal-only authority, human gates, and consuming-app boundary.)
+- `fixtures/operational-proposal/public/composition-paths.json`: Fixture coverage and redaction scan -> clean (Read the public composition fixture and searched for private payload markers/provider-specific leak patterns in task-relevant files. The proposal wires use provider-neutral references and keep mutation/publication/final-decision authority false.)
+- `packages/contracts/src/schemas/operational-proposal.ts, packages/contracts/src/index.ts, crates/runx-contracts/src/operational_proposal.rs`: Contract/export consumer trace -> clean (Read TypeScript/Rust operational proposal contract surfaces and exports. The added runx.escalation extension typing is schema-neutral, and public exports/tests line up with the fixture consumers.)
+- `docs, fixtures, packages, crates, skills`: Fixed-lane regression scan -> clean (Searched docs, fixtures, packages, crates, and skills for forbidden fixed-lane names and authority-widening markers. Hits were limited to allowed product proposal_kind examples, negative test strings, existing policy docs/tests, or unrelated ambient skill examples.)
+- `fixtures/operational-proposal/public/composition-paths.json, packages/core/src/knowledge/operational-proposal-composition.test.ts`: Golden path regression trace -> clean (Checked build-fix, create-issue, final_outcome, source_thread/story_update, result_refs, publication_refs, and human_gate coverage in fixture/test paths. The build-fix path no longer requires prior check and remains gated.)
+- `acceptance evidence`: Acceptance evidence handling -> clean (Per provider instruction, did not rerun build/test/mutation commands; treated recorded pnpm/scafld evidence as already executed and used read-only commands only.)
 
 Findings:
 - none
-
-Required gates:
-- Draft hardening before approval:
-  `scafld harden runx-operational-proposal-composition-v1 --provider claude`
-- Completion review after implementation:
-  `scafld review runx-operational-proposal-composition-v1 --provider claude`
-- `--provider local` is not sufficient for completion.
 
 ## Self Eval
 

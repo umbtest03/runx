@@ -100,18 +100,25 @@ Non-trigger cases:
 
 Developer views should group by `harness_id` and show the next useful gate:
 
-- needs triage: `intake_received`, `dedupe_pending`, `triage_pending`
+- needs triage: `accepted`, `hydrated`, `triaged`
 - needs evidence: `blocked`
-- ready to plan: `planning_ready`
-- ready to build: `build_ready`
-- review running or failed: `review_ready`
-- PR ready: `pr_ready`
-- waiting for human merge: `merge_gate`
-- done: `outcome_merged`, `outcome_closed`, `outcome_rejected`
+- ready to plan: `spec_ready`
+- ready to build: `build_started`
+- review running or failed: `review_requested`, `review_fixup`
+- PR ready: `change_request_created`
+- waiting for human merge: `human_gate`
+- done: `outcome_observed`, `final_outcome`, `no_action`, `monitor`
 
 List views should stay compact: id, state, status summary, source, dedupe
 fingerprint, triage action, issue/PR refs, duplicate counts, latest transition,
 and timestamps. Full receipts and ledger artifacts remain the evidence layer.
+
+Inbox adapters should treat core story output as provider-neutral markdown/text.
+They may translate it into GitHub issue comments, Slack blocks, or support notes,
+but the provider-specific ids, buttons, channels, and raw payloads remain
+adapter-owned. Public rows should show source-thread continuity, result refs,
+publication refs, and the next human action; private receipts and artifact refs
+hold raw provider context for audit.
 
 ## Routing
 

@@ -110,6 +110,16 @@ describe("outbox.build_pull_request tool", () => {
           missing_behavior: "fail_closed",
           thread_locator: "github://example/repo/issues/123",
         },
+        story_milestones: [
+          "accepted",
+          "triaged",
+          "spec_ready",
+          "build_started",
+          "review_requested",
+          "change_request_created",
+          "human_gate",
+          "final_outcome",
+        ],
       },
     });
     expect(result.draft_pull_request).toMatchObject({

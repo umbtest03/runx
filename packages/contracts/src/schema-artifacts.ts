@@ -26156,7 +26156,7 @@ export const runxSchemaArtifacts = {
       },
       "artifact_refs": {
         "items": {
-          "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+          "$id": "https://schemas.runx.dev/runx/operational-proposal/reference/v1.json",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
@@ -26186,31 +26186,11 @@ export const runxSchemaArtifacts = {
               "type": "string"
             },
             "schema": {
-              "const": "runx.reference.v1",
+              "const": "runx.operational_proposal.reference.v1",
               "type": "string"
             },
             "type": {
               "anyOf": [
-                {
-                  "const": "github_issue",
-                  "type": "string"
-                },
-                {
-                  "const": "github_pull_request",
-                  "type": "string"
-                },
-                {
-                  "const": "github_repo",
-                  "type": "string"
-                },
-                {
-                  "const": "slack_thread",
-                  "type": "string"
-                },
-                {
-                  "const": "sentry_event",
-                  "type": "string"
-                },
                 {
                   "const": "provider_thread",
                   "type": "string"
@@ -26367,7 +26347,7 @@ export const runxSchemaArtifacts = {
             "uri"
           ],
           "type": "object",
-          "x-runx-schema": "runx.reference.v1"
+          "x-runx-schema": "runx.operational_proposal.reference.v1"
         },
         "type": "array"
       },
@@ -26424,7 +26404,7 @@ export const runxSchemaArtifacts = {
       },
       "evidence_refs": {
         "items": {
-          "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+          "$id": "https://schemas.runx.dev/runx/operational-proposal/reference/v1.json",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
@@ -26454,31 +26434,11 @@ export const runxSchemaArtifacts = {
               "type": "string"
             },
             "schema": {
-              "const": "runx.reference.v1",
+              "const": "runx.operational_proposal.reference.v1",
               "type": "string"
             },
             "type": {
               "anyOf": [
-                {
-                  "const": "github_issue",
-                  "type": "string"
-                },
-                {
-                  "const": "github_pull_request",
-                  "type": "string"
-                },
-                {
-                  "const": "github_repo",
-                  "type": "string"
-                },
-                {
-                  "const": "slack_thread",
-                  "type": "string"
-                },
-                {
-                  "const": "sentry_event",
-                  "type": "string"
-                },
                 {
                   "const": "provider_thread",
                   "type": "string"
@@ -26635,7 +26595,7 @@ export const runxSchemaArtifacts = {
             "uri"
           ],
           "type": "object",
-          "x-runx-schema": "runx.reference.v1"
+          "x-runx-schema": "runx.operational_proposal.reference.v1"
         },
         "type": "array"
       },
@@ -26656,7 +26616,7 @@ export const runxSchemaArtifacts = {
           },
           "refs": {
             "items": {
-              "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+              "$id": "https://schemas.runx.dev/runx/operational-proposal/reference/v1.json",
               "$schema": "https://json-schema.org/draft/2020-12/schema",
               "additionalProperties": false,
               "properties": {
@@ -26686,31 +26646,11 @@ export const runxSchemaArtifacts = {
                   "type": "string"
                 },
                 "schema": {
-                  "const": "runx.reference.v1",
+                  "const": "runx.operational_proposal.reference.v1",
                   "type": "string"
                 },
                 "type": {
                   "anyOf": [
-                    {
-                      "const": "github_issue",
-                      "type": "string"
-                    },
-                    {
-                      "const": "github_pull_request",
-                      "type": "string"
-                    },
-                    {
-                      "const": "github_repo",
-                      "type": "string"
-                    },
-                    {
-                      "const": "slack_thread",
-                      "type": "string"
-                    },
-                    {
-                      "const": "sentry_event",
-                      "type": "string"
-                    },
                     {
                       "const": "provider_thread",
                       "type": "string"
@@ -26867,7 +26807,7 @@ export const runxSchemaArtifacts = {
                 "uri"
               ],
               "type": "object",
-              "x-runx-schema": "runx.reference.v1"
+              "x-runx-schema": "runx.operational_proposal.reference.v1"
             },
             "type": "array"
           },
@@ -26923,7 +26863,7 @@ export const runxSchemaArtifacts = {
         "type": "array"
       },
       "hydrated_context_ref": {
-        "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+        "$id": "https://schemas.runx.dev/runx/operational-proposal/reference/v1.json",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
@@ -26953,31 +26893,11 @@ export const runxSchemaArtifacts = {
             "type": "string"
           },
           "schema": {
-            "const": "runx.reference.v1",
+            "const": "runx.operational_proposal.reference.v1",
             "type": "string"
           },
           "type": {
             "anyOf": [
-              {
-                "const": "github_issue",
-                "type": "string"
-              },
-              {
-                "const": "github_pull_request",
-                "type": "string"
-              },
-              {
-                "const": "github_repo",
-                "type": "string"
-              },
-              {
-                "const": "slack_thread",
-                "type": "string"
-              },
-              {
-                "const": "sentry_event",
-                "type": "string"
-              },
               {
                 "const": "provider_thread",
                 "type": "string"
@@ -27134,7 +27054,7 @@ export const runxSchemaArtifacts = {
           "uri"
         ],
         "type": "object",
-        "x-runx-schema": "runx.reference.v1"
+        "x-runx-schema": "runx.operational_proposal.reference.v1"
       },
       "idempotency": {
         "additionalProperties": false,
@@ -27181,12 +27101,12 @@ export const runxSchemaArtifacts = {
       },
       "publication_refs": {
         "items": {
-          "$id": "https://schemas.runx.dev/runx/reference-link/v1.json",
+          "$id": "https://schemas.runx.dev/runx/operational-proposal/reference-link/v1.json",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
             "ref": {
-              "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+              "$id": "https://schemas.runx.dev/runx/operational-proposal/reference/v1.json",
               "$schema": "https://json-schema.org/draft/2020-12/schema",
               "additionalProperties": false,
               "properties": {
@@ -27216,31 +27136,11 @@ export const runxSchemaArtifacts = {
                   "type": "string"
                 },
                 "schema": {
-                  "const": "runx.reference.v1",
+                  "const": "runx.operational_proposal.reference.v1",
                   "type": "string"
                 },
                 "type": {
                   "anyOf": [
-                    {
-                      "const": "github_issue",
-                      "type": "string"
-                    },
-                    {
-                      "const": "github_pull_request",
-                      "type": "string"
-                    },
-                    {
-                      "const": "github_repo",
-                      "type": "string"
-                    },
-                    {
-                      "const": "slack_thread",
-                      "type": "string"
-                    },
-                    {
-                      "const": "sentry_event",
-                      "type": "string"
-                    },
                     {
                       "const": "provider_thread",
                       "type": "string"
@@ -27397,14 +27297,14 @@ export const runxSchemaArtifacts = {
                 "uri"
               ],
               "type": "object",
-              "x-runx-schema": "runx.reference.v1"
+              "x-runx-schema": "runx.operational_proposal.reference.v1"
             },
             "role": {
               "minLength": 1,
               "type": "string"
             },
             "schema": {
-              "const": "runx.reference_link.v1",
+              "const": "runx.operational_proposal.reference_link.v1",
               "type": "string"
             }
           },
@@ -27413,7 +27313,7 @@ export const runxSchemaArtifacts = {
             "ref"
           ],
           "type": "object",
-          "x-runx-schema": "runx.reference_link.v1"
+          "x-runx-schema": "runx.operational_proposal.reference_link.v1"
         },
         "type": "array"
       },
@@ -27423,7 +27323,7 @@ export const runxSchemaArtifacts = {
       },
       "receipt_refs": {
         "items": {
-          "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+          "$id": "https://schemas.runx.dev/runx/operational-proposal/reference/v1.json",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
@@ -27453,31 +27353,11 @@ export const runxSchemaArtifacts = {
               "type": "string"
             },
             "schema": {
-              "const": "runx.reference.v1",
+              "const": "runx.operational_proposal.reference.v1",
               "type": "string"
             },
             "type": {
               "anyOf": [
-                {
-                  "const": "github_issue",
-                  "type": "string"
-                },
-                {
-                  "const": "github_pull_request",
-                  "type": "string"
-                },
-                {
-                  "const": "github_repo",
-                  "type": "string"
-                },
-                {
-                  "const": "slack_thread",
-                  "type": "string"
-                },
-                {
-                  "const": "sentry_event",
-                  "type": "string"
-                },
                 {
                   "const": "provider_thread",
                   "type": "string"
@@ -27634,7 +27514,7 @@ export const runxSchemaArtifacts = {
             "uri"
           ],
           "type": "object",
-          "x-runx-schema": "runx.reference.v1"
+          "x-runx-schema": "runx.operational_proposal.reference.v1"
         },
         "type": "array"
       },
@@ -27655,7 +27535,7 @@ export const runxSchemaArtifacts = {
             },
             "target_refs": {
               "items": {
-                "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                "$id": "https://schemas.runx.dev/runx/operational-proposal/reference/v1.json",
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "additionalProperties": false,
                 "properties": {
@@ -27685,31 +27565,11 @@ export const runxSchemaArtifacts = {
                     "type": "string"
                   },
                   "schema": {
-                    "const": "runx.reference.v1",
+                    "const": "runx.operational_proposal.reference.v1",
                     "type": "string"
                   },
                   "type": {
                     "anyOf": [
-                      {
-                        "const": "github_issue",
-                        "type": "string"
-                      },
-                      {
-                        "const": "github_pull_request",
-                        "type": "string"
-                      },
-                      {
-                        "const": "github_repo",
-                        "type": "string"
-                      },
-                      {
-                        "const": "slack_thread",
-                        "type": "string"
-                      },
-                      {
-                        "const": "sentry_event",
-                        "type": "string"
-                      },
                       {
                         "const": "provider_thread",
                         "type": "string"
@@ -27866,7 +27726,7 @@ export const runxSchemaArtifacts = {
                   "uri"
                 ],
                 "type": "object",
-                "x-runx-schema": "runx.reference.v1"
+                "x-runx-schema": "runx.operational_proposal.reference.v1"
               },
               "type": "array"
             }
@@ -27898,12 +27758,12 @@ export const runxSchemaArtifacts = {
       },
       "result_refs": {
         "items": {
-          "$id": "https://schemas.runx.dev/runx/reference-link/v1.json",
+          "$id": "https://schemas.runx.dev/runx/operational-proposal/reference-link/v1.json",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
             "ref": {
-              "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+              "$id": "https://schemas.runx.dev/runx/operational-proposal/reference/v1.json",
               "$schema": "https://json-schema.org/draft/2020-12/schema",
               "additionalProperties": false,
               "properties": {
@@ -27933,31 +27793,11 @@ export const runxSchemaArtifacts = {
                   "type": "string"
                 },
                 "schema": {
-                  "const": "runx.reference.v1",
+                  "const": "runx.operational_proposal.reference.v1",
                   "type": "string"
                 },
                 "type": {
                   "anyOf": [
-                    {
-                      "const": "github_issue",
-                      "type": "string"
-                    },
-                    {
-                      "const": "github_pull_request",
-                      "type": "string"
-                    },
-                    {
-                      "const": "github_repo",
-                      "type": "string"
-                    },
-                    {
-                      "const": "slack_thread",
-                      "type": "string"
-                    },
-                    {
-                      "const": "sentry_event",
-                      "type": "string"
-                    },
                     {
                       "const": "provider_thread",
                       "type": "string"
@@ -28114,14 +27954,14 @@ export const runxSchemaArtifacts = {
                 "uri"
               ],
               "type": "object",
-              "x-runx-schema": "runx.reference.v1"
+              "x-runx-schema": "runx.operational_proposal.reference.v1"
             },
             "role": {
               "minLength": 1,
               "type": "string"
             },
             "schema": {
-              "const": "runx.reference_link.v1",
+              "const": "runx.operational_proposal.reference_link.v1",
               "type": "string"
             }
           },
@@ -28130,7 +27970,7 @@ export const runxSchemaArtifacts = {
             "ref"
           ],
           "type": "object",
-          "x-runx-schema": "runx.reference_link.v1"
+          "x-runx-schema": "runx.operational_proposal.reference_link.v1"
         },
         "type": "array"
       },
@@ -28155,7 +27995,7 @@ export const runxSchemaArtifacts = {
         "type": "string"
       },
       "source_ref": {
-        "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+        "$id": "https://schemas.runx.dev/runx/operational-proposal/reference/v1.json",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
@@ -28185,31 +28025,11 @@ export const runxSchemaArtifacts = {
             "type": "string"
           },
           "schema": {
-            "const": "runx.reference.v1",
+            "const": "runx.operational_proposal.reference.v1",
             "type": "string"
           },
           "type": {
             "anyOf": [
-              {
-                "const": "github_issue",
-                "type": "string"
-              },
-              {
-                "const": "github_pull_request",
-                "type": "string"
-              },
-              {
-                "const": "github_repo",
-                "type": "string"
-              },
-              {
-                "const": "slack_thread",
-                "type": "string"
-              },
-              {
-                "const": "sentry_event",
-                "type": "string"
-              },
               {
                 "const": "provider_thread",
                 "type": "string"
@@ -28366,10 +28186,10 @@ export const runxSchemaArtifacts = {
           "uri"
         ],
         "type": "object",
-        "x-runx-schema": "runx.reference.v1"
+        "x-runx-schema": "runx.operational_proposal.reference.v1"
       },
       "source_thread_ref": {
-        "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+        "$id": "https://schemas.runx.dev/runx/operational-proposal/reference/v1.json",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
@@ -28399,31 +28219,11 @@ export const runxSchemaArtifacts = {
             "type": "string"
           },
           "schema": {
-            "const": "runx.reference.v1",
+            "const": "runx.operational_proposal.reference.v1",
             "type": "string"
           },
           "type": {
             "anyOf": [
-              {
-                "const": "github_issue",
-                "type": "string"
-              },
-              {
-                "const": "github_pull_request",
-                "type": "string"
-              },
-              {
-                "const": "github_repo",
-                "type": "string"
-              },
-              {
-                "const": "slack_thread",
-                "type": "string"
-              },
-              {
-                "const": "sentry_event",
-                "type": "string"
-              },
               {
                 "const": "provider_thread",
                 "type": "string"
@@ -28580,11 +28380,11 @@ export const runxSchemaArtifacts = {
           "uri"
         ],
         "type": "object",
-        "x-runx-schema": "runx.reference.v1"
+        "x-runx-schema": "runx.operational_proposal.reference.v1"
       },
       "story_refs": {
         "items": {
-          "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+          "$id": "https://schemas.runx.dev/runx/operational-proposal/reference/v1.json",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
@@ -28614,31 +28414,11 @@ export const runxSchemaArtifacts = {
               "type": "string"
             },
             "schema": {
-              "const": "runx.reference.v1",
+              "const": "runx.operational_proposal.reference.v1",
               "type": "string"
             },
             "type": {
               "anyOf": [
-                {
-                  "const": "github_issue",
-                  "type": "string"
-                },
-                {
-                  "const": "github_pull_request",
-                  "type": "string"
-                },
-                {
-                  "const": "github_repo",
-                  "type": "string"
-                },
-                {
-                  "const": "slack_thread",
-                  "type": "string"
-                },
-                {
-                  "const": "sentry_event",
-                  "type": "string"
-                },
                 {
                   "const": "provider_thread",
                   "type": "string"
@@ -28795,7 +28575,7 @@ export const runxSchemaArtifacts = {
             "uri"
           ],
           "type": "object",
-          "x-runx-schema": "runx.reference.v1"
+          "x-runx-schema": "runx.operational_proposal.reference.v1"
         },
         "type": "array"
       }

@@ -3,7 +3,7 @@ import {
   generatedSchema,
   validateContractSchema,
 } from "../internal.js";
-import type { ReferenceContract, ReferenceLinkContract } from "./spine.js";
+import type { ProofKindContract } from "./spine.js";
 
 export const operationalProposalSchemaVersion = "runx.operational_proposal.v1" as const;
 
@@ -16,7 +16,7 @@ export type OperationalProposalRecommendedActionContract = DeepReadonly<{
   action_intent: string;
   summary: string;
   mutating: boolean;
-  target_refs?: readonly ReferenceContract[];
+  target_refs?: readonly OperationalProposalReferenceContract[];
 }>;
 
 export type OperationalProposalIdempotencyContract = DeepReadonly<{
@@ -45,7 +45,71 @@ export type OperationalProposalOutcomeContract = DeepReadonly<{
   status: string;
   summary: string;
   observed_at?: string;
-  refs?: readonly ReferenceContract[];
+  refs?: readonly OperationalProposalReferenceContract[];
+}>;
+
+export type OperationalProposalReferenceTypeContract =
+  | "provider_thread"
+  | "provider_event"
+  | "provider_comment"
+  | "tracking_item"
+  | "change_request"
+  | "repository"
+  | "support_ticket"
+  | "signal"
+  | "act"
+  | "receipt"
+  | "graph_receipt"
+  | "artifact"
+  | "verification"
+  | "harness"
+  | "host"
+  | "deployment"
+  | "surface"
+  | "target"
+  | "opportunity"
+  | "thesis_assessment"
+  | "selection"
+  | "skill_binding"
+  | "target_transition_entry"
+  | "selection_cycle"
+  | "decision"
+  | "reflection_entry"
+  | "feed_entry"
+  | "principal"
+  | "authority_proof"
+  | "scope_admission"
+  | "grant"
+  | "mandate"
+  | "credential"
+  | "webhook_delivery"
+  | "redaction_policy"
+  | "external_url";
+
+export type OperationalProposalReferenceContract = DeepReadonly<{
+  schema?: string;
+  type: OperationalProposalReferenceTypeContract;
+  uri: string;
+  provider?: string;
+  locator?: string;
+  label?: string;
+  observed_at?: string;
+  proof_kind?: ProofKindContract;
+}>;
+
+export type OperationalProposalReferenceLinkContract = DeepReadonly<{
+  role: string;
+  ref: OperationalProposalReferenceContract;
+}>;
+
+export type OperationalProposalEscalationExtensionContract = DeepReadonly<{
+  severity: string;
+  urgency: string;
+  suspected_area?: string;
+}>;
+
+export type OperationalProposalExtensionsContract = DeepReadonly<Record<string, unknown> & {
+  "runx.escalation"?: OperationalProposalEscalationExtensionContract;
 }>;
 
 export type OperationalProposalContract = DeepReadonly<{
@@ -54,19 +118,19 @@ export type OperationalProposalContract = DeepReadonly<{
   proposal_kind: string;
   source_event_id: string;
   idempotency: OperationalProposalIdempotencyContract;
-  source_ref: ReferenceContract;
-  source_thread_ref?: ReferenceContract;
-  hydrated_context_ref: ReferenceContract;
+  source_ref: OperationalProposalReferenceContract;
+  source_thread_ref?: OperationalProposalReferenceContract;
+  hydrated_context_ref: OperationalProposalReferenceContract;
   redaction_status: OperationalProposalRedactionStatusContract;
   decision_summary: string;
   rationale: string;
   recommended_actions?: readonly OperationalProposalRecommendedActionContract[];
-  evidence_refs?: readonly ReferenceContract[];
-  artifact_refs?: readonly ReferenceContract[];
-  receipt_refs?: readonly ReferenceContract[];
-  story_refs?: readonly ReferenceContract[];
-  result_refs?: readonly ReferenceLinkContract[];
-  publication_refs?: readonly ReferenceLinkContract[];
+  evidence_refs?: readonly OperationalProposalReferenceContract[];
+  artifact_refs?: readonly OperationalProposalReferenceContract[];
+  receipt_refs?: readonly OperationalProposalReferenceContract[];
+  story_refs?: readonly OperationalProposalReferenceContract[];
+  result_refs?: readonly OperationalProposalReferenceLinkContract[];
+  publication_refs?: readonly OperationalProposalReferenceLinkContract[];
   owner_route_id: string;
   confidence: number;
   risks?: readonly string[];
@@ -77,7 +141,7 @@ export type OperationalProposalContract = DeepReadonly<{
   allowed_next_actions?: readonly string[];
   final_outcome?: OperationalProposalOutcomeContract;
   public_summary: string;
-  extensions?: DeepReadonly<Record<string, unknown>>;
+  extensions?: OperationalProposalExtensionsContract;
 }>;
 
 export const operationalProposalSchema = generatedSchema<OperationalProposalContract>(

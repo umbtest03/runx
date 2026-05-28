@@ -58,7 +58,7 @@ describe("thread.push_outbox tool", () => {
         ...process.env,
         RUNX_INPUTS_JSON: JSON.stringify({
           outbox_entry: {
-            entry_id: "message:fixture-task:merge_gate",
+            entry_id: "message:fixture-task:human_gate",
             kind: "message",
             status: "proposed",
             thread_locator: "slack://team/T123/channel/CBUGS/thread/123.456",
@@ -293,7 +293,7 @@ describe("thread.push_outbox tool", () => {
       const first = runTool({
         thread: baseThread,
         outbox_entry: {
-          entry_id: "message:fixture-task:merge_gate",
+          entry_id: "message:fixture-task:human_gate",
           kind: "message",
           title: "Issue-to-PR story",
           status: "proposed",
@@ -309,7 +309,7 @@ describe("thread.push_outbox tool", () => {
       const second = runTool({
         thread: first.thread,
         outbox_entry: {
-          entry_id: "message:fixture-task:merge_gate",
+          entry_id: "message:fixture-task:human_gate",
           kind: "message",
           title: "Issue-to-PR story",
           status: "proposed",
@@ -325,7 +325,7 @@ describe("thread.push_outbox tool", () => {
       expect(second.outbox_entry.locator).toBe(first.outbox_entry.locator);
       expect(second.thread.outbox).toHaveLength(1);
       expect(second.thread.outbox[0]).toMatchObject({
-        entry_id: "message:fixture-task:merge_gate",
+        entry_id: "message:fixture-task:human_gate",
         status: "published",
         metadata: {
           body_markdown: "Human merge gate now includes the PR link.",

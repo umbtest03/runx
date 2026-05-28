@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: runx-operational-story-outbox-v1
 created: '2026-05-27T15:02:28Z'
-updated: '2026-05-27T18:47:08Z'
-status: draft
+updated: '2026-05-28T07:34:19Z'
+status: completed
 harden_status: passed
 size: medium
 risk_level: high
@@ -13,14 +13,14 @@ risk_level: high
 
 ## Current State
 
-Status: draft
-Current phase: planning
-Next: approve
-Reason: hardening passed
+Status: completed
+Current phase: final
+Next: done
+Reason: task completed
 Blockers: none
-Allowed follow-up command: `scafld approve runx-operational-story-outbox-v1`
-Latest runner update: none
-Review gate: not_started
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-28T07:34:19Z
+Review gate: pass
 
 ## Summary
 
@@ -255,7 +255,7 @@ Validation:
 
 ## Phase 1: Harden Story Density Rules
 
-Status: pending
+Status: completed
 Dependencies: none
 
 Objective: Challenge the public/private context boundary before implementation.
@@ -264,201 +264,197 @@ Changes:
 - Define milestone vocabulary and public-message density rules.
 - Define what belongs in public story versus private receipt/artifact.
 - Define idempotency, missing-thread, and retry behavior.
-- Define how `proposal_kind` becomes friendly copy without becoming a milestone
-  id or fixed core lane.
+- Define how `proposal_kind` becomes friendly copy without becoming a milestone id or fixed core lane.
 
 Acceptance:
-- [ ] `p1_ac1` command - Public/private and idempotency boundaries are documented.
+- [x] `p1_ac1` command - Public/private and idempotency boundaries are documented.
   - Command: `sh -c 'f=$(find .scafld/specs/drafts .scafld/specs/approved .scafld/specs/active -name runx-operational-story-outbox-v1.md -print -quit); test -n "$f" && for token in "provider contract already owns public idempotency" "proposal_kind" "source thread ref"; do rg -n "$token" "$f" >/dev/null || exit 1; done'`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p1_ac2` command - Spec validates after hardening edits.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-6
+- [x] `p1_ac2` command - Spec validates after hardening edits.
   - Command: `scafld validate runx-operational-story-outbox-v1`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-7
 
 ## Phase 2: Fixture Matrix
 
-Status: pending
+Status: completed
 Dependencies: Phase 1
 
 Objective: Add representative public story snapshots before helper changes.
 
 Changes:
-- Add expected story outputs for reply drafted, ask-for-info, proposal ready,
-  escalation proposed, issue created, spec ready, build started, review
-  requested, change request created, human gate, monitor/no-action, outcome
-  observed, and final outcome.
+- Add expected story outputs for reply drafted, ask-for-info, proposal ready, escalation proposed, issue created, spec ready, build started, review requested, change request created, human gate, monitor/no-action, outcome observed, and final outcome.
 - Add private artifact refs in fixture inputs and public-safe refs in outputs.
-- Include bad raw input cases containing local paths, command dumps, provider API
-  fields, safe synthetic token markers, and customer identifiers. Fixtures must
-  not contain real credential-like prefixes or strings that trigger repository
-  secret scanning.
-- Split fixtures into `inputs/private/` and `expected/public/`. Private inputs
-  intentionally contain raw-looking leak markers; public expected outputs must
-  contain only safe summaries and artifact refs.
-- Add fail-closed missing-thread fixtures where policy requires source-thread
-  publication and no locator is present.
-- Add replay fixtures proving same-key milestones update/reuse and different
-  milestones do not collide.
-- Add text snapshots for source-thread updates, tracking-item comments, and
-  change-request comments.
+- Include bad raw input cases containing local paths, command dumps, provider API fields, safe synthetic token markers, and customer identifiers. Fixtures must not contain real credential-like prefixes or strings that trigger repository secret scanning.
+- Split fixtures into `inputs/private/` and `expected/public/`. Private inputs intentionally contain raw-looking leak markers; public expected outputs must contain only safe summaries and artifact refs.
+- Add fail-closed missing-thread fixtures where policy requires source-thread publication and no locator is present.
+- Add replay fixtures proving same-key milestones update/reuse and different milestones do not collide.
+- Add text snapshots for source-thread updates, tracking-item comments, and change-request comments.
 
 Acceptance:
-- [ ] `p2_ac1` command - Story fixtures include every generic milestone family.
+- [x] `p2_ac1` command - Story fixtures include every generic milestone family.
   - Command: `test -d fixtures/operational-proposal/story-outbox/expected/public && for token in accepted hydrated triaged reply_drafted ask_for_info proposal_ready escalation_proposed tracking_item_created spec_ready build_started review_requested change_request_created review_fixup human_gate outcome_observed final_outcome no_action monitor; do rg -n "$token" fixtures/operational-proposal/story-outbox/expected/public >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p2_ac2` command - Private leak fixtures exist.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-12
+- [x] `p2_ac2` command - Private leak fixtures exist.
   - Command: `test -d fixtures/operational-proposal/story-outbox/inputs/private && rg -n "/Users/|RUNX_BIN=|url_private_download|slack_token_marker|sentry_token_marker|raw_provider_payload|private_key_marker" fixtures/operational-proposal/story-outbox/inputs/private`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p2_ac3` command - Public outputs block obvious local/provider dumps.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-13
+- [x] `p2_ac3` command - Public outputs block obvious local/provider dumps.
   - Command: `sh -c 'test -d fixtures/operational-proposal/story-outbox/expected/public && if rg -n "/Users/|RUNX_BIN=|url_private_download|slack_token_marker|sentry_token_marker|raw_provider_payload|private_key_marker" fixtures/operational-proposal/story-outbox/expected/public; then exit 1; fi'`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p2_ac4` command - Final outcome snapshots link source thread, tracking item, and change request story.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-14
+- [x] `p2_ac4` command - Final outcome snapshots link source thread, tracking item, and change request story.
   - Command: `test -d fixtures/operational-proposal/story-outbox/expected/public && for token in source_thread_update tracking_item_comment change_request_comment source_ref source_thread_ref result_refs publication_refs final_outcome; do rg -n "$token" fixtures/operational-proposal/story-outbox/expected/public >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-15
 
 ## Phase 3: Story Helpers And Outbox Semantics
 
-Status: pending
+Status: completed
 Dependencies: Phase 2
 
 Objective: Implement reusable story rendering and idempotent publication
-metadata.
 
 Changes:
 - Extend `thread-story` helpers with the canonical milestone vocabulary.
-- Replace the existing thread-story section, feed-entry milestone, and outbox
-  metadata milestone vocabularies with the same canonical v1 ids in one cutover.
-- Prefer a single closed `StoryMilestoneId` type for the shared vocabulary; do
-  not keep old type names as compatibility aliases unless they remain the direct
-  canonical exported surface after the cutover.
-- Update `outbox.build_feed_entry` and `thread.push_outbox` to consume and
-  validate the same canonical milestone ids.
-- Update `tools/outbox/build_feed_entry/fixtures/basic.yaml` in the same
-  milestone cutover so fixture entry ids and `milestone_kind` no longer carry
-  legacy ids.
-- Update `tools/outbox/build_pull_request` outbox metadata so
-  `story_milestones` does not preserve a parallel legacy lifecycle namespace;
-  either emit canonical v1 ids or remove the redundant field.
-- Update `tests/outbox-build-feed-entry-tool.test.ts` and
-  `tests/thread-push-outbox-tool.test.ts` so fast tests assert the new
-  canonical milestone ids and the original tracking-to-change lifecycle mapping.
-- Rewrite the existing legacy milestone assertions in
-  `packages/core/src/knowledge/index.test.ts` onto the canonical v1 vocabulary,
-  including `decision -> triaged`, `merge_gate -> human_gate`, `review ->
-  review_requested`, `signal -> accepted`, `pull_request ->
-  change_request_created`, and `outcome -> final_outcome`; keep the unknown and
-  legacy-id rejection coverage in this same file.
-- Preserve idempotent refresh for already-published legacy entries by matching
-  legacy ids to canonical ids during refresh lookup only, then persisting the
-  canonical milestone id on the updated outbox entry.
+- Replace the existing thread-story section, feed-entry milestone, and outbox metadata milestone vocabularies with the same canonical v1 ids in one cutover.
+- Prefer a single closed `StoryMilestoneId` type for the shared vocabulary; do not keep old type names as compatibility aliases unless they remain the direct canonical exported surface after the cutover.
+- Update `outbox.build_feed_entry` and `thread.push_outbox` to consume and validate the same canonical milestone ids.
+- Update `tools/outbox/build_feed_entry/fixtures/basic.yaml` in the same milestone cutover so fixture entry ids and `milestone_kind` no longer carry legacy ids.
+- Update `tools/outbox/build_pull_request` outbox metadata so `story_milestones` does not preserve a parallel legacy lifecycle namespace; either emit canonical v1 ids or remove the redundant field.
+- Update `tests/outbox-build-feed-entry-tool.test.ts` and `tests/thread-push-outbox-tool.test.ts` so fast tests assert the new canonical milestone ids and the original tracking-to-change lifecycle mapping.
+- Rewrite the existing legacy milestone assertions in `packages/core/src/knowledge/index.test.ts` onto the canonical v1 vocabulary, including `decision -> triaged`, `merge_gate -> human_gate`, `review -> review_requested`, `signal -> accepted`, `pull_request -> change_request_created`, and `outcome -> final_outcome`; keep the unknown and legacy-id rejection coverage in this same file.
+- Preserve idempotent refresh for already-published legacy entries by matching legacy ids to canonical ids during refresh lookup only, then persisting the canonical milestone id on the updated outbox entry.
 - Add renderer helpers for concise provider/support-compatible markdown.
-- Add core-only story/outbox metadata for create/update/replay that references
-  the existing provider idempotency contract rather than changing it.
-- Add a defensive projection-time guard that refuses render/publish when policy
-  requires source-thread publication and the locator is absent.
-- Replace freeform milestone acceptance with canonical v1 ids and tests that
-  reject unknown or legacy ids, including removal of the current `| string`
-  fallback from `ThreadStorySectionId` or replacement with an equivalent closed
-  type.
-- Add tests for message density, redaction, proposal rendering, idempotency,
-  retry, missing-thread fail-closed behavior, and rendering.
-- Update `docs/thread-story-contract.md` with the canonical milestone,
-  idempotency key, content hash, same-key replay, and different-milestone
-  collision semantics alongside the helper changes.
-- Rewrite the existing `docs/thread-story-contract.md`
-  `outbox_entry.metadata.milestone_kind` vocabulary list from legacy ids to the
-  canonical v1 ids.
+- Add core-only story/outbox metadata for create/update/replay that references the existing provider idempotency contract rather than changing it.
+- Add a defensive projection-time guard that refuses render/publish when policy requires source-thread publication and the locator is absent.
+- Replace freeform milestone acceptance with canonical v1 ids and tests that reject unknown or legacy ids, including removal of the current `| string` fallback from `ThreadStorySectionId` or replacement with an equivalent closed type.
+- Add tests for message density, redaction, proposal rendering, idempotency, retry, missing-thread fail-closed behavior, and rendering.
+- Update `docs/thread-story-contract.md` with the canonical milestone, idempotency key, content hash, same-key replay, and different-milestone collision semantics alongside the helper changes.
+- Rewrite the existing `docs/thread-story-contract.md` `outbox_entry.metadata.milestone_kind` vocabulary list from legacy ids to the canonical v1 ids.
 
 Acceptance:
-- [ ] `p3_ac1` command - TypeScript compiles.
+- [x] `p3_ac1` command - TypeScript compiles.
   - Command: `pnpm typecheck`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p3_ac2` command - Fast tests pass.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-20
+- [x] `p3_ac2` command - Fast tests pass.
   - Command: `pnpm test:fast`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p3_ac3` command - Boundary checks pass.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-21
+- [x] `p3_ac3` command - Boundary checks pass.
   - Command: `pnpm boundary:check`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p3_ac4` command - Canonical milestone ids reject aliases.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-22
+- [x] `p3_ac4` command - Canonical milestone ids reject aliases.
   - Command: `for token in rejects_alias_milestone_ids unknown_milestone legacy_signal legacy_decision legacy_spec legacy_build legacy_review legacy_pull_request legacy_merge_gate legacy_outcome; do rg -n "$token" packages/core/src/knowledge tests/outbox-build-feed-entry-tool.test.ts tests/thread-push-outbox-tool.test.ts >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p3_ac5` command - Missing thread locator fails closed.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-23
+- [x] `p3_ac5` command - Missing thread locator fails closed.
   - Command: `for token in "missing_thread_locator" "root_thread_fallback_rejected" "fail_closed"; do rg -n "$token" fixtures/operational-proposal/story-outbox packages/core/src/knowledge >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p3_ac6` command - Replay key semantics are covered.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-24
+- [x] `p3_ac6` command - Replay key semantics are covered.
   - Command: `for token in "idempotency key" "content hash" "same-key" "different milestones"; do rg -n "$token" fixtures/operational-proposal/story-outbox packages/core/src/knowledge docs/thread-story-contract.md >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p3_ac7` command - One canonical milestone vocabulary spans story, feed, and outbox consumers.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-25
+- [x] `p3_ac7` command - One canonical milestone vocabulary spans story, feed, and outbox consumers.
   - Command: `for token in "StoryMilestoneId" "milestone_kind" "outbox.build_feed_entry" "thread.push_outbox" "spec_ready" "build_started" "review_requested"; do rg -n "$token" packages/core/src/knowledge tools/outbox/build_feed_entry tools/thread/push_outbox tests/outbox-build-feed-entry-tool.test.ts tests/thread-push-outbox-tool.test.ts docs/thread-story-contract.md >/dev/null || exit 1; done; if rg -n "\\| string;" packages/core/src/knowledge/thread-story.ts; then exit 1; fi`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p3_ac8` command - Published legacy entries refresh into canonical entries without duplicate comments.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-26
+- [x] `p3_ac8` command - Published legacy entries refresh into canonical entries without duplicate comments.
   - Command: `for token in legacy_published_refresh preserves_comment_id preserves_locator preserves_receipt_ref writes_canonical_milestone_id no_duplicate_comment; do rg -n "$token" tools/outbox/build_feed_entry tests/outbox-build-feed-entry-tool.test.ts fixtures/operational-proposal/story-outbox packages/core/src/knowledge >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p3_ac9` command - Core knowledge tests assert canonical tracking-to-change lifecycle mapping.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-27
+- [x] `p3_ac9` command - Core knowledge tests assert canonical tracking-to-change lifecycle mapping.
   - Command: `for token in canonical_index_story_milestone accepted triaged spec_ready build_started review_requested change_request_created human_gate final_outcome rejects_alias_milestone_ids; do rg -n "$token" packages/core/src/knowledge/index.test.ts >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p3_ac10` command - Pull-request outbox metadata does not keep legacy story milestones.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-28
+- [x] `p3_ac10` command - Pull-request outbox metadata does not keep legacy story milestones.
   - Command: `rg -n "build_pull_request_canonical_story_milestones" tools/outbox/build_pull_request tests >/dev/null && if rg -n '"signal"|"decision"|"merge_gate"|"outcome"' tools/outbox/build_pull_request/src/index.ts; then exit 1; fi`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-29
 
 ## Phase 4: Contract Parity And Consumer Notes
 
-Status: pending
+Status: completed
 Dependencies: Phase 3
 
 Objective: Make story/outbox usable by existing lanes and consuming adapters.
 
 Changes:
-- Update thread outbox contracts only if required by new idempotency or
-  observation fields.
+- Update thread outbox contracts only if required by new idempotency or observation fields.
 - Add docs showing how lanes and proposal skills provide story inputs.
-- Keep `docs/thread-story-contract.md` aligned with the Phase 3 helper contract
-  and add consumer-facing examples in the issue/developer inbox docs.
-- Add consumer notes for adapters translating core text/markdown into provider
-  blocks, comments, or support notes.
-- Verify tracking-to-change existing story remains compatible through the canonical
-  lifecycle mapping, with no legacy ids accepted as runtime input.
-- Add surface text snapshots for source-thread updates, tracking-item comments,
-  and change-request comments. These are text/markdown snapshots only; provider
-  block/API payloads remain adapter-owned.
+- Keep `docs/thread-story-contract.md` aligned with the Phase 3 helper contract and add consumer-facing examples in the issue/developer inbox docs.
+- Add consumer notes for adapters translating core text/markdown into provider blocks, comments, or support notes.
+- Verify tracking-to-change existing story remains compatible through the canonical lifecycle mapping, with no legacy ids accepted as runtime input.
+- Add surface text snapshots for source-thread updates, tracking-item comments, and change-request comments. These are text/markdown snapshots only; provider block/API payloads remain adapter-owned.
 
 Acceptance:
-- [ ] `p4_ac1` command - Core-only idempotency boundary remains documented.
+- [x] `p4_ac1` command - Core-only idempotency boundary remains documented.
   - Command: `for token in "core-only story/outbox metadata" "existing provider idempotency contract" "canonical v1 milestone"; do rg -n "$token" docs/thread-story-contract.md >/dev/null || exit 1; done; rg -n "StoryMilestoneId|FeedStoryMilestoneKind|ThreadStorySectionId|milestone_kind" packages/core/src/knowledge >/dev/null`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p4_ac2` command - Contract tests pass for provider parity.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-34
+- [x] `p4_ac2` command - Contract tests pass for provider parity.
   - Command: `pnpm exec vitest run --config vitest.fast.config.ts packages/contracts/src && cargo test --manifest-path crates/Cargo.toml -p runx-contracts --all-features`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p4_ac3` command - Docs mention public/private story split.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-35
+- [x] `p4_ac3` command - Docs mention public/private story split.
   - Command: `for token in "public story" "private receipt" "artifact refs" "source-thread" "idempotent"; do rg -n "$token" docs/thread-story-contract.md packages/core/src/knowledge >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p4_ac4` command - Provider text snapshots exist without provider-specific ids.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-36
+- [x] `p4_ac4` command - Provider text snapshots exist without provider-specific ids.
   - Command: `for token in "source_thread_update" "tracking_item_comment" "change_request_comment"; do rg -n "$token" fixtures/operational-proposal/story-outbox/expected/public >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `p4_ac5` command - Final outcome renderer preserves source/tracking/change continuity.
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-37
+- [x] `p4_ac5` command - Final outcome renderer preserves source/tracking/change continuity.
   - Command: `for token in "source_ref" "source_thread_ref" "tracking_item" "change_request" "final_outcome"; do rg -n "$token" fixtures/operational-proposal/story-outbox/expected/public packages/core/src/knowledge docs/thread-story-contract.md >/dev/null || exit 1; done`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-38
 
 ## Rollback
 
@@ -473,18 +469,34 @@ Acceptance:
 
 ## Review
 
-Status: not_started
-Verdict: none
+Status: completed
+Verdict: pass
+Mode: verify
+Provider: claude:claude-opus-4-7
+Output: claude.mcp_submit_review
+Summary: The two blocker findings from the prior discover review are resolved. tools/outbox/markdown.ts no longer redeclares STORY_MILESTONE_IDS, LEGACY_STORY_MILESTONE_ID_MAP, assertStoryMilestoneId, sanitizePublicMarkdown, summarizePublicHandoffMarkdown, buildFeedStoryOutboxEntry, or renderFeedStoryMarkdown — it now re-exports the canonical helpers from @runxhq/core/knowledge and keeps only the domain-specific renderIssueToPrReviewerMarkdown. tools/outbox/build_feed_entry/src/index.ts imports buildFeedStoryOutboxEntry and renderFeedStoryMarkdown from @runxhq/core/knowledge and wires canonicalStoryEntryIdForRefresh + storyMilestoneRefreshesPublishedEntry into latestTrustedStoryOutbox, so the dead canonical refresh helpers are now consumed at the wired call site. Canonical milestone vocabulary is consistent across thread-story, feed-entry, outbox, build_pull_request story_milestones, push_outbox normalizeStoryMilestones, fixtures, docs, and tests. Legacy ids reject at assertStoryMilestoneId with the canonical mapping in the error. Legacy-published refresh (merge_gate→human_gate and merge_gate→final_outcome) preserves locator/comment_id/outbox_receipt_id and rewrites the slug to the canonical id. Fail-closed source-thread guard rejects missing locator and non-fail_closed missing_behavior. Two low/non-blocking items remain: tools/public_markdown.mjs still uses an unanchored path-redaction regex that diverges from the canonical sanitizer in packages/core/src/knowledge/thread-story.ts (the third copy of the sanitizer was not consolidated when the markdown.ts duplicate was removed), and docs/thread-story-contract.md:32 documents outbox_entry.metadata.schema_version as runx.outbox-entry.message.v1 while buildFeedStoryOutboxEntry actually emits runx.outbox-entry.feed-entry.v1. Neither blocks completion.
+
+Attack log:
+- `tools/outbox/markdown.ts canonical-helper duplication (prior blocker #1)`: Confirm the duplicate STORY_MILESTONE_IDS / LEGACY_STORY_MILESTONE_ID_MAP / sanitizePublicMarkdown / summarizePublicHandoffMarkdown / renderFeedStoryMarkdown / buildFeedStoryOutboxEntry / assertStoryMilestoneId definitions were removed and that build_feed_entry consumes the canonical surface from @runxhq/core/knowledge. -> clean (tools/outbox/markdown.ts now imports sanitizePublicMarkdown/summarizePublicHandoffMarkdown from @runxhq/core/knowledge and re-exports buildFeedStoryOutboxEntry/renderFeedStoryMarkdown/sanitizePublicMarkdown/summarizePublicHandoffMarkdown from the same canonical surface; only renderIssueToPrReviewerMarkdown (domain-specific) remains defined locally. tools/outbox/build_feed_entry/src/index.ts:9-15 imports the canonical helpers directly from @runxhq/core/knowledge.)
+- `packages/core/src/knowledge/file-thread.ts dead canonical refresh helpers (prior blocker #2)`: Verify storyMilestoneRefreshesPublishedEntry and canonicalStoryEntryIdForRefresh are now consumed by the wired tool instead of dead-exported. -> clean (tools/outbox/build_feed_entry/src/index.ts:12-15 imports both helpers and uses them inside latestTrustedStoryOutbox (lines 326-345) to match published legacy outbox entries and rewrite the entry_id slug to the canonical milestone id. The legacy merge_gate→human_gate and merge_gate→final_outcome refresh transitions are handled centrally in packages/core/src/knowledge/file-thread.ts.)
+- `tools/public_markdown.mjs sanitizePublicMarkdown divergence (prior low #3)`: Diff the remaining sanitizePublicMarkdown implementations to spot regex drift after the markdown.ts consolidation. -> finding (Three copies became two. tools/outbox/markdown.ts no longer has its own copy, but tools/public_markdown.mjs:13 still uses an unanchored path-redaction regex that diverges from the canonical anchored regex in packages/core/src/knowledge/thread-story.ts:192. Carried forward as story-outbox-sanitize-mjs-divergence-residual.)
+- `Canonical milestone vocabulary single source of truth`: Walk every wired consumer (tools/outbox/build_feed_entry, tools/outbox/build_pull_request, tools/thread/push_outbox, tools/outbox/markdown.ts, packages/core/src/knowledge/* and the consumer tests) and confirm they share the canonical 18-id vocabulary and reject legacy ids at runtime. -> clean (STORY_MILESTONE_IDS is defined once in thread-story.ts and re-exported via index.ts. build_pull_request uses `build_pull_request_canonical_story_milestones = [...ISSUE_TO_PR_STORY_MILESTONES]`. push_outbox runs assertStoryMilestoneId via validateStoryMessageMilestone (line 559-569) and normalizeStoryMilestones (line 551-557). LEGACY_STORY_MILESTONE_ID_MAP entries throw with the canonical replacement in the error message; the tests in packages/core/src/knowledge/index.test.ts iterate every legacy alias and assert the throw.)
+- `Idempotency key behavior for same vs different milestones`: Verify buildStoryOutboxIdempotencyMetadata produces stable keys for same-milestone replays and distinct keys for different-milestone calls with otherwise identical inputs. -> clean (packages/core/src/knowledge/outbox.ts:27-49 hashes a fixed-key keyMaterial (source_id, provider, source_thread_ref, workflow_id, lane_id, milestone_id, target_ref, proposal_id, content_hash) via hashStable. The test in packages/core/src/knowledge/index.test.ts:112-148 asserts sameKey.key === first.key for identical inputs and differentMilestones.key !== first.key when only milestone_id changes. Replay metadata `same_key: 'update_or_reuse'`, `different_milestones: 'distinct_entries'` reflects the contract.)
+- `Legacy-published refresh preserves comment_id, locator, receipt_ref`: Trace what happens when a thread already carries a published `:merge_gate` outbox entry and build_feed_entry runs after the cutover. -> clean (tools/outbox/build_feed_entry/src/index.ts:316-349 latestTrustedStoryOutbox uses canonicalStoryEntryIdForRefresh to map the existing entry's id slug (`message:<task>:merge_gate`) to the requested canonical slug (`message:<task>:human_gate` or `message:<task>:final_outcome`) before comparing. The test at tests/outbox-build-feed-entry-tool.test.ts:353-417 (`legacy_published_refresh preserves_comment_id preserves_locator preserves_receipt_ref writes_canonical_milestone_id no_duplicate_comment`) and tests/outbox-build-feed-entry-tool.test.ts:419-479 (file adapter) both assert canonical entry_id with preserved locator/comment_id/outbox_receipt_id.)
+- `Fail-closed source-thread guard at the projection layer`: Confirm assertSourceThreadPublicationAllowed refuses publication when requires_source_thread_publication is true and either missing_behavior is not fail_closed or sourceThreadRef is absent. -> clean (packages/core/src/knowledge/thread-story.ts:123-140 returns sanitized ref when not required, throws `source_thread.missing_behavior must be fail_closed` when missing_behavior diverges, and throws `missing_thread_locator: root_thread_fallback_rejected` when sourceThreadRef is absent. tools/outbox/build_feed_entry/src/index.ts:80-82 also throws `source thread locator is required` before reaching the helper. tools/thread/push_outbox/src/index.ts:611-637 enforces the same constraint at the push site. The unit test `missing_thread_locator root_thread_fallback_rejected fail_closed` covers it; the tool test `fails closed when no source thread locator is available` exercises the integrated path.)
+- `Ambient drift containment`: Check that ambient drift files (operational-proposal contract, composition-paths fixture, outbox markdown re-exports) do not silently bypass the canonical surface. -> clean (operational-proposal* changes are scoped to proposal authority, not the milestone vocabulary. tools/outbox/markdown.ts is included in scope and now re-exports the canonical surface, so the ambient outbox/markdown.ts change supports rather than bypasses the canonical helpers. tests/outbox-build-pull-request-tool.test.ts asserts canonical story_milestones.)
 
 Findings:
-- none
-
-Required gates:
-- Draft hardening before approval:
-  `scafld harden runx-operational-story-outbox-v1 --provider claude`
-- Completion review after implementation:
-  `scafld review runx-operational-story-outbox-v1 --provider claude`
-- `--provider local` is not sufficient for completion.
+- [low/non-blocking] `story-outbox-sanitize-mjs-divergence-residual` tools/public_markdown.mjs still carries a divergent unanchored path-redaction regex relative to the canonical sanitizePublicMarkdown in packages/core/src/knowledge/thread-story.ts; the previous review's triple-sanitizer divergence is reduced from three copies to two but not fully resolved.
+  - Location: `tools/public_markdown.mjs:13`
+  - Evidence: tools/public_markdown.mjs:13 uses /(?:\/Users|\/home|\/var|\/private|\/tmp)\/[^\s`)]+/g, '[local-path]' (no leading-delimiter anchor, replaces with bare '[local-path]'). packages/core/src/knowledge/thread-story.ts:192 uses /(^|[\s=("'`])(?:\/Users|\/home|\/var|\/private|\/tmp)\/[^\s`)]+/g, '$1[local-path]' (anchored, preserves leading delimiter). The .mjs file is imported by tools/thread/github_adapter.mjs (lines 5, 581, 715) which is consumed by tools/thread/push_outbox/src/index.ts (pushGitHubMessage / pushGitHubPullRequest body sanitization). The fix consolidated the duplicate that previously lived in tools/outbox/markdown.ts (which now re-exports from @runxhq/core/knowledge), but the .mjs copy was not consolidated, so identical inputs still produce different sanitized outputs depending on which call site rendered them.
+  - Impact: Public-safety contracts the spec depends on (no local paths, no token leakage) are not uniformly enforced. The .mjs version is broader (it will redact mid-string path-prefix matches that the anchored core version skips) so it is leak-safer rather than leak-prone, but adding new redaction rules in @runxhq/core/knowledge will not propagate to the .mjs path that GitHub provider messages take. Carried forward from the prior discover review's story-outbox-triple-sanitize-divergence finding.
+  - Validation: After consolidation, `rg -n "sanitizePublicMarkdown\b" tools/public_markdown.mjs` should show only the import/re-export, and `node -e "const a=require('./tools/public_markdown.mjs').sanitizePublicMarkdown('foo /Users/x/y'); const b=require('./packages/core/src/knowledge/thread-story.ts').sanitizePublicMarkdown('foo /Users/x/y'); console.log(a===b);"` (or equivalent test) should print true.
+- [low/non-blocking] `story-outbox-doc-schema-version-mismatch` docs/thread-story-contract.md documents outbox_entry.metadata.schema_version as runx.outbox-entry.message.v1, but buildFeedStoryOutboxEntry (the helper this contract describes) emits runx.outbox-entry.feed-entry.v1.
+  - Location: `docs/thread-story-contract.md:32`
+  - Evidence: docs/thread-story-contract.md:32 lists `outbox_entry.metadata.schema_version`: `runx.outbox-entry.message.v1` in the section describing what `buildFeedStoryOutboxEntry` produces. packages/core/src/knowledge/feed-entry.ts:72 writes `schema_version: "runx.outbox-entry.feed-entry.v1"` and tools/outbox/build_feed_entry/src/index.ts:339 keys the trusted-state preservation off the same `runx.outbox-entry.feed-entry.v1` literal. Tests at tests/outbox-build-feed-entry-tool.test.ts:105, :312, :376, :442 and tests/thread-push-outbox-tool.test.ts:66, :302, :318 all assert the feed-entry schema. The `runx.outbox-entry.message.v1` literal exists elsewhere (tools/thread/github_adapter.mjs:780, :944; scripts/dogfood-github-issue-to-pr.mjs:1625) for messages built by the GitHub adapter itself, not by the canonical feed-entry helper.
+  - Impact: Readers of docs/thread-story-contract.md will expect the feed-entry helper to emit `runx.outbox-entry.message.v1` and may write consumers, fixtures, or schema validators against the wrong identifier. Phase 4 acceptance commands grep the doc for vocabulary terms but do not pin the schema_version literal, so the mismatch slipped through.
+  - Validation: After the fix, `rg -n "runx.outbox-entry.feed-entry.v1" docs/thread-story-contract.md` should match the section that describes buildFeedStoryOutboxEntry, and no occurrence of `runx.outbox-entry.message.v1` should remain in that section unless it is explicitly labeled as the adapter-direct schema.
 
 ## Self Eval
 

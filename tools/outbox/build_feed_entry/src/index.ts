@@ -7,9 +7,12 @@ import {
   stringInput,
 } from "@runxhq/authoring";
 import {
+  assertStoryMilestoneId,
   buildFeedStoryOutboxEntry,
+  canonicalStoryEntryIdForRefresh,
   renderFeedStoryMarkdown,
-} from "../../markdown.ts";
+  storyMilestoneRefreshesPublishedEntry,
+} from "@runxhq/core/knowledge";
 
 export default defineTool({
   name: "outbox.build_feed_entry",
@@ -121,7 +124,7 @@ function runBuildFeedStory({ inputs }) {
       : "Human reviewer reviews the draft PR when it is published; runx does not merge generated PRs.",
     milestones: [
       {
-        kind: "signal",
+        kind: "accepted",
         status: "completed",
         summary: firstNonEmptyString(signal?.body_preview, "Source signal captured as the harness input."),
         details: [
@@ -133,7 +136,7 @@ function runBuildFeedStory({ inputs }) {
         ].filter(Boolean),
       },
       {
-        kind: "decision",
+        kind: "triaged",
         status: "passed",
         summary: decisionJustification?.summary
           ? `Decision ${firstNonEmptyString(decision?.choice, "selected a runx lane")}: ${decisionJustification.summary}`
@@ -145,13 +148,13 @@ function runBuildFeedStory({ inputs }) {
         ].filter(Boolean),
       },
       {
-        kind: "spec",
+        kind: "spec_ready",
         status: completionResult.status === "completed" || statusSnapshot.status === "completed" ? "completed" : "ready",
         summary: `scafld task '${taskId}' completed the governed lifecycle.`,
         details: statusSnapshot.status ? [`Final status: ${statusSnapshot.status}`] : [],
       },
       {
-        kind: "build",
+        kind: "build_started",
         status: buildStatus === "failure" ? "failed" : buildStatus === "success" ? "passed" : "ready",
         summary: buildStatus ? `scafld build ${buildStatus}.` : "scafld build evidence recorded.",
         details: [
@@ -160,7 +163,7 @@ function runBuildFeedStory({ inputs }) {
         ].filter(Boolean),
       },
       {
-        kind: "review",
+        kind: "review_requested",
         status: reviewVerdict && !isPassingReview(reviewVerdict) ? "failed" : reviewVerdict ? "passed" : "ready",
         summary: reviewVerdict ? `Review verdict: ${reviewVerdict}.` : "Review gate completed.",
         details: [
@@ -169,7 +172,7 @@ function runBuildFeedStory({ inputs }) {
         ].filter(Boolean),
       },
       {
-        kind: "pull_request",
+        kind: "change_request_created",
         status: pullRequestUrl ? "ready" : "pending",
         summary: pullRequestUrl ? "Draft PR is linked for human review." : `Draft pull request packaging status: ${providerPushStatus}.`,
         details: [
@@ -179,7 +182,7 @@ function runBuildFeedStory({ inputs }) {
         ].filter(Boolean),
       },
       {
-        kind: "merge_gate",
+        kind: "human_gate",
         status: outcomeObserved ? "completed" : "ready",
         summary: outcomeObserved
           ? "Human merge gate has a provider outcome recorded; runx did not auto-merge the PR."
@@ -190,7 +193,7 @@ function runBuildFeedStory({ inputs }) {
       },
       outcomeObserved
         ? {
-            kind: "outcome",
+            kind: "final_outcome",
             status: "completed",
             summary: `Provider outcome observed: ${providerOutcome.kind}.`,
             details: [
@@ -200,7 +203,7 @@ function runBuildFeedStory({ inputs }) {
             ].filter(Boolean),
           }
         : {
-            kind: "outcome",
+            kind: "final_outcome",
             status: "pending",
             summary: "No final provider outcome has been observed yet.",
             details: ["Refresh the source thread after the PR is merged or closed to publish the final outcome."],
@@ -208,7 +211,7 @@ function runBuildFeedStory({ inputs }) {
     ],
   });
   const bodyMarkdown = renderFeedStoryMarkdown(story);
-  const milestoneKind = outcomeObserved ? "outcome" : "merge_gate";
+  const milestoneKind = outcomeObserved ? "final_outcome" : "human_gate";
   const outboxEntry = buildFeedStoryOutboxEntry({
     taskId,
     threadLocator,
@@ -315,23 +318,26 @@ function latestTrustedStoryOutbox(state, outboxEntry) {
   const adapter = optionalRecord(state?.adapter) ?? {};
   const adapterType = firstNonEmptyString(adapter.type);
   const requestedMetadata = optionalRecord(outboxEntry.metadata) ?? {};
-  const requestedMilestone = firstNonEmptyString(requestedMetadata.milestone_kind);
+  const requestedMilestone = assertStoryMilestoneId(
+    firstNonEmptyString(requestedMetadata.milestone_kind),
+    "outbox_entry.metadata.milestone_kind",
+  );
+  const requestedEntryId = firstNonEmptyString(outboxEntry.entry_id);
   for (let index = outbox.length - 1; index >= 0; index -= 1) {
     const candidate = outbox[index];
     const candidateMetadata = optionalRecord(candidate.metadata) ?? {};
     const candidateMilestone = firstNonEmptyString(candidateMetadata.milestone_kind);
     if (
       candidate.kind === "message" &&
-      storyEntryCanRefresh(
+      canonicalStoryEntryIdForRefresh(
         firstNonEmptyString(candidate.entry_id),
-        firstNonEmptyString(outboxEntry.entry_id),
         candidateMilestone,
         requestedMilestone,
-      ) &&
+      ) === requestedEntryId &&
       firstNonEmptyString(candidate.locator) &&
       storyProviderStateIsTrusted(adapterType, candidateMetadata) &&
       firstNonEmptyString(candidateMetadata.schema_version) === "runx.outbox-entry.feed-entry.v1" &&
-      storyMilestoneCanRefresh(
+      storyMilestoneRefreshesPublishedEntry(
         candidateMilestone,
         requestedMilestone,
       )
@@ -347,23 +353,6 @@ function storyProviderStateIsTrusted(adapterType, metadata) {
     return true;
   }
   return Boolean(firstNonEmptyString(metadata.outbox_receipt_id));
-}
-
-function storyEntryCanRefresh(existingEntryId, requestedEntryId, existingMilestone, requestedMilestone) {
-  if (existingEntryId === requestedEntryId) {
-    return true;
-  }
-  if (existingMilestone === "merge_gate" && requestedMilestone === "outcome") {
-    return existingEntryId === requestedEntryId?.replace(/:outcome$/, ":merge_gate");
-  }
-  return false;
-}
-
-function storyMilestoneCanRefresh(existingMilestone, requestedMilestone) {
-  if (existingMilestone === requestedMilestone) {
-    return true;
-  }
-  return existingMilestone === "merge_gate" && requestedMilestone === "outcome";
 }
 
 function observeProviderOutcome({

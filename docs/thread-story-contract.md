@@ -8,10 +8,13 @@ observations; it is not the source of truth.
 
 The shared implementation lives in `@runxhq/core/knowledge` as typed helpers:
 
-- `buildThreadStoryMarkdown`
-- `buildThreadStoryMessageOutboxEntry`
-- `buildThreadStatusMarkdown`
-- `buildThreadPullRequestReviewerPacketMarkdown`
+- `StoryMilestoneId`
+- `ThreadStorySectionId`
+- `FeedStoryMilestoneKind`
+- `renderThreadStoryMarkdown`
+- `renderFeedStoryMarkdown`
+- `buildFeedStoryOutboxEntry`
+- `buildStoryOutboxIdempotencyMetadata`
 
 Source-command normalization lives one layer earlier in `@runxhq/core/source`.
 It supplies canonical source/thread locators, safe command summaries, target
@@ -26,9 +29,11 @@ The thread outbox tools use those helpers to produce:
 - `story.data.title`
 - `story.data.next_action`
 - `story.data.milestones`
-- `outbox_entry.metadata.schema_version`: `runx.outbox-entry.message.v1`
+- `outbox_entry.metadata.schema_version`: `runx.outbox-entry.feed-entry.v1`
 - `outbox_entry.metadata.workflow`
 - `outbox_entry.metadata.milestone_kind`
+- `outbox_entry.metadata.idempotency.key`
+- `outbox_entry.metadata.idempotency.content_hash`
 - `outbox_entry.metadata.body_markdown`
 
 Provider publication is not owned by these helpers. Local file-thread outbox
@@ -38,16 +43,55 @@ Slack, support-channel, or other provider mutations require the separate
 delivery; they must not be implemented as hidden `@runxhq/core` provider
 side effects.
 
-The canonical milestone kinds for issue-to-PR style flows are:
+The canonical v1 milestone ids are:
 
-- `intake`
-- `triage`
-- `spec`
-- `build`
-- `review`
-- `pull_request`
-- `merge_gate`
-- `outcome`
+- `accepted`
+- `hydrated`
+- `triaged`
+- `reply_drafted`
+- `ask_for_info`
+- `proposal_ready`
+- `escalation_proposed`
+- `tracking_item_created`
+- `spec_ready`
+- `build_started`
+- `review_requested`
+- `change_request_created`
+- `review_fixup`
+- `human_gate`
+- `outcome_observed`
+- `final_outcome`
+- `no_action`
+- `monitor`
+
+`StoryMilestoneId`, `ThreadStorySectionId`, `FeedStoryMilestoneKind`, and
+`outbox_entry.metadata.milestone_kind` use the same canonical v1 milestone
+vocabulary. Friendly copy such as "Dev escalation proposed" is derived from
+`proposal_kind`; those labels are not accepted as data ids.
+
+Existing issue-to-PR lifecycle gates map into the canonical ids as a hard cut:
+
+- `signal` -> `accepted`
+- `decision` -> `triaged`
+- `spec` -> `spec_ready`
+- `build` -> `build_started`
+- `review` -> `review_requested`
+- `pull_request` -> `change_request_created`
+- `merge_gate` -> `human_gate`
+- `outcome` -> `final_outcome`
+
+Runtime input rejects legacy ids. Published legacy entries may refresh into the
+canonical entry during migration lookup only, preserving `comment_id`, locator,
+and receipt refs, then writing the canonical milestone id to the refreshed
+entry.
+
+core-only story/outbox metadata references the existing provider idempotency
+contract rather than replacing it. This preserves the existing provider idempotency contract while giving core helpers stable replay metadata. The
+idempotency key is built from source id,
+provider, source-thread ref, workflow/run id, lane id, canonical milestone id,
+target ref, proposal id, and content hash. The content hash is derived from the
+normalized public markdown. A same-key replay updates or reuses the existing
+publication; different milestones produce distinct entries and do not collide.
 
 ## Schema Decision
 
@@ -83,6 +127,15 @@ Public story markdown should summarize durable gates:
 It should not publish low-level run events, full command dumps, raw provider
 payloads, local absolute paths, token-shaped values, or consuming-repo policy
 such as Slack channel names, Sentry project ids, or owner maps.
+
+The public story carries concise status, evidence bullets, safe excerpts,
+source-thread continuity, result refs, publication refs, and the exact next
+human action. The private receipt and artifact refs carry raw provider payloads,
+full command output, local paths, and detailed evidence for audit. Source-thread
+publication is fail-closed: if policy requires a source-thread update and no
+source-thread locator is present, helpers reject the projection instead of
+falling back to a root channel. This keeps public comments idempotent and
+reviewer-safe while preserving artifact refs for reconstruction.
 
 ## Non-goals
 

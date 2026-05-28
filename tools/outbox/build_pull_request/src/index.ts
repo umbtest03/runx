@@ -11,7 +11,12 @@ import {
   summarizePublicHandoffMarkdown,
   renderIssueToPrReviewerMarkdown,
 } from "../../markdown.ts";
+import {
+  ISSUE_TO_PR_STORY_MILESTONES,
+} from "../../../../packages/core/src/knowledge/thread-story.ts";
 import { admitOperationalPolicyRequest } from "@runxhq/contracts";
+
+const build_pull_request_canonical_story_milestones = [...ISSUE_TO_PR_STORY_MILESTONES];
 
 export default defineTool({
   name: "outbox.build_pull_request",
@@ -244,16 +249,7 @@ function runBuildPullRequest({ inputs }) {
       source_thread: buildSourceThreadMetadata(sourceThreadLocator),
       human_merge_gate: "required",
       post_merge_observation: "provider_state_update",
-      story_milestones: [
-        "signal",
-        "decision",
-        "spec",
-        "build",
-        "review",
-        "pull_request",
-        "merge_gate",
-        "outcome",
-      ],
+      story_milestones: build_pull_request_canonical_story_milestones,
     }),
   });
 

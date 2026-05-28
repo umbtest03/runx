@@ -78,9 +78,9 @@ readback surfaces.
 
 The source issue and PR should be comprehensive without becoming an event log.
 Use durable gate summaries, not every internal transition. The canonical lane
-publishes the draft PR, then updates the source thread with a merge-gate story
-and, when observed later, a stable outcome story so reviewers do not have to
-reconstruct state from receipts.
+publishes the draft PR, then updates the source thread with a `human_gate`
+story and, when observed later, a stable `final_outcome` story so reviewers do
+not have to reconstruct state from receipts.
 
 Good public story sections include:
 
@@ -92,6 +92,13 @@ Good public story sections include:
 - review verdict and actionable findings
 - PR link and human merge instruction
 - final merged or closed outcome
+
+The core renderer emits provider-neutral markdown/text only. Adapters translate
+that public story into GitHub comments, Slack blocks, support notes, or other
+provider surfaces, and keep provider ids, channel ids, button layouts, and raw
+payloads outside runx core. `proposal_kind` may change labels such as "Dev
+escalation proposed", but the stored milestone id remains one of the canonical
+v1 ids from `docs/thread-story-contract.md`.
 
 Do not publish:
 
@@ -131,7 +138,7 @@ admin surfaces can tell whether a retry created or reused the PR path.
 
 ## PR Review And Fix-Up Lanes
 
-`issue-to-pr` creates or refreshes the draft PR and publishes the merge-gate
+`issue-to-pr` creates or refreshes the draft PR and publishes the `human_gate`
 story. Adjacent PR work should stay as separate lanes over the same harness_context
 instead of being hidden inside merge authority:
 
@@ -148,7 +155,7 @@ Those lanes share the same thread/outbox/harness_context contracts:
 
 - input: `runx.thread.v1`, optional artifact refs and verification evidence, the draft PR
   outbox entry, and current provider observations
-- output: updated story milestone, review or fix-up receipt, and an idempotent
+- output: updated canonical story milestone, review or fix-up receipt, and an idempotent
   source-thread or PR comment
 - gate: human merge stays outside runx mutation authority
 
@@ -239,7 +246,7 @@ pnpm dogfood:github-issue-to-pr -- --mode observe --allow-repo owner/repo --repo
 
 Observe mode is intentionally narrow: it records `merged` or `closed` provider
 state back to the source issue with the PR URL, branch, scafld task id, and the
-human-gate statement. If the PR is still open, it returns
+`human_gate` statement. If the PR is still open, it returns
 `dogfood_pr_open_human_gate_pending` and does not post another comment.
 Terminal observe mode should seal provider state into a receipt before
 publishing, so wrappers can validate the verification result, human gate, close

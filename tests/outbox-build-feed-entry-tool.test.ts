@@ -86,27 +86,26 @@ describe("outbox.build_feed_entry tool", () => {
     });
     expect(result.feed_entry.data.milestones).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ kind: "signal" }),
-        expect.objectContaining({ kind: "decision" }),
-        expect.objectContaining({ kind: "spec" }),
-        expect.objectContaining({ kind: "build", status: "passed" }),
-        expect.objectContaining({ kind: "review", status: "passed" }),
-        expect.objectContaining({ kind: "pull_request", status: "ready" }),
-        expect.objectContaining({ kind: "merge_gate", status: "ready" }),
-        expect.objectContaining({ kind: "outcome", status: "pending" }),
-        expect.objectContaining({ kind: "outcome", status: "pending" }),
+        expect.objectContaining({ kind: "accepted" }),
+        expect.objectContaining({ kind: "triaged" }),
+        expect.objectContaining({ kind: "spec_ready" }),
+        expect.objectContaining({ kind: "build_started", status: "passed" }),
+        expect.objectContaining({ kind: "review_requested", status: "passed" }),
+        expect.objectContaining({ kind: "change_request_created", status: "ready" }),
+        expect.objectContaining({ kind: "human_gate", status: "ready" }),
+        expect.objectContaining({ kind: "final_outcome", status: "pending" }),
       ]),
     );
     expect(result.outbox_entry).toMatchObject({
-      entry_id: "message:fixture-task:merge_gate",
+      entry_id: "message:fixture-task:human_gate",
       kind: "message",
       status: "proposed",
       thread_locator: "github://example/repo/issues/123",
       metadata: {
         schema_version: "runx.outbox-entry.feed-entry.v1",
         workflow: "issue-to-pr",
-        milestone_kind: "merge_gate",
-        outbox_receipt_id: expect.stringMatching(/^feed:issue-to-pr:fixture-task:merge_gate:[a-f0-9]{20}$/),
+        milestone_kind: "human_gate",
+        outbox_receipt_id: expect.stringMatching(/^feed:issue-to-pr:fixture-task:human_gate:[a-f0-9]{20}$/),
         source_thread: {
           required: true,
           publish_mode: "reply",
@@ -182,18 +181,18 @@ describe("outbox.build_feed_entry tool", () => {
     expect(result.feed_entry.data.milestones).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          kind: "outcome",
+          kind: "final_outcome",
           status: "completed",
           summary: "Provider outcome observed: merged.",
         }),
       ]),
     );
     expect(result.outbox_entry).toMatchObject({
-      entry_id: "message:fixture-task:outcome",
+      entry_id: "message:fixture-task:final_outcome",
       kind: "message",
       title: "Issue-to-PR outcome",
       metadata: {
-        milestone_kind: "outcome",
+        milestone_kind: "final_outcome",
         body_markdown: expect.stringContaining("Provider outcome observed: merged."),
       },
     });
@@ -235,16 +234,16 @@ describe("outbox.build_feed_entry tool", () => {
     expect(result.feed_entry.data.milestones).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          kind: "outcome",
+          kind: "final_outcome",
           status: "completed",
           summary: "Provider outcome observed: closed.",
         }),
       ]),
     );
     expect(result.outbox_entry).toMatchObject({
-      entry_id: "message:fixture-task:outcome",
+      entry_id: "message:fixture-task:final_outcome",
       metadata: {
-        milestone_kind: "outcome",
+        milestone_kind: "final_outcome",
         body_markdown: expect.stringContaining("Provider state: CLOSED"),
       },
     });
@@ -339,9 +338,10 @@ describe("outbox.build_feed_entry tool", () => {
     });
 
     expect(result.outbox_entry).toMatchObject({
-      entry_id: "message:fixture-task:merge_gate",
+      entry_id: "message:fixture-task:human_gate",
       locator: "https://github.com/example/repo/issues/123#issuecomment-1000",
       metadata: {
+        milestone_kind: "human_gate",
         comment_id: "1000",
         outbox_receipt_id: "receipt-fixture-story",
         body_markdown: expect.stringContaining("PR: https://github.com/example/repo/pull/77"),
@@ -350,7 +350,7 @@ describe("outbox.build_feed_entry tool", () => {
     expect(result.outbox_entry.metadata.body_markdown).not.toContain("Old story body.");
   });
 
-  it("refreshes the existing merge-gate story when publishing an observed outcome", () => {
+  it("legacy_published_refresh preserves_comment_id preserves_locator preserves_receipt_ref writes_canonical_milestone_id no_duplicate_comment", () => {
     const result = runTool({
       task_id: "fixture-task",
       thread_title: "Fix fixture behavior",
@@ -405,10 +405,10 @@ describe("outbox.build_feed_entry tool", () => {
     });
 
     expect(result.outbox_entry).toMatchObject({
-      entry_id: "message:fixture-task:outcome",
+      entry_id: "message:fixture-task:final_outcome",
       locator: "https://github.com/example/repo/issues/123#issuecomment-1000",
       metadata: {
-        milestone_kind: "outcome",
+        milestone_kind: "final_outcome",
         comment_id: "1000",
         outbox_receipt_id: "receipt-fixture-story",
         body_markdown: expect.stringContaining("Provider outcome observed: merged."),
@@ -469,10 +469,10 @@ describe("outbox.build_feed_entry tool", () => {
     });
 
     expect(result.outbox_entry).toMatchObject({
-      entry_id: "message:fixture-task:outcome",
+      entry_id: "message:fixture-task:final_outcome",
       locator: "file://fixture-thread.json#outbox/message%3Afixture-task%3Amerge_gate",
       metadata: {
-        milestone_kind: "outcome",
+        milestone_kind: "final_outcome",
         body_markdown: expect.stringContaining("Provider outcome observed: closed."),
       },
     });
