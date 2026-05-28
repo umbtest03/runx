@@ -376,14 +376,21 @@ runners:
             commands are included, use direct repo-local checks such as tests,
             lint, build, or file-content commands. Do not use runx runtime
             internals or skills/scafld/run.mjs as validation commands; scafld
-            is already the lifecycle runner around this graph. For code changes,
-            include at least one executable validation command. When the source
-            thread or acceptance criteria asks for tests, specs, regression
-            coverage, focused coverage, or request/service coverage, declare the
-            relevant test/spec file in Files impacted and Phase / Changes and
-            include a targeted test command. If no grounded test path or command
-            can be inferred from the repo snapshot, stop with a missing-evidence
-            reason instead of publishing a code-only PR. If a required file
+            is already the lifecycle runner around this graph. For any code
+            change, declare at least one targeted test/spec file in Files
+            impacted and Phase / Changes and include at least one executable
+            validation command that exercises that target. Do this even when the
+            source thread does not explicitly request coverage; code PRs are not
+            publishable from this lane without either targeted test/spec scope
+            or grounded scafld validation evidence. When the source thread or
+            acceptance criteria asks for tests, specs, regression coverage,
+            focused coverage, or request/service coverage, this coverage
+            requirement is mandatory and cannot be softened to a generic smoke
+            check. If no existing test/spec path is declared but the repository
+            layout makes a conventional path inferable, declare that new
+            test/spec file. If no grounded test/spec path or command can be
+            inferred from the repo snapshot, stop with a missing-evidence reason
+            instead of publishing a code-only PR. If a required file
             path cannot be grounded from the thread or repository evidence, keep
             the scope narrow and state the assumption instead of inventing a file.
             When the approved lane is documentation or process work, prefer
@@ -488,14 +495,17 @@ runners:
             thread includes a runtime exception, backtrace, failing command, or
             named behavior and a recommended file exists, prefer the smallest
             conventional fix plus targeted regression coverage over an empty
-            bundle. When the approved spec, source thread, or acceptance
-            criteria asks for tests, specs, regression coverage, focused
-            coverage, or request/service coverage, fix_bundle.files must include
-            both the smallest production fix and a targeted test/spec file. Do
-            not publish a code-only fix for a source request that asks for
-            coverage. If no test file exists, create the narrow conventional
-            test file when the repository structure makes that path inferable;
-            otherwise block with the missing path and evidence reason. If no fix is possible after inspecting the target paths, the
+            bundle. For any production code change, fix_bundle.files must
+            include both the smallest production fix and a targeted test/spec
+            file, even when the source request does not explicitly ask for
+            coverage. Do not publish a code-only fix bundle from this lane. When
+            the approved spec, source thread, or acceptance criteria asks for
+            tests, specs, regression coverage, focused coverage, or
+            request/service coverage, the targeted test/spec file must directly
+            cover that requested behavior. If no test file exists, create the
+            narrow conventional test file when the repository structure makes
+            that path inferable; otherwise block with the missing path and
+            evidence reason. If no fix is possible after inspecting the target paths, the
             blocked reason must name the exact path and missing evidence. If a
             declared file
             has exists: false and the approved spec intentionally creates it,

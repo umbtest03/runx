@@ -69,10 +69,9 @@ such as spec authoring, fix authoring, review, and human merge gate.
 - Evidence bar: every spec objective, file impact, validation command, and PR
   claim must trace to the thread, repo snapshot, scafld state, or actual
   working-tree change.
-- Coverage bar: code-change PRs must include at least one executable scafld
-  validation check. When the source thread or acceptance criteria asks for
-  tests, specs, regression coverage, or request/service coverage, the fix
-  bundle must include a targeted test/spec file or stop before PR publication.
+- Coverage bar: code-change PRs must include targeted test/spec scope and an
+  executable validation command, or stop with missing evidence before PR
+  publication. A production-code fix bundle must not be code-only.
 - Story bar: public source-thread and PR surfaces should show the signal,
   decision, scoped change, validation, review verdict, PR link, human
   merge gate, and final provider outcome when observed without becoming a raw
@@ -127,13 +126,18 @@ repo-local checks such as test, lint, build, or file-content commands. Never use
 runx runtime internals or `skills/scafld/run.mjs` as a validation command;
 scafld is already the lifecycle runner around the task.
 
-For code changes, the approved spec must include at least one executable
-validation command. If the source thread asks for tests, specs, regression
-coverage, focused coverage, or request/service coverage, the spec must declare
-the relevant test/spec file in the changed-file scope and include a targeted
-test command. If no grounded test path or command can be inferred from the repo
-snapshot, stop with a missing-evidence reason instead of publishing a code-only
-PR.
+For any code change, the approved spec must declare at least one targeted
+test/spec file in the changed-file scope and include at least one executable
+validation command that exercises that target. This applies even when the source
+thread does not explicitly request coverage; code PRs are not publishable from
+this lane without targeted test/spec scope or grounded scafld validation
+evidence. If the source thread asks for tests, specs, regression coverage,
+focused coverage, or request/service coverage, the targeted coverage requirement
+cannot be softened to a generic smoke check. If no existing test/spec path is
+declared but the repository layout makes a conventional path inferable, declare
+that new test/spec file. If no grounded test/spec path or command can be
+inferred from the repo snapshot, stop with a missing-evidence reason instead of
+publishing a code-only PR.
 
 Preserve source-thread context in the spec's Summary, Origin, and Planning Log
 so later PR packaging can explain why the lane ran and what evidence justified
@@ -155,13 +159,15 @@ backtrace, failing command, or named behavior and the recommended file exists,
 prefer the smallest conventional fix plus targeted regression coverage over an
 empty bundle.
 
-If the approved spec, source thread, or acceptance criteria asks for tests,
-specs, regression coverage, focused coverage, or request/service coverage,
-`fix_bundle.files` must include the smallest production fix and a targeted
-test/spec file. Do not publish a code-only fix for a source request that asks
-for coverage. If no test file exists, create the narrow conventional test file
-when the repository structure makes that path inferable; otherwise block with
-the missing path and evidence reason.
+For any production code change, `fix_bundle.files` must include the smallest
+production fix and a targeted test/spec file, even when the source request does
+not explicitly ask for coverage. Do not publish a code-only fix bundle from this
+lane. If the approved spec, source thread, or acceptance criteria asks for
+tests, specs, regression coverage, focused coverage, or request/service
+coverage, the targeted test/spec file must directly cover that requested
+behavior. If no test file exists, create the narrow conventional test file when
+the repository structure makes that path inferable; otherwise block with the
+missing path and evidence reason.
 
 If a declared file has `exists: false` and the approved spec intentionally
 creates it, write the new file when the desired contents are inferable from the

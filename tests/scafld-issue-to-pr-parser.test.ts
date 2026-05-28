@@ -82,6 +82,10 @@ describe("scafld issue-to-PR skill contract", () => {
     expect(graph.steps.find((step) => step.id === "author-spec")?.instructions).toContain("Files impacted");
     expect(graph.steps.find((step) => step.id === "author-spec")?.instructions).toContain("repo-change scope empty");
     expect(graph.steps.find((step) => step.id === "author-spec")?.instructions).toContain("reviewer story");
+    expect(graph.steps.find((step) => step.id === "author-spec")?.instructions).toContain("For any code change");
+    expect(graph.steps.find((step) => step.id === "author-spec")?.instructions).toContain("targeted test/spec file");
+    expect(graph.steps.find((step) => step.id === "author-spec")?.instructions).toContain("code PRs are not publishable");
+    expect(graph.steps.find((step) => step.id === "author-spec")?.instructions).toContain("new test/spec file");
     expect(graph.steps.find((step) => step.id === "normalize-spec")).toMatchObject({
       tool: "spec.normalize_scafld_frontmatter",
       context: {
@@ -123,6 +127,10 @@ describe("scafld issue-to-PR skill contract", () => {
     expect(graph.steps.find((step) => step.id === "author-fix")?.instructions).toContain("fix_bundle.status: blocked");
     expect(graph.steps.find((step) => step.id === "author-fix")?.instructions).toContain("one scoped docs edit is possible");
     expect(graph.steps.find((step) => step.id === "author-fix")?.instructions).toContain("repo_snapshot.recommended_files");
+    expect(graph.steps.find((step) => step.id === "author-fix")?.instructions).toContain("For any production code change");
+    expect(graph.steps.find((step) => step.id === "author-fix")?.instructions).toContain("targeted test/spec file");
+    expect(graph.steps.find((step) => step.id === "author-fix")?.instructions).toContain("Do not publish a code-only fix bundle");
+    expect(graph.steps.find((step) => step.id === "author-fix")?.instructions).toContain("directly cover that requested behavior");
     expect(graph.steps.find((step) => step.id === "read-current-branch")).toMatchObject({
       tool: "git.current_branch",
     });
