@@ -1,9 +1,14 @@
-import { readFile } from "node:fs/promises";
+import { execFile as execFileCallback } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 
 import { describe, expect, it } from "vitest";
 
 import { parseRunnerManifestYaml, parseSkillMarkdown, validateRunnerManifest, validateSkill } from "@runxhq/core/parser";
+
+const execFile = promisify(execFileCallback);
 
 describe("scafld skill contract", () => {
   it("keeps the portable skill standard while X stays a thin native scafld consumer", async () => {
@@ -53,5 +58,75 @@ describe("scafld skill contract", () => {
         "scafld CLI 2.4.0 or newer with native JSON contracts available on PATH, via SCAFLD_BIN, or through explicit scafld_bin input",
       ],
     });
+  });
+
+  it("recovers successful command-review results from status when review omits JSON", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-scafld-review-status-"));
+    const fakeScafld = path.join(tempDir, "fake-scafld.mjs");
+    const wrapperPath = path.resolve("skills/scafld/run.mjs");
+
+    try {
+      await writeFile(
+        fakeScafld,
+        `#!/usr/bin/env node
+const argv = process.argv.slice(2);
+const command = argv[0] || "";
+if (command === "review") {
+  process.stderr.write("scafld review[command] started node reviewer.mjs\\n");
+  process.stderr.write("scafld review[command] completed exit=0 elapsed=4ms last_output=0s\\n");
+  process.exit(0);
+}
+if (command === "status") {
+  process.stdout.write(JSON.stringify({
+    ok: true,
+    command: "status",
+    result: {
+      task_id: argv[1],
+      status: "review",
+      review: {
+        verdict: "pass",
+        findings: [],
+      },
+    },
+  }) + "\\n");
+  process.exit(0);
+}
+process.stderr.write(\`unsupported command: \${command}\\n\`);
+process.exit(1);
+`,
+        { mode: 0o755 },
+      );
+
+      const { stdout } = await execFile("node", [wrapperPath], {
+        cwd: tempDir,
+        env: {
+          ...process.env,
+          RUNX_INPUTS_JSON: JSON.stringify({
+            command: "review",
+            task_id: "fixture-task",
+            fixture: tempDir,
+            scafld_bin: fakeScafld,
+          }),
+        },
+      });
+
+      expect(JSON.parse(stdout)).toEqual({
+        ok: true,
+        command: "review",
+        result: {
+          task_id: "fixture-task",
+          status: "review",
+          verdict: "pass",
+          findings: [],
+          review: {
+            verdict: "pass",
+            findings: [],
+          },
+          recovered_from_status: true,
+        },
+      });
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
   });
 });
