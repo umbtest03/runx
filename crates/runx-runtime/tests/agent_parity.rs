@@ -10,8 +10,8 @@ use runx_runtime::adapters::agent::{
     AgentToolExecutionTrace,
 };
 use runx_runtime::{
-    InvocationStatus, ManagedAgentConfig, ManagedAgentProvider, RuntimeError, RuntimeOptions,
-    SkillAdapter, SkillInvocation, run_harness_fixture_with_adapter,
+    InvocationStatus, ManagedAgentConfig, RuntimeError, RuntimeOptions, SkillAdapter,
+    SkillInvocation, managed_agent_provider, run_harness_fixture_with_adapter,
 };
 
 const FIXTURE_CREATED_AT: &str = "2026-05-18T00:00:00Z";
@@ -387,7 +387,7 @@ fn source(
 
 fn config() -> ManagedAgentConfig {
     ManagedAgentConfig {
-        provider: ManagedAgentProvider::OpenAi,
+        provider: managed_agent_provider::OPENAI.into(),
         model: "gpt-test".to_owned(),
         api_key: "sk-test".to_owned(),
     }

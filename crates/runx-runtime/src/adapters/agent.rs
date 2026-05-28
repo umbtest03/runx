@@ -14,7 +14,7 @@ use crate::adapter_pipeline::{AdapterCapture, AdapterProjection};
 use crate::agent_invocation::{
     AgentActInvocationSourceType, agent_act_resolution_request, build_agent_act_invocation,
 };
-use crate::config::{ManagedAgentConfig, ManagedAgentProvider};
+use crate::config::ManagedAgentConfig;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AgentAdapterSourceType {
@@ -261,7 +261,7 @@ fn insert_common_metadata(entry: &mut JsonObject, config: &ManagedAgentConfig, s
     entry.insert("route".to_owned(), JsonValue::String("native".to_owned()));
     entry.insert(
         "provider".to_owned(),
-        JsonValue::String(provider_name(&config.provider).to_owned()),
+        JsonValue::String(config.provider.as_ref().to_owned()),
     );
     entry.insert("model".to_owned(), JsonValue::String(config.model.clone()));
     entry.insert("status".to_owned(), JsonValue::String(status.to_owned()));
@@ -319,11 +319,4 @@ fn tool_execution_trace(trace: &AgentToolExecutionTrace) -> JsonValue {
         );
     }
     JsonValue::Object(object)
-}
-
-fn provider_name(provider: &ManagedAgentProvider) -> &'static str {
-    match provider {
-        ManagedAgentProvider::OpenAi => "openai",
-        ManagedAgentProvider::Anthropic => "anthropic",
-    }
 }

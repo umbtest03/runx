@@ -11,6 +11,7 @@ use aes_gcm::{Aes256Gcm, Nonce};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use runx_contracts::JsonValue;
+use runx_contracts::schema::NonEmptyString;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
@@ -40,15 +41,21 @@ pub enum ConfigKey {
     AgentApiKey,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ManagedAgentProvider {
-    OpenAi,
-    Anthropic,
+/// Canonical managed agent provider identifiers. The wire form on
+/// `ManagedAgentConfig::provider` is an open `NonEmptyString`; this module is
+/// for discoverability and shared default constants.
+pub mod managed_agent_provider {
+    /// OpenAI-compatible chat completion API.
+    pub const OPENAI: &str = "openai";
+    /// Anthropic Messages API.
+    pub const ANTHROPIC: &str = "anthropic";
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ManagedAgentConfig {
-    pub provider: ManagedAgentProvider,
+    /// Open provider identifier (e.g. `managed_agent_provider::OPENAI`). Any
+    /// non-empty string is accepted; new providers do not need a code edit.
+    pub provider: NonEmptyString,
     pub model: String,
     pub api_key: String,
 }
@@ -284,10 +291,8 @@ pub fn load_managed_agent_config(
     if model.is_empty() {
         return Ok(None);
     }
-    let provider_key = match provider {
-        ManagedAgentProvider::OpenAi => env.get("OPENAI_API_KEY"),
-        ManagedAgentProvider::Anthropic => env.get("ANTHROPIC_API_KEY"),
-    };
+    let provider_env_var = managed_agent_provider_env_var(&provider);
+    let provider_key = env.get(&provider_env_var);
     let mut api_key = env
         .get("RUNX_AGENT_API_KEY")
         .or(provider_key)
@@ -466,12 +471,16 @@ fn config_key_read_error(path: &Path, cause: Option<String>) -> ConfigError {
     }
 }
 
-fn normalize_managed_agent_provider(value: &str) -> Option<ManagedAgentProvider> {
-    match value.trim().to_lowercase().as_str() {
-        "openai" => Some(ManagedAgentProvider::OpenAi),
-        "anthropic" => Some(ManagedAgentProvider::Anthropic),
-        _ => None,
-    }
+fn normalize_managed_agent_provider(value: &str) -> Option<NonEmptyString> {
+    NonEmptyString::new(value.trim().to_lowercase())
+}
+
+/// Derive the env var name that carries the API key for a given managed agent
+/// provider. Follows the `<UPPERCASED>_API_KEY` convention (e.g. `OPENAI_API_KEY`,
+/// `ANTHROPIC_API_KEY`), so new providers work without a code edit. Callers can
+/// always override via `RUNX_AGENT_API_KEY`.
+fn managed_agent_provider_env_var(provider: &NonEmptyString) -> String {
+    format!("{}_API_KEY", provider.as_ref().to_uppercase())
 }
 
 fn read_skill_profile(

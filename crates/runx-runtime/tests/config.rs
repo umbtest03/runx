@@ -3,9 +3,9 @@ use std::fs;
 use std::path::Path;
 
 use runx_runtime::{
-    ConfigError, ConfigKey, LocalProfileSource, ManagedAgentConfig, ManagedAgentProvider,
-    RunxAgentConfig, RunxConfigFile, load_local_agent_api_key, load_managed_agent_config,
-    load_runx_config_file, lookup_runx_config_value, mask_runx_config_file,
+    ConfigError, ConfigKey, LocalProfileSource, ManagedAgentConfig, RunxAgentConfig,
+    RunxConfigFile, load_local_agent_api_key, load_managed_agent_config, load_runx_config_file,
+    lookup_runx_config_value, managed_agent_provider, mask_runx_config_file,
     resolve_local_skill_profile, resolve_runx_global_home_dir, update_runx_config_value,
     write_runx_config_file,
 };
@@ -170,7 +170,7 @@ fn config_loads_managed_agent_env_precedence_and_local_key_fallback()
     assert_eq!(
         load_managed_agent_config(&explicit_env, temp.path())?,
         Some(ManagedAgentConfig {
-            provider: ManagedAgentProvider::OpenAi,
+            provider: managed_agent_provider::OPENAI.into(),
             model: "gpt-test".to_owned(),
             api_key: "sk-explicit".to_owned(),
         })
@@ -193,7 +193,7 @@ fn config_loads_managed_agent_env_precedence_and_local_key_fallback()
     assert_eq!(
         load_managed_agent_config(&local_env, temp.path())?,
         Some(ManagedAgentConfig {
-            provider: ManagedAgentProvider::Anthropic,
+            provider: managed_agent_provider::ANTHROPIC.into(),
             model: "claude-test".to_owned(),
             api_key: "local-secret".to_owned(),
         })
