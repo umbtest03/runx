@@ -638,7 +638,7 @@ fn nitrosend_request(
         action: OperationalPolicyAction::IssueToPr,
         runner_id: None,
         source: TargetRepoRunnerSourceContext {
-            provider: runx_contracts::OperationalPolicySourceProvider::Slack,
+            provider: runx_contracts::operational_policy_source_provider::SLACK.into(),
             locator: "slack://nitrosend/C0APFMY0V8Q".to_owned(),
             thread_locator: Some("slack://nitrosend/C0APFMY0V8Q/1778834840.485629".to_owned()),
             thread_ts: Some("1778834840.485629".to_owned()),
@@ -656,7 +656,7 @@ fn fixture_request(source_id: &str, target_repo: &str) -> TargetRepoRunnerPlanRe
         action: OperationalPolicyAction::IssueToPr,
         runner_id: None,
         source: TargetRepoRunnerSourceContext {
-            provider: runx_contracts::OperationalPolicySourceProvider::Github,
+            provider: runx_contracts::operational_policy_source_provider::GITHUB.into(),
             locator: "github://example/project/issues".to_owned(),
             thread_locator: Some("github://example/project/issues/42".to_owned()),
             thread_ts: None,

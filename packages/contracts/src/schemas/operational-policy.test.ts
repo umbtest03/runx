@@ -203,16 +203,6 @@ describe("operational-policy schema", () => {
     })).toBe(false);
   });
 
-  it("rejects unknown source providers", () => {
-    expect(contractSchemaMatches(operationalPolicySchema, {
-      ...validPolicy,
-      sources: [{
-        ...validPolicy.sources[0],
-        provider: "pager",
-      }],
-    })).toBe(false);
-  });
-
   it("rejects extra fields so secrets do not drift into policy", () => {
     expect(contractSchemaMatches(operationalPolicySchema, {
       ...validPolicy,

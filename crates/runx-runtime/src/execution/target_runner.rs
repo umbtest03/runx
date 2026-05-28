@@ -140,7 +140,7 @@ pub struct TargetRepoRunnerCheckoutCommand {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub base_branch: Option<String>,
     pub runner_id: String,
-    pub runner_kind: runx_contracts::OperationalPolicyRunnerKind,
+    pub runner_kind: runx_contracts::schema::NonEmptyString,
     pub target_scafld_required: bool,
     pub runner_scafld_required: bool,
     pub mutate_target_repo: bool,
@@ -316,7 +316,7 @@ pub fn target_repo_runner_checkout_command(
         },
         base_branch: plan.target.base_branch.clone(),
         runner_id: plan.runner.runner_id.clone(),
-        runner_kind: plan.runner.kind,
+        runner_kind: plan.runner.kind.clone(),
         target_scafld_required: plan.target.scafld_required,
         runner_scafld_required: plan.runner.scafld_required,
         mutate_target_repo: plan.mutate_target_repo,

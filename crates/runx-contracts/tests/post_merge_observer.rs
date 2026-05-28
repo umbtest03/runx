@@ -3,15 +3,14 @@ use runx_contracts::post_merge_observer::{
 };
 use runx_contracts::{
     ActForm, ClosureDisposition, CriterionStatus, OperationalPolicy, OperationalPolicyAction,
-    OperationalPolicySourceProvider, PostMergeObserverClosureState, PostMergeObserverCriterionPlan,
-    PostMergeObserverPlan, PostMergeObserverPlanError, PostMergeObserverPlanRequest,
-    PostMergeObserverRuntimeDecision, PostMergeObserverSignalSource,
-    PostMergePullRequestObservation, PostMergePullRequestState, PostMergeSourceIssueDisposition,
-    PostMergeVerificationObservation, PostMergeVerificationStatus, Receipt, Reference,
-    ReferenceType, TargetRepoRunnerExistingPullRequest, TargetRepoRunnerPlanRequest,
-    TargetRepoRunnerSourceContext, plan_post_merge_observer_closure,
-    plan_post_merge_observer_runtime_dedupe, plan_target_repo_runner,
-    plan_target_repo_runner_source_publication_receipt,
+    PostMergeObserverClosureState, PostMergeObserverCriterionPlan, PostMergeObserverPlan,
+    PostMergeObserverPlanError, PostMergeObserverPlanRequest, PostMergeObserverRuntimeDecision,
+    PostMergeObserverSignalSource, PostMergePullRequestObservation, PostMergePullRequestState,
+    PostMergeSourceIssueDisposition, PostMergeVerificationObservation, PostMergeVerificationStatus,
+    Receipt, Reference, ReferenceType, TargetRepoRunnerExistingPullRequest,
+    TargetRepoRunnerPlanRequest, TargetRepoRunnerSourceContext, operational_policy_source_provider,
+    plan_post_merge_observer_closure, plan_post_merge_observer_runtime_dedupe,
+    plan_target_repo_runner, plan_target_repo_runner_source_publication_receipt,
     project_post_merge_observer_publication_from_receipt,
 };
 
@@ -335,7 +334,7 @@ fn target_runner_publication_refs_normalize_to_observer_command()
             action: OperationalPolicyAction::IssueToPr,
             runner_id: Some("aster-production".to_owned()),
             source: TargetRepoRunnerSourceContext {
-                provider: OperationalPolicySourceProvider::Slack,
+                provider: operational_policy_source_provider::SLACK.into(),
                 locator: "slack://nitrosend/C0APFMY0V8Q".to_owned(),
                 thread_locator: Some("slack://nitrosend/C0APFMY0V8Q/1778834840.485629".to_owned()),
                 thread_ts: Some("1778834840.485629".to_owned()),

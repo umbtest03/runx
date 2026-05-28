@@ -318,7 +318,7 @@ fn select_request_runner<'a>(
 fn source_readback(source: &OperationalPolicySourceRule) -> OperationalPolicySourceReadback {
     OperationalPolicySourceReadback {
         source_id: source.source_id.to_string(),
-        provider: source.provider,
+        provider: source.provider.clone(),
         locator_count: source.allowed_locators.len(),
         allowed_actions: source.allowed_actions.clone(),
         source_thread_required: source.source_thread.required,
@@ -329,7 +329,7 @@ fn source_readback(source: &OperationalPolicySourceRule) -> OperationalPolicySou
 fn runner_readback(runner: &OperationalPolicyRunnerRule) -> OperationalPolicyRunnerReadback {
     OperationalPolicyRunnerReadback {
         runner_id: runner.runner_id.to_string(),
-        kind: runner.kind,
+        kind: runner.kind.clone(),
         state: runner.state,
         target_repos: runner.target_repos.clone(),
         allowed_actions: runner.allowed_actions.clone(),

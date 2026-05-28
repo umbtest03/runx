@@ -2,10 +2,10 @@ use std::path::Path;
 
 use serde::Deserialize;
 
+use runx_contracts::schema::NonEmptyString;
 use runx_contracts::{
-    OperationalPolicy, OperationalPolicyAction, OperationalPolicySourceProvider, Receipt,
-    TargetRepoRunnerPlanRequest, TargetRepoRunnerSourceContext, plan_target_repo_runner,
-    plan_target_repo_runner_dedupe_lookup,
+    OperationalPolicy, OperationalPolicyAction, Receipt, TargetRepoRunnerPlanRequest,
+    TargetRepoRunnerSourceContext, plan_target_repo_runner, plan_target_repo_runner_dedupe_lookup,
 };
 
 const FIXTURE_JSON: &str =
@@ -31,7 +31,7 @@ struct ExternalNitrosendFixture {
 #[derive(Debug, Deserialize)]
 struct ExternalSource {
     source_id: String,
-    provider: OperationalPolicySourceProvider,
+    provider: NonEmptyString,
     locator: String,
     thread_locator: String,
     thread_ts: String,
@@ -90,7 +90,7 @@ fn nitrosend_external_fixture_derives_target_plan_and_dedupe_lookup()
             action: OperationalPolicyAction::IssueToPr,
             runner_id: Some(fixture.target.runner_id.clone()),
             source: TargetRepoRunnerSourceContext {
-                provider: fixture.source.provider,
+                provider: fixture.source.provider.clone(),
                 locator: fixture.source.locator.clone(),
                 thread_locator: Some(fixture.source.thread_locator.clone()),
                 thread_ts: Some(fixture.source.thread_ts.clone()),

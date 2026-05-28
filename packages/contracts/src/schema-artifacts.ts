@@ -25801,24 +25801,8 @@ export const runxSchemaArtifacts = {
               "type": "array"
             },
             "kind": {
-              "anyOf": [
-                {
-                  "const": "local",
-                  "type": "string"
-                },
-                {
-                  "const": "github-actions",
-                  "type": "string"
-                },
-                {
-                  "const": "aster",
-                  "type": "string"
-                },
-                {
-                  "const": "other",
-                  "type": "string"
-                }
-              ]
+              "minLength": 1,
+              "type": "string"
             },
             "runner_id": {
               "minLength": 1,
@@ -25941,32 +25925,8 @@ export const runxSchemaArtifacts = {
               "type": "number"
             },
             "provider": {
-              "anyOf": [
-                {
-                  "const": "slack",
-                  "type": "string"
-                },
-                {
-                  "const": "sentry",
-                  "type": "string"
-                },
-                {
-                  "const": "github",
-                  "type": "string"
-                },
-                {
-                  "const": "file",
-                  "type": "string"
-                },
-                {
-                  "const": "api",
-                  "type": "string"
-                },
-                {
-                  "const": "other",
-                  "type": "string"
-                }
-              ]
+              "minLength": 1,
+              "type": "string"
             },
             "sentry": {
               "additionalProperties": false,

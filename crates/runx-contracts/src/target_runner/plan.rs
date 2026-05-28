@@ -1,11 +1,11 @@
 // rust-style-allow: large-file - target-repo runner planning, dedupe lookup,
 // execution plans, and receipt metadata share one fixture-driven oracle.
+use crate::operational_policy::operational_policy_source_provider;
 use crate::{
     JsonNumber, JsonObject, JsonValue, OperationalPolicy, OperationalPolicyAdmission,
     OperationalPolicyAdmissionRequest, OperationalPolicyAdmissionStatus,
-    OperationalPolicyDedupeStrategy, OperationalPolicyRunnerRule, OperationalPolicySourceProvider,
-    OperationalPolicySourceRule, OperationalPolicyTargetRule, Reference, ReferenceType,
-    admit_operational_policy_request,
+    OperationalPolicyDedupeStrategy, OperationalPolicyRunnerRule, OperationalPolicySourceRule,
+    OperationalPolicyTargetRule, Reference, ReferenceType, admit_operational_policy_request,
 };
 
 use super::{
@@ -35,7 +35,7 @@ pub fn plan_target_repo_runner(
         action: request.action,
         source: TargetRepoRunnerSourcePlan {
             source_id: values.source_id,
-            provider: request.source.provider,
+            provider: request.source.provider.clone(),
             locator: request.source.locator.clone(),
             issue_url: request.source.issue_url.clone(),
         },
@@ -51,7 +51,7 @@ pub fn plan_target_repo_runner(
         },
         runner: TargetRepoRunnerRunnerPlan {
             runner_id: values.runner_id,
-            kind: context.runner.kind,
+            kind: context.runner.kind.clone(),
             scafld_required: context.runner.scafld_required,
         },
         owner: TargetRepoRunnerOwnerPlan {
@@ -174,7 +174,7 @@ pub fn plan_target_repo_runner_dedupe_lookup(
         proof_kind: None,
     });
     let source_thread_ref = Reference {
-        reference_type: source_thread_reference_type(plan.source.provider),
+        reference_type: source_thread_reference_type(&plan.source.provider),
         uri: plan.source_thread.locator.clone().into(),
         provider: Some(plan.source.provider.to_string().into()),
         locator: Some(plan.source_thread.locator.clone().into()),
@@ -236,7 +236,7 @@ pub fn plan_target_repo_runner_execution(
         },
         readiness: TargetRepoRunnerReadinessPlan {
             runner_id: plan.runner.runner_id.clone(),
-            runner_kind: plan.runner.kind,
+            runner_kind: plan.runner.kind.clone(),
             runner_scafld_required: plan.runner.scafld_required,
             target_scafld_required: plan.target.scafld_required,
             scafld_ready: readiness.scafld_ready,
@@ -418,14 +418,12 @@ fn dedupe_lookup_markers(dedupe: &TargetRepoRunnerDedupePlan) -> Vec<String> {
     markers
 }
 
-fn source_thread_reference_type(provider: OperationalPolicySourceProvider) -> ReferenceType {
+fn source_thread_reference_type(provider: &str) -> ReferenceType {
     match provider {
-        OperationalPolicySourceProvider::Slack => ReferenceType::SlackThread,
-        OperationalPolicySourceProvider::Github => ReferenceType::GithubIssue,
-        OperationalPolicySourceProvider::Sentry => ReferenceType::SentryEvent,
-        OperationalPolicySourceProvider::File
-        | OperationalPolicySourceProvider::Api
-        | OperationalPolicySourceProvider::Other => ReferenceType::ExternalUrl,
+        operational_policy_source_provider::SLACK => ReferenceType::SlackThread,
+        operational_policy_source_provider::GITHUB => ReferenceType::GithubIssue,
+        operational_policy_source_provider::SENTRY => ReferenceType::SentryEvent,
+        _ => ReferenceType::ExternalUrl,
     }
 }
 
@@ -457,7 +455,7 @@ fn github_issue_locator(issue_url: &str) -> String {
 
 fn source_thread_ref(plan: &TargetRepoRunnerPlan) -> Reference {
     Reference {
-        reference_type: source_thread_reference_type(plan.source.provider),
+        reference_type: source_thread_reference_type(&plan.source.provider),
         uri: plan.source_thread.locator.clone().into(),
         provider: Some(plan.source.provider.to_string().into()),
         locator: Some(plan.source_thread.locator.clone().into()),
