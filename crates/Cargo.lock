@@ -1634,7 +1634,7 @@ dependencies = [
 
 [[package]]
 name = "runx-cli"
-version = "0.5.22"
+version = "0.6.0"
 dependencies = [
  "runx-contracts",
  "runx-runtime",
@@ -1645,7 +1645,7 @@ dependencies = [
 
 [[package]]
 name = "runx-contracts"
-version = "0.0.2"
+version = "0.1.0"
 dependencies = [
  "jsonschema",
  "runx-contracts-derive",
@@ -1656,7 +1656,7 @@ dependencies = [
 
 [[package]]
 name = "runx-contracts-derive"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1665,7 +1665,7 @@ dependencies = [
 
 [[package]]
 name = "runx-core"
-version = "0.0.2"
+version = "0.1.0"
 dependencies = [
  "proptest",
  "runx-contracts",
@@ -1677,7 +1677,7 @@ dependencies = [
 
 [[package]]
 name = "runx-parser"
-version = "0.0.2"
+version = "0.1.0"
 dependencies = [
  "regex",
  "runx-contracts",

@@ -3,7 +3,7 @@
 # .scafld/specs/active/test-surface-build-consolidation.md.
 autotests = false
 name = "runx-parser"
-version = "0.0.2"
+version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 description = "Pure Rust parser parity crate for runx skills, graphs, and tool manifests."

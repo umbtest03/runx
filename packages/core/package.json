@@ -1,6 +1,6 @@
 {
   "name": "@runxhq/core",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "Runx TypeScript client domains: parser, policy helpers, registry, config, knowledge, source, artifacts, and utilities.",
   "private": false,
   "license": "MIT",

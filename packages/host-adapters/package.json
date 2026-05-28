@@ -1,6 +1,6 @@
 {
   "name": "@runxhq/host-adapters",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Thin host response adapters over the runx host protocol.",
   "private": false,
   "license": "MIT",
