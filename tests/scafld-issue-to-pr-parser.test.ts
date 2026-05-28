@@ -160,6 +160,9 @@ describe("scafld issue-to-PR skill contract", () => {
         draft_pull_request: "package-pull-request.draft_pull_request.data",
       },
       inputs: {
+        thread: "$input.thread",
+        fixture: "$input.fixture",
+        workspace_path: "$input.workspace_path",
         next_status: "draft",
       },
     });
@@ -183,6 +186,8 @@ describe("scafld issue-to-PR skill contract", () => {
         draft_pull_request: "package-pull-request.draft_pull_request.data",
       },
       inputs: {
+        fixture: "$input.fixture",
+        workspace_path: "$input.workspace_path",
         next_status: "published",
       },
     });

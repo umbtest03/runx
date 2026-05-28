@@ -631,6 +631,9 @@ runners:
             outbox_entry: package-pull-request.outbox_entry.data
             draft_pull_request: package-pull-request.draft_pull_request.data
           inputs:
+            thread: $input.thread
+            fixture: $input.fixture
+            workspace_path: $input.workspace_path
             next_status: draft
         - id: package-feed-entry
           label: package feed entry
@@ -657,6 +660,8 @@ runners:
             outbox_entry: package-feed-entry.outbox_entry.data
             draft_pull_request: package-pull-request.draft_pull_request.data
           inputs:
+            fixture: $input.fixture
+            workspace_path: $input.workspace_path
             next_status: published
       policy:
         transitions:
