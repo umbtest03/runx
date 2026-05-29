@@ -1694,6 +1694,7 @@ version = "0.0.1"
 dependencies = [
  "criterion",
  "jsonschema",
+ "proptest",
  "runx-contracts",
  "serde",
  "serde_json",

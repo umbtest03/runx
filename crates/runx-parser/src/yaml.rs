@@ -1,3 +1,6 @@
+// rust-style-allow: large-file the QuoteScanner state machine and its
+// quote-aware scanners belong next to the parity-subset rules they enforce;
+// splitting the scanner from the rules trades clarity for two-file traversal.
 use serde::de::DeserializeOwned;
 
 use crate::ParseError;
@@ -63,19 +66,12 @@ pub fn assert_yaml_scalar_subset(field: &str, literal: &str) -> Result<(), Parse
 }
 
 fn strip_yaml_comment(line: &str) -> Option<&str> {
-    let mut in_single_quote = false;
-    let mut in_double_quote = false;
-    let mut previous = '\0';
+    let mut scanner = QuoteScanner::new();
     for (index, char) in line.char_indices() {
-        match char {
-            '\'' if !in_double_quote => in_single_quote = !in_single_quote,
-            '"' if !in_single_quote && previous != '\\' => in_double_quote = !in_double_quote,
-            '#' if !in_single_quote && !in_double_quote && is_comment_start(line, index) => {
-                return Some(&line[..index]);
-            }
-            _ => {}
+        if scanner.is_plain() && char == '#' && is_comment_start(line, index) {
+            return Some(&line[..index]);
         }
-        previous = char;
+        scanner.consume(char);
     }
     Some(line)
 }
@@ -98,8 +94,6 @@ fn reject_embedded_colon_key(
     Ok(())
 }
 
-// rust-style-allow: long-function because this quote-aware scanner keeps
-// mapping delimiter detection in one place instead of splitting YAML parsing.
 fn top_level_plain_key(trimmed: &str) -> Option<&str> {
     let bytes = trimmed.as_bytes();
     if bytes
@@ -108,21 +102,88 @@ fn top_level_plain_key(trimmed: &str) -> Option<&str> {
     {
         return None;
     }
-    let mut in_single_quote = false;
-    let mut in_double_quote = false;
-    let mut previous = '\0';
+    let mut scanner = QuoteScanner::new();
     for (index, char) in trimmed.char_indices() {
-        match char {
-            '\'' if !in_double_quote => in_single_quote = !in_single_quote,
-            '"' if !in_single_quote && previous != '\\' => in_double_quote = !in_double_quote,
-            ':' if !in_single_quote && !in_double_quote && is_mapping_delimiter(trimmed, index) => {
-                return Some(trimmed[..index].trim());
-            }
-            _ => {}
+        if scanner.is_plain() && char == ':' && is_mapping_delimiter(trimmed, index) {
+            return Some(trimmed[..index].trim());
         }
-        previous = char;
+        scanner.consume(char);
     }
     None
+}
+
+/// YAML quoted-scalar state machine used by the parity-subset scanners.
+///
+/// The earlier ad-hoc `previous != '\\'` toggle failed on YAML's double-quote
+/// escape rule (`\\` is one escape pair producing a literal `\`; the following
+/// byte is not the escape target) and on single-quote escapes (`''` is the
+/// escape, not a pair of toggles). Both shapes let `:`-bearing keys past the
+/// validator under specific escape patterns. This scanner consumes escape
+/// units in one step so the inside/outside-quote signal matches YAML's reader.
+#[derive(Clone, Copy)]
+enum QuoteState {
+    Plain,
+    InDouble,
+    /// Single-quote scanner saw a `'` and must decide on the next char whether
+    /// it was an escape (`''` -> stay in single) or a terminator.
+    InSinglePendingApostrophe,
+    InSingle,
+    /// Double-quote scanner saw a `\` and must consume the next char as the
+    /// escape target without inspecting it.
+    InDoubleEscape,
+}
+
+struct QuoteScanner {
+    state: QuoteState,
+}
+
+impl QuoteScanner {
+    fn new() -> Self {
+        Self {
+            state: QuoteState::Plain,
+        }
+    }
+
+    fn is_plain(&self) -> bool {
+        // PendingApostrophe means the prior `'` could be a terminator or the
+        // first half of a `''` escape. If the caller's current char is not
+        // `'`, the prior `'` was a terminator and the scanner is effectively
+        // plain. The `consume` call that follows resolves the state for the
+        // next iteration. Treating pending as plain here keeps a `:` at this
+        // position visible to the mapping-delimiter check.
+        matches!(
+            self.state,
+            QuoteState::Plain | QuoteState::InSinglePendingApostrophe
+        )
+    }
+
+    fn consume(&mut self, char: char) {
+        self.state = match self.state {
+            QuoteState::Plain => match char {
+                '\'' => QuoteState::InSingle,
+                '"' => QuoteState::InDouble,
+                _ => QuoteState::Plain,
+            },
+            QuoteState::InDouble => match char {
+                '\\' => QuoteState::InDoubleEscape,
+                '"' => QuoteState::Plain,
+                _ => QuoteState::InDouble,
+            },
+            QuoteState::InDoubleEscape => QuoteState::InDouble,
+            QuoteState::InSingle => match char {
+                '\'' => QuoteState::InSinglePendingApostrophe,
+                _ => QuoteState::InSingle,
+            },
+            // Resolve the prior `'` as either an escape pair (consume `''`
+            // and stay in single-quote) or a terminator (now plain, plus
+            // route the current char through the Plain transition table).
+            QuoteState::InSinglePendingApostrophe => match char {
+                '\'' => QuoteState::InSingle,
+                '"' => QuoteState::InDouble,
+                _ => QuoteState::Plain,
+            },
+        };
+    }
 }
 
 fn is_mapping_delimiter(value: &str, index: usize) -> bool {
@@ -168,19 +229,12 @@ fn plain_scalar_contains_colon_space(value: &str) -> bool {
 }
 
 fn contains_unquoted_colon_space(value: &str) -> bool {
-    let mut in_single_quote = false;
-    let mut in_double_quote = false;
-    let mut previous = '\0';
+    let mut scanner = QuoteScanner::new();
     for (index, char) in value.char_indices() {
-        match char {
-            '\'' if !in_double_quote => in_single_quote = !in_single_quote,
-            '"' if !in_single_quote && previous != '\\' => in_double_quote = !in_double_quote,
-            ':' if !in_single_quote && !in_double_quote && is_mapping_delimiter(value, index) => {
-                return true;
-            }
-            _ => {}
+        if scanner.is_plain() && char == ':' && is_mapping_delimiter(value, index) {
+            return true;
         }
-        previous = char;
+        scanner.consume(char);
     }
     false
 }
@@ -235,7 +289,7 @@ fn is_special_float(value: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{assert_yaml_scalar_subset, yaml_scalar_subset_allows};
+    use super::{assert_yaml_parity_subset, assert_yaml_scalar_subset, yaml_scalar_subset_allows};
 
     #[test]
     fn scalar_subset_rejects_divergent_forms() {
@@ -250,5 +304,68 @@ mod tests {
             assert_yaml_scalar_subset("fixture", literal)?;
         }
         Ok(())
+    }
+
+    // Regression cases for the double-quote-escape state machine. The earlier
+    // `previous != '\\'` toggle misread `\\` as still-escaped, so the closing
+    // `"` was missed and the scanner over-stayed inside quotes, masking a
+    // following ambiguous colon. The new state machine consumes `\` plus the
+    // next byte as one escape unit and resolves the close correctly.
+    #[test]
+    fn parity_subset_accepts_backslash_escape_in_double_quote()
+    -> Result<(), crate::ParseError> {
+        for literal in [
+            "key: \"a\\\\b\"",
+            "key: \"trailing\\\\\"",
+            "key: \"mid\\\\\"",
+            "key: \"\\\\\"",
+        ] {
+            assert_yaml_parity_subset("fixture", literal)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn parity_subset_rejects_colon_space_after_closed_double_quote_with_escapes() {
+        // The value `plain "escaped\\" trailing: oops` is ambiguous: the
+        // quoted region terminates after `escaped\` (the `\\` is one escape
+        // unit, then `"` closes), and the trailing plain text contains
+        // `trailing: oops` which is a mapping delimiter. The old scanner
+        // stayed inside the quote forever because `previous != '\\'` at the
+        // close-quote position incorrectly suppressed the toggle, so it
+        // missed the trailing colon-space. The state machine correctly
+        // exits the quote at the close and flags the colon-space.
+        let result = assert_yaml_parity_subset(
+            "fixture",
+            "key: plain \"escaped\\\\\" trailing: oops",
+        );
+        assert!(result.is_err(), "expected rejection, got {result:?}");
+    }
+
+    // Regression cases for the single-quote `''` escape. The earlier toggle
+    // flipped on every `'`, so `'it''s'` mis-segmented into three scalars and
+    // any `:` after byte 4 was treated as still-quoted.
+    #[test]
+    fn parity_subset_handles_single_quote_double_escape() -> Result<(), crate::ParseError> {
+        for literal in ["key: 'it''s'", "key: 'a''b''c'", "key: ''"] {
+            assert_yaml_parity_subset("fixture", literal)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn parity_subset_rejects_colon_space_after_closed_single_quote_with_escapes() {
+        // The value `plain 'it''s' trailing: oops` is ambiguous: the single
+        // quote terminates after `it's` (the `''` is one escape unit), and
+        // the trailing `trailing: oops` is a mapping delimiter. The old
+        // scanner toggled on every `'` so it mis-segmented the quoted run
+        // and could leave itself inside an apparent quote when the trailing
+        // colon-space appeared. The state machine resolves the `''` escape
+        // and flags the trailing colon-space.
+        let result = assert_yaml_parity_subset(
+            "fixture",
+            "key: plain 'it''s' trailing: oops",
+        );
+        assert!(result.is_err(), "expected rejection, got {result:?}");
     }
 }

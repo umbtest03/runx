@@ -1,0 +1,26 @@
+[package]
+name = "runx-parser-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+# Detached from the parent workspace so the fuzz crate does not pollute the
+# default `cargo build` / `cargo test` graph. Exercised manually with
+# `cd crates/runx-parser/fuzz && cargo +nightly fuzz run <target>` or in a
+# scheduled CI job; never gated by `verify:fast`.
+[workspace]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4.7"
+runx-parser = { path = ".." }
+serde_norway = "0.9.42"
+
+[[bin]]
+name = "fuzz_yaml_parity_subset"
+path = "fuzz_targets/fuzz_yaml_parity_subset.rs"
+test = false
+doc = false
+bench = false
