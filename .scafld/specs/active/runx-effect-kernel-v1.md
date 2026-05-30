@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: runx-effect-kernel-v1
 created: '2026-05-31T00:00:00Z'
-updated: '2026-05-31T00:00:00Z'
-status: draft
+updated: '2026-05-30T22:38:00Z'
+status: active
 harden_status: not_run
 size: large
 risk_level: high
@@ -13,39 +13,14 @@ risk_level: high
 
 ## Current State
 
-The native runtime (`crates/runx-runtime`) is a monolith that bakes domain
-semantics into the execution core:
-
-- **Hardcoded dispatch.** `run_native_step` (`execution/runner/steps.rs:765`)
-  matches `run.type` on a fixed set (`approval`/`agent-task`/`cli-tool`);
-  `SkillRunGraphAdapter.invoke` (`execution/skill_run.rs:473`) matches
-  `source_type`; `run_step_with_optional_loaded_skill` (`steps.rs:127-189`)
-  branches on `step.run`/`step.tool`/`step.skill`. Adding any step kind is a
-  kernel edit (this is why the recent `cli-tool` graph-step fix had to add a
-  match arm).
-- **Payment woven into the core.** `RuntimeOptions.payment_supervisor` is a
-  concrete singleton field (`execution/runner.rs:51`); the regular-step seal
-  path calls `attach_payment_supervisor_evidence_before_gate` /
-  `record_payment_supervisor_proof_metadata` / `persist_payment_step_state` /
-  `enforce_step_authority_receipt_before_success` inline (`steps.rs:268-336`).
-  `receipt_before_success` lives inside `PaymentAuthorityBounds` only.
-  `PaymentRailSupervisor`'s evidence/proof/request structs carry
-  `amount_minor`/`currency`/`settlement_status`/`spend_capability_ref`.
-- **Payment performs no money movement in Rust** (verified): there is no
-  Stripe/x402 HTTP client in the payment path. `PaymentRailSupervisor` only
-  *provides/verifies settlement evidence*. Real rails + customer billing live
-  in hosted TS (`cloud/packages/billing`, Stripe).
-- **Inline harness parity** is at 39/51 skills (recent fixes: approval routing
-  by `gate_id`, inline `cli-tool` graph steps, a YAML quoting fix). The
-  remaining 12: 11 payment skills (cannot establish authority chain / settle in
-  the harness because there is no test supervisor + the payment step types are
-  not registered generically), and `issue-to-pr` (environmental: a `cli-tool`
-  step spawns a missing external binary).
-- **Greenfield / 0 users.** No production receipts, credentials, or billing
-  rows exist. This lets us add *additive, optional, skip-if-none* fields to the
-  receipt and worker-`Outcome` schemas without a migration; it does NOT license
-  removing, renaming, or retyping any existing field (the canonical body of an
-  unchanged skill must still digest identically).
+Status: active
+Current phase: phase0
+Next: build
+Reason: phase phase0 opened
+Blockers: none
+Allowed follow-up command: `scafld handoff runx-effect-kernel-v1`
+Latest runner update: 2026-05-30T22:38:00Z
+Review gate: not_started
 
 ## Summary
 
@@ -444,3 +419,17 @@ fixtures:kernel:check` / the Phase 0 goldens show a receipt-digest or worker
 `Outcome` change for an unchanged skill, `pnpm cutover:legacy-check` finds a
 dual path, the harness sweep regresses, or perf drifts >5%. Phases are sequenced
 so each is independently revertible without unwinding a later one.
+
+## Phase 8: Confirm the golden net (no breaking change needed)
+
+Status: active
+Dependencies: none
+
+Objective: Complete this phase.
+
+Changes:
+- none
+
+Acceptance:
+- none
+
