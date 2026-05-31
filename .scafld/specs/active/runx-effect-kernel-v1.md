@@ -330,6 +330,18 @@ change" is unnecessary; drop it.
   `record_payment_supervisor_proof_metadata`/`persist_payment_step_state` under
   `crates/runx-runtime/src/execution/runner/**`; **perf** within 5% of Phase 0.
 
+Phase 2 closeout note: this phase may preserve payment as a typed transitional
+bridge behind the effects facade, but that is not the final architecture. If the
+payment path still uses a payment-specific enum variant or payment proof helper
+aliases in `runx-runtime`, the phase is accepted only as behavior-preserving
+plumbing. Genericity is not considered fully proven until payment itself settles
+through the generic `EffectSettlementRecord`/payload path. Before Phase 3,
+reserve the additive worker `criterion_status` field. Phase 4 must delete the
+payment aliases and payment-specific effect enum variant, move typed payment
+verification into `runx-payments`, and add a payment-through-generic-payload
+test; if that test is hard to write, the generic payload shape must be fixed
+there rather than hidden behind a compatibility layer.
+
 ## Phase 3: Generalize governance (receipt-before-success, bounds, non-replay, deferred)
 
 - Lift `receipt_before_success` out of `PaymentAuthorityBounds` to a
