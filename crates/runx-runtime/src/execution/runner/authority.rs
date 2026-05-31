@@ -5,11 +5,11 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use runx_contracts::{AuthoritySubsetProof, AuthorityTerm, AuthorityVerb, Decision, JsonObject};
-use runx_core::policy::{
-    PaymentSpendCapabilityBinding, StepAuthorityAdmission, admit_step_authority,
-    authority_term_has_verb,
-};
+use runx_core::policy::authority_term_has_verb;
 use runx_core::state_machine::AuthorityAdmissionWitness;
+use runx_payments::authority::{
+    PaymentSpendCapabilityBinding, StepAuthorityAdmission, admit_step_authority,
+};
 use runx_parser::GraphStep;
 
 use super::inputs::{

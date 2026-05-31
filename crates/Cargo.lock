@@ -1689,6 +1689,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "runx-payments"
+version = "0.1.0"
+dependencies = [
+ "runx-contracts",
+ "runx-core",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "runx-receipts"
 version = "0.0.1"
 dependencies = [
@@ -1716,6 +1726,7 @@ dependencies = [
  "runx-contracts",
  "runx-core",
  "runx-parser",
+ "runx-payments",
  "runx-receipts",
  "rustix",
  "rustls",
