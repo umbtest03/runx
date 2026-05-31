@@ -7,9 +7,9 @@ mod subset;
 pub use subset::is_payment_authority_subset;
 
 use runx_contracts::{
-    AuthorityCapability, AuthorityResourceFamily, AuthoritySubsetProof, AuthoritySubsetRelation,
-    AuthoritySubsetResult, AuthorityTerm, AuthorityVerb, Decision, DecisionChoice,
-    PaymentAuthorityBounds, PaymentCredentialForm, Reference,
+    AuthorityCapability, AuthorityEffectGuardKind, AuthorityResourceFamily, AuthoritySubsetProof,
+    AuthoritySubsetRelation, AuthoritySubsetResult, AuthorityTerm, AuthorityVerb, Decision,
+    DecisionChoice, PaymentAuthorityBounds, PaymentCredentialForm, ProofKind, Reference,
 };
 use thiserror::Error;
 
@@ -34,6 +34,9 @@ pub struct StepAuthorityAdmissionDecision<'a> {
     pub child_term_id: &'a str,
     pub idempotency_key: Option<&'a str>,
     pub spend_capability_ref: Option<&'a Reference>,
+    pub effect_family: Option<&'a str>,
+    pub receipt_before_success_required: bool,
+    pub non_replay_required: bool,
 }
 
 #[cfg(test)]
@@ -132,7 +135,84 @@ pub fn authority_term_has_verb(term: &AuthorityTerm, verb: AuthorityVerb) -> boo
     term.verbs.iter().any(|candidate| candidate == &verb)
 }
 
-#[cfg(test)]
+#[must_use]
+pub fn authority_requires_effect_receipt_before_success(
+    parent: &AuthorityTerm,
+    child: &AuthorityTerm,
+    family: &str,
+) -> bool {
+    authority_effect_guard_required(
+        parent,
+        family,
+        AuthorityEffectGuardKind::ReceiptBeforeSuccess,
+    ) || authority_effect_guard_required(
+        child,
+        family,
+        AuthorityEffectGuardKind::ReceiptBeforeSuccess,
+    ) || (family == "payment"
+        && (payment_authority_requires_receipt_before_success(parent)
+            || payment_authority_requires_receipt_before_success(child)))
+}
+
+#[must_use]
+pub fn authority_requires_effect_non_replay(
+    parent: &AuthorityTerm,
+    child: &AuthorityTerm,
+    family: &str,
+) -> bool {
+    authority_effect_guard_required(parent, family, AuthorityEffectGuardKind::NonReplay)
+        || authority_effect_guard_required(child, family, AuthorityEffectGuardKind::NonReplay)
+}
+
+#[must_use]
+pub fn authority_effect_proof_kinds(
+    parent: &AuthorityTerm,
+    child: &AuthorityTerm,
+    family: &str,
+) -> Vec<ProofKind> {
+    let mut proof_kinds = Vec::new();
+    for term in [parent, child] {
+        for guard in &term.bounds.effects {
+            if guard.family.as_str() == family {
+                for proof_kind in &guard.proof_kinds {
+                    if !proof_kinds.contains(proof_kind) {
+                        proof_kinds.push(proof_kind.clone());
+                    }
+                }
+            }
+        }
+    }
+    proof_kinds
+}
+
+#[must_use]
+pub fn authority_effect_family<'a>(
+    parent: &'a AuthorityTerm,
+    child: &'a AuthorityTerm,
+) -> Option<&'a str> {
+    child
+        .bounds
+        .effects
+        .first()
+        .or_else(|| parent.bounds.effects.first())
+        .map(|guard| guard.family.as_str())
+        .or_else(|| {
+            (parent.bounds.payment.is_some() || child.bounds.payment.is_some()).then_some("payment")
+        })
+}
+
+#[must_use]
+fn authority_effect_guard_required(
+    term: &AuthorityTerm,
+    family: &str,
+    guard_kind: AuthorityEffectGuardKind,
+) -> bool {
+    term.bounds
+        .effects
+        .iter()
+        .any(|guard| guard.family.as_str() == family && guard.guard_kinds.contains(&guard_kind))
+}
+
 #[must_use]
 fn payment_authority_requires_receipt_before_success(term: &AuthorityTerm) -> bool {
     term.bounds
@@ -149,6 +229,18 @@ pub(super) fn payment_authority_spends(term: &AuthorityTerm) -> bool {
 pub fn admit_step_authority(
     input: StepAuthorityAdmission<'_>,
 ) -> Result<StepAuthorityAdmissionDecision<'_>, PaymentAuthorityError> {
+    let effect_family = authority_effect_family(input.parent_authority, input.child_authority);
+    let receipt_before_success_required = effect_family.is_some_and(|family| {
+        authority_requires_effect_receipt_before_success(
+            input.parent_authority,
+            input.child_authority,
+            family,
+        )
+    });
+    let non_replay_required = effect_family.is_some_and(|family| {
+        authority_requires_effect_non_replay(input.parent_authority, input.child_authority, family)
+    });
+
     if input.child_authority.resource_family == AuthorityResourceFamily::Payment {
         let spends = payment_authority_spends(input.child_authority);
         let admission = admit_payment_rail(PaymentRailAdmission {
@@ -169,6 +261,9 @@ pub fn admit_step_authority(
             child_term_id: admission.child_term_id,
             idempotency_key: admission.idempotency_key,
             spend_capability_ref: admission.spend_capability_ref,
+            effect_family,
+            receipt_before_success_required,
+            non_replay_required,
         });
     }
 
@@ -178,6 +273,9 @@ pub fn admit_step_authority(
         child_term_id: input.child_authority.term_id.as_str(),
         idempotency_key: input.idempotency_key,
         spend_capability_ref: input.spend_capability_ref,
+        effect_family,
+        receipt_before_success_required,
+        non_replay_required,
     })
 }
 
@@ -406,8 +504,7 @@ fn spend_capability_binding_matches(
 
 #[cfg(test)]
 fn requires_receipt_before_success(parent: &AuthorityTerm, child: &AuthorityTerm) -> bool {
-    payment_authority_requires_receipt_before_success(parent)
-        || payment_authority_requires_receipt_before_success(child)
+    authority_requires_effect_receipt_before_success(parent, child, "payment")
 }
 
 fn same_reference(left: &Reference, right: &Reference) -> bool {
@@ -422,14 +519,15 @@ mod tests {
     use super::{
         PaymentAuthorityError, PaymentRailAuthorization, PaymentRailAuthorizationDecision,
         PaymentSpendCapabilityBinding, StepAuthorityAdmission, admit_step_authority,
-        authorize_payment_rail,
+        authority_effect_proof_kinds, authorize_payment_rail,
     };
     use runx_contracts::{
         AuthorityApproval, AuthorityBounds, AuthorityCapability, AuthorityCondition,
-        AuthorityConditionPredicate, AuthorityResourceFamily, AuthoritySubsetComparison,
-        AuthoritySubsetProof, AuthoritySubsetRelation, AuthoritySubsetResult, AuthorityTerm,
-        AuthorityVerb, Decision, DecisionChoice, DecisionInputs, DecisionJustification, Intent,
-        PaymentAuthorityBounds, PaymentCredentialForm, Reference, ReferenceType,
+        AuthorityConditionPredicate, AuthorityEffectGuard, AuthorityEffectGuardKind,
+        AuthorityResourceFamily, AuthoritySubsetComparison, AuthoritySubsetProof,
+        AuthoritySubsetRelation, AuthoritySubsetResult, AuthorityTerm, AuthorityVerb, Decision,
+        DecisionChoice, DecisionInputs, DecisionJustification, Intent, PaymentAuthorityBounds,
+        PaymentCredentialForm, ProofKind, Reference, ReferenceType,
     };
 
     const ACT_ID: &str = "act_payment_spend";
@@ -687,6 +785,36 @@ mod tests {
         );
     }
 
+    #[test]
+    fn admits_non_payment_authority_with_generic_effect_guards() {
+        let parent = deployment_effect_term("parent");
+        let child = deployment_effect_term("child");
+        let child_harness_ref = reference(ReferenceType::Harness, "runx:harness:deploy");
+
+        let decision = admit_step_authority(StepAuthorityAdmission {
+            parent_authority: &parent,
+            child_authority: &child,
+            reservation_decision: None,
+            subset_proof: None,
+            child_harness_ref: &child_harness_ref,
+            act_id: "act_deploy",
+            idempotency_key: Some("deploy:prod:1"),
+            spend_capability_binding: None,
+            consumed_spend_capability_refs: &[],
+            spend_capability_ref: None,
+        })
+        .expect("generic effect authority should admit without payment rail state");
+
+        assert_eq!(decision.verb, None);
+        assert_eq!(decision.effect_family, Some("deployment"));
+        assert!(decision.receipt_before_success_required);
+        assert!(decision.non_replay_required);
+        assert_eq!(
+            authority_effect_proof_kinds(&parent, &child, "deployment"),
+            vec![ProofKind::EffectSettlement]
+        );
+    }
+
     struct PaymentScenario {
         parent: AuthorityTerm,
         child: AuthorityTerm,
@@ -910,6 +1038,33 @@ mod tests {
                 ReferenceType::Credential,
                 "runx:credential:payment-session",
             )),
+        }
+    }
+
+    fn deployment_effect_term(term_id: &str) -> AuthorityTerm {
+        AuthorityTerm {
+            term_id: term_id.into(),
+            principal_ref: reference(ReferenceType::Principal, "runx:principal:deploy-agent"),
+            resource_ref: reference(ReferenceType::Deployment, "runx:deployment:prod"),
+            resource_family: AuthorityResourceFamily::Deployment,
+            verbs: vec![AuthorityVerb::Update],
+            bounds: AuthorityBounds {
+                effects: vec![AuthorityEffectGuard {
+                    family: "deployment".into(),
+                    guard_kinds: vec![
+                        AuthorityEffectGuardKind::ReceiptBeforeSuccess,
+                        AuthorityEffectGuardKind::NonReplay,
+                    ],
+                    proof_kinds: vec![ProofKind::EffectSettlement],
+                }],
+                ..AuthorityBounds::default()
+            },
+            conditions: Vec::new(),
+            approvals: Vec::new(),
+            capabilities: Vec::new(),
+            expires_at: Some("2026-05-21T00:00:00Z".into()),
+            issued_by_ref: reference(ReferenceType::Grant, "runx:grant:issuer"),
+            credential_ref: None,
         }
     }
 
