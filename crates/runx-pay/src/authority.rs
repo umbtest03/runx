@@ -7,9 +7,14 @@ mod subset;
 pub use subset::is_payment_authority_subset;
 
 use runx_contracts::{
-    AuthorityCapability, AuthorityEffectGuardKind, AuthorityResourceFamily, AuthoritySubsetProof,
-    AuthoritySubsetRelation, AuthoritySubsetResult, AuthorityTerm, AuthorityVerb, Decision,
-    DecisionChoice, PaymentAuthorityBounds, PaymentCredentialForm, Reference,
+    AuthorityCapability, AuthorityResourceFamily, AuthoritySubsetProof, AuthoritySubsetRelation,
+    AuthoritySubsetResult, AuthorityTerm, AuthorityVerb, Decision, DecisionChoice,
+    PaymentAuthorityBounds, PaymentCredentialForm, Reference,
+};
+#[cfg(test)]
+use runx_core::policy::authority_effect_proof_kinds as generic_authority_effect_proof_kinds;
+use runx_core::policy::{
+    authority_effect_family as generic_authority_effect_family, evaluate_authority_effect_guards,
 };
 use thiserror::Error;
 
@@ -141,17 +146,10 @@ fn authority_requires_effect_receipt_before_success(
     child: &AuthorityTerm,
     family: &str,
 ) -> bool {
-    authority_effect_guard_required(
-        parent,
-        family,
-        AuthorityEffectGuardKind::ReceiptBeforeSuccess,
-    ) || authority_effect_guard_required(
-        child,
-        family,
-        AuthorityEffectGuardKind::ReceiptBeforeSuccess,
-    ) || (family == "payment"
-        && (payment_authority_requires_receipt_before_success(parent)
-            || payment_authority_requires_receipt_before_success(child)))
+    evaluate_authority_effect_guards(parent, child, family).receipt_before_success_required
+        || (family == "payment"
+            && (payment_authority_requires_receipt_before_success(parent)
+                || payment_authority_requires_receipt_before_success(child)))
 }
 
 #[must_use]
@@ -160,8 +158,7 @@ fn authority_requires_effect_non_replay(
     child: &AuthorityTerm,
     family: &str,
 ) -> bool {
-    authority_effect_guard_required(parent, family, AuthorityEffectGuardKind::NonReplay)
-        || authority_effect_guard_required(child, family, AuthorityEffectGuardKind::NonReplay)
+    evaluate_authority_effect_guards(parent, child, family).non_replay_required
 }
 
 #[must_use]
@@ -171,19 +168,7 @@ fn authority_effect_proof_kinds(
     child: &AuthorityTerm,
     family: &str,
 ) -> Vec<runx_contracts::ProofKind> {
-    let mut proof_kinds = Vec::new();
-    for term in [parent, child] {
-        for guard in &term.bounds.effects {
-            if guard.family.as_str() == family {
-                for proof_kind in &guard.proof_kinds {
-                    if !proof_kinds.contains(proof_kind) {
-                        proof_kinds.push(proof_kind.clone());
-                    }
-                }
-            }
-        }
-    }
-    proof_kinds
+    generic_authority_effect_proof_kinds(parent, child, family)
 }
 
 #[must_use]
@@ -191,27 +176,9 @@ fn authority_effect_family<'a>(
     parent: &'a AuthorityTerm,
     child: &'a AuthorityTerm,
 ) -> Option<&'a str> {
-    child
-        .bounds
-        .effects
-        .first()
-        .or_else(|| parent.bounds.effects.first())
-        .map(|guard| guard.family.as_str())
-        .or_else(|| {
-            (parent.bounds.payment.is_some() || child.bounds.payment.is_some()).then_some("payment")
-        })
-}
-
-#[must_use]
-fn authority_effect_guard_required(
-    term: &AuthorityTerm,
-    family: &str,
-    guard_kind: AuthorityEffectGuardKind,
-) -> bool {
-    term.bounds
-        .effects
-        .iter()
-        .any(|guard| guard.family.as_str() == family && guard.guard_kinds.contains(&guard_kind))
+    generic_authority_effect_family(parent, child).or_else(|| {
+        (parent.bounds.payment.is_some() || child.bounds.payment.is_some()).then_some("payment")
+    })
 }
 
 #[must_use]

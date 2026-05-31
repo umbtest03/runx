@@ -13,7 +13,10 @@ pub mod sandbox;
 pub mod scope;
 mod types;
 
-pub use authority_algebra::authority_term_has_verb;
+pub use authority_algebra::{
+    AuthorityEffectGuardDecision, authority_effect_family, authority_effect_guard_required,
+    authority_effect_proof_kinds, authority_term_has_verb, evaluate_authority_effect_guards,
+};
 pub use authority_proof::{
     build_authority_proof, build_authority_proof_metadata, build_local_scope_admission,
     validate_credential_binding,

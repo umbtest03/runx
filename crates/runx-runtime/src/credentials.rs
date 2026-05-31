@@ -6,8 +6,8 @@ use std::fmt;
 
 use runx_contracts::{
     CredentialDeliveryMode, CredentialDeliveryObservation, CredentialDeliveryObservationStatus,
-    CredentialDeliveryPurpose, CredentialEnvelopeKind, Reference, ReferenceType, sha256_hex,
-    sha256_prefixed,
+    CredentialDeliveryPurpose, CredentialEnvelopeKind, ProofKind, Reference, ReferenceType,
+    sha256_hex, sha256_prefixed,
 };
 use runx_core::policy::{CredentialBindingDecision, CredentialEnvelope};
 use thiserror::Error;
@@ -60,11 +60,7 @@ impl CredentialDeliveryProfile {
         }
         let mut env_bindings = Vec::with_capacity(profile.env_bindings.len());
         for binding in &profile.env_bindings {
-            let role = match CredentialMaterialRole::from_contract_role(binding.role.clone()) {
-                Ok(role) => role,
-                Err(_) if !binding.required => continue,
-                Err(error) => return Err(error),
-            };
+            let role = CredentialMaterialRole::from_contract_role(binding.role.clone());
             validate_env_name(&binding.env_var)?;
             env_bindings.push(CredentialEnvBinding {
                 role,
@@ -89,24 +85,28 @@ struct CredentialEnvBinding {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CredentialMaterialRole {
+    PersonalToken,
     ApiKey,
+    ClientSecret,
+    SessionToken,
 }
 
 impl CredentialMaterialRole {
     const fn label(self) -> &'static str {
         match self {
+            Self::PersonalToken => "personal_token",
             Self::ApiKey => "api_key",
+            Self::ClientSecret => "client_secret",
+            Self::SessionToken => "session_token",
         }
     }
 
-    fn from_contract_role(
-        role: runx_contracts::CredentialMaterialRole,
-    ) -> Result<Self, CredentialDeliveryError> {
+    fn from_contract_role(role: runx_contracts::CredentialMaterialRole) -> Self {
         match role {
-            runx_contracts::CredentialMaterialRole::ApiKey => Ok(Self::ApiKey),
-            _ => Err(CredentialDeliveryError::UnsupportedMaterialRole {
-                role: format!("{role:?}"),
-            }),
+            runx_contracts::CredentialMaterialRole::PersonalToken => Self::PersonalToken,
+            runx_contracts::CredentialMaterialRole::ApiKey => Self::ApiKey,
+            runx_contracts::CredentialMaterialRole::ClientSecret => Self::ClientSecret,
+            runx_contracts::CredentialMaterialRole::SessionToken => Self::SessionToken,
         }
     }
 }
@@ -116,6 +116,78 @@ pub trait MaterialResolver {
         &self,
         material_ref: &str,
     ) -> Result<ResolvedCredentialMaterial, CredentialDeliveryError>;
+}
+
+pub struct CredentialResolutionRequest<'a> {
+    pub decision: &'a CredentialBindingDecision,
+    pub credential: &'a CredentialEnvelope,
+    pub profile: &'a CredentialDeliveryProfile,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CredentialResolution {
+    delivery: CredentialDelivery,
+}
+
+impl CredentialResolution {
+    #[must_use]
+    pub fn into_delivery(self) -> CredentialDelivery {
+        self.delivery
+    }
+}
+
+pub trait CredentialSupervisor {
+    fn resolve(
+        &self,
+        request: CredentialResolutionRequest<'_>,
+    ) -> Result<CredentialResolution, CredentialDeliveryError>;
+}
+
+pub struct MaterialCredentialSupervisor<'a, R> {
+    resolver: &'a R,
+}
+
+impl<'a, R> MaterialCredentialSupervisor<'a, R>
+where
+    R: MaterialResolver,
+{
+    #[must_use]
+    pub const fn new(resolver: &'a R) -> Self {
+        Self { resolver }
+    }
+}
+
+impl<R> CredentialSupervisor for MaterialCredentialSupervisor<'_, R>
+where
+    R: MaterialResolver,
+{
+    fn resolve(
+        &self,
+        request: CredentialResolutionRequest<'_>,
+    ) -> Result<CredentialResolution, CredentialDeliveryError> {
+        require_allowed_binding(request.decision)?;
+        if request.credential.provider != request.profile.provider {
+            return Err(CredentialDeliveryError::ProviderMismatch {
+                credential_provider: request.credential.provider.to_string(),
+                profile_provider: request.profile.provider.clone(),
+            });
+        }
+        let material = self
+            .resolver
+            .resolve_material(&request.credential.material_ref)?;
+        if material.material_ref != request.credential.material_ref {
+            return Err(CredentialDeliveryError::MaterialRefMismatch {
+                expected_hash: hash_material_ref(&request.credential.material_ref),
+                actual_hash: hash_material_ref(&material.material_ref),
+            });
+        }
+        Ok(CredentialResolution {
+            delivery: CredentialDelivery {
+                secret_env: apply_profile(request.profile, &material)?,
+                public_observation: None,
+            },
+        })
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -157,8 +229,17 @@ pub struct ResolvedCredentialMaterial {
 impl ResolvedCredentialMaterial {
     #[must_use]
     pub fn api_key(material_ref: impl Into<String>, value: impl Into<String>) -> Self {
+        Self::with_role(material_ref, CredentialMaterialRole::ApiKey, value)
+    }
+
+    #[must_use]
+    pub fn with_role(
+        material_ref: impl Into<String>,
+        role: CredentialMaterialRole,
+        value: impl Into<String>,
+    ) -> Self {
         let mut values = BTreeMap::new();
-        values.insert(CredentialMaterialRole::ApiKey, SecretString::new(value));
+        values.insert(role, SecretString::new(value));
         Self {
             material_ref: material_ref.into(),
             values,
@@ -281,24 +362,13 @@ impl CredentialDelivery {
         profile: &CredentialDeliveryProfile,
         resolver: &R,
     ) -> Result<Self, CredentialDeliveryError> {
-        require_allowed_binding(decision)?;
-        if credential.provider != profile.provider {
-            return Err(CredentialDeliveryError::ProviderMismatch {
-                credential_provider: credential.provider.to_string(),
-                profile_provider: profile.provider.clone(),
-            });
-        }
-        let material = resolver.resolve_material(&credential.material_ref)?;
-        if material.material_ref != credential.material_ref {
-            return Err(CredentialDeliveryError::MaterialRefMismatch {
-                expected_hash: hash_material_ref(&credential.material_ref),
-                actual_hash: hash_material_ref(&material.material_ref),
-            });
-        }
-        Ok(Self {
-            secret_env: apply_profile(profile, &material)?,
-            public_observation: None,
-        })
+        MaterialCredentialSupervisor::new(resolver)
+            .resolve(CredentialResolutionRequest {
+                decision,
+                credential,
+                profile,
+            })
+            .map(CredentialResolution::into_delivery)
     }
 
     #[must_use]
@@ -389,8 +459,6 @@ pub enum CredentialDeliveryError {
     UnsupportedDeliveryMode { mode: String },
     #[error("credential process-env delivery is not supported across the '{boundary}' boundary")]
     ProcessEnvBoundaryUnsupported { boundary: String },
-    #[error("unsupported credential material role '{role}'")]
-    UnsupportedMaterialRole { role: String },
 }
 
 /// Build the non-secret observation that records a local per-run credential
@@ -423,10 +491,15 @@ fn build_local_provision_observation(
         provider: provider.into(),
         purpose: CredentialDeliveryPurpose::ProviderApi,
         delivery_mode: Some(CredentialDeliveryMode::ProcessEnv),
-        credential_refs: vec![Reference::with_uri(
-            ReferenceType::Credential,
-            format!("runx:credential:local:{material_ref_id}"),
-        )],
+        credential_refs: vec![Reference {
+            reference_type: ReferenceType::Credential,
+            uri: format!("runx:credential:local:{material_ref_id}").into(),
+            provider: Some(provider.to_owned().into()),
+            locator: None,
+            label: None,
+            observed_at: None,
+            proof_kind: Some(ProofKind::CredentialResolution),
+        }],
         material_ref_hash: Some(material_ref_hash.into()),
         delivered_roles: vec![runx_contracts::CredentialMaterialRole::ApiKey],
         redaction_refs: None,
@@ -550,6 +623,104 @@ mod tests {
             result,
             Err(CredentialDeliveryError::MissingRole { role }) if role == "api_key"
         ));
+    }
+
+    #[test]
+    fn delivery_profile_resolves_non_api_contract_role() -> Result<(), CredentialDeliveryError> {
+        let contract_profile = runx_contracts::CredentialDeliveryProfile {
+            schema: runx_contracts::CredentialDeliveryProfileSchema::V1,
+            profile_id: "github-app".into(),
+            provider: "github".into(),
+            auth_mode: "app".into(),
+            purpose: CredentialDeliveryPurpose::ProviderApi,
+            delivery_mode: CredentialDeliveryMode::ProcessEnv,
+            material_roles: vec![runx_contracts::CredentialMaterialRole::ClientSecret],
+            env_bindings: vec![runx_contracts::CredentialDeliveryEnvBinding {
+                role: runx_contracts::CredentialMaterialRole::ClientSecret,
+                env_var: "GITHUB_CLIENT_SECRET".to_owned(),
+                required: true,
+            }],
+            redaction_policy_ref: Reference::with_uri(
+                ReferenceType::RedactionPolicy,
+                "runx:redaction:credential",
+            ),
+        };
+        let profile = CredentialDeliveryProfile::from_contract_profile(&contract_profile)?;
+        let material = ResolvedCredentialMaterial::with_role(
+            "secret://github/app",
+            CredentialMaterialRole::ClientSecret,
+            "client-secret-value",
+        );
+
+        let env = apply_profile(&profile, &material)?;
+
+        assert_eq!(env.get("GITHUB_CLIENT_SECRET"), Some("client-secret-value"));
+        Ok(())
+    }
+
+    #[test]
+    fn credential_supervisor_resolves_allowed_binding_without_secret_debug_leak()
+    -> Result<(), CredentialDeliveryError> {
+        let material_ref = "secret://github/main";
+        let resolver = InMemoryMaterialResolver::with_material(
+            material_ref,
+            ResolvedCredentialMaterial::api_key(material_ref, "ghp_secret_value"),
+        );
+        let profile = CredentialDeliveryProfile::env_token("github", "api_key", "GITHUB_TOKEN")?;
+        let credential = CredentialEnvelope {
+            kind: CredentialEnvelopeKind::V1,
+            grant_id: "grant_1".into(),
+            provider: "github".into(),
+            auth_mode: "api_key".into(),
+            material_kind: "api_key".into(),
+            provider_reference: "local_per_run".into(),
+            scopes: vec!["repo:read".into()],
+            grant_reference: None,
+            material_ref: material_ref.into(),
+        };
+        let decision = CredentialBindingDecision::Allow {
+            reasons: vec!["unit-test".to_owned()],
+        };
+
+        let delivery = MaterialCredentialSupervisor::new(&resolver)
+            .resolve(CredentialResolutionRequest {
+                decision: &decision,
+                credential: &credential,
+                profile: &profile,
+            })?
+            .into_delivery();
+
+        assert_eq!(
+            delivery.secret_env().get("GITHUB_TOKEN"),
+            Some("ghp_secret_value")
+        );
+        assert!(!format!("{delivery:?}").contains("ghp_secret_value"));
+        Ok(())
+    }
+
+    #[test]
+    fn local_credential_observation_marks_credential_resolution_proof()
+    -> Result<(), CredentialDeliveryError> {
+        let delivery = CredentialDelivery::from_local_descriptor(
+            "github",
+            "api_key",
+            "GITHUB_TOKEN",
+            "local:github:grant_1",
+            vec!["repo:read".to_owned()],
+            "ghp_secret_value",
+        )?;
+        let refs = delivery.credential_refs().expect("credential refs");
+
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].reference_type.as_str(), "credential");
+        assert_eq!(refs[0].provider.as_deref(), Some("github"));
+        assert_eq!(refs[0].proof_kind, Some(ProofKind::CredentialResolution));
+        assert!(
+            !serde_json::to_string(delivery.public_observation().expect("observation"))
+                .expect("observation serializes")
+                .contains("ghp_secret_value")
+        );
+        Ok(())
     }
 
     #[test]

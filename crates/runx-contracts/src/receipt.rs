@@ -51,6 +51,7 @@ pub enum EffectSettlementPhase {
     InFlight,
     Sealed,
     Failed,
+    Reversed,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
@@ -68,6 +69,8 @@ pub struct EffectSettlementReceipt {
     pub proof_ref: Option<Reference>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_refs: Vec<Reference>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confirmation_depth: Option<u64>,
     #[serde(default, skip_serializing_if = "JsonObject::is_empty")]
     pub payload: JsonObject,
 }

@@ -3,6 +3,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "confirmation_depth": {
+      "type": "integer"
+    },
     "created_at": {
       "minLength": 1,
       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
@@ -39,6 +42,10 @@
               },
               {
                 "const": "effect_settlement",
+                "type": "string"
+              },
+              {
+                "const": "credential_resolution",
                 "type": "string"
               }
             ]
@@ -268,6 +275,10 @@
             {
               "const": "effect_settlement",
               "type": "string"
+            },
+            {
+              "const": "credential_resolution",
+              "type": "string"
             }
           ]
         },
@@ -480,6 +491,10 @@
         {
           "const": "failed",
           "type": "string"
+        },
+        {
+          "const": "reversed",
+          "type": "string"
         }
       ]
     },
@@ -509,6 +524,10 @@
             },
             {
               "const": "effect_settlement",
+              "type": "string"
+            },
+            {
+              "const": "credential_resolution",
               "type": "string"
             }
           ]
