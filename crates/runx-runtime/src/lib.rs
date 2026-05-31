@@ -80,7 +80,9 @@ pub use config::{
 };
 pub use credentials::{
     CredentialDelivery, CredentialDeliveryError, CredentialDeliveryProfile, CredentialMaterialRole,
-    InMemoryMaterialResolver, MaterialResolver, ResolvedCredentialMaterial, SecretEnv,
+    CredentialResolution, CredentialResolutionRequest, CredentialSupervisor,
+    InMemoryMaterialResolver, MaterialCredentialSupervisor, MaterialResolver,
+    ResolvedCredentialMaterial, SecretEnv,
 };
 pub use dev::{
     DevFixtureResult, DevFixtureStatus, DevLoopOptions, DevReport, DevReportStatus,

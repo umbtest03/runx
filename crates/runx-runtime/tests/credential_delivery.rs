@@ -168,7 +168,7 @@ fn public_observation_metadata_serializes_without_secret_material()
 }
 
 #[test]
-fn delivery_profile_skips_optional_unsupported_contract_binding()
+fn delivery_profile_skips_optional_missing_contract_binding()
 -> Result<(), Box<dyn std::error::Error>> {
     let mut contract = contract_profile(vec![CredentialMaterialRole::ApiKey], "GITHUB_TOKEN");
     contract
@@ -200,16 +200,34 @@ fn delivery_profile_skips_optional_unsupported_contract_binding()
 }
 
 #[test]
-fn delivery_profile_rejects_unsupported_contract_role() {
-    let result = CredentialDeliveryProfile::from_contract_profile(&contract_profile(
-        vec![CredentialMaterialRole::PersonalToken],
-        "GITHUB_REFRESH_TOKEN",
-    ));
+fn delivery_profile_resolves_contract_client_secret_role() -> Result<(), Box<dyn std::error::Error>>
+{
+    let profile = CredentialDeliveryProfile::from_contract_profile(&contract_profile(
+        vec![CredentialMaterialRole::ClientSecret],
+        "GITHUB_CLIENT_SECRET",
+    ))?;
+    let resolver = InMemoryMaterialResolver::with_material(
+        "secret://github/main",
+        ResolvedCredentialMaterial::with_role(
+            "secret://github/main",
+            runx_runtime::CredentialMaterialRole::ClientSecret,
+            "client_secret_value",
+        ),
+    );
+    let delivery = CredentialDelivery::from_allowed_binding(
+        &CredentialBindingDecision::Allow {
+            reasons: vec!["allowed".to_owned()],
+        },
+        &credential(),
+        &profile,
+        &resolver,
+    )?;
 
-    assert!(matches!(
-        result,
-        Err(CredentialDeliveryError::UnsupportedMaterialRole { .. })
-    ));
+    assert_eq!(
+        delivery.secret_env().get("GITHUB_CLIENT_SECRET"),
+        Some("client_secret_value")
+    );
+    Ok(())
 }
 
 #[test]

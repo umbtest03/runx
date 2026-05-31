@@ -35,6 +35,10 @@
                     {
                       "const": "effect_settlement",
                       "type": "string"
+                    },
+                    {
+                      "const": "credential_resolution",
+                      "type": "string"
                     }
                   ]
                 },
@@ -357,6 +361,10 @@
                   {
                     "const": "effect_settlement",
                     "type": "string"
+                  },
+                  {
+                    "const": "credential_resolution",
+                    "type": "string"
                   }
                 ]
               },
@@ -583,6 +591,10 @@
                           },
                           {
                             "const": "effect_settlement",
+                            "type": "string"
+                          },
+                          {
+                            "const": "credential_resolution",
                             "type": "string"
                           }
                         ]
@@ -832,6 +844,10 @@
                           },
                           {
                             "const": "effect_settlement",
+                            "type": "string"
+                          },
+                          {
+                            "const": "credential_resolution",
                             "type": "string"
                           }
                         ]
@@ -1100,6 +1116,10 @@
                         },
                         {
                           "const": "effect_settlement",
+                          "type": "string"
+                        },
+                        {
+                          "const": "credential_resolution",
                           "type": "string"
                         }
                       ]
@@ -1443,6 +1463,10 @@
                                 {
                                   "const": "effect_settlement",
                                   "type": "string"
+                                },
+                                {
+                                  "const": "credential_resolution",
+                                  "type": "string"
                                 }
                               ]
                             },
@@ -1678,6 +1702,10 @@
                         {
                           "const": "effect_settlement",
                           "type": "string"
+                        },
+                        {
+                          "const": "credential_resolution",
+                          "type": "string"
                         }
                       ]
                     },
@@ -1905,6 +1933,10 @@
                         },
                         {
                           "const": "effect_settlement",
+                          "type": "string"
+                        },
+                        {
+                          "const": "credential_resolution",
                           "type": "string"
                         }
                       ]
@@ -2136,6 +2168,10 @@
                             },
                             {
                               "const": "effect_settlement",
+                              "type": "string"
+                            },
+                            {
+                              "const": "credential_resolution",
                               "type": "string"
                             }
                           ]
@@ -2378,6 +2414,10 @@
                                   {
                                     "const": "effect_settlement",
                                     "type": "string"
+                                  },
+                                  {
+                                    "const": "credential_resolution",
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -2605,6 +2645,10 @@
                                   },
                                   {
                                     "const": "effect_settlement",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "credential_resolution",
                                     "type": "string"
                                   }
                                 ]
@@ -2870,6 +2914,10 @@
                             },
                             {
                               "const": "effect_settlement",
+                              "type": "string"
+                            },
+                            {
+                              "const": "credential_resolution",
                               "type": "string"
                             }
                           ]
@@ -3149,6 +3197,10 @@
                     {
                       "const": "effect_settlement",
                       "type": "string"
+                    },
+                    {
+                      "const": "credential_resolution",
+                      "type": "string"
                     }
                   ]
                 },
@@ -3373,6 +3425,10 @@
                     },
                     {
                       "const": "effect_settlement",
+                      "type": "string"
+                    },
+                    {
+                      "const": "credential_resolution",
                       "type": "string"
                     }
                   ]
@@ -3603,6 +3659,10 @@
                       },
                       {
                         "const": "effect_settlement",
+                        "type": "string"
+                      },
+                      {
+                        "const": "credential_resolution",
                         "type": "string"
                       }
                     ]
@@ -3836,6 +3896,10 @@
                                   {
                                     "const": "effect_settlement",
                                     "type": "string"
+                                  },
+                                  {
+                                    "const": "credential_resolution",
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -4063,6 +4127,10 @@
                                   },
                                   {
                                     "const": "effect_settlement",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "credential_resolution",
                                     "type": "string"
                                   }
                                 ]
@@ -4328,6 +4396,10 @@
                             },
                             {
                               "const": "effect_settlement",
+                              "type": "string"
+                            },
+                            {
+                              "const": "credential_resolution",
                               "type": "string"
                             }
                           ]
@@ -4621,6 +4693,10 @@
                 {
                   "const": "effect_settlement",
                   "type": "string"
+                },
+                {
+                  "const": "credential_resolution",
+                  "type": "string"
                 }
               ]
             },
@@ -4843,6 +4919,10 @@
                         },
                         {
                           "const": "effect_settlement",
+                          "type": "string"
+                        },
+                        {
+                          "const": "credential_resolution",
                           "type": "string"
                         }
                       ]
@@ -5117,6 +5197,10 @@
                             {
                               "const": "effect_settlement",
                               "type": "string"
+                            },
+                            {
+                              "const": "credential_resolution",
+                              "type": "string"
                             }
                           ]
                         },
@@ -5334,6 +5418,10 @@
                             },
                             {
                               "const": "effect_settlement",
+                              "type": "string"
+                            },
+                            {
+                              "const": "credential_resolution",
                               "type": "string"
                             }
                           ]
@@ -5589,6 +5677,10 @@
                   {
                     "const": "effect_settlement",
                     "type": "string"
+                  },
+                  {
+                    "const": "credential_resolution",
+                    "type": "string"
                   }
                 ]
               },
@@ -5817,6 +5909,10 @@
                       {
                         "const": "effect_settlement",
                         "type": "string"
+                      },
+                      {
+                        "const": "credential_resolution",
+                        "type": "string"
                       }
                     ]
                   },
@@ -6038,6 +6134,10 @@
                       {
                         "const": "effect_settlement",
                         "type": "string"
+                      },
+                      {
+                        "const": "credential_resolution",
+                        "type": "string"
                       }
                     ]
                   },
@@ -6258,6 +6358,10 @@
                       },
                       {
                         "const": "effect_settlement",
+                        "type": "string"
+                      },
+                      {
+                        "const": "credential_resolution",
                         "type": "string"
                       }
                     ]
@@ -6486,6 +6590,10 @@
                   {
                     "const": "effect_settlement",
                     "type": "string"
+                  },
+                  {
+                    "const": "credential_resolution",
+                    "type": "string"
                   }
                 ]
               },
@@ -6706,6 +6814,10 @@
                 {
                   "const": "effect_settlement",
                   "type": "string"
+                },
+                {
+                  "const": "credential_resolution",
+                  "type": "string"
                 }
               ]
             },
@@ -6924,6 +7036,10 @@
                   },
                   {
                     "const": "effect_settlement",
+                    "type": "string"
+                  },
+                  {
+                    "const": "credential_resolution",
                     "type": "string"
                   }
                 ]
@@ -7153,6 +7269,10 @@
                             {
                               "const": "effect_settlement",
                               "type": "string"
+                            },
+                            {
+                              "const": "credential_resolution",
+                              "type": "string"
                             }
                           ]
                         },
@@ -7375,6 +7495,10 @@
                             },
                             {
                               "const": "effect_settlement",
+                              "type": "string"
+                            },
+                            {
+                              "const": "credential_resolution",
                               "type": "string"
                             }
                           ]
@@ -7631,6 +7755,10 @@
                               },
                               {
                                 "const": "effect_settlement",
+                                "type": "string"
+                              },
+                              {
+                                "const": "credential_resolution",
                                 "type": "string"
                               }
                             ]
@@ -7889,6 +8017,10 @@
                               {
                                 "const": "effect_settlement",
                                 "type": "string"
+                              },
+                              {
+                                "const": "credential_resolution",
+                                "type": "string"
                               }
                             ]
                           },
@@ -8118,6 +8250,10 @@
                       {
                         "const": "effect_settlement",
                         "type": "string"
+                      },
+                      {
+                        "const": "credential_resolution",
+                        "type": "string"
                       }
                     ]
                   },
@@ -8341,6 +8477,10 @@
                       {
                         "const": "effect_settlement",
                         "type": "string"
+                      },
+                      {
+                        "const": "credential_resolution",
+                        "type": "string"
                       }
                     ]
                   },
@@ -8558,6 +8698,10 @@
                       },
                       {
                         "const": "effect_settlement",
+                        "type": "string"
+                      },
+                      {
+                        "const": "credential_resolution",
                         "type": "string"
                       }
                     ]
@@ -8820,6 +8964,10 @@
                       },
                       {
                         "const": "effect_settlement",
+                        "type": "string"
+                      },
+                      {
+                        "const": "credential_resolution",
                         "type": "string"
                       }
                     ]
@@ -9156,6 +9304,10 @@
                     {
                       "const": "effect_settlement",
                       "type": "string"
+                    },
+                    {
+                      "const": "credential_resolution",
+                      "type": "string"
                     }
                   ]
                 },
@@ -9488,6 +9640,10 @@
                         {
                           "const": "effect_settlement",
                           "type": "string"
+                        },
+                        {
+                          "const": "credential_resolution",
+                          "type": "string"
                         }
                       ]
                     },
@@ -9709,6 +9865,10 @@
                           },
                           {
                             "const": "effect_settlement",
+                            "type": "string"
+                          },
+                          {
+                            "const": "credential_resolution",
                             "type": "string"
                           }
                         ]
@@ -9934,6 +10094,10 @@
                         {
                           "const": "effect_settlement",
                           "type": "string"
+                        },
+                        {
+                          "const": "credential_resolution",
+                          "type": "string"
                         }
                       ]
                     },
@@ -10155,6 +10319,10 @@
                           },
                           {
                             "const": "effect_settlement",
+                            "type": "string"
+                          },
+                          {
+                            "const": "credential_resolution",
                             "type": "string"
                           }
                         ]
@@ -10389,6 +10557,10 @@
                         },
                         {
                           "const": "effect_settlement",
+                          "type": "string"
+                        },
+                        {
+                          "const": "credential_resolution",
                           "type": "string"
                         }
                       ]
@@ -10630,6 +10802,10 @@
                         },
                         {
                           "const": "effect_settlement",
+                          "type": "string"
+                        },
+                        {
+                          "const": "credential_resolution",
                           "type": "string"
                         }
                       ]
@@ -10907,6 +11083,10 @@
                       },
                       {
                         "const": "effect_settlement",
+                        "type": "string"
+                      },
+                      {
+                        "const": "credential_resolution",
                         "type": "string"
                       }
                     ]
@@ -11221,6 +11401,10 @@
                   {
                     "const": "effect_settlement",
                     "type": "string"
+                  },
+                  {
+                    "const": "credential_resolution",
+                    "type": "string"
                   }
                 ]
               },
@@ -11441,6 +11625,10 @@
                 {
                   "const": "effect_settlement",
                   "type": "string"
+                },
+                {
+                  "const": "credential_resolution",
+                  "type": "string"
                 }
               ]
             },
@@ -11659,6 +11847,10 @@
                 {
                   "const": "effect_settlement",
                   "type": "string"
+                },
+                {
+                  "const": "credential_resolution",
+                  "type": "string"
                 }
               ]
             },
@@ -11876,6 +12068,10 @@
                 },
                 {
                   "const": "effect_settlement",
+                  "type": "string"
+                },
+                {
+                  "const": "credential_resolution",
                   "type": "string"
                 }
               ]
@@ -12218,6 +12414,10 @@
                         {
                           "const": "effect_settlement",
                           "type": "string"
+                        },
+                        {
+                          "const": "credential_resolution",
+                          "type": "string"
                         }
                       ]
                     },
@@ -12466,6 +12666,10 @@
                         },
                         {
                           "const": "effect_settlement",
+                          "type": "string"
+                        },
+                        {
+                          "const": "credential_resolution",
                           "type": "string"
                         }
                       ]
@@ -12755,6 +12959,10 @@
               },
               {
                 "const": "effect_settlement",
+                "type": "string"
+              },
+              {
+                "const": "credential_resolution",
                 "type": "string"
               }
             ]
@@ -13081,6 +13289,10 @@
                 },
                 {
                   "const": "effect_settlement",
+                  "type": "string"
+                },
+                {
+                  "const": "credential_resolution",
                   "type": "string"
                 }
               ]

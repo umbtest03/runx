@@ -153,11 +153,12 @@ describe("@runxhq/contracts", () => {
   });
 
   it("accepts typed proof kinds on references", () => {
-    expect(proofKinds).toEqual(["payment_rail", "effect_settlement"]);
+    expect(proofKinds).toEqual(["payment_rail", "effect_settlement", "credential_resolution"]);
     expect(proofKindSchema).toMatchObject({
       anyOf: [
         expect.objectContaining({ const: "payment_rail", type: "string" }),
         expect.objectContaining({ const: "effect_settlement", type: "string" }),
+        expect.objectContaining({ const: "credential_resolution", type: "string" }),
       ],
     });
     expect(validateReferenceContract({
@@ -176,6 +177,16 @@ describe("@runxhq/contracts", () => {
     })).toMatchObject({
       type: "verification",
       proof_kind: "effect_settlement",
+    });
+    expect(validateReferenceContract({
+      type: "credential",
+      uri: "runx:credential:local:grant_1",
+      provider: "github",
+      proof_kind: "credential_resolution",
+    })).toMatchObject({
+      type: "credential",
+      provider: "github",
+      proof_kind: "credential_resolution",
     });
   });
 

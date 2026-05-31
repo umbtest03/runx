@@ -104,6 +104,7 @@ impl ReferenceType {
 pub enum ProofKind {
     PaymentRail,
     EffectSettlement,
+    CredentialResolution,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
