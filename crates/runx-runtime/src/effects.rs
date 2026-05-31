@@ -2,7 +2,10 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::sync::Arc;
 
-use runx_contracts::{JsonObject, ProofKind};
+use runx_contracts::{
+    EffectSettlementPhase, EffectSettlementReceipt, EffectSettlementReceiptSchema, JsonObject,
+    ProofKind, Reference, ReferenceType,
+};
 use thiserror::Error;
 
 use crate::payment::supervisor::{PaymentSupervisorError, PaymentSupervisorSettlementEvidence};
@@ -106,10 +109,48 @@ pub enum EffectSettlementEvidence {
 pub struct EffectSettlementRecord {
     pub verifier_id: String,
     pub proof_ref: String,
+    pub phase: EffectSettlementPhase,
     pub provider_event_ref: Option<String>,
     pub status: Option<String>,
     pub idempotency_key: Option<String>,
     pub payload: JsonObject,
+}
+
+impl EffectSettlementRecord {
+    #[must_use]
+    pub fn settlement_receipt(
+        &self,
+        id: impl Into<String>,
+        created_at: impl Into<String>,
+        family: impl Into<String>,
+        original_receipt_ref: Reference,
+        criterion_id: impl Into<String>,
+    ) -> EffectSettlementReceipt {
+        EffectSettlementReceipt {
+            schema: EffectSettlementReceiptSchema::V1,
+            id: id.into().into(),
+            created_at: created_at.into().into(),
+            family: family.into().into(),
+            phase: self.phase.clone(),
+            original_receipt_ref,
+            criterion_id: criterion_id.into().into(),
+            proof_ref: Some(Reference::with_uri(
+                ReferenceType::Verification,
+                self.proof_ref.clone(),
+            )),
+            evidence_refs: self
+                .provider_event_ref
+                .as_ref()
+                .map(|event_ref| {
+                    vec![Reference::with_uri(
+                        ReferenceType::ProviderEvent,
+                        event_ref.clone(),
+                    )]
+                })
+                .unwrap_or_default(),
+            payload: self.payload.clone(),
+        }
+    }
 }
 
 impl EffectSettlementEvidence {
@@ -316,6 +357,7 @@ mod tests {
             Ok(EffectSettlementEvidence::generic(EffectSettlementRecord {
                 verifier_id: "runx.mock_effect.local.v1".to_owned(),
                 proof_ref: request.proof_ref.to_owned(),
+                phase: EffectSettlementPhase::Sealed,
                 provider_event_ref: Some("mock:event:1".to_owned()),
                 status: Some("sealed".to_owned()),
                 idempotency_key: request.idempotency_key.map(str::to_owned),
@@ -339,7 +381,7 @@ mod tests {
         let evidence = registry
             .settlement_evidence(EffectSettlementRequest {
                 family: "message",
-                proof_kind: ProofKind::PaymentRail,
+                proof_kind: ProofKind::EffectSettlement,
                 proof_ref: "proof:message:1",
                 idempotency_key: Some("message:1"),
                 payload: EffectSettlementPayload::Json(payload),
@@ -366,5 +408,44 @@ mod tests {
                 family: "message".to_owned()
             }
         );
+    }
+
+    #[test]
+    fn generic_effect_record_projects_follow_on_settlement_receipt() {
+        let mut payload = JsonObject::new();
+        payload.insert(
+            "provider_status".to_owned(),
+            JsonValue::String("ok".to_owned()),
+        );
+        let record = EffectSettlementRecord {
+            verifier_id: "runx.mock_effect.local.v1".to_owned(),
+            proof_ref: "runx:proof:deploy-1".to_owned(),
+            phase: EffectSettlementPhase::InFlight,
+            provider_event_ref: Some("provider:event:deploy-1".to_owned()),
+            status: Some("pending".to_owned()),
+            idempotency_key: Some("deploy:prod:1".to_owned()),
+            payload,
+        };
+
+        let receipt = record.settlement_receipt(
+            "runx:effect-settlement:deploy-1",
+            "2026-05-31T00:00:00Z",
+            "deployment",
+            Reference::with_uri(ReferenceType::Receipt, "runx:receipt:original"),
+            "criterion_deploy_settled",
+        );
+
+        assert_eq!(receipt.schema, EffectSettlementReceiptSchema::V1);
+        assert_eq!(receipt.phase, EffectSettlementPhase::InFlight);
+        assert_eq!(receipt.family, "deployment");
+        assert_eq!(receipt.criterion_id, "criterion_deploy_settled");
+        assert_eq!(
+            receipt
+                .proof_ref
+                .as_ref()
+                .map(|reference| reference.uri.as_str()),
+            Some("runx:proof:deploy-1")
+        );
+        assert_eq!(receipt.evidence_refs.len(), 1);
     }
 }

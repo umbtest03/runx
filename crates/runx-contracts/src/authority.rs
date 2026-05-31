@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::schema::{IsoDateTime, NonEmptyString, RunxSchema};
-use crate::{JsonNumber, JsonObject, Reference};
+use crate::{JsonNumber, JsonObject, ProofKind, Reference};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
@@ -100,6 +100,23 @@ pub struct PaymentAuthorityBounds {
     pub single_use_spend: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthorityEffectGuardKind {
+    ReceiptBeforeSuccess,
+    NonReplay,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorityEffectGuard {
+    pub family: NonEmptyString,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub guard_kinds: Vec<AuthorityEffectGuardKind>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proof_kinds: Vec<ProofKind>,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, RunxSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorityBounds {
@@ -119,6 +136,8 @@ pub struct AuthorityBounds {
     pub max_spend_usd: Option<JsonNumber>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub payment: Option<PaymentAuthorityBounds>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub effects: Vec<AuthorityEffectGuard>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_runtime_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]

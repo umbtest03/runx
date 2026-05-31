@@ -39,6 +39,40 @@ pub enum ReceiptSchema {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+pub enum EffectSettlementReceiptSchema {
+    #[serde(rename = "runx.effect_settlement_receipt.v1")]
+    V1,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EffectSettlementPhase {
+    Provisional,
+    InFlight,
+    Sealed,
+    Failed,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, RunxSchema)]
+#[serde(deny_unknown_fields)]
+#[runx_schema(id = "runx.effect_settlement_receipt.v1")]
+pub struct EffectSettlementReceipt {
+    pub schema: EffectSettlementReceiptSchema,
+    pub id: NonEmptyString,
+    pub created_at: IsoDateTime,
+    pub family: NonEmptyString,
+    pub phase: EffectSettlementPhase,
+    pub original_receipt_ref: Reference,
+    pub criterion_id: NonEmptyString,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_ref: Option<Reference>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence_refs: Vec<Reference>,
+    #[serde(default, skip_serializing_if = "JsonObject::is_empty")]
+    pub payload: JsonObject,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FanoutReceiptStrategy {
     All,

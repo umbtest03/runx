@@ -1153,6 +1153,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -1439,6 +1443,10 @@ export const runxSchemaArtifacts = {
                       {
                         "const": "payment_rail",
                         "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
+                        "type": "string"
                       }
                     ]
                   },
@@ -1683,6 +1691,10 @@ export const runxSchemaArtifacts = {
                     "anyOf": [
                       {
                         "const": "payment_rail",
+                        "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
                         "type": "string"
                       }
                     ]
@@ -1934,6 +1946,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -2160,6 +2176,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -2504,6 +2524,10 @@ export const runxSchemaArtifacts = {
                             {
                               "const": "payment_rail",
                               "type": "string"
+                            },
+                            {
+                              "const": "effect_settlement",
+                              "type": "string"
                             }
                           ]
                         },
@@ -2735,6 +2759,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -2958,6 +2986,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -3185,6 +3217,10 @@ export const runxSchemaArtifacts = {
                       "anyOf": [
                         {
                           "const": "payment_rail",
+                          "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
                           "type": "string"
                         }
                       ]
@@ -3423,6 +3459,10 @@ export const runxSchemaArtifacts = {
                               {
                                 "const": "payment_rail",
                                 "type": "string"
+                              },
+                              {
+                                "const": "effect_settlement",
+                                "type": "string"
                               }
                             ]
                           },
@@ -3646,6 +3686,10 @@ export const runxSchemaArtifacts = {
                             "anyOf": [
                               {
                                 "const": "payment_rail",
+                                "type": "string"
+                              },
+                              {
+                                "const": "effect_settlement",
                                 "type": "string"
                               }
                             ]
@@ -3907,6 +3951,10 @@ export const runxSchemaArtifacts = {
                       "anyOf": [
                         {
                           "const": "payment_rail",
+                          "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
                           "type": "string"
                         }
                       ]
@@ -4190,6 +4238,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -4411,6 +4463,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -4627,6 +4683,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -4853,6 +4913,10 @@ export const runxSchemaArtifacts = {
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -5082,6 +5146,10 @@ export const runxSchemaArtifacts = {
                               {
                                 "const": "payment_rail",
                                 "type": "string"
+                              },
+                              {
+                                "const": "effect_settlement",
+                                "type": "string"
                               }
                             ]
                           },
@@ -5305,6 +5373,10 @@ export const runxSchemaArtifacts = {
                             "anyOf": [
                               {
                                 "const": "payment_rail",
+                                "type": "string"
+                              },
+                              {
+                                "const": "effect_settlement",
                                 "type": "string"
                               }
                             ]
@@ -5566,6 +5638,10 @@ export const runxSchemaArtifacts = {
                       "anyOf": [
                         {
                           "const": "payment_rail",
+                          "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
                           "type": "string"
                         }
                       ]
@@ -5840,6 +5916,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -7270,6 +7350,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -7488,6 +7572,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -7748,6 +7836,10 @@ export const runxSchemaArtifacts = {
                       {
                         "const": "payment_rail",
                         "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
+                        "type": "string"
                       }
                     ]
                   },
@@ -7969,6 +8061,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -8182,6 +8278,10 @@ export const runxSchemaArtifacts = {
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -8397,6 +8497,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -8610,6 +8714,10 @@ export const runxSchemaArtifacts = {
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -8828,6 +8936,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -9056,6 +9168,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -9767,6 +9883,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -9980,6 +10100,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -10223,6 +10347,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -10441,6 +10569,10 @@ export const runxSchemaArtifacts = {
                     "anyOf": [
                       {
                         "const": "payment_rail",
+                        "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
                         "type": "string"
                       }
                     ]
@@ -10711,6 +10843,10 @@ export const runxSchemaArtifacts = {
                           {
                             "const": "payment_rail",
                             "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
+                            "type": "string"
                           }
                         ]
                       },
@@ -10924,6 +11060,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -11175,6 +11315,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -11392,6 +11536,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -11608,6 +11756,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -11822,6 +11974,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -12048,6 +12204,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -12272,6 +12432,10 @@ export const runxSchemaArtifacts = {
                           {
                             "const": "payment_rail",
                             "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
+                            "type": "string"
                           }
                         ]
                       },
@@ -12490,6 +12654,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -12711,6 +12879,52 @@ export const runxSchemaArtifacts = {
                   "items": {
                     "minLength": 1,
                     "type": "string"
+                  },
+                  "type": "array"
+                },
+                "effects": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "family": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "guard_kinds": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "const": "receipt_before_success",
+                              "type": "string"
+                            },
+                            {
+                              "const": "non_replay",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "type": "array"
+                      },
+                      "proof_kinds": {
+                        "items": {
+                          "anyOf": [
+                            {
+                              "const": "payment_rail",
+                              "type": "string"
+                            },
+                            {
+                              "const": "effect_settlement",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "family"
+                    ],
+                    "type": "object"
                   },
                   "type": "array"
                 },
@@ -12954,6 +13168,10 @@ export const runxSchemaArtifacts = {
                             {
                               "const": "payment_rail",
                               "type": "string"
+                            },
+                            {
+                              "const": "effect_settlement",
+                              "type": "string"
                             }
                           ]
                         },
@@ -13179,6 +13397,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -13398,6 +13620,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -13611,6 +13837,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -13869,6 +14099,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -14191,6 +14425,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -14438,6 +14676,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -14651,6 +14893,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -14907,6 +15153,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -15281,6 +15531,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -15523,6 +15777,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -15736,6 +15994,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -15951,6 +16213,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -16164,6 +16430,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -16470,6 +16740,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -16709,6 +16983,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -17119,6 +17397,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -17447,6 +17729,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -17664,6 +17950,10 @@ export const runxSchemaArtifacts = {
                     "anyOf": [
                       {
                         "const": "payment_rail",
+                        "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
                         "type": "string"
                       }
                     ]
@@ -17885,6 +18175,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -18102,6 +18396,10 @@ export const runxSchemaArtifacts = {
                     "anyOf": [
                       {
                         "const": "payment_rail",
+                        "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
                         "type": "string"
                       }
                     ]
@@ -18332,6 +18630,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -18569,6 +18871,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -18842,6 +19148,10 @@ export const runxSchemaArtifacts = {
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -19658,6 +19968,730 @@ export const runxSchemaArtifacts = {
     "type": "object",
     "x-runx-schema": "runx.doctor.v1"
   } as JsonSchema,
+  "effect-settlement-receipt.schema.json": {
+    "$id": "https://schemas.runx.dev/runx/effect-settlement-receipt/v1.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "created_at": {
+        "minLength": 1,
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+        "type": "string"
+      },
+      "criterion_id": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "evidence_refs": {
+        "items": {
+          "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "properties": {
+            "label": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "locator": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "observed_at": {
+              "minLength": 1,
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+              "type": "string"
+            },
+            "proof_kind": {
+              "anyOf": [
+                {
+                  "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
+                }
+              ]
+            },
+            "provider": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "schema": {
+              "const": "runx.reference.v1",
+              "type": "string"
+            },
+            "type": {
+              "anyOf": [
+                {
+                  "const": "github_issue",
+                  "type": "string"
+                },
+                {
+                  "const": "github_pull_request",
+                  "type": "string"
+                },
+                {
+                  "const": "github_repo",
+                  "type": "string"
+                },
+                {
+                  "const": "slack_thread",
+                  "type": "string"
+                },
+                {
+                  "const": "sentry_event",
+                  "type": "string"
+                },
+                {
+                  "const": "provider_thread",
+                  "type": "string"
+                },
+                {
+                  "const": "provider_event",
+                  "type": "string"
+                },
+                {
+                  "const": "provider_comment",
+                  "type": "string"
+                },
+                {
+                  "const": "tracking_item",
+                  "type": "string"
+                },
+                {
+                  "const": "change_request",
+                  "type": "string"
+                },
+                {
+                  "const": "repository",
+                  "type": "string"
+                },
+                {
+                  "const": "support_ticket",
+                  "type": "string"
+                },
+                {
+                  "const": "signal",
+                  "type": "string"
+                },
+                {
+                  "const": "act",
+                  "type": "string"
+                },
+                {
+                  "const": "receipt",
+                  "type": "string"
+                },
+                {
+                  "const": "graph_receipt",
+                  "type": "string"
+                },
+                {
+                  "const": "artifact",
+                  "type": "string"
+                },
+                {
+                  "const": "verification",
+                  "type": "string"
+                },
+                {
+                  "const": "harness",
+                  "type": "string"
+                },
+                {
+                  "const": "host",
+                  "type": "string"
+                },
+                {
+                  "const": "deployment",
+                  "type": "string"
+                },
+                {
+                  "const": "surface",
+                  "type": "string"
+                },
+                {
+                  "const": "target",
+                  "type": "string"
+                },
+                {
+                  "const": "opportunity",
+                  "type": "string"
+                },
+                {
+                  "const": "thesis_assessment",
+                  "type": "string"
+                },
+                {
+                  "const": "selection",
+                  "type": "string"
+                },
+                {
+                  "const": "skill_binding",
+                  "type": "string"
+                },
+                {
+                  "const": "target_transition_entry",
+                  "type": "string"
+                },
+                {
+                  "const": "selection_cycle",
+                  "type": "string"
+                },
+                {
+                  "const": "decision",
+                  "type": "string"
+                },
+                {
+                  "const": "reflection_entry",
+                  "type": "string"
+                },
+                {
+                  "const": "feed_entry",
+                  "type": "string"
+                },
+                {
+                  "const": "principal",
+                  "type": "string"
+                },
+                {
+                  "const": "authority_proof",
+                  "type": "string"
+                },
+                {
+                  "const": "scope_admission",
+                  "type": "string"
+                },
+                {
+                  "const": "grant",
+                  "type": "string"
+                },
+                {
+                  "const": "mandate",
+                  "type": "string"
+                },
+                {
+                  "const": "credential",
+                  "type": "string"
+                },
+                {
+                  "const": "webhook_delivery",
+                  "type": "string"
+                },
+                {
+                  "const": "redaction_policy",
+                  "type": "string"
+                },
+                {
+                  "const": "external_url",
+                  "type": "string"
+                }
+              ]
+            },
+            "uri": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "uri"
+          ],
+          "type": "object",
+          "x-runx-schema": "runx.reference.v1"
+        },
+        "type": "array"
+      },
+      "family": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "id": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "original_receipt_ref": {
+        "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "locator": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "observed_at": {
+            "minLength": 1,
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+            "type": "string"
+          },
+          "proof_kind": {
+            "anyOf": [
+              {
+                "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
+              }
+            ]
+          },
+          "provider": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "schema": {
+            "const": "runx.reference.v1",
+            "type": "string"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "const": "github_issue",
+                "type": "string"
+              },
+              {
+                "const": "github_pull_request",
+                "type": "string"
+              },
+              {
+                "const": "github_repo",
+                "type": "string"
+              },
+              {
+                "const": "slack_thread",
+                "type": "string"
+              },
+              {
+                "const": "sentry_event",
+                "type": "string"
+              },
+              {
+                "const": "provider_thread",
+                "type": "string"
+              },
+              {
+                "const": "provider_event",
+                "type": "string"
+              },
+              {
+                "const": "provider_comment",
+                "type": "string"
+              },
+              {
+                "const": "tracking_item",
+                "type": "string"
+              },
+              {
+                "const": "change_request",
+                "type": "string"
+              },
+              {
+                "const": "repository",
+                "type": "string"
+              },
+              {
+                "const": "support_ticket",
+                "type": "string"
+              },
+              {
+                "const": "signal",
+                "type": "string"
+              },
+              {
+                "const": "act",
+                "type": "string"
+              },
+              {
+                "const": "receipt",
+                "type": "string"
+              },
+              {
+                "const": "graph_receipt",
+                "type": "string"
+              },
+              {
+                "const": "artifact",
+                "type": "string"
+              },
+              {
+                "const": "verification",
+                "type": "string"
+              },
+              {
+                "const": "harness",
+                "type": "string"
+              },
+              {
+                "const": "host",
+                "type": "string"
+              },
+              {
+                "const": "deployment",
+                "type": "string"
+              },
+              {
+                "const": "surface",
+                "type": "string"
+              },
+              {
+                "const": "target",
+                "type": "string"
+              },
+              {
+                "const": "opportunity",
+                "type": "string"
+              },
+              {
+                "const": "thesis_assessment",
+                "type": "string"
+              },
+              {
+                "const": "selection",
+                "type": "string"
+              },
+              {
+                "const": "skill_binding",
+                "type": "string"
+              },
+              {
+                "const": "target_transition_entry",
+                "type": "string"
+              },
+              {
+                "const": "selection_cycle",
+                "type": "string"
+              },
+              {
+                "const": "decision",
+                "type": "string"
+              },
+              {
+                "const": "reflection_entry",
+                "type": "string"
+              },
+              {
+                "const": "feed_entry",
+                "type": "string"
+              },
+              {
+                "const": "principal",
+                "type": "string"
+              },
+              {
+                "const": "authority_proof",
+                "type": "string"
+              },
+              {
+                "const": "scope_admission",
+                "type": "string"
+              },
+              {
+                "const": "grant",
+                "type": "string"
+              },
+              {
+                "const": "mandate",
+                "type": "string"
+              },
+              {
+                "const": "credential",
+                "type": "string"
+              },
+              {
+                "const": "webhook_delivery",
+                "type": "string"
+              },
+              {
+                "const": "redaction_policy",
+                "type": "string"
+              },
+              {
+                "const": "external_url",
+                "type": "string"
+              }
+            ]
+          },
+          "uri": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "uri"
+        ],
+        "type": "object",
+        "x-runx-schema": "runx.reference.v1"
+      },
+      "payload": {
+        "additionalProperties": {},
+        "type": "object"
+      },
+      "phase": {
+        "anyOf": [
+          {
+            "const": "provisional",
+            "type": "string"
+          },
+          {
+            "const": "in_flight",
+            "type": "string"
+          },
+          {
+            "const": "sealed",
+            "type": "string"
+          },
+          {
+            "const": "failed",
+            "type": "string"
+          }
+        ]
+      },
+      "proof_ref": {
+        "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "locator": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "observed_at": {
+            "minLength": 1,
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$",
+            "type": "string"
+          },
+          "proof_kind": {
+            "anyOf": [
+              {
+                "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
+              }
+            ]
+          },
+          "provider": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "schema": {
+            "const": "runx.reference.v1",
+            "type": "string"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "const": "github_issue",
+                "type": "string"
+              },
+              {
+                "const": "github_pull_request",
+                "type": "string"
+              },
+              {
+                "const": "github_repo",
+                "type": "string"
+              },
+              {
+                "const": "slack_thread",
+                "type": "string"
+              },
+              {
+                "const": "sentry_event",
+                "type": "string"
+              },
+              {
+                "const": "provider_thread",
+                "type": "string"
+              },
+              {
+                "const": "provider_event",
+                "type": "string"
+              },
+              {
+                "const": "provider_comment",
+                "type": "string"
+              },
+              {
+                "const": "tracking_item",
+                "type": "string"
+              },
+              {
+                "const": "change_request",
+                "type": "string"
+              },
+              {
+                "const": "repository",
+                "type": "string"
+              },
+              {
+                "const": "support_ticket",
+                "type": "string"
+              },
+              {
+                "const": "signal",
+                "type": "string"
+              },
+              {
+                "const": "act",
+                "type": "string"
+              },
+              {
+                "const": "receipt",
+                "type": "string"
+              },
+              {
+                "const": "graph_receipt",
+                "type": "string"
+              },
+              {
+                "const": "artifact",
+                "type": "string"
+              },
+              {
+                "const": "verification",
+                "type": "string"
+              },
+              {
+                "const": "harness",
+                "type": "string"
+              },
+              {
+                "const": "host",
+                "type": "string"
+              },
+              {
+                "const": "deployment",
+                "type": "string"
+              },
+              {
+                "const": "surface",
+                "type": "string"
+              },
+              {
+                "const": "target",
+                "type": "string"
+              },
+              {
+                "const": "opportunity",
+                "type": "string"
+              },
+              {
+                "const": "thesis_assessment",
+                "type": "string"
+              },
+              {
+                "const": "selection",
+                "type": "string"
+              },
+              {
+                "const": "skill_binding",
+                "type": "string"
+              },
+              {
+                "const": "target_transition_entry",
+                "type": "string"
+              },
+              {
+                "const": "selection_cycle",
+                "type": "string"
+              },
+              {
+                "const": "decision",
+                "type": "string"
+              },
+              {
+                "const": "reflection_entry",
+                "type": "string"
+              },
+              {
+                "const": "feed_entry",
+                "type": "string"
+              },
+              {
+                "const": "principal",
+                "type": "string"
+              },
+              {
+                "const": "authority_proof",
+                "type": "string"
+              },
+              {
+                "const": "scope_admission",
+                "type": "string"
+              },
+              {
+                "const": "grant",
+                "type": "string"
+              },
+              {
+                "const": "mandate",
+                "type": "string"
+              },
+              {
+                "const": "credential",
+                "type": "string"
+              },
+              {
+                "const": "webhook_delivery",
+                "type": "string"
+              },
+              {
+                "const": "redaction_policy",
+                "type": "string"
+              },
+              {
+                "const": "external_url",
+                "type": "string"
+              }
+            ]
+          },
+          "uri": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "uri"
+        ],
+        "type": "object",
+        "x-runx-schema": "runx.reference.v1"
+      },
+      "schema": {
+        "anyOf": [
+          {
+            "const": "runx.effect_settlement_receipt.v1",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "required": [
+      "schema",
+      "id",
+      "created_at",
+      "family",
+      "phase",
+      "original_receipt_ref",
+      "criterion_id"
+    ],
+    "type": "object",
+    "x-runx-schema": "runx.effect_settlement_receipt.v1"
+  } as JsonSchema,
   "external-adapter-cancellation.schema.json": {
     "$id": "https://schemas.runx.dev/runx/external-adapter/cancellation/v1.json",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -19748,6 +20782,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -20829,6 +21867,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -21085,6 +22127,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -21298,6 +22344,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -21622,6 +22672,10 @@ export const runxSchemaArtifacts = {
                     "anyOf": [
                       {
                         "const": "payment_rail",
+                        "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
                         "type": "string"
                       }
                     ]
@@ -21991,6 +23045,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -22345,6 +23403,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -22570,6 +23632,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -22786,6 +23852,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -23004,6 +24074,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -23227,6 +24301,10 @@ export const runxSchemaArtifacts = {
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -23453,6 +24531,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -23670,6 +24752,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -23884,6 +24970,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -24111,6 +25201,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -24336,6 +25430,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -24559,6 +25657,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -26127,6 +27229,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -26375,6 +27481,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -26586,6 +27696,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -26834,6 +27948,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -27077,6 +28195,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -27294,6 +28416,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -27505,6 +28631,10 @@ export const runxSchemaArtifacts = {
                     "anyOf": [
                       {
                         "const": "payment_rail",
+                        "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
                         "type": "string"
                       }
                     ]
@@ -27733,6 +28863,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -27966,6 +29100,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -28159,6 +29297,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -28354,6 +29496,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -28581,6 +29727,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -28813,6 +29963,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -29055,6 +30209,10 @@ export const runxSchemaArtifacts = {
                         {
                           "const": "payment_rail",
                           "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
+                          "type": "string"
                         }
                       ]
                     },
@@ -29272,6 +30430,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -29494,6 +30656,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -29721,6 +30887,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -29935,6 +31105,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -30153,6 +31327,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -30369,6 +31547,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -30629,6 +31811,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -30848,6 +32034,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -31273,6 +32463,10 @@ export const runxSchemaArtifacts = {
                       {
                         "const": "payment_rail",
                         "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
+                        "type": "string"
                       }
                     ]
                   },
@@ -31591,6 +32785,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -31813,6 +33011,10 @@ export const runxSchemaArtifacts = {
                           "anyOf": [
                             {
                               "const": "payment_rail",
+                              "type": "string"
+                            },
+                            {
+                              "const": "effect_settlement",
                               "type": "string"
                             }
                           ]
@@ -32058,6 +33260,10 @@ export const runxSchemaArtifacts = {
                           "anyOf": [
                             {
                               "const": "payment_rail",
+                              "type": "string"
+                            },
+                            {
+                              "const": "effect_settlement",
                               "type": "string"
                             }
                           ]
@@ -32322,6 +33528,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -32661,6 +33871,10 @@ export const runxSchemaArtifacts = {
                                   {
                                     "const": "payment_rail",
                                     "type": "string"
+                                  },
+                                  {
+                                    "const": "effect_settlement",
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -32892,6 +34106,10 @@ export const runxSchemaArtifacts = {
                           {
                             "const": "payment_rail",
                             "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
+                            "type": "string"
                           }
                         ]
                       },
@@ -33115,6 +34333,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -33342,6 +34564,10 @@ export const runxSchemaArtifacts = {
                             "anyOf": [
                               {
                                 "const": "payment_rail",
+                                "type": "string"
+                              },
+                              {
+                                "const": "effect_settlement",
                                 "type": "string"
                               }
                             ]
@@ -33580,6 +34806,10 @@ export const runxSchemaArtifacts = {
                                     {
                                       "const": "payment_rail",
                                       "type": "string"
+                                    },
+                                    {
+                                      "const": "effect_settlement",
+                                      "type": "string"
                                     }
                                   ]
                                 },
@@ -33803,6 +35033,10 @@ export const runxSchemaArtifacts = {
                                   "anyOf": [
                                     {
                                       "const": "payment_rail",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "effect_settlement",
                                       "type": "string"
                                     }
                                   ]
@@ -34064,6 +35298,10 @@ export const runxSchemaArtifacts = {
                             "anyOf": [
                               {
                                 "const": "payment_rail",
+                                "type": "string"
+                              },
+                              {
+                                "const": "effect_settlement",
                                 "type": "string"
                               }
                             ]
@@ -34339,6 +35577,10 @@ export const runxSchemaArtifacts = {
                       {
                         "const": "payment_rail",
                         "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
+                        "type": "string"
                       }
                     ]
                   },
@@ -34559,6 +35801,10 @@ export const runxSchemaArtifacts = {
                     "anyOf": [
                       {
                         "const": "payment_rail",
+                        "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
                         "type": "string"
                       }
                     ]
@@ -34785,6 +36031,10 @@ export const runxSchemaArtifacts = {
                       "anyOf": [
                         {
                           "const": "payment_rail",
+                          "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
                           "type": "string"
                         }
                       ]
@@ -35014,6 +36264,10 @@ export const runxSchemaArtifacts = {
                                     {
                                       "const": "payment_rail",
                                       "type": "string"
+                                    },
+                                    {
+                                      "const": "effect_settlement",
+                                      "type": "string"
                                     }
                                   ]
                                 },
@@ -35237,6 +36491,10 @@ export const runxSchemaArtifacts = {
                                   "anyOf": [
                                     {
                                       "const": "payment_rail",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "effect_settlement",
                                       "type": "string"
                                     }
                                   ]
@@ -35498,6 +36756,10 @@ export const runxSchemaArtifacts = {
                             "anyOf": [
                               {
                                 "const": "payment_rail",
+                                "type": "string"
+                              },
+                              {
+                                "const": "effect_settlement",
                                 "type": "string"
                               }
                             ]
@@ -35787,6 +37049,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -36005,6 +37271,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -36275,6 +37545,10 @@ export const runxSchemaArtifacts = {
                               {
                                 "const": "payment_rail",
                                 "type": "string"
+                              },
+                              {
+                                "const": "effect_settlement",
+                                "type": "string"
                               }
                             ]
                           },
@@ -36488,6 +37762,10 @@ export const runxSchemaArtifacts = {
                             "anyOf": [
                               {
                                 "const": "payment_rail",
+                                "type": "string"
+                              },
+                              {
+                                "const": "effect_settlement",
                                 "type": "string"
                               }
                             ]
@@ -36739,6 +38017,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -36963,6 +38245,10 @@ export const runxSchemaArtifacts = {
                         {
                           "const": "payment_rail",
                           "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
+                          "type": "string"
                         }
                       ]
                     },
@@ -37180,6 +38466,10 @@ export const runxSchemaArtifacts = {
                         {
                           "const": "payment_rail",
                           "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
+                          "type": "string"
                         }
                       ]
                     },
@@ -37396,6 +38686,10 @@ export const runxSchemaArtifacts = {
                       "anyOf": [
                         {
                           "const": "payment_rail",
+                          "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
                           "type": "string"
                         }
                       ]
@@ -37620,6 +38914,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -37836,6 +39134,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -38050,6 +39352,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -38275,6 +39581,10 @@ export const runxSchemaArtifacts = {
                               {
                                 "const": "payment_rail",
                                 "type": "string"
+                              },
+                              {
+                                "const": "effect_settlement",
+                                "type": "string"
                               }
                             ]
                           },
@@ -38493,6 +39803,10 @@ export const runxSchemaArtifacts = {
                             "anyOf": [
                               {
                                 "const": "payment_rail",
+                                "type": "string"
+                              },
+                              {
+                                "const": "effect_settlement",
                                 "type": "string"
                               }
                             ]
@@ -38714,6 +40028,52 @@ export const runxSchemaArtifacts = {
                       "items": {
                         "minLength": 1,
                         "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "effects": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "family": {
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "guard_kinds": {
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "const": "receipt_before_success",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "non_replay",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "type": "array"
+                          },
+                          "proof_kinds": {
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "const": "payment_rail",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "effect_settlement",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "family"
+                        ],
+                        "type": "object"
                       },
                       "type": "array"
                     },
@@ -38957,6 +40317,10 @@ export const runxSchemaArtifacts = {
                                 {
                                   "const": "payment_rail",
                                   "type": "string"
+                                },
+                                {
+                                  "const": "effect_settlement",
+                                  "type": "string"
                                 }
                               ]
                             },
@@ -39182,6 +40546,10 @@ export const runxSchemaArtifacts = {
                         {
                           "const": "payment_rail",
                           "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
+                          "type": "string"
                         }
                       ]
                     },
@@ -39401,6 +40769,10 @@ export const runxSchemaArtifacts = {
                         {
                           "const": "payment_rail",
                           "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
+                          "type": "string"
                         }
                       ]
                     },
@@ -39614,6 +40986,10 @@ export const runxSchemaArtifacts = {
                       "anyOf": [
                         {
                           "const": "payment_rail",
+                          "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
                           "type": "string"
                         }
                       ]
@@ -39872,6 +41248,10 @@ export const runxSchemaArtifacts = {
                       "anyOf": [
                         {
                           "const": "payment_rail",
+                          "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
                           "type": "string"
                         }
                       ]
@@ -40204,6 +41584,10 @@ export const runxSchemaArtifacts = {
                       {
                         "const": "payment_rail",
                         "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
+                        "type": "string"
                       }
                     ]
                   },
@@ -40532,6 +41916,10 @@ export const runxSchemaArtifacts = {
                           {
                             "const": "payment_rail",
                             "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
+                            "type": "string"
                           }
                         ]
                       },
@@ -40749,6 +42137,10 @@ export const runxSchemaArtifacts = {
                           "anyOf": [
                             {
                               "const": "payment_rail",
+                              "type": "string"
+                            },
+                            {
+                              "const": "effect_settlement",
                               "type": "string"
                             }
                           ]
@@ -40970,6 +42362,10 @@ export const runxSchemaArtifacts = {
                           {
                             "const": "payment_rail",
                             "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
+                            "type": "string"
                           }
                         ]
                       },
@@ -41187,6 +42583,10 @@ export const runxSchemaArtifacts = {
                           "anyOf": [
                             {
                               "const": "payment_rail",
+                              "type": "string"
+                            },
+                            {
+                              "const": "effect_settlement",
                               "type": "string"
                             }
                           ]
@@ -41417,6 +42817,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -41654,6 +43058,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -41927,6 +43335,10 @@ export const runxSchemaArtifacts = {
                       "anyOf": [
                         {
                           "const": "payment_rail",
+                          "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
                           "type": "string"
                         }
                       ]
@@ -42237,6 +43649,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -42453,6 +43869,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -42667,6 +44087,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -42880,6 +44304,10 @@ export const runxSchemaArtifacts = {
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -43218,6 +44646,10 @@ export const runxSchemaArtifacts = {
                           {
                             "const": "payment_rail",
                             "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
+                            "type": "string"
                           }
                         ]
                       },
@@ -43462,6 +44894,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -43747,6 +45183,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -44070,6 +45510,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -44352,6 +45796,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -44565,6 +46013,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -44816,6 +46268,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -45046,6 +46502,10 @@ export const runxSchemaArtifacts = {
           {
             "const": "payment_rail",
             "type": "string"
+          },
+          {
+            "const": "effect_settlement",
+            "type": "string"
           }
         ]
       },
@@ -45273,6 +46733,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -45498,6 +46962,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -45718,6 +47186,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -45934,6 +47406,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -46160,6 +47636,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -46379,6 +47859,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -46615,6 +48099,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -46839,6 +48327,10 @@ export const runxSchemaArtifacts = {
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -48223,6 +49715,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -48460,6 +49956,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -48695,6 +50195,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -48924,6 +50428,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -49210,6 +50718,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -49426,6 +50938,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -49644,6 +51160,10 @@ export const runxSchemaArtifacts = {
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -49898,6 +51418,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -50136,6 +51660,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -50357,6 +51885,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -50572,6 +52104,10 @@ export const runxSchemaArtifacts = {
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -50793,6 +52329,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -51008,6 +52548,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -51278,6 +52822,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -51494,6 +53042,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -51707,6 +53259,10 @@ export const runxSchemaArtifacts = {
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -51922,6 +53478,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -52168,6 +53728,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -52393,6 +53957,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -52630,6 +54198,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -52866,6 +54438,10 @@ export const runxSchemaArtifacts = {
                         {
                           "const": "payment_rail",
                           "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
+                          "type": "string"
                         }
                       ]
                     },
@@ -53083,6 +54659,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -53305,6 +54885,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -53532,6 +55116,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -53746,6 +55334,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -53964,6 +55556,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -54180,6 +55776,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -54420,6 +56020,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -54687,6 +56291,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -54914,6 +56522,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -55133,6 +56745,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -55402,6 +57018,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -55648,6 +57268,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -55864,6 +57488,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -56077,6 +57705,10 @@ export const runxSchemaArtifacts = {
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -56292,6 +57924,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -56538,6 +58174,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -56782,6 +58422,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -57038,6 +58682,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -57265,6 +58913,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -57598,6 +59250,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -57862,6 +59518,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -58095,6 +59755,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -58314,6 +59978,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -58578,6 +60246,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -58846,6 +60518,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -59110,6 +60786,10 @@ export const runxSchemaArtifacts = {
                         {
                           "const": "payment_rail",
                           "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
+                          "type": "string"
                         }
                       ]
                     },
@@ -59327,6 +61007,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -59549,6 +61233,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -59776,6 +61464,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -59990,6 +61682,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -60208,6 +61904,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -60424,6 +62124,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -60644,6 +62348,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -60877,6 +62585,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -61100,6 +62812,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -61367,6 +63083,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -61582,6 +63302,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -61818,6 +63542,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -62045,6 +63773,10 @@ export const runxSchemaArtifacts = {
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -62258,6 +63990,10 @@ export const runxSchemaArtifacts = {
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -62498,6 +64234,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -62751,6 +64491,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -63022,6 +64766,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -63238,6 +64986,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -63451,6 +65203,10 @@ export const runxSchemaArtifacts = {
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -63666,6 +65422,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -63919,6 +65679,10 @@ export const runxSchemaArtifacts = {
                           {
                             "const": "payment_rail",
                             "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
+                            "type": "string"
                           }
                         ]
                       },
@@ -64160,6 +65924,10 @@ export const runxSchemaArtifacts = {
                         "anyOf": [
                           {
                             "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
                             "type": "string"
                           }
                         ]
@@ -64459,6 +66227,10 @@ export const runxSchemaArtifacts = {
                     "anyOf": [
                       {
                         "const": "payment_rail",
+                        "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
                         "type": "string"
                       }
                     ]
@@ -64834,6 +66606,10 @@ export const runxSchemaArtifacts = {
                       {
                         "const": "payment_rail",
                         "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
+                        "type": "string"
                       }
                     ]
                   },
@@ -65081,6 +66857,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -65294,6 +67074,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -65550,6 +67334,10 @@ export const runxSchemaArtifacts = {
                     "anyOf": [
                       {
                         "const": "payment_rail",
+                        "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
                         "type": "string"
                       }
                     ]
@@ -65850,6 +67638,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -66139,6 +67931,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -66380,6 +68176,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]
@@ -66651,6 +68451,10 @@ export const runxSchemaArtifacts = {
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -66916,6 +68720,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -67154,6 +68962,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -67425,6 +69237,10 @@ export const runxSchemaArtifacts = {
                     {
                       "const": "payment_rail",
                       "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
+                      "type": "string"
                     }
                   ]
                 },
@@ -67641,6 +69457,10 @@ export const runxSchemaArtifacts = {
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -67854,6 +69674,10 @@ export const runxSchemaArtifacts = {
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -68069,6 +69893,10 @@ export const runxSchemaArtifacts = {
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -68316,6 +70144,10 @@ export const runxSchemaArtifacts = {
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -68897,6 +70729,10 @@ export const runxSchemaArtifacts = {
                       {
                         "const": "payment_rail",
                         "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
+                        "type": "string"
                       }
                     ]
                   },
@@ -69120,6 +70956,10 @@ export const runxSchemaArtifacts = {
                     "anyOf": [
                       {
                         "const": "payment_rail",
+                        "type": "string"
+                      },
+                      {
+                        "const": "effect_settlement",
                         "type": "string"
                       }
                     ]
@@ -69381,6 +71221,10 @@ export const runxSchemaArtifacts = {
               "anyOf": [
                 {
                   "const": "payment_rail",
+                  "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
                   "type": "string"
                 }
               ]

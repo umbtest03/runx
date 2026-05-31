@@ -103,6 +103,7 @@ impl ReferenceType {
 #[serde(rename_all = "snake_case")]
 pub enum ProofKind {
     PaymentRail,
+    EffectSettlement,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, RunxSchema)]

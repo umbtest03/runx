@@ -23,7 +23,9 @@ pub use local::admit_local_skill;
 pub use maturity::compute_maturity;
 pub use payment_authority::{
     PaymentAuthorityError, PaymentSpendCapabilityBinding, StepAuthorityAdmission,
-    StepAuthorityAdmissionDecision, admit_step_authority, authority_term_has_verb,
+    StepAuthorityAdmissionDecision, admit_step_authority, authority_effect_family,
+    authority_effect_proof_kinds, authority_requires_effect_non_replay,
+    authority_requires_effect_receipt_before_success, authority_term_has_verb,
     is_payment_authority_subset,
 };
 pub use public_work::{

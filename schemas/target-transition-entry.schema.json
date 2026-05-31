@@ -28,6 +28,10 @@
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -292,6 +296,10 @@
                 {
                   "const": "payment_rail",
                   "type": "string"
+                },
+                {
+                  "const": "effect_settlement",
+                  "type": "string"
                 }
               ]
             },
@@ -525,6 +533,10 @@
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -744,6 +756,10 @@
           "anyOf": [
             {
               "const": "payment_rail",
+              "type": "string"
+            },
+            {
+              "const": "effect_settlement",
               "type": "string"
             }
           ]

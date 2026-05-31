@@ -77,10 +77,10 @@ pub use aster::{
 };
 pub use authority::{
     Authority, AuthorityApproval, AuthorityAttenuation, AuthorityBounds, AuthorityCapability,
-    AuthorityCondition, AuthorityConditionPredicate, AuthorityResourceFamily, AuthoritySchema,
-    AuthoritySubsetComparison, AuthoritySubsetProof, AuthoritySubsetRelation,
-    AuthoritySubsetResult, AuthorityTerm, AuthorityVerb, PaymentAuthorityBounds,
-    PaymentCredentialForm,
+    AuthorityCondition, AuthorityConditionPredicate, AuthorityEffectGuard,
+    AuthorityEffectGuardKind, AuthorityResourceFamily, AuthoritySchema, AuthoritySubsetComparison,
+    AuthoritySubsetProof, AuthoritySubsetRelation, AuthoritySubsetResult, AuthorityTerm,
+    AuthorityVerb, PaymentAuthorityBounds, PaymentCredentialForm,
 };
 pub use credential_delivery::{
     CredentialDeliveryEnvBinding, CredentialDeliveryHandle, CredentialDeliveryMode,
@@ -194,9 +194,10 @@ pub use post_merge_observer::{
     project_post_merge_observer_publication_from_receipt,
 };
 pub use receipt::{
-    EFFECT_SETTLEMENT_RECEIPT_SCHEMA, FanoutReceiptDecision, FanoutReceiptStrategy,
-    FanoutReceiptSyncPoint, Lineage, RECEIPT_CANONICALIZATION, RECEIPT_SCHEMA, Receipt,
-    ReceiptAct, ReceiptAuthority, ReceiptCommitment, ReceiptCommitmentScope, ReceiptEnforcement,
+    EFFECT_SETTLEMENT_RECEIPT_SCHEMA, EffectSettlementPhase, EffectSettlementReceipt,
+    EffectSettlementReceiptSchema, FanoutReceiptDecision, FanoutReceiptStrategy,
+    FanoutReceiptSyncPoint, Lineage, RECEIPT_CANONICALIZATION, RECEIPT_SCHEMA, Receipt, ReceiptAct,
+    ReceiptAuthority, ReceiptCommitment, ReceiptCommitmentScope, ReceiptEnforcement,
     ReceiptIdempotency, ReceiptInputContext, ReceiptIssuer, ReceiptIssuerType, ReceiptSchema,
     ReceiptSignature, RunnerProvenance, Seal, SignatureAlgorithm, Subject, receipt_subject_kind,
 };

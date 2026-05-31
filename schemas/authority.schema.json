@@ -26,6 +26,10 @@
             {
               "const": "payment_rail",
               "type": "string"
+            },
+            {
+              "const": "effect_settlement",
+              "type": "string"
             }
           ]
         },
@@ -244,6 +248,10 @@
                   "anyOf": [
                     {
                       "const": "payment_rail",
+                      "type": "string"
+                    },
+                    {
+                      "const": "effect_settlement",
                       "type": "string"
                     }
                   ]
@@ -514,6 +522,10 @@
                         {
                           "const": "payment_rail",
                           "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
+                          "type": "string"
                         }
                       ]
                     },
@@ -727,6 +739,10 @@
                       "anyOf": [
                         {
                           "const": "payment_rail",
+                          "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
                           "type": "string"
                         }
                       ]
@@ -978,6 +994,10 @@
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -1195,6 +1215,10 @@
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -1411,6 +1435,10 @@
             {
               "const": "payment_rail",
               "type": "string"
+            },
+            {
+              "const": "effect_settlement",
+              "type": "string"
             }
           ]
         },
@@ -1625,6 +1653,10 @@
             "anyOf": [
               {
                 "const": "payment_rail",
+                "type": "string"
+              },
+              {
+                "const": "effect_settlement",
                 "type": "string"
               }
             ]
@@ -1851,6 +1883,10 @@
               {
                 "const": "payment_rail",
                 "type": "string"
+              },
+              {
+                "const": "effect_settlement",
+                "type": "string"
               }
             ]
           },
@@ -2075,6 +2111,10 @@
                         {
                           "const": "payment_rail",
                           "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
+                          "type": "string"
                         }
                       ]
                     },
@@ -2293,6 +2333,10 @@
                       "anyOf": [
                         {
                           "const": "payment_rail",
+                          "type": "string"
+                        },
+                        {
+                          "const": "effect_settlement",
                           "type": "string"
                         }
                       ]
@@ -2514,6 +2558,52 @@
                 "items": {
                   "minLength": 1,
                   "type": "string"
+                },
+                "type": "array"
+              },
+              "effects": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "family": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "guard_kinds": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "const": "receipt_before_success",
+                            "type": "string"
+                          },
+                          {
+                            "const": "non_replay",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "type": "array"
+                    },
+                    "proof_kinds": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "const": "payment_rail",
+                            "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "family"
+                  ],
+                  "type": "object"
                 },
                 "type": "array"
               },
@@ -2757,6 +2847,10 @@
                           {
                             "const": "payment_rail",
                             "type": "string"
+                          },
+                          {
+                            "const": "effect_settlement",
+                            "type": "string"
                           }
                         ]
                       },
@@ -2982,6 +3076,10 @@
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -3201,6 +3299,10 @@
                   {
                     "const": "payment_rail",
                     "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
+                    "type": "string"
                   }
                 ]
               },
@@ -3414,6 +3516,10 @@
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
@@ -3672,6 +3778,10 @@
                 "anyOf": [
                   {
                     "const": "payment_rail",
+                    "type": "string"
+                  },
+                  {
+                    "const": "effect_settlement",
                     "type": "string"
                   }
                 ]
