@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use runx_cli::launcher::{HarnessPlan, LauncherAction, help_text};
-use runx_runtime::LocalOrchestrator;
 
 fn main() -> ExitCode {
     let args: Vec<OsString> = env::args_os().skip(1).collect();
@@ -98,11 +97,7 @@ fn run_native_config(plan: runx_cli::config::ConfigPlan) -> ExitCode {
 }
 
 fn run_native_harness(plan: HarnessPlan) -> ExitCode {
-    // A skill package (directory or SKILL.md) runs its declared inline
-    // `harness.cases` and prints the publish summary; standalone fixture `.yaml`
-    // files replay as receipts. Mixing the two in one invocation is rejected so
-    // the output shape is unambiguous.
-    if plan.fixture_paths.iter().any(|path| is_skill_package(Path::new(path))) {
+    if contains_skill_package(&plan.fixture_paths) {
         let [target] = plan.fixture_paths.as_slice() else {
             let _ignored = write_stderr_line(
                 "runx harness accepts one skill package, or one or more fixture files, not a mix",
@@ -111,14 +106,38 @@ fn run_native_harness(plan: HarnessPlan) -> ExitCode {
         };
         return run_inline_harness(Path::new(target), plan.receipt_dir.as_ref());
     }
+    run_standalone_harness(plan.fixture_paths)
+}
 
+fn run_standalone_harness(fixture_paths: Vec<OsString>) -> ExitCode {
     let mut outputs = Vec::new();
-    for fixture_path in plan.fixture_paths {
+    let orchestrator = runx_cli::runtime::local_orchestrator();
+    for fixture_path in fixture_paths {
         let request = runx_runtime::HarnessRunRequest {
             fixture_path: PathBuf::from(fixture_path),
         };
-        match LocalOrchestrator.run_harness(&request) {
-            Ok(output) => outputs.push(output.output),
+        match orchestrator.run_harness_fixture(&request) {
+            Ok(output) => {
+                if let Err(error) = runx_cli::runtime::persist_payment_ledger_projection(&output) {
+                    let _ignored = write_stderr_line(&format!(
+                        "runx: payment ledger projection failed: {error}"
+                    ));
+                    return ExitCode::from(1);
+                }
+                outputs.push(
+                    match serde_json::to_value(&output.receipt)
+                        .and_then(serde_json::from_value::<runx_contracts::JsonValue>)
+                    {
+                        Ok(value) => value,
+                        Err(error) => {
+                            let _ignored = write_stderr_line(&format!(
+                                "runx: failed to serialize receipt: {error}"
+                            ));
+                            return ExitCode::from(1);
+                        }
+                    },
+                );
+            }
             Err(error) => {
                 let _ignored = write_stderr_line(&format!(
                     "runx: native harness replay failed for {}: {error}",
@@ -128,7 +147,10 @@ fn run_native_harness(plan: HarnessPlan) -> ExitCode {
             }
         }
     }
+    write_harness_receipts(outputs)
+}
 
+fn write_harness_receipts(mut outputs: Vec<runx_contracts::JsonValue>) -> ExitCode {
     let output = if outputs.len() == 1 {
         outputs.pop().unwrap_or(runx_contracts::JsonValue::Null)
     } else {
@@ -142,6 +164,12 @@ fn run_native_harness(plan: HarnessPlan) -> ExitCode {
             ExitCode::from(1)
         }
     }
+}
+
+// A skill package (directory or SKILL.md) runs its declared inline
+// `harness.cases`; standalone fixture `.yaml` files replay as receipts.
+fn contains_skill_package(paths: &[OsString]) -> bool {
+    paths.iter().any(|path| is_skill_package(Path::new(path)))
 }
 
 // A harness target is a skill package (run its declared inline harness) when it
@@ -162,7 +190,7 @@ fn run_inline_harness(skill_path: &Path, receipt_dir: Option<&OsString>) -> Exit
         skill_path: skill_path.to_path_buf(),
         receipt_dir: receipt_dir.map(PathBuf::from),
     };
-    let report = match LocalOrchestrator.run_inline_harness(&request) {
+    let report = match runx_cli::runtime::local_orchestrator().run_inline_harness(&request) {
         Ok(report) => report,
         Err(error) => {
             let _ignored = write_stderr_line(&format!(
@@ -175,8 +203,9 @@ fn run_inline_harness(skill_path: &Path, receipt_dir: Option<&OsString>) -> Exit
     let json = match serde_json::to_string_pretty(&report) {
         Ok(json) => json,
         Err(error) => {
-            let _ignored =
-                write_stderr_line(&format!("runx: failed to serialize harness summary: {error}"));
+            let _ignored = write_stderr_line(&format!(
+                "runx: failed to serialize harness summary: {error}"
+            ));
             return ExitCode::from(1);
         }
     };

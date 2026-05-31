@@ -14,15 +14,7 @@ use runx_contracts::{JsonObject, JsonValue, Receipt};
 use runx_receipts::{
     canonical_receipt_body_digest, canonical_receipt_digest, canonical_receipt_json,
 };
-use runx_runtime::effects::{
-    EffectSettlementEvidence, EffectSettlementRequest, EffectSupervisor, EffectSupervisorError,
-    RuntimeEffectRegistry,
-};
 use runx_runtime::harness::{HarnessFixtureCase, list_cases};
-use runx_runtime::payment::supervisor::{
-    PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID, PaymentSupervisorError,
-    PaymentSupervisorSettlementEvidence, payment_supervisor_evidence_to_effect_record,
-};
 use runx_runtime::{
     HarnessReplayOutput, InvocationStatus, RuntimeOptions, SkillAdapter, SkillInvocation,
     SkillOutput, run_harness_fixture_with_adapter,
@@ -358,42 +350,7 @@ impl Error for MessageError {}
 fn fixture_runtime_options() -> RuntimeOptions {
     RuntimeOptions {
         created_at: "2026-05-18T00:00:00Z".to_owned(),
-        effects: RuntimeEffectRegistry::with_payment_effect(FixtureEffectSupervisor),
         ..RuntimeOptions::local_development()
-    }
-}
-
-#[derive(Clone, Debug)]
-struct FixtureEffectSupervisor;
-
-impl EffectSupervisor for FixtureEffectSupervisor {
-    fn settlement_evidence(
-        &self,
-        request: EffectSettlementRequest<'_>,
-    ) -> Result<EffectSettlementEvidence, EffectSupervisorError> {
-        let request = request.payment_rail()?;
-        if request.proof_ref != "receipt-proof:mock:x402-pay-approval-001" {
-            return Err(PaymentSupervisorError::InvalidSupervisorEvidence {
-                message: format!(
-                    "fixture supervisor has no settlement for {}",
-                    request.proof_ref
-                ),
-            }
-            .into());
-        }
-        Ok(EffectSettlementEvidence::generic(
-            payment_supervisor_evidence_to_effect_record(PaymentSupervisorSettlementEvidence {
-                verifier_id: PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID.to_owned(),
-                proof_ref: request.proof_ref.to_owned(),
-                rail: request.rail.to_owned(),
-                counterparty: "merchant-123".to_owned(),
-                amount_minor: request.amount_minor,
-                currency: request.currency.to_owned(),
-                idempotency_key: "payment:x402-pay-approval-001".to_owned(),
-                settlement_status: Some("fulfilled".to_owned()),
-                provider_event_ref: Some("fixture:event:x402-pay-approval-001".to_owned()),
-            }),
-        ))
     }
 }
 
@@ -405,19 +362,15 @@ impl SkillAdapter for FixtureOracleAdapter {
     }
 
     fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, runx_runtime::RuntimeError> {
-        let stdout = if request.skill_name == "pay-fulfill-rail" {
-            r#"{"payment_rail_packet":{"data":{"rail_result":{"status":"fulfilled","rail":"mock","amount_minor":125,"currency":"USD"},"rail_proof":{"proof_ref":"receipt-proof:mock:x402-pay-approval-001","idempotency_key":"payment:x402-pay-approval-001"},"credential_envelope":{"form":"paid_tool_credential","credential_ref":"credential:mock:x402-pay-approval-001"}}}}"#.to_owned()
-        } else {
-            request
-                .inputs
-                .get("message")
-                .and_then(|value| match value {
-                    JsonValue::String(value) => Some(value.as_str()),
-                    _ => None,
-                })
-                .unwrap_or_default()
-                .to_owned()
-        };
+        let stdout = request
+            .inputs
+            .get("message")
+            .and_then(|value| match value {
+                JsonValue::String(value) => Some(value.as_str()),
+                _ => None,
+            })
+            .unwrap_or_default()
+            .to_owned();
         Ok(SkillOutput {
             status: InvocationStatus::Success,
             stdout,

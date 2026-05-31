@@ -10,8 +10,8 @@ use runx_contracts::{
 };
 use runx_core::state_machine::GraphStatus;
 use runx_parser::{
-    ExecutionGraph, HarnessCallerFixture, SkillRunnerDefinition, SkillRunnerManifest,
-    parse_runner_manifest_yaml, validate_runner_manifest,
+    ExecutionGraph, HarnessCallerFixture, RunnerHarnessCase, SkillRunnerDefinition,
+    SkillRunnerManifest, parse_runner_manifest_yaml, validate_runner_manifest,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "cli-tool")]
@@ -27,6 +27,7 @@ use crate::adapters::cli_tool::CliToolAdapter;
 use crate::agent_invocation::{
     AgentActInvocationSourceType, agent_act_invocation_id, agent_act_resolution_request,
 };
+use crate::effects::RuntimeEffectRegistry;
 use crate::execution::orchestrator::SkillRunRequest;
 use crate::execution::runner::{GraphCheckpoint, GraphRun, Runtime, RuntimeOptions};
 use crate::host::Host;
@@ -68,13 +69,17 @@ pub(crate) struct SkillRunOverrides {
     pub(crate) seeded_answers: Option<JsonObject>,
 }
 
-pub(crate) fn execute_skill_run(request: &SkillRunRequest) -> Result<JsonValue, SkillRunError> {
-    execute_skill_run_with_overrides(request, &SkillRunOverrides::default())
+pub(crate) fn execute_skill_run_with_effects(
+    request: &SkillRunRequest,
+    effects: &RuntimeEffectRegistry,
+) -> Result<JsonValue, SkillRunError> {
+    execute_skill_run_with_overrides(request, &SkillRunOverrides::default(), effects)
 }
 
 pub(crate) fn execute_skill_run_with_overrides(
     request: &SkillRunRequest,
     overrides: &SkillRunOverrides,
+    effects: &RuntimeEffectRegistry,
 ) -> Result<JsonValue, SkillRunError> {
     let workspace = WorkspaceEnv::new(request.env.clone(), request.cwd.clone());
     let receipts = ReceiptServices::from_env(workspace.env())
@@ -103,7 +108,7 @@ pub(crate) fn execute_skill_run_with_overrides(
     }
     if runner.source.source_type == runx_parser::SourceKind::Graph {
         return execute_graph_skill_run(
-            request, overrides, &workspace, &receipts, &manifest, runner,
+            request, overrides, effects, &workspace, &receipts, &manifest, runner,
         );
     }
 
@@ -148,9 +153,10 @@ impl InlineHarnessReport {
 /// runner selected and its caller answers/approvals seeded for a single pass.
 /// A skill with no declared harness is `not_declared` (not a failure). The
 /// run is `passed` only when every case meets its declared expectation.
-pub(crate) fn run_inline_harness(
+pub(crate) fn run_inline_harness_with_effects(
     skill_path: &Path,
     receipt_dir: Option<&Path>,
+    effects: &RuntimeEffectRegistry,
 ) -> Result<InlineHarnessReport, SkillRunError> {
     let skill_dir = resolve_skill_dir(skill_path)?;
     let manifest = load_runner_manifest(&skill_dir)?;
@@ -171,62 +177,16 @@ pub(crate) fn run_inline_harness(
 
     for case in &harness.cases {
         case_names.push(case.name.clone());
-
-        // Resolve the runner the case targets up front, so a graph case still
-        // counts toward the graph-integration signal even when it blocks before
-        // sealing, and a bad runner reference is reported per case rather than
-        // aborting the whole suite.
-        let is_graph = match selected_runner(&manifest, case.runner.as_deref()) {
-            Ok(runner) => runner.source.source_type == runx_parser::SourceKind::Graph,
-            Err(error) => {
-                assertion_errors.push(format!("{}: {error}", case.name));
-                continue;
-            }
-        };
-
-        // Inherit the process env (carries receipt-signing config the governed
-        // runtime requires) and overlay the case's declared env, matching how
-        // `runx skill` and the standalone fixture harness compose env.
-        let mut env: BTreeMap<String, String> = std::env::vars().collect();
-        env.extend(case.env.clone());
-        let request = SkillRunRequest {
-            skill_path: skill_dir.clone(),
-            receipt_dir: receipt_dir.map(Path::to_path_buf),
-            run_id: None,
-            answers_path: None,
-            inputs: case.inputs.clone(),
-            env,
-            cwd: cwd.clone(),
-            local_credential: None,
-        };
-        let overrides = SkillRunOverrides {
-            runner: case.runner.clone(),
-            seeded_answers: seeded_answers_from_caller(&case.caller),
-        };
-
-        match execute_skill_run_with_overrides(&request, &overrides) {
-            Ok(output) => {
-                if is_graph {
-                    graph_case_count += 1;
-                }
-                if let Some(receipt_id) = output
-                    .as_object()
-                    .and_then(|object| object.get("receipt_id"))
-                    .and_then(JsonValue::as_str)
-                {
-                    receipt_ids.push(receipt_id.to_owned());
-                }
-                if let Some(expected) = case.expect.status.as_deref() {
-                    let actual = inline_harness_actual_status(&output);
-                    if actual != expected {
-                        assertion_errors.push(format!(
-                            "{}: expected status {expected}, got {actual}",
-                            case.name
-                        ));
-                    }
-                }
-            }
-            Err(error) => assertion_errors.push(format!("{}: {error}", case.name)),
+        let outcome =
+            run_inline_harness_case(&skill_dir, receipt_dir, &manifest, case, &cwd, effects);
+        if outcome.is_graph {
+            graph_case_count += 1;
+        }
+        if let Some(receipt_id) = outcome.receipt_id {
+            receipt_ids.push(receipt_id);
+        }
+        if let Some(error) = outcome.assertion_error {
+            assertion_errors.push(error);
         }
     }
 
@@ -244,6 +204,91 @@ pub(crate) fn run_inline_harness(
         receipt_ids,
         graph_case_count,
     })
+}
+
+struct InlineHarnessCaseOutcome {
+    is_graph: bool,
+    receipt_id: Option<String>,
+    assertion_error: Option<String>,
+}
+
+fn run_inline_harness_case(
+    skill_dir: &Path,
+    receipt_dir: Option<&Path>,
+    manifest: &SkillRunnerManifest,
+    case: &RunnerHarnessCase,
+    cwd: &Path,
+    effects: &RuntimeEffectRegistry,
+) -> InlineHarnessCaseOutcome {
+    let is_graph = match selected_runner(manifest, case.runner.as_deref()) {
+        Ok(runner) => runner.source.source_type == runx_parser::SourceKind::Graph,
+        Err(error) => return inline_harness_case_error(&case.name, error),
+    };
+    let request = inline_harness_case_request(skill_dir, receipt_dir, case, cwd);
+    let overrides = SkillRunOverrides {
+        runner: case.runner.clone(),
+        seeded_answers: seeded_answers_from_caller(&case.caller),
+    };
+    match execute_skill_run_with_overrides(&request, &overrides, effects) {
+        Ok(output) => InlineHarnessCaseOutcome {
+            is_graph,
+            receipt_id: receipt_id_from_output(&output),
+            assertion_error: inline_harness_expectation_error(case, &output),
+        },
+        Err(error) => InlineHarnessCaseOutcome {
+            is_graph,
+            receipt_id: None,
+            assertion_error: Some(format!("{}: {error}", case.name)),
+        },
+    }
+}
+
+fn inline_harness_case_request(
+    skill_dir: &Path,
+    receipt_dir: Option<&Path>,
+    case: &RunnerHarnessCase,
+    cwd: &Path,
+) -> SkillRunRequest {
+    let mut env: BTreeMap<String, String> = std::env::vars().collect();
+    env.extend(case.env.clone());
+    SkillRunRequest {
+        skill_path: skill_dir.to_path_buf(),
+        receipt_dir: receipt_dir.map(Path::to_path_buf),
+        run_id: None,
+        answers_path: None,
+        inputs: case.inputs.clone(),
+        env,
+        cwd: cwd.to_path_buf(),
+        local_credential: None,
+    }
+}
+
+fn inline_harness_case_error(
+    case_name: &str,
+    error: impl std::fmt::Display,
+) -> InlineHarnessCaseOutcome {
+    InlineHarnessCaseOutcome {
+        is_graph: false,
+        receipt_id: None,
+        assertion_error: Some(format!("{case_name}: {error}")),
+    }
+}
+
+fn receipt_id_from_output(output: &JsonValue) -> Option<String> {
+    output
+        .as_object()
+        .and_then(|object| object.get("receipt_id"))
+        .and_then(JsonValue::as_str)
+        .map(str::to_owned)
+}
+
+fn inline_harness_expectation_error(
+    case: &RunnerHarnessCase,
+    output: &JsonValue,
+) -> Option<String> {
+    let expected = case.expect.status.as_deref()?;
+    let actual = inline_harness_actual_status(output);
+    (actual != expected).then(|| format!("{}: expected status {expected}, got {actual}", case.name))
 }
 
 // Merge a harness case's caller answers + approvals into one map keyed by
@@ -349,6 +394,7 @@ fn execute_agent_skill_run(
 fn execute_graph_skill_run(
     request: &SkillRunRequest,
     overrides: &SkillRunOverrides,
+    effects: &RuntimeEffectRegistry,
     workspace: &WorkspaceEnv,
     receipts: &ReceiptServices,
     manifest: &SkillRunnerManifest,
@@ -374,7 +420,7 @@ fn execute_graph_skill_run(
             created_at: crate::time::now_iso8601(),
             env,
             receipt_signature: receipts.signature_config().clone(),
-            effects: Default::default(),
+            effects: effects.clone(),
         },
     );
     // Seeded answers run a single fresh pass with the answers pre-loaded into the
@@ -1417,12 +1463,13 @@ mod tests {
             credential_delivery: crate::credentials::CredentialDelivery::none(),
         };
 
-        match SkillRunGraphAdapter::default().invoke(invocation) {
-            Err(RuntimeError::UnsupportedSource { source_kind }) => {
-                assert_eq!(source_kind, "mcp");
-            }
-            Ok(_) => panic!("unregistered graph source unexpectedly succeeded"),
-            Err(other) => panic!("unexpected error: {other}"),
-        }
+        let result = SkillRunGraphAdapter::default().invoke(invocation);
+        assert!(
+            matches!(
+                &result,
+                Err(RuntimeError::UnsupportedSource { source_kind }) if source_kind == "mcp"
+            ),
+            "unexpected unregistered graph source result: {result:?}"
+        );
     }
 }

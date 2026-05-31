@@ -13,7 +13,8 @@ use thiserror::Error;
 use super::harness::{HarnessReplayError, HarnessReplayOutput};
 #[cfg(feature = "cli-tool")]
 use super::runner::GraphRun;
-use super::skill_run::{InlineHarnessReport, SkillRunError, execute_skill_run, run_inline_harness};
+use super::skill_run::{InlineHarnessReport, SkillRunError};
+use crate::effects::RuntimeEffectRegistry;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SkillRunRequest {
@@ -136,10 +137,17 @@ pub enum OrchestratorError {
     CliToolFeatureDisabled,
 }
 
-#[derive(Default)]
-pub struct LocalOrchestrator;
+#[derive(Clone, Debug, Default)]
+pub struct LocalOrchestrator {
+    effects: RuntimeEffectRegistry,
+}
 
 impl LocalOrchestrator {
+    #[must_use]
+    pub fn with_effects(effects: RuntimeEffectRegistry) -> Self {
+        Self { effects }
+    }
+
     pub fn run(&self, request: RunRequest) -> Result<RunResult, OrchestratorError> {
         match request {
             RunRequest::Skill(request) => self.run_skill(&request),
@@ -149,14 +157,18 @@ impl LocalOrchestrator {
     }
 
     pub fn run_skill(&self, request: &SkillRunRequest) -> Result<RunResult, OrchestratorError> {
-        let output = execute_skill_run(request)?;
+        let output = super::skill_run::execute_skill_run_with_effects(request, &self.effects)?;
         Ok(skill_result(output))
     }
 
     pub fn run_graph(&self, request: &GraphRunRequest) -> Result<RunResult, OrchestratorError> {
         #[cfg(feature = "cli-tool")]
         {
-            graph_result(super::runner::run_graph_file(&request.graph_path)?)
+            let mut options = super::runner::RuntimeOptions::from_process_env()?;
+            options.effects = self.effects.clone();
+            let runtime =
+                super::runner::Runtime::new(crate::adapters::cli_tool::CliToolAdapter, options);
+            graph_result(runtime.run_graph_file(&request.graph_path)?)
         }
         #[cfg(not(feature = "cli-tool"))]
         {
@@ -166,17 +178,43 @@ impl LocalOrchestrator {
     }
 
     pub fn run_harness(&self, request: &HarnessRunRequest) -> Result<RunResult, OrchestratorError> {
-        harness_result(super::harness::run_harness_fixture(&request.fixture_path)?)
+        harness_result(self.run_harness_fixture(request)?)
     }
 
     pub fn run_inline_harness(
         &self,
         request: &InlineHarnessRequest,
     ) -> Result<InlineHarnessReport, OrchestratorError> {
-        Ok(run_inline_harness(
+        Ok(super::skill_run::run_inline_harness_with_effects(
             &request.skill_path,
             request.receipt_dir.as_deref(),
+            &self.effects,
         )?)
+    }
+
+    #[cfg(feature = "cli-tool")]
+    pub fn run_harness_fixture(
+        &self,
+        request: &HarnessRunRequest,
+    ) -> Result<HarnessReplayOutput, OrchestratorError> {
+        let mut options = super::runner::RuntimeOptions::from_process_env()?;
+        options.created_at = crate::time::DEFAULT_CREATED_AT.to_owned();
+        options.effects = self.effects.clone();
+        Ok(super::harness::run_harness_fixture_with_adapter(
+            &request.fixture_path,
+            crate::adapters::cli_tool::CliToolAdapter,
+            options,
+        )?)
+    }
+
+    #[cfg(not(feature = "cli-tool"))]
+    pub fn run_harness_fixture(
+        &self,
+        request: &HarnessRunRequest,
+    ) -> Result<HarnessReplayOutput, OrchestratorError> {
+        let _ = self;
+        let _ = request;
+        Err(OrchestratorError::CliToolFeatureDisabled)
     }
 }
 

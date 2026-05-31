@@ -28,7 +28,10 @@ fn top_level_help_and_version_are_native() {
         "runx skill <skill-ref|skill-dir|SKILL.md> [--input k=v] [--receipt-dir dir] [--run-id id] [--answers file] [--json]",
     );
     assert_help_line(&help, "runx parser eval --input <file|-> --json");
-    assert_help_line(&help, "runx harness <fixture.yaml...> [--json]");
+    assert_help_line(
+        &help,
+        "runx harness <fixture.yaml...|skill-dir|SKILL.md> [--receipt-dir dir] [--json]",
+    );
     assert!(
         !help.contains("runx connect"),
         "native OSS help must not advertise the removed connect brokerage surface"
@@ -88,6 +91,7 @@ fn routes_harness_to_native_runner() {
         plan(&["harness", "fixtures/harness/echo-skill.yaml", "--json"]),
         LauncherAction::RunHarness(HarnessPlan {
             fixture_paths: vec!["fixtures/harness/echo-skill.yaml".into()],
+            receipt_dir: None,
         })
     );
 }
@@ -97,17 +101,16 @@ fn routes_multiple_harness_fixtures_to_native_runner() {
     assert_eq!(
         plan(&[
             "harness",
-            "fixtures/harness/x402-pay-idempotency-capability-reuse.yaml",
-            "fixtures/harness/x402-pay-idempotency-crash-recovery.yaml",
-            "fixtures/harness/x402-pay-idempotency-replay.yaml",
+            "fixtures/harness/echo-skill.yaml",
+            "fixtures/harness/sequential-graph.yaml",
             "--json",
         ]),
         LauncherAction::RunHarness(HarnessPlan {
             fixture_paths: vec![
-                "fixtures/harness/x402-pay-idempotency-capability-reuse.yaml".into(),
-                "fixtures/harness/x402-pay-idempotency-crash-recovery.yaml".into(),
-                "fixtures/harness/x402-pay-idempotency-replay.yaml".into(),
+                "fixtures/harness/echo-skill.yaml".into(),
+                "fixtures/harness/sequential-graph.yaml".into(),
             ],
+            receipt_dir: None,
         })
     );
 }
@@ -116,7 +119,7 @@ fn routes_multiple_harness_fixtures_to_native_runner() {
 fn harness_rejects_missing_fixture_path() {
     assert_eq!(
         plan(&["harness"]),
-        LauncherAction::Error("runx harness requires at least one fixture path".to_owned())
+        LauncherAction::Error("runx harness requires a fixture path or skill package".to_owned())
     );
 }
 

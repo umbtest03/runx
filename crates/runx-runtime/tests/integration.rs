@@ -28,7 +28,6 @@ mod local_credential_provision;
 mod mcp_adapter;
 mod mcp_server;
 mod parity;
-mod payment;
 mod post_merge_observer;
 mod receipt_paths;
 mod receipt_refs;

@@ -28,7 +28,7 @@ harness:
         idempotency_seed: paid-search-001
       caller:
         answers:
-          agent_task.price.output:
+          agent_task.charge-price.output:
             charge_price:
               price_id: charge_price_demo_001
               amount_minor: 125
@@ -37,7 +37,7 @@ harness:
                 - stripe
             requested_payment_authority:
               authority_ref: authority:payment:charge-price-demo-001
-          agent_task.challenge.output:
+          agent_task.charge-challenge.output:
             payment_required_signal:
               signal_type: payment_required
               challenge_id: charge_challenge_demo_001
@@ -48,7 +48,7 @@ harness:
               key: charge:paid-search-001
             accepted_settlement_families:
               - stripe
-          agent_task.verify.output:
+          agent_task.charge-verify.output:
             verification_result:
               status: verified
               settlement_family: stripe
@@ -150,7 +150,12 @@ runners:
             idempotency: challenge.charge_challenge_packet.data.idempotency
         - id: seal
           run:
-            type: receipt-seal
+            type: agent-task
+            agent: operator
+            task: seal
+            outputs:
+              sealed: boolean
+              receipt_ref: string
           inputs:
             receipt_ref: verify.charge_verification_packet.data.sealed_receipt_ref
             required: true
@@ -161,7 +166,12 @@ runners:
             packet: runx.payment.charge_seal.v1
         - id: forward
           run:
-            type: modeled-forward
+            type: agent-task
+            agent: operator
+            task: forward
+            outputs:
+              forwarded: boolean
+              result_ref: string
           inputs:
             operation: "{{mcp_tool_call}}"
           context:

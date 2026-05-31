@@ -803,13 +803,19 @@ mod tests {
             spend_capability_binding: None,
             consumed_spend_capability_refs: &[],
             spend_capability_ref: None,
-        })
-        .expect("generic effect authority should admit without payment rail state");
+        });
 
-        assert_eq!(decision.verb, None);
-        assert_eq!(decision.effect_family, Some("deployment"));
-        assert!(decision.receipt_before_success_required);
-        assert!(decision.non_replay_required);
+        assert!(
+            matches!(
+                decision,
+                Ok(ref decision)
+                    if decision.verb == None
+                        && decision.effect_family == Some("deployment")
+                        && decision.receipt_before_success_required
+                        && decision.non_replay_required
+            ),
+            "generic effect authority should admit without payment rail state: {decision:?}"
+        );
         assert_eq!(
             authority_effect_proof_kinds(&parent, &child, "deployment"),
             vec![ProofKind::EffectSettlement]

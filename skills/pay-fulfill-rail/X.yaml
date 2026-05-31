@@ -44,13 +44,15 @@ harness:
           issued_by_ref:
             type: host
             uri: authority:payment:test
-        spend_capability_ref: capability:payment:demo-search-001
+        spend_capability_ref:
+          type: credential
+          uri: capability:payment:demo-search-001
         rail_profile_ref: rail-profile:mock:test
         idempotency:
           key: payment:demo-search-001
       caller:
         answers:
-          agent_task.pay-fulfill-rail.output:
+          agent_task.pay-fulfill-rail-mock.output:
             rail_result:
               status: fulfilled
               rail: mock
@@ -117,7 +119,7 @@ runners:
         required: true
         description: "Child payment authority term admitted by core."
       spend_capability_ref:
-        type: string
+        type: object
         required: true
         description: "Scoped single-use spend capability reference."
       rail_profile_ref:

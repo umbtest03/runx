@@ -2,15 +2,6 @@ use std::path::{Path, PathBuf};
 
 use runx_contracts::{ClosureDisposition, JsonObject, JsonValue, ReceiptSchema};
 use runx_receipts::canonical_receipt_json;
-use runx_runtime::effects::{
-    EffectSettlementEvidence, EffectSettlementRequest, EffectSupervisor, EffectSupervisorError,
-    RuntimeEffectRegistry,
-};
-use runx_runtime::payment::supervisor::{
-    PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID, PaymentSupervisorError,
-    PaymentSupervisorSettlementEvidence, PaymentSupervisorSettlementRequest,
-    payment_supervisor_evidence_to_effect_record,
-};
 use runx_runtime::{
     HarnessExpectedStatus, HarnessFixtureError, HarnessFixtureKind, InvocationStatus,
     RuntimeOptions, SkillAdapter, SkillInvocation, SkillOutput, load_harness_fixture,
@@ -33,51 +24,6 @@ fn loads_active_harness_fixtures_without_retired_receipt_fields() -> Result<(), 
             HarnessExpectedStatus::Sealed,
             ClosureDisposition::Closed,
         ),
-        (
-            "fixtures/harness/payment-approval-graph.yaml",
-            HarnessExpectedStatus::Sealed,
-            ClosureDisposition::Closed,
-        ),
-        (
-            "fixtures/harness/payment-approval-denied.yaml",
-            HarnessExpectedStatus::PolicyDenied,
-            ClosureDisposition::Blocked,
-        ),
-        (
-            "fixtures/harness/x402-pay-approval.yaml",
-            HarnessExpectedStatus::Sealed,
-            ClosureDisposition::Closed,
-        ),
-        (
-            "fixtures/harness/x402-pay-approval-denied.yaml",
-            HarnessExpectedStatus::PolicyDenied,
-            ClosureDisposition::Blocked,
-        ),
-        (
-            "fixtures/harness/x402-pay-paid-echo.yaml",
-            HarnessExpectedStatus::Sealed,
-            ClosureDisposition::Closed,
-        ),
-        (
-            "fixtures/harness/x402-pay-idempotency-replay.yaml",
-            HarnessExpectedStatus::Sealed,
-            ClosureDisposition::Closed,
-        ),
-        (
-            "fixtures/harness/x402-pay-idempotency-capability-reuse.yaml",
-            HarnessExpectedStatus::PolicyDenied,
-            ClosureDisposition::Blocked,
-        ),
-        (
-            "fixtures/harness/x402-pay-idempotency-crash-recovery.yaml",
-            HarnessExpectedStatus::Escalated,
-            ClosureDisposition::Deferred,
-        ),
-        (
-            "fixtures/harness/stripe-spt-payment.yaml",
-            HarnessExpectedStatus::Sealed,
-            ClosureDisposition::Closed,
-        ),
     ] {
         let fixture = load_harness_fixture(fixture_path(path))?;
         assert_eq!(fixture.expect.status, Some(expected_status));
@@ -97,41 +43,6 @@ fn loads_active_harness_fixtures_without_retired_receipt_fields() -> Result<(), 
         };
         assert_eq!(receipt.state.as_deref(), Some(expected_state));
         assert_eq!(receipt.disposition, Some(expected_disposition));
-    }
-    Ok(())
-}
-
-#[test]
-#[cfg(feature = "cli-tool")]
-fn replays_x402_idempotency_sequence_fixtures() -> Result<(), Box<dyn std::error::Error>> {
-    for (path, expected_status, expected_disposition, expected_steps) in [
-        (
-            "fixtures/harness/x402-pay-idempotency-replay.yaml",
-            HarnessExpectedStatus::Sealed,
-            ClosureDisposition::Closed,
-            5,
-        ),
-        (
-            "fixtures/harness/x402-pay-idempotency-capability-reuse.yaml",
-            HarnessExpectedStatus::PolicyDenied,
-            ClosureDisposition::Blocked,
-            5,
-        ),
-        (
-            "fixtures/harness/x402-pay-idempotency-crash-recovery.yaml",
-            HarnessExpectedStatus::Escalated,
-            ClosureDisposition::Deferred,
-            0,
-        ),
-    ] {
-        let output = run_fixture_with_test_adapter(path)?;
-
-        assert_eq!(output.status, expected_status, "{path}");
-        assert_eq!(
-            output.receipt.seal.disposition, expected_disposition,
-            "{path}"
-        );
-        assert_eq!(output.step_receipts.len(), expected_steps, "{path}");
     }
     Ok(())
 }
@@ -288,65 +199,6 @@ fn replays_active_harness_graph_fixture() -> Result<(), Box<dyn std::error::Erro
 }
 
 #[test]
-fn replays_payment_approval_graph_fixture_with_rail_proof() -> Result<(), Box<dyn std::error::Error>>
-{
-    let output = run_fixture_with_test_adapter("fixtures/harness/payment-approval-graph.yaml")?;
-
-    assert_eq!(output.status, HarnessExpectedStatus::Sealed);
-    assert_eq!(
-        output.receipt.subject.reference.uri,
-        "hrn_x402-pay-approval_graph"
-    );
-    assert_eq!(output.receipt.seal.disposition, ClosureDisposition::Closed);
-    assert_eq!(output.step_receipts.len(), 2);
-    assert_eq!(
-        output.step_receipts[0].subject.reference.uri,
-        "hrn_x402-pay-approval_approve-spend"
-    );
-    assert_eq!(
-        output.step_receipts[1].subject.reference.uri,
-        "hrn_x402-pay-approval_fulfill"
-    );
-    let fulfill_act =
-        output.step_receipts[1]
-            .acts
-            .first()
-            .ok_or(HarnessFixtureError::Required {
-                field: "fulfill act".to_owned(),
-            })?;
-    assert_eq!(
-        fulfill_act
-            .criterion_bindings
-            .iter()
-            .flat_map(|criterion| criterion.verification_refs.iter())
-            .map(|reference| reference.uri.as_str())
-            .collect::<Vec<_>>(),
-        vec!["receipt-proof:mock:x402-pay-approval-001"]
-    );
-    Ok(())
-}
-
-#[test]
-fn replays_payment_denied_graph_fixture_as_policy_denied() -> Result<(), Box<dyn std::error::Error>>
-{
-    let output = run_fixture_with_test_adapter("fixtures/harness/payment-approval-denied.yaml")?;
-
-    assert_eq!(output.status, HarnessExpectedStatus::PolicyDenied);
-    assert_eq!(
-        output.receipt.subject.reference.uri,
-        "hrn_x402-pay-approval_graph"
-    );
-    assert_eq!(output.receipt.seal.disposition, ClosureDisposition::Blocked);
-    assert_eq!(output.receipt.seal.reason_code, "graph_blocked");
-    assert_eq!(output.step_receipts.len(), 1);
-    assert_eq!(
-        output.step_receipts[0].subject.reference.uri,
-        "hrn_x402-pay-approval_approve-spend"
-    );
-    Ok(())
-}
-
-#[test]
 fn replay_receipts_match_checked_in_canonical_oracles() -> Result<(), Box<dyn std::error::Error>> {
     let echo = run_fixture_with_test_adapter("fixtures/harness/echo-skill.yaml")?;
     assert_oracle(
@@ -368,19 +220,6 @@ fn replay_receipts_match_checked_in_canonical_oracles() -> Result<(), Box<dyn st
         &canonical_receipt_json(&graph.step_receipts[1])?,
     )?;
 
-    let payment = run_fixture_with_test_adapter("fixtures/harness/payment-approval-graph.yaml")?;
-    assert_oracle(
-        "fixtures/harness/oracle/payment-approval-graph.receipt.json",
-        &canonical_receipt_json(&payment.receipt)?,
-    )?;
-    assert_oracle(
-        "fixtures/harness/oracle/payment-approval-graph.approve-spend.json",
-        &canonical_receipt_json(&payment.step_receipts[0])?,
-    )?;
-    assert_oracle(
-        "fixtures/harness/oracle/payment-approval-graph.fulfill.json",
-        &canonical_receipt_json(&payment.step_receipts[1])?,
-    )?;
     Ok(())
 }
 
@@ -409,61 +248,7 @@ fn run_fixture_with_test_adapter(
 fn fixture_runtime_options() -> RuntimeOptions {
     RuntimeOptions {
         created_at: FIXTURE_CREATED_AT.to_owned(),
-        effects: RuntimeEffectRegistry::with_payment_effect(FixtureEffectSupervisor),
         ..RuntimeOptions::local_development()
-    }
-}
-
-#[derive(Clone, Debug)]
-struct FixtureEffectSupervisor;
-
-impl EffectSupervisor for FixtureEffectSupervisor {
-    fn settlement_evidence(
-        &self,
-        request: EffectSettlementRequest<'_>,
-    ) -> Result<EffectSettlementEvidence, EffectSupervisorError> {
-        let request = request.payment_rail()?;
-        match request.proof_ref {
-            "receipt-proof:mock:x402-pay-approval-001" => Ok(EffectSettlementEvidence::generic(
-                payment_supervisor_evidence_to_effect_record(payment_supervisor_evidence(
-                    request,
-                    "merchant-123",
-                    "payment:x402-pay-approval-001",
-                )),
-            )),
-            "receipt-proof:mock:paid-echo-001" => Ok(EffectSettlementEvidence::generic(
-                payment_supervisor_evidence_to_effect_record(payment_supervisor_evidence(
-                    request,
-                    "merchant:paid-echo",
-                    "payment:paid-echo-001",
-                )),
-            )),
-            _ => Err(PaymentSupervisorError::InvalidSupervisorEvidence {
-                message: format!(
-                    "fixture supervisor has no settlement for {}",
-                    request.proof_ref
-                ),
-            }
-            .into()),
-        }
-    }
-}
-
-fn payment_supervisor_evidence(
-    request: PaymentSupervisorSettlementRequest<'_>,
-    expected_counterparty: &str,
-    expected_idempotency_key: &str,
-) -> PaymentSupervisorSettlementEvidence {
-    PaymentSupervisorSettlementEvidence {
-        verifier_id: PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID.to_owned(),
-        proof_ref: request.proof_ref.to_owned(),
-        rail: request.rail.to_owned(),
-        counterparty: expected_counterparty.to_owned(),
-        amount_minor: request.amount_minor,
-        currency: request.currency.to_owned(),
-        idempotency_key: expected_idempotency_key.to_owned(),
-        settlement_status: Some("fulfilled".to_owned()),
-        provider_event_ref: Some(format!("fixture:event:{}", request.proof_ref)),
     }
 }
 
@@ -475,22 +260,15 @@ impl SkillAdapter for TestAdapter {
     }
 
     fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, runx_runtime::RuntimeError> {
-        // The skill emits only the rail-packet claim. The trusted runtime
-        // supervisor supplies matching settlement evidence, so test and live
-        // execution share the same fail-closed boundary.
-        let stdout = if request.skill_name == "pay-fulfill-rail" {
-            r#"{"payment_rail_packet":{"data":{"rail_result":{"status":"fulfilled","rail":"mock","amount_minor":125,"currency":"USD"},"rail_proof":{"proof_ref":"receipt-proof:mock:x402-pay-approval-001","idempotency_key":"payment:x402-pay-approval-001"},"credential_envelope":{"form":"paid_tool_credential","credential_ref":"credential:mock:x402-pay-approval-001"}}}}"#.to_owned()
-        } else {
-            request
-                .inputs
-                .get("message")
-                .and_then(|value| match value {
-                    JsonValue::String(value) => Some(value.as_str()),
-                    _ => None,
-                })
-                .unwrap_or_default()
-                .to_owned()
-        };
+        let stdout = request
+            .inputs
+            .get("message")
+            .and_then(|value| match value {
+                JsonValue::String(value) => Some(value.as_str()),
+                _ => None,
+            })
+            .unwrap_or_default()
+            .to_owned();
         Ok(SkillOutput {
             status: InvocationStatus::Success,
             stdout,

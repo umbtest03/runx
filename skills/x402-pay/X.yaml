@@ -63,36 +63,145 @@ harness:
           agent_task.pay-reserve.output:
             payment_decision:
               decision_id: decision_payment_demo_001
-              selected: true
+              choice: continue
+              inputs:
+                signal_refs: []
+                target_ref: null
+                opportunity_refs: []
+                selection_ref: null
+              proposed_intent:
+                purpose: complete a bounded payment
+                legitimacy: authorized by selected reservation decision
+                success_criteria: []
+                constraints: []
+                derived_from: []
+              selected_act_id: act_fulfill
+              selected_harness_ref: null
+              justification:
+                summary: reservation selected a bounded spend act
+                evidence_refs: []
+              closure: null
+              artifact_refs: []
             reserved_payment_authority:
-              term_id: authority-term:payment:reserve-demo-001
-              principal_ref:
-                type: host
-                uri: principal:operator:test
-              resource_ref:
-                type: surface
-                uri: merchant:demo
-              resource_family: payment
-              verbs:
-                - spend
-              capabilities:
-                - payment_single_use_spend
-              bounds:
-                payment:
-                  currency: USD
-                  max_per_call_minor: 125
-                  rails:
-                    - x402
-                  single_use_spend: true
-                  credential_form: single_use_spend_capability
-              conditions: []
-              approvals: []
-              issued_by_ref:
-                type: host
-                uri: authority:payment:test
+              parent_authority:
+                term_id: authority-term:payment:quote-demo-001
+                principal_ref:
+                  type: host
+                  uri: principal:operator:test
+                resource_ref:
+                  type: surface
+                  uri: merchant:demo
+                resource_family: payment
+                verbs:
+                  - reserve
+                  - spend
+                bounds:
+                  payment:
+                    currency: USD
+                    max_per_call_minor: 125
+                    max_per_run_minor: 125
+                    rails:
+                      - x402
+                    realm: test
+                    counterparty: merchant:demo
+                    operation: search.paid
+                    idempotency_required: true
+                    recovery_required: true
+                    receipt_before_success: true
+                    single_use_spend: true
+                    credential_form: single_use_spend_capability
+                conditions: []
+                approvals: []
+                capabilities:
+                  - payment_single_use_spend
+                issued_by_ref:
+                  type: host
+                  uri: authority:payment:test
+              child_authority:
+                term_id: authority-term:payment:reserve-demo-001
+                principal_ref:
+                  type: host
+                  uri: principal:operator:test
+                resource_ref:
+                  type: surface
+                  uri: merchant:demo
+                resource_family: payment
+                verbs:
+                  - spend
+                capabilities:
+                  - payment_single_use_spend
+                bounds:
+                  payment:
+                    currency: USD
+                    max_per_call_minor: 125
+                    max_per_run_minor: 125
+                    rails:
+                      - x402
+                    realm: test
+                    counterparty: merchant:demo
+                    operation: search.paid
+                    idempotency_required: true
+                    recovery_required: true
+                    receipt_before_success: true
+                    single_use_spend: true
+                    credential_form: single_use_spend_capability
+                conditions: []
+                approvals: []
+                issued_by_ref:
+                  type: host
+                  uri: authority:payment:test
+              reservation_decision:
+                decision_id: decision_payment_demo_001
+                choice: continue
+                inputs:
+                  signal_refs: []
+                  target_ref: null
+                  opportunity_refs: []
+                  selection_ref: null
+                proposed_intent:
+                  purpose: complete a bounded payment
+                  legitimacy: authorized by selected reservation decision
+                  success_criteria: []
+                  constraints: []
+                  derived_from: []
+                selected_act_id: act_fulfill
+                selected_harness_ref: null
+                justification:
+                  summary: reservation selected a bounded spend act
+                  evidence_refs: []
+                closure: null
+                artifact_refs: []
+              subset_proof:
+                parent_authority_ref:
+                  type: surface
+                  uri: merchant:demo
+                comparison_algorithm: runx.payment-authority-subset.v1
+                result: subset
+                compared_terms:
+                  - child_term_id: authority-term:payment:reserve-demo-001
+                    parent_term_id: authority-term:payment:quote-demo-001
+                    relation: subset
+                checked_at: "2026-05-22T00:00:00Z"
+              child_harness_ref:
+                type: harness
+                uri: runx:harness:x402-pay_fulfill
+              spend_capability_binding:
+                child_harness_ref:
+                  type: harness
+                  uri: runx:harness:x402-pay_fulfill
+                act_id: act_fulfill
+                reservation_decision_id: decision_payment_demo_001
+                idempotency_key: payment:demo-search-001
+                amount_minor: 125
+                currency: USD
+                counterparty: merchant:demo
+                rail: x402
+              consumed_spend_capability_refs: []
             idempotency:
               key: payment:demo-search-001
-            spend_capability_ref: capability:payment:demo-search-001
+            spend_capability_ref:
+              type: credential
+              uri: capability:payment:demo-search-001
             approval:
               required: false
               status: not_required

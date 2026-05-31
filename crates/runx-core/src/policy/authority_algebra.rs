@@ -79,7 +79,7 @@ mod tests {
         };
 
         assert!(authority_term_has_verb(&term, AuthorityVerb::Verify));
-        assert!(!authority_term_has_verb(&term, AuthorityVerb::Spend));
+        assert!(!authority_term_has_verb(&term, AuthorityVerb::Write));
     }
 
     #[test]

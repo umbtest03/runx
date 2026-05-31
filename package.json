@@ -37,7 +37,7 @@
     "boundary:check": "node scripts/check-boundaries.mjs",
     "test:boundary": "node scripts/test-boundaries.mjs",
     "tests:integration-modules:check": "node scripts/check-integration-test-modules.mjs",
-    "cutover:legacy-check": "node scripts/check-runtime-cutover-legacy.mjs",
+    "cutover:legacy-check": "node scripts/check-runtime-cutover-legacy.mjs --final",
     "fixtures:kernel:check": "tsx scripts/generate-kernel-parity-fixtures.ts --check",
     "fixtures:kernel:generate": "tsx scripts/generate-kernel-parity-fixtures.ts",
     "fixtures:kernel:keys": "tsx scripts/check-fixture-key-order.ts",

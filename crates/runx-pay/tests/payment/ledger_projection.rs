@@ -4,20 +4,21 @@
 
 use runx_contracts::{ClosureDisposition, JsonObject, Receipt};
 use runx_core::state_machine::StepAdmissionWitness;
-use runx_runtime::payment::ledger::{
+use runx_pay::ledger::{
     PaidToolEvidence, PaymentLedgerEvidence, PaymentLedgerEvidencePacket,
     PaymentLedgerProjectedEventPayload, PaymentLedgerProjection, PaymentLedgerProjectionError,
     PaymentLedgerProjectionInput, PaymentRailSettlementEvidence, PaymentRefusalEvidence,
     PaymentReservationEvidence, build_payment_ledger_projection,
     persist_x402_payment_ledger_projection_event, write_payment_ledger_projection_artifact,
 };
-use runx_runtime::payment::supervisor::{
+use runx_pay::supervisor::{
     PAYMENT_RAIL_SUPERVISOR_EVIDENCE_METADATA, PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID,
     PaymentSupervisorProof, PaymentSupervisorSettlementEvidence,
     insert_payment_supervisor_proof_metadata, payment_supervisor_evidence_metadata_value,
+    payment_supervisor_evidence_reference,
 };
 use runx_runtime::receipts::{graph_receipt, step_receipt};
-use runx_runtime::{InvocationStatus, SkillOutput, StepRun};
+use runx_runtime::{InvocationStatus, SkillOutput, StepRun, insert_effect_verification_ref};
 use serde_json::Value;
 
 const CREATED_AT: &str = "2026-05-18T00:00:00Z";
@@ -471,10 +472,15 @@ fn step_run(
         metadata: JsonObject::new(),
     };
     if step_id == "fulfill" {
+        let evidence = paid_echo_supervisor_evidence();
         output.metadata.insert(
             PAYMENT_RAIL_SUPERVISOR_EVIDENCE_METADATA.to_owned(),
-            payment_supervisor_evidence_metadata_value(&paid_echo_supervisor_evidence())?,
+            payment_supervisor_evidence_metadata_value(&evidence)?,
         );
+        insert_effect_verification_ref(
+            &mut output.metadata,
+            payment_supervisor_evidence_reference(&evidence),
+        )?;
     }
     let receipt = step_receipt(graph_name, step_id, 1, &output, CREATED_AT)?;
     let admission_witness = StepAdmissionWitness::local_runtime(step_id, receipt.id.as_str());

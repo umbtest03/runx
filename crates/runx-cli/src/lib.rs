@@ -9,6 +9,7 @@ pub mod mcp;
 pub mod parser;
 pub mod policy;
 pub mod registry;
+pub mod runtime;
 pub mod scaffold;
 pub mod skill;
 pub mod tool;

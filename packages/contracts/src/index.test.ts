@@ -153,9 +153,12 @@ describe("@runxhq/contracts", () => {
   });
 
   it("accepts typed proof kinds on references", () => {
-    expect(proofKinds).toEqual(["payment_rail"]);
+    expect(proofKinds).toEqual(["payment_rail", "effect_settlement"]);
     expect(proofKindSchema).toMatchObject({
-      anyOf: [expect.objectContaining({ const: "payment_rail", type: "string" })],
+      anyOf: [
+        expect.objectContaining({ const: "payment_rail", type: "string" }),
+        expect.objectContaining({ const: "effect_settlement", type: "string" }),
+      ],
     });
     expect(validateReferenceContract({
       type: "verification",
@@ -165,6 +168,14 @@ describe("@runxhq/contracts", () => {
     })).toMatchObject({
       type: "verification",
       proof_kind: "payment_rail",
+    });
+    expect(validateReferenceContract({
+      type: "verification",
+      uri: "receipt-proof:mock:effect-settlement-001",
+      proof_kind: "effect_settlement",
+    })).toMatchObject({
+      type: "verification",
+      proof_kind: "effect_settlement",
     });
   });
 

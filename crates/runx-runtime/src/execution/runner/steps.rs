@@ -1,5 +1,5 @@
 // rust-style-allow: large-file because graph step execution currently keeps
-// authority admission, native step execution, approval handling, and payment
+// authority admission, native step execution, approval handling, and effect
 // state persistence in one runtime boundary until the runner module split.
 
 mod output;
@@ -9,18 +9,17 @@ use std::path::Path;
 use output::{ClaimContextExposure, build_step_output_projection, step_output_projection};
 
 use runx_contracts::{
-    ApprovalGate, AuthorityVerb, ClosureDisposition, ExecutionEvent, JsonObject, JsonValue,
-    ProofKind, Receipt, ResolutionRequest, ResolutionResponse, ResolutionResponseActor,
+    ApprovalGate, ClosureDisposition, ExecutionEvent, JsonObject, JsonValue, Receipt,
+    ResolutionRequest, ResolutionResponse, ResolutionResponseActor,
 };
 use runx_core::state_machine::StepAdmissionWitness;
 use runx_parser::{GraphStep, SkillSource, SourceKind};
 
 use super::super::graph::{LoadedStepSkill, load_step_skill};
 use super::authority::{
-    StepAuthorityContext, StepPaymentReplay, attach_effect_evidence_before_gate, authority_denied,
-    enforce_step_authority_admission, enforce_step_authority_receipt_before_success,
-    escalate_in_flight_payment_recovery, sealed_payment_replay,
-    validate_replayed_effect_supervisor_proof,
+    StepAuthorityContext, enforce_step_authority_admission, finalize_effect_output_before_success,
+    find_effect_replay, persist_effect_state_for_step, prepare_effect_output_before_gate,
+    prepare_replay_output, recover_pending_effects, validate_replayed_effect,
 };
 use super::host_resolution::resolve_step_approval;
 use super::inputs::{optional_input_string, required_input_string, string_value, string_value_ref};
@@ -33,10 +32,7 @@ use crate::agent_invocation::{
     AgentActInvocationSourceType, agent_act_invocation_id, agent_act_resolution_request,
 };
 use crate::approval::ApprovalResolution;
-use crate::effects::{
-    EffectStepStateInput, PAYMENT_EFFECT_FAMILY, PaymentSupervisorProof,
-    insert_effect_supervisor_proof_metadata, persist_effect_step_state,
-};
+use crate::effects::EffectReplay;
 use crate::execution::output_projection::{StepOutputProjection, project_step_output};
 use crate::host::Host;
 use crate::receipts::{
@@ -207,8 +203,14 @@ where
         inputs,
         host,
     } = request;
-    if let Some(replay) = sealed_payment_replay(step, &inputs, &runtime.options.env, graph_dir)? {
-        return run_replayed_payment_step(
+    if let Some(replay) = find_effect_replay(
+        step,
+        &inputs,
+        &runtime.options.env,
+        graph_dir,
+        &runtime.options.effects,
+    )? {
+        return run_replayed_effect_step(
             runtime,
             graph_dir,
             graph_name,
@@ -218,9 +220,20 @@ where
             replay,
         );
     }
-    escalate_in_flight_payment_recovery(step, &inputs, &runtime.options.env, graph_dir)?;
-    let authority =
-        enforce_step_authority_admission(step, &inputs, &runtime.options.env, graph_dir)?;
+    recover_pending_effects(
+        step,
+        &inputs,
+        &runtime.options.env,
+        graph_dir,
+        &runtime.options.effects,
+    )?;
+    let authority = enforce_step_authority_admission(
+        step,
+        &inputs,
+        &runtime.options.env,
+        graph_dir,
+        &runtime.options.effects,
+    )?;
     let step_type = registered_step_type(step)?;
     run_registered_step(
         step_type,
@@ -315,7 +328,7 @@ where
     let mut output = runtime.adapter.invoke(invocation)?;
     route_external_adapter_host_resolution(step, host, &mut output)?;
     let projection = step_output_projection(step, &output)?;
-    attach_effect_evidence_before_gate(
+    prepare_effect_output_before_gate(
         step,
         authority,
         &projection.claim,
@@ -345,22 +358,25 @@ where
         &context.runtime.options.created_at,
         context.runtime.options.signature_policy(),
     )?;
-    let supervisor_proof = enforce_step_authority_receipt_before_success(
+    finalize_effect_output_before_success(
         context.step,
-        context.authority,
-        &output,
-        &projection.claim,
-        &receipt,
-    )?;
-    record_effect_supervisor_proof_metadata(context.step, &mut output, supervisor_proof.as_ref())?;
-    persist_effect_state_for_step(
-        context.runtime,
         context.graph_dir,
-        context.step,
         context.authority,
         &projection.claim,
+        &mut output,
         &receipt,
-        supervisor_proof.as_ref(),
+        &context.runtime.options.env,
+        &context.runtime.options.effects,
+    )?;
+    persist_effect_state_for_step(
+        context.step,
+        context.graph_dir,
+        context.authority,
+        &projection.claim,
+        &mut output,
+        &receipt,
+        &context.runtime.options.env,
+        &context.runtime.options.effects,
     )?;
     let admission_witness =
         step_admission_witness(&context.step.id, &receipt.id, context.authority);
@@ -373,23 +389,6 @@ where
         receipt,
         admission_witness,
     ))
-}
-
-fn record_effect_supervisor_proof_metadata(
-    step: &GraphStep,
-    output: &mut SkillOutput,
-    supervisor_proof: Option<&PaymentSupervisorProof>,
-) -> Result<(), RuntimeError> {
-    let Some(proof) = supervisor_proof else {
-        return Ok(());
-    };
-    insert_effect_supervisor_proof_metadata(&mut output.metadata, proof).map_err(|source| {
-        authority_denied(
-            step,
-            AuthorityVerb::Spend,
-            format!("recording supervisor proof metadata failed: {source}"),
-        )
-    })
 }
 
 fn regular_step_run(
@@ -476,70 +475,25 @@ fn host_resolution_event_data(step: &GraphStep, payload: JsonValue) -> JsonObjec
     data
 }
 
-fn persist_effect_state_for_step<A>(
-    runtime: &Runtime<A>,
-    graph_dir: &Path,
-    step: &GraphStep,
-    authority: Option<&super::authority::StepAuthorityContext>,
-    outputs: &JsonObject,
-    receipt: &runx_contracts::Receipt,
-    supervisor_proof: Option<&PaymentSupervisorProof>,
-) -> Result<(), RuntimeError>
-where
-    A: SkillAdapter,
-{
-    let Some(payment) = authority.and_then(|authority| authority.payment.as_ref()) else {
-        return Ok(());
-    };
-    persist_effect_step_state(
-        &runtime.options.env,
-        graph_dir,
-        &EffectStepStateInput {
-            family: PAYMENT_EFFECT_FAMILY,
-            idempotency_key: payment.idempotency_key.clone(),
-            spend_capability_ref: payment.spend_capability_ref.uri.clone().into_string(),
-            rail: payment.rail.clone(),
-            counterparty: payment.counterparty.clone(),
-            amount_minor: payment.amount_minor,
-            currency: payment.currency.clone(),
-            act_id: format!("act_{}", step.id),
-        },
-        outputs,
-        receipt,
-        supervisor_proof,
-    )
-    .map_err(|source| RuntimeError::effect_state("persisting effect step state", source))
-}
-
-// rust-style-allow: long-function - replayed payment step reconstruction is one linear recovery
-// path; the reconstruction order must stay together to rebuild state deterministically.
-fn run_replayed_payment_step(
+fn run_replayed_effect_step(
     runtime: &Runtime<impl SkillAdapter>,
     graph_dir: &Path,
     graph_name: &str,
     step: &GraphStep,
     attempt: u32,
     loaded_skill: Option<LoadedStepSkill>,
-    replay: StepPaymentReplay,
+    replay: EffectReplay,
 ) -> Result<StepRun, RuntimeError> {
     let skill = loaded_skill_or_load(loaded_skill, graph_dir, step)?;
     let skill_name = skill.name.clone();
-    let mut output = replay_skill_output(step, &replay.outputs)?;
+    let mut output = replay_skill_output(step, replay.outputs())?;
     if !output.succeeded() {
-        return Err(authority_denied(
-            step,
-            AuthorityVerb::Spend,
-            "sealed payment replay requires a successful stored rail output".to_owned(),
-        ));
+        return Err(RuntimeError::InvalidRunStep {
+            step_id: step.id.clone(),
+            reason: "sealed effect replay requires a successful stored output".to_owned(),
+        });
     }
-    insert_effect_supervisor_proof_metadata(&mut output.metadata, &replay.supervisor_proof)
-        .map_err(|source| {
-            authority_denied(
-                step,
-                AuthorityVerb::Spend,
-                format!("recording replayed supervisor proof metadata failed: {source}"),
-            )
-        })?;
+    prepare_replay_output(step, &replay, &mut output, &runtime.options.effects)?;
     let projection = step_output_projection(step, &output)?;
     let receipt = step_receipt_with_projection_and_signature_policy(
         graph_name,
@@ -547,41 +501,19 @@ fn run_replayed_payment_step(
         attempt,
         &output,
         &projection,
-        &replay.receipt_created_at,
+        replay.receipt_created_at(),
         runtime.options.signature_policy(),
     )?;
-    if receipt.id != replay.receipt_ref {
-        return Err(authority_denied(
-            step,
-            AuthorityVerb::Spend,
-            format!(
-                "sealed payment replay rebuilt receipt {}, expected {}",
-                receipt.id, replay.receipt_ref
-            ),
-        ));
-    }
-    if receipt.digest != replay.receipt_digest {
-        return Err(authority_denied(
-            step,
-            AuthorityVerb::Spend,
-            format!(
-                "sealed payment replay rebuilt receipt digest {}, expected {}",
-                receipt.digest, replay.receipt_digest
-            ),
-        ));
-    }
-    if !receipt_has_payment_rail_proof(&receipt, &replay.rail_proof_ref) {
-        return Err(authority_denied(
-            step,
-            AuthorityVerb::Spend,
-            format!(
-                "sealed payment replay rebuilt receipt without rail proof {}",
-                replay.rail_proof_ref
-            ),
-        ));
-    }
-    validate_replayed_effect_supervisor_proof(step, &replay)?;
-    let admission_witness = StepAdmissionWitness::local_runtime(&step.id, &replay.receipt_ref);
+    validate_replayed_receipt_identity(step, &receipt, &replay)?;
+    validate_replayed_effect(
+        step,
+        &replay,
+        &receipt,
+        &output,
+        &projection.claim,
+        &runtime.options.effects,
+    )?;
+    let admission_witness = StepAdmissionWitness::local_runtime(&step.id, replay.receipt_ref());
     Ok(StepRun {
         step_id: step.id.clone(),
         attempt,
@@ -593,6 +525,34 @@ fn run_replayed_payment_step(
         receipt,
         admission_witness,
     })
+}
+
+fn validate_replayed_receipt_identity(
+    step: &GraphStep,
+    receipt: &runx_contracts::Receipt,
+    replay: &EffectReplay,
+) -> Result<(), RuntimeError> {
+    if receipt.id != replay.receipt_ref() {
+        return Err(RuntimeError::InvalidRunStep {
+            step_id: step.id.clone(),
+            reason: format!(
+                "sealed effect replay rebuilt receipt {}, expected {}",
+                receipt.id,
+                replay.receipt_ref()
+            ),
+        });
+    }
+    if receipt.digest != replay.receipt_digest() {
+        return Err(RuntimeError::InvalidRunStep {
+            step_id: step.id.clone(),
+            reason: format!(
+                "sealed effect replay rebuilt receipt digest {}, expected {}",
+                receipt.digest,
+                replay.receipt_digest()
+            ),
+        });
+    }
+    Ok(())
 }
 
 fn loaded_skill_or_load(
@@ -613,13 +573,13 @@ fn replay_skill_output(
         Some(JsonValue::String(value)) => {
             return Err(RuntimeError::InvalidRunStep {
                 step_id: step.id.clone(),
-                reason: format!("payment replay output status {value:?} is not supported"),
+                reason: format!("effect replay output status {value:?} is not supported"),
             });
         }
         Some(_) => {
             return Err(RuntimeError::InvalidRunStep {
                 step_id: step.id.clone(),
-                reason: "payment replay output status must be a string".to_owned(),
+                reason: "effect replay output status must be a string".to_owned(),
             });
         }
         None => InvocationStatus::Success,
@@ -629,18 +589,18 @@ fn replay_skill_output(
         Some(_) => {
             return Err(RuntimeError::InvalidRunStep {
                 step_id: step.id.clone(),
-                reason: "payment replay output stdout must be a string".to_owned(),
+                reason: "effect replay output stdout must be a string".to_owned(),
             });
         }
         None => serde_json::to_string(&JsonValue::Object(replay_stdout_payload(outputs)))
-            .map_err(|source| RuntimeError::json("serializing payment replay stdout", source))?,
+            .map_err(|source| RuntimeError::json("serializing effect replay stdout", source))?,
     };
     let stderr = match outputs.get("stderr") {
         Some(JsonValue::String(value)) => value.clone(),
         Some(_) => {
             return Err(RuntimeError::InvalidRunStep {
                 step_id: step.id.clone(),
-                reason: "payment replay output stderr must be a string".to_owned(),
+                reason: "effect replay output stderr must be a string".to_owned(),
             });
         }
         None => String::new(),
@@ -665,18 +625,6 @@ fn replay_stdout_payload(outputs: &JsonObject) -> JsonObject {
     payload.remove("stderr");
     payload.remove("status");
     payload
-}
-
-fn receipt_has_payment_rail_proof(receipt: &runx_contracts::Receipt, rail_proof_ref: &str) -> bool {
-    receipt.acts.iter().any(|act| {
-        act.criterion_bindings
-            .iter()
-            .flat_map(|criterion| criterion.verification_refs.iter())
-            .any(|reference| {
-                reference.uri == rail_proof_ref
-                    && reference.proof_kind.as_ref() == Some(&ProofKind::PaymentRail)
-            })
-    })
 }
 
 fn run_registered_step<A>(
@@ -1472,7 +1420,7 @@ fn step_admission_witness(
             StepAdmissionWitness::with_authority(
                 step_id,
                 receipt_id,
-                authority.admission_witness.clone(),
+                authority.admission_witness().clone(),
             )
         },
     )

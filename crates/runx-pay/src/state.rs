@@ -12,8 +12,8 @@ use runx_contracts::{JsonObject, JsonValue};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::payment::packets::{PaymentPacketError, PaymentRailPacket, read_payment_rail_packet};
-use crate::payment::supervisor::{
+use crate::packets::{PaymentPacketError, PaymentRailPacket, read_payment_rail_packet};
+use crate::supervisor::{
     PaymentSupervisorProof, PaymentSupervisorProofMatch, validate_payment_supervisor_proof,
 };
 
@@ -743,7 +743,7 @@ pub fn resolve_effect_state_path(env: &BTreeMap<String, String>, cwd: &Path) -> 
         .filter(|value| !value.trim().is_empty())
         .map(|value| resolve_path(Path::new(value), cwd))
         .or_else(|| {
-            env.get(crate::receipts::paths::RUNX_RECEIPT_DIR_ENV)
+            env.get(runx_runtime::RUNX_RECEIPT_DIR_ENV)
                 .filter(|value| !value.trim().is_empty())
                 .map(|value| resolve_path(Path::new(value), cwd).join("effect-state.json"))
         })

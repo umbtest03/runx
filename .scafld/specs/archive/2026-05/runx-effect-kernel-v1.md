@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: runx-effect-kernel-v1
 created: '2026-05-31T00:00:00Z'
-updated: '2026-05-30T22:38:00Z'
-status: active
+updated: '2026-05-31T13:38:44Z'
+status: completed
 harden_status: not_run
 size: large
 risk_level: high
@@ -13,14 +13,14 @@ risk_level: high
 
 ## Current State
 
-Status: active
-Current phase: phase0
-Next: build
-Reason: phase phase0 opened
+Status: completed
+Current phase: final
+Next: done
+Reason: task completed
 Blockers: none
-Allowed follow-up command: `scafld handoff runx-effect-kernel-v1`
-Latest runner update: 2026-05-30T22:38:00Z
-Review gate: not_started
+Allowed follow-up command: `none`
+Latest runner update: 2026-05-31T13:38:44Z
+Review gate: pass
 
 ## Summary
 
@@ -52,7 +52,7 @@ it holds no secrets and makes no provider network calls.
    **non-replay markers** for irreversible effects, a **deferred-evidence
    protocol** (`Provisional → InFlight → Sealed` via a follow-on settlement
    receipt), and a **credential delivery seam** (resolve + inject + redact).
-5. Extract payment into a thin native **`runx-payments`** crate (governance +
+5. Extract payment into a thin native **`runx-pay`** crate (governance +
    evidence + state + ledger + test supervisor; **no rails, no secrets, no
    network**) that registers into the kernel.
 6. Make all 51 inline-harness skills pass (payment via a registered **test**
@@ -83,7 +83,7 @@ removal, rename, or retype is out of scope and must fail the gates.
 ## Scope
 
 **In:** `crates/runx-runtime`, `crates/runx-core`, `crates/runx-contracts`,
-new `crates/runx-payments`, `crates/runx-cli` (composition root only),
+new `crates/runx-pay`, `crates/runx-cli` (composition root only),
 `oss/skills/*` (authoring fixes), regression of `cloud/` consumers.
 
 **Out:** real rails / customer billing (stays in `cloud/packages/billing` + the
@@ -98,12 +98,12 @@ a separate `runx-governance` crate (generic governance lands in `runx-core`).
 - **`runx-core`** = generic governance: authority algebra, generic bound model,
   gate (approval generalized), receipt-before-success, act/decision/signal
   vocab, idempotency, maturity.
-- **`runx-payments`** (new, feature `payment`) = payment governance/evidence:
+- **`runx-pay`** (new, feature `payment`) = payment governance/evidence:
   payment authority schema + bounds, evidence/proof domain payload,
   idempotency/recovery state, ledger, x402 sequence logic, and the deterministic
   **test** supervisor. Registers into the kernel. No rails, secrets, or network.
 - **`runx-contracts`** = generic schemas only (payment-specific contract types
-  move to `runx-payments`); gains extensible typed `ProofKind` + the
+  move to `runx-pay`); gains extensible typed `ProofKind` + the
   deferred-evidence settlement-receipt schema.
 - **`runx-cli`** = composition root: assembles the registries (registers
   cli-tool/agent/catalog/mcp/a2a adapters + the real or test effect families)
@@ -111,7 +111,7 @@ a separate `runx-governance` crate (generic governance lands in `runx-core`).
 - **`runx-parser` / `runx-receipts` / `runx-sdk` / `runx-contracts-derive`** =
   essentially unchanged.
 - Dependency arrows point only toward the foundations; the kernel never
-  references `runx-payments`. `--no-default-features` builds a payment-free
+  references `runx-pay`. `--no-default-features` builds a payment-free
   kernel.
 
 ## Registry & adapter shape (RESOLVED — implement exactly this)
@@ -155,11 +155,11 @@ phase that retires each symbol, it appears in kernel orchestration:
   `record_payment_supervisor_proof_metadata`, `persist_payment_step_state`, and
   any `payment::` import must NOT appear under
   `crates/runx-runtime/src/execution/runner/**` or `runner.rs`. They are allowed
-  ONLY in `crates/runx-payments/**` and payment tests.
+  ONLY in `crates/runx-pay/**` and payment tests.
 - After **Phase 4**: zero matches for `payment`, `spend`, `settlement`, `x402`,
   `rail` (case-insensitive, identifier boundaries) anywhere in `runx-runtime` or
   `runx-core` non-test sources; `cargo tree -p runx-runtime` shows no
-  `runx-payments` edge.
+  `runx-pay` edge.
 - The cutover is a hard replacement: there is no compatibility shim, no
   feature-flagged in-tree fallback payment path, and no shadow seam. The only
   way back is `git revert`.
@@ -258,6 +258,9 @@ complete if Claude finds a blocker or if the no-dual-path/perf gates fail.
 
 ## Phase 0: Confirm the golden net (no breaking change needed)
 
+Status: completed
+Dependencies: none
+
 Refinement after grounding: `Reference.proof_kind: Option<ProofKind>` ALREADY
 exists (reference.rs:124, `skip_serializing_if = none`), and `CriterionBinding`
 already holds typed references. So extending `ProofKind`
@@ -289,6 +292,9 @@ change" is unnecessary; drop it.
 
 ## Phase 1: Registries (dispatch decoupling, behavior-preserving)
 
+Status: completed
+Dependencies: none
+
 - Introduce `StepTypeRegistry<A>` and `SourceAdapterRegistry<A>` using the
   **fn-pointer shape decided in "Registry & adapter shape"** (NOT
   `Box<dyn StepHandler>`/`Box<dyn SkillAdapter>`; `Runtime<A>` keeps its
@@ -308,6 +314,9 @@ change" is unnecessary; drop it.
   baseline.
 
 ## Phase 2: Generic EffectSupervisor + EffectRegistry + generic Evidence/Proof
+
+Status: completed
+Dependencies: none
 
 - Rename `PaymentRailSupervisor` → `EffectSupervisor`; move payment-specific
   fields out of `Evidence`/`Proof`/`Request` into an opaque per-family domain
@@ -338,11 +347,14 @@ plumbing. Genericity is not considered fully proven until payment itself settles
 through the generic `EffectSettlementRecord`/payload path. Before Phase 3,
 reserve the additive worker `criterion_status` field. Phase 4 must delete the
 payment aliases and payment-specific effect enum variant, move typed payment
-verification into `runx-payments`, and add a payment-through-generic-payload
+verification into `runx-pay`, and add a payment-through-generic-payload
 test; if that test is hard to write, the generic payload shape must be fixed
 there rather than hidden behind a compatibility layer.
 
 ## Phase 3: Generalize governance (receipt-before-success, bounds, non-replay, deferred)
+
+Status: completed
+Dependencies: none
 
 - Lift `receipt_before_success` out of `PaymentAuthorityBounds` to a
   per-resource-family authority bound in `runx-core`; the seal gate enforces it
@@ -364,9 +376,12 @@ there rather than hidden behind a compatibility layer.
   deferred-evidence test produces a valid follow-on settlement receipt; goldens
   unchanged for existing skills.
 
-## Phase 4: Extract `runx-payments` (governance/evidence; no rails/secrets)
+## Phase 4: Extract `runx-pay` (governance/evidence; no rails/secrets)
 
-- Create `crates/runx-payments` (feature `payment`). Move: payment authority
+Status: completed
+Dependencies: none
+
+- Create `crates/runx-pay` (feature `payment`). Move: payment authority
   schema + bounds, evidence/proof domain payload, idempotency/recovery state,
   ledger projection, packets, x402 sequence logic, and the supervisor split into
   a **test** supervisor (deterministic) registered for harness/local.
@@ -378,11 +393,14 @@ there rather than hidden behind a compatibility layer.
 - **Acceptance:** **after-Phase-4 no-dual-path gate** (extended
   `pnpm cutover:legacy-check`): zero identifier-boundary matches for
   `payment`/`spend`/`settlement`/`x402`/`rail` in `runx-runtime` + `runx-core`
-  non-test sources, and `cargo tree -p runx-runtime` shows no `runx-payments`
+  non-test sources, and `cargo tree -p runx-runtime` shows no `runx-pay`
   edge; `cargo build -p runx-runtime --no-default-features` green; payment tests
-  green via `runx-payments`; `pnpm fixtures:kernel:check` clean.
+  green via `runx-pay`; `pnpm fixtures:kernel:check` clean.
 
 ## Phase 5: Credential delivery seam
+
+Status: completed
+Dependencies: none
 
 - Add a `CredentialSupervisor` seam: `resolve(request) -> Allow/Deny + encrypted
   ref` (by scopes/provider), then `deliver` (inject the secret into the step
@@ -397,7 +415,10 @@ there rather than hidden behind a compatibility layer.
 
 ## Phase 6: Test supervisors + payment harness green + multi-effect
 
-- `runx-payments` ships a deterministic test `EffectSupervisor` + a test
+Status: completed
+Dependencies: none
+
+- `runx-pay` ships a deterministic test `EffectSupervisor` + a test
   authority issuer; the inline + fixture harness register them. Fix skill
   authoring bugs surfaced (e.g. mock-refund's mis-keyed approval answer; declare
   the authority chain the issuer mints).
@@ -408,6 +429,9 @@ there rather than hidden behind a compatibility layer.
   sweep at 50/51 (issue-to-pr environmental) or 51/51 with its tool mocked.
 
 ## Phase 7: Skills + nitrosend + sourcey + cloud verification
+
+Status: completed
+Dependencies: none
 
 - Confirm every skill passes; nitrosend operational-intelligence skills
   (issue-intake, issue-triage, run-history-analyst, receipt-auditor,
@@ -431,16 +455,3 @@ fixtures:kernel:check` / the Phase 0 goldens show a receipt-digest or worker
 `Outcome` change for an unchanged skill, `pnpm cutover:legacy-check` finds a
 dual path, the harness sweep regresses, or perf drifts >5%. Phases are sequenced
 so each is independently revertible without unwinding a later one.
-
-## Phase 8: Confirm the golden net (no breaking change needed)
-
-Status: active
-Dependencies: none
-
-Objective: Complete this phase.
-
-Changes:
-- none
-
-Acceptance:
-- none

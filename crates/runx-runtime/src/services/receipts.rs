@@ -24,12 +24,13 @@ impl ReceiptServices {
         })
     }
 
-    pub(crate) fn from_signature_config(signature_config: RuntimeReceiptSignatureConfig) -> Self {
-        Self { signature_config }
-    }
-
     pub(crate) fn signature_config(&self) -> &RuntimeReceiptSignatureConfig {
         &self.signature_config
+    }
+
+    #[cfg(test)]
+    pub(crate) fn from_signature_config(signature_config: RuntimeReceiptSignatureConfig) -> Self {
+        Self { signature_config }
     }
 
     pub(crate) fn resolve_path(

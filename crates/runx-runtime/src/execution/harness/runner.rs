@@ -12,9 +12,6 @@ use dispositions::{
     disposition_suffix, named_reason_code, process_reason_code, required_string_metadata,
     skill_output_object, string_metadata,
 };
-#[cfg(feature = "cli-tool")]
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use runx_contracts::{
     ClosureDisposition, ExecutionEvent, JsonObject, JsonValue, Receipt, ResolutionRequest,
     ResolutionResponse, ResolutionResponseActor,
@@ -35,36 +32,13 @@ use super::fixtures::{
 use crate::RuntimeError;
 use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
 use crate::agent_invocation::{AgentActInvocationSourceType, agent_act_invocation_id};
-#[cfg(feature = "cli-tool")]
-use crate::effects::state::{
-    EffectIdempotencyKey, EffectMutationStatus, EffectRecoveryState, FileBackedEffectStateStore,
-    RUNX_EFFECT_STATE_PATH_ENV,
-};
-#[cfg(feature = "cli-tool")]
-use crate::effects::{
-    EffectSettlementEvidence, EffectSettlementRequest, EffectSupervisor, EffectSupervisorError,
-    PAYMENT_EFFECT_FAMILY, RuntimeEffectRegistry,
-};
+use crate::effects::RuntimeEffectRegistry;
 use crate::execution::runner::{GraphRun, Runtime, RuntimeOptions, StepRun};
 use crate::host::Host;
-use crate::payment::ledger::{
-    X402_PAY_PAYMENT_PROFILE, persist_x402_payment_ledger_projection_event,
-};
-#[cfg(feature = "cli-tool")]
-use crate::payment::supervisor::{
-    PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID, PaymentSupervisorError,
-    PaymentSupervisorSettlementEvidence, payment_supervisor_evidence_to_effect_record,
-};
-#[cfg(feature = "cli-tool")]
-use crate::receipts::RuntimeReceiptSignaturePolicy;
-#[cfg(feature = "cli-tool")]
-use crate::receipts::paths::RUNX_CWD_ENV;
-use crate::receipts::paths::RUNX_RECEIPT_DIR_ENV;
 use crate::receipts::{
     GraphClosure, StepReceiptWithDisposition, graph_receipt_with_disposition_and_policy,
     step_receipt_with_disposition_and_policy,
 };
-use crate::services::{ReceiptServices, WorkspaceEnv};
 
 #[derive(Clone, Debug)]
 pub struct HarnessReplayOutput {
@@ -72,6 +46,7 @@ pub struct HarnessReplayOutput {
     pub status: HarnessExpectedStatus,
     pub receipt: Receipt,
     pub step_receipts: Vec<Receipt>,
+    pub steps: Vec<StepRun>,
     pub skill_output: Option<SkillOutput>,
 }
 
@@ -139,47 +114,8 @@ pub fn run_harness_fixture_cli_tool(
 fn fixture_runtime_options() -> Result<RuntimeOptions, HarnessReplayError> {
     Ok(RuntimeOptions {
         created_at: crate::time::DEFAULT_CREATED_AT.to_owned(),
-        effects: RuntimeEffectRegistry::with_payment_effect(FixtureEffectSupervisor),
         ..RuntimeOptions::from_process_env()?
     })
-}
-
-#[cfg(feature = "cli-tool")]
-#[derive(Clone, Debug)]
-struct FixtureEffectSupervisor;
-
-#[cfg(feature = "cli-tool")]
-impl EffectSupervisor for FixtureEffectSupervisor {
-    fn settlement_evidence(
-        &self,
-        request: EffectSettlementRequest<'_>,
-    ) -> Result<EffectSettlementEvidence, EffectSupervisorError> {
-        let request = request.payment_rail()?;
-        match request.proof_ref {
-            "receipt-proof:mock:x402-pay-approval-001"
-            | "receipt-proof:mock:paid-echo-001"
-            | "receipt-proof:stripe-spt:demo-search-001" => Ok(EffectSettlementEvidence::generic(
-                payment_supervisor_evidence_to_effect_record(PaymentSupervisorSettlementEvidence {
-                    verifier_id: PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID.to_owned(),
-                    proof_ref: request.proof_ref.to_owned(),
-                    rail: request.rail.to_owned(),
-                    counterparty: request.counterparty.to_owned(),
-                    amount_minor: request.amount_minor,
-                    currency: request.currency.to_owned(),
-                    idempotency_key: request.idempotency_key.to_owned(),
-                    settlement_status: Some("fulfilled".to_owned()),
-                    provider_event_ref: Some(format!("fixture:event:{}", request.proof_ref)),
-                }),
-            )),
-            _ => Err(PaymentSupervisorError::InvalidSupervisorEvidence {
-                message: format!(
-                    "fixture supervisor has no settlement for {}",
-                    request.proof_ref
-                ),
-            }
-            .into()),
-        }
-    }
 }
 
 pub fn run_harness_fixture_with_adapter<A>(
@@ -201,9 +137,6 @@ where
         HarnessFixtureKind::AgentStep => run_agent_task_fixture(&fixture, options)?,
         HarnessFixtureKind::Graph if is_fixture_replay_graph(&fixture) => {
             run_graph_replay_fixture(&fixture, options)?
-        }
-        HarnessFixtureKind::Graph if is_x402_idempotency_sequence_graph(&fixture) => {
-            run_x402_idempotency_sequence_fixture(&fixture, &target_path, options)?
         }
         HarnessFixtureKind::Graph => run_graph_fixture(&fixture, &target_path, adapter, options)?,
         HarnessFixtureKind::Mcp => {
@@ -254,6 +187,7 @@ fn run_agent_task_fixture(
         status: status_from_disposition(&receipt.seal.disposition),
         receipt,
         step_receipts: Vec::new(),
+        steps: Vec::new(),
         skill_output: Some(output),
     })
 }
@@ -267,135 +201,6 @@ struct GraphReplayStep {
 
 fn is_fixture_replay_graph(fixture: &HarnessFixture) -> bool {
     string_metadata(fixture, "graph_shape") == Some("fixture_replay")
-}
-
-fn is_x402_idempotency_sequence_graph(fixture: &HarnessFixture) -> bool {
-    string_metadata(fixture, "graph_shape") == Some("x402_idempotency_sequence")
-}
-
-// rust-style-allow: long-function - drives the multi-stage x402 idempotency fixture as one linear
-// replay sequence; the ordered assertions are clearer kept together than split across helpers.
-#[cfg(feature = "cli-tool")]
-fn run_x402_idempotency_sequence_fixture(
-    fixture: &HarnessFixture,
-    graph_path: &Path,
-    options: RuntimeOptions,
-) -> Result<HarnessReplayOutput, HarnessReplayError> {
-    let scenario = required_string_metadata(
-        &fixture.metadata,
-        "metadata.x402_idempotency_scenario",
-        "x402_idempotency_scenario",
-    )?;
-    let temp_dir = create_harness_temp_dir(&fixture.name)?;
-    let effect_state_path = temp_dir.join("effect-state.json");
-    let rail_count_path = temp_dir.join("rail-count.txt");
-
-    let first = x402_idempotency_run_env(
-        &options,
-        fixture,
-        &effect_state_path,
-        &rail_count_path,
-        &scenario,
-        true,
-    )?;
-    let second = x402_idempotency_run_env(
-        &options,
-        fixture,
-        &effect_state_path,
-        &rail_count_path,
-        &scenario,
-        false,
-    )?;
-    let output = match scenario.as_str() {
-        "replay" => {
-            let first_run = run_x402_idempotency_graph(graph_path, fixture, first)?;
-            let second_run = run_x402_idempotency_graph(graph_path, fixture, second)?;
-            assert_x402_rail_invocation_count(&rail_count_path, 1)?;
-            assert_x402_replay_state(&effect_state_path, "payment:paid-echo-001")?;
-            let first_fulfill = step_receipt_digest(&first_run, "fulfill")?;
-            let second_fulfill = step_receipt_digest(&second_run, "fulfill")?;
-            if first_fulfill != second_fulfill {
-                return Err(HarnessReplayError::Mismatch {
-                    field: "metadata.x402_idempotency_replay.fulfill_receipt_digest",
-                    expected: first_fulfill,
-                    actual: second_fulfill,
-                });
-            }
-            replay_output_from_graph(fixture, second_run)
-        }
-        "capability_reuse" => {
-            let first_run = run_x402_idempotency_graph(graph_path, fixture, first)?;
-            let second_error = run_x402_idempotency_graph(graph_path, fixture, second)
-                .err()
-                .ok_or_else(|| HarnessReplayError::Mismatch {
-                    field: "metadata.x402_idempotency_scenario",
-                    expected: "second run denied before rail".to_owned(),
-                    actual: "second run succeeded".to_owned(),
-                })?;
-            assert_authority_denied_contains(&second_error, "already consumed")?;
-            assert_x402_rail_invocation_count(&rail_count_path, 1)?;
-            sequence_error_output(
-                fixture,
-                first_run,
-                &options.created_at,
-                options.signature_policy(),
-                HarnessExpectedStatus::PolicyDenied,
-                GraphClosure {
-                    disposition: ClosureDisposition::Blocked,
-                    reason_code: "x402_idempotency_capability_reuse_blocked".to_owned(),
-                    summary: "second spend capability use denied before rail".to_owned(),
-                },
-            )?
-        }
-        "crash_recovery" => {
-            let first_error = run_x402_idempotency_graph(graph_path, fixture, first)
-                .err()
-                .ok_or_else(|| HarnessReplayError::Mismatch {
-                    field: "metadata.x402_idempotency_scenario",
-                    expected: "first run failed after partial rail mutation".to_owned(),
-                    actual: "first run succeeded".to_owned(),
-                })?;
-            assert_skill_failed_contains(&first_error, "partial rail mutation")?;
-            let second_error = run_x402_idempotency_graph(graph_path, fixture, second)
-                .err()
-                .ok_or_else(|| HarnessReplayError::Mismatch {
-                    field: "metadata.x402_idempotency_scenario",
-                    expected: "second run escalated recovery before rail".to_owned(),
-                    actual: "second run succeeded".to_owned(),
-                })?;
-            assert_authority_denied_contains(&second_error, "recovery escalated")?;
-            assert_x402_rail_invocation_count(&rail_count_path, 1)?;
-            assert_x402_escalated_state(&effect_state_path, "payment:paid-echo-001")?;
-            empty_sequence_error_output(
-                fixture,
-                &options.created_at,
-                options.signature_policy(),
-                HarnessExpectedStatus::Escalated,
-                GraphClosure {
-                    disposition: ClosureDisposition::Deferred,
-                    reason_code: "x402_idempotency_recovery_escalated".to_owned(),
-                    summary: "partial rail mutation recovery escalated before retry".to_owned(),
-                },
-            )?
-        }
-        other => {
-            return Err(HarnessReplayError::InvalidReplayMetadata {
-                field: "metadata.x402_idempotency_scenario".to_owned(),
-                message: format!("unsupported x402 idempotency scenario {other:?}"),
-            });
-        }
-    };
-    let _ = fs::remove_dir_all(&temp_dir);
-    Ok(output)
-}
-
-#[cfg(not(feature = "cli-tool"))]
-fn run_x402_idempotency_sequence_fixture(
-    _fixture: &HarnessFixture,
-    _graph_path: &Path,
-    _options: RuntimeOptions,
-) -> Result<HarnessReplayOutput, HarnessReplayError> {
-    Err(HarnessReplayError::CliToolFeatureDisabled)
 }
 
 // rust-style-allow: long-function because graph replay receipt assembly keeps
@@ -476,6 +281,7 @@ fn run_graph_replay_fixture(
             reason_code: named_reason_code(&fixture.name, &disposition),
             summary: format!("graph {} replayed through fixture harness", fixture.name),
         },
+        RuntimeEffectRegistry::default(),
         options.signature_policy(),
     )?;
     let step_receipts = runs
@@ -493,6 +299,7 @@ fn run_graph_replay_fixture(
         status: status_from_disposition(&receipt.seal.disposition),
         receipt,
         step_receipts,
+        steps: runs,
         skill_output,
     })
 }
@@ -535,376 +342,6 @@ fn graph_replay_steps(
         .collect()
 }
 
-#[cfg(feature = "cli-tool")]
-fn x402_idempotency_run_env(
-    options: &RuntimeOptions,
-    fixture: &HarnessFixture,
-    effect_state_path: &Path,
-    rail_count_path: &Path,
-    scenario: &str,
-    first_run: bool,
-) -> Result<RuntimeOptions, HarnessReplayError> {
-    let mut env = options.env.clone();
-    env.extend(fixture.env.clone());
-    env.insert(
-        RUNX_CWD_ENV.to_owned(),
-        effect_state_path
-            .parent()
-            .unwrap_or_else(|| Path::new("."))
-            .to_string_lossy()
-            .into_owned(),
-    );
-    env.insert(
-        RUNX_EFFECT_STATE_PATH_ENV.to_owned(),
-        effect_state_path.to_string_lossy().into_owned(),
-    );
-    env.insert(
-        "RUNX_PAYMENT_RAIL_COUNT_PATH".to_owned(),
-        rail_count_path.to_string_lossy().into_owned(),
-    );
-    env.insert("RUNX_X402_GRAPH_NAME".to_owned(), fixture.name.clone());
-    let (idempotency_key, rail_mode) = match (scenario, first_run) {
-        ("replay", true | false) => ("payment:paid-echo-001", "sealed"),
-        ("capability_reuse", true) => ("payment:paid-echo-001", "sealed"),
-        ("capability_reuse", false) => ("payment:paid-echo-002", "sealed"),
-        ("crash_recovery", true | false) => ("payment:paid-echo-001", "partial"),
-        (other, _) => {
-            return Err(HarnessReplayError::InvalidReplayMetadata {
-                field: "metadata.x402_idempotency_scenario".to_owned(),
-                message: format!("unsupported x402 idempotency scenario {other:?}"),
-            });
-        }
-    };
-    env.insert(
-        "RUNX_X402_IDEMPOTENCY_KEY".to_owned(),
-        idempotency_key.to_owned(),
-    );
-    env.insert("RUNX_X402_RAIL_MODE".to_owned(), rail_mode.to_owned());
-    Ok(RuntimeOptions {
-        created_at: options.created_at.clone(),
-        env,
-        receipt_signature: options.receipt_signature.clone(),
-        effects: options.effects.clone(),
-    })
-}
-
-#[cfg(feature = "cli-tool")]
-fn run_x402_idempotency_graph(
-    graph_path: &Path,
-    fixture: &HarnessFixture,
-    options: RuntimeOptions,
-) -> Result<GraphRun, RuntimeError> {
-    let runtime = Runtime::new(crate::adapters::cli_tool::CliToolAdapter, options);
-    let mut host = FixtureHost::new(fixture);
-    runtime.run_graph_file_with_host(graph_path, &mut host)
-}
-
-#[cfg(feature = "cli-tool")]
-fn sequence_error_output(
-    fixture: &HarnessFixture,
-    graph_run: GraphRun,
-    created_at: &str,
-    signature_policy: RuntimeReceiptSignaturePolicy<'_>,
-    status: HarnessExpectedStatus,
-    closure: GraphClosure,
-) -> Result<HarnessReplayOutput, HarnessReplayError> {
-    let mut steps = graph_run.steps;
-    sequence_output_from_steps(
-        fixture,
-        &mut steps,
-        created_at,
-        signature_policy,
-        status,
-        closure,
-    )
-}
-
-#[cfg(feature = "cli-tool")]
-fn empty_sequence_error_output(
-    fixture: &HarnessFixture,
-    created_at: &str,
-    signature_policy: RuntimeReceiptSignaturePolicy<'_>,
-    status: HarnessExpectedStatus,
-    closure: GraphClosure,
-) -> Result<HarnessReplayOutput, HarnessReplayError> {
-    let mut steps = Vec::new();
-    sequence_output_from_steps(
-        fixture,
-        &mut steps,
-        created_at,
-        signature_policy,
-        status,
-        closure,
-    )
-}
-
-#[cfg(feature = "cli-tool")]
-fn sequence_output_from_steps(
-    fixture: &HarnessFixture,
-    steps: &mut [StepRun],
-    created_at: &str,
-    signature_policy: RuntimeReceiptSignaturePolicy<'_>,
-    status: HarnessExpectedStatus,
-    closure: GraphClosure,
-) -> Result<HarnessReplayOutput, HarnessReplayError> {
-    let receipt = graph_receipt_with_disposition_and_policy(
-        &fixture.name,
-        steps,
-        Vec::new(),
-        created_at,
-        closure,
-        signature_policy,
-    )?;
-    let step_receipts = steps
-        .iter()
-        .map(|run| run.receipt.clone())
-        .collect::<Vec<_>>();
-    Ok(HarnessReplayOutput {
-        fixture: fixture.clone(),
-        status,
-        receipt,
-        step_receipts,
-        skill_output: None,
-    })
-}
-
-#[cfg(feature = "cli-tool")]
-fn step_receipt_digest(graph_run: &GraphRun, step_id: &str) -> Result<String, HarnessReplayError> {
-    graph_run
-        .steps
-        .iter()
-        .find(|run| run.step_id == step_id)
-        .map(|run| run.receipt.digest.to_string())
-        .ok_or_else(|| HarnessReplayError::Mismatch {
-            field: "metadata.x402_idempotency_replay.step",
-            expected: step_id.to_owned(),
-            actual: graph_run
-                .steps
-                .iter()
-                .map(|run| run.step_id.as_str())
-                .collect::<Vec<_>>()
-                .join(","),
-        })
-}
-
-#[cfg(feature = "cli-tool")]
-fn assert_authority_denied_contains(
-    error: &RuntimeError,
-    expected: &str,
-) -> Result<(), HarnessReplayError> {
-    match error {
-        RuntimeError::AuthorityDenied { reason, .. } if reason.contains(expected) => Ok(()),
-        other => Err(HarnessReplayError::Mismatch {
-            field: "metadata.x402_idempotency_authority_denial",
-            expected: expected.to_owned(),
-            actual: other.to_string(),
-        }),
-    }
-}
-
-#[cfg(feature = "cli-tool")]
-fn assert_skill_failed_contains(
-    error: &RuntimeError,
-    expected: &str,
-) -> Result<(), HarnessReplayError> {
-    match error {
-        RuntimeError::SkillFailed { message, .. } if message.contains(expected) => Ok(()),
-        other => Err(HarnessReplayError::Mismatch {
-            field: "metadata.x402_idempotency_skill_failure",
-            expected: expected.to_owned(),
-            actual: other.to_string(),
-        }),
-    }
-}
-
-#[cfg(feature = "cli-tool")]
-fn assert_x402_rail_invocation_count(path: &Path, expected: u64) -> Result<(), HarnessReplayError> {
-    let actual = fs::read_to_string(path)
-        .ok()
-        .and_then(|value| value.trim().parse::<u64>().ok())
-        .unwrap_or(0);
-    if actual == expected {
-        return Ok(());
-    }
-    Err(HarnessReplayError::Mismatch {
-        field: "metadata.x402_idempotency_rail_invocation_count",
-        expected: expected.to_string(),
-        actual: actual.to_string(),
-    })
-}
-
-#[cfg(feature = "cli-tool")]
-fn assert_x402_replay_state(path: &Path, key: &str) -> Result<(), HarnessReplayError> {
-    let store = FileBackedEffectStateStore::open(path).map_err(|source| {
-        RuntimeError::effect_state("reading x402 replay fixture state", source)
-    })?;
-    let key = x402_paid_echo_key(key);
-    let entry = store
-        .lookup_idempotency(PAYMENT_EFFECT_FAMILY, &key)
-        .ok_or_else(|| HarnessReplayError::Mismatch {
-            field: "metadata.x402_idempotency_replay_state",
-            expected: "sealed idempotency entry".to_owned(),
-            actual: "none".to_owned(),
-        })?;
-    let entry_text = serde_json::to_string(entry)
-        .map_err(|source| RuntimeError::json("serializing x402 replay fixture state", source))?;
-    if entry_text.contains("rail_session_material_ref") {
-        return Err(HarnessReplayError::Mismatch {
-            field: "metadata.x402_idempotency_replay_state",
-            expected: "no rail session material".to_owned(),
-            actual: "rail_session_material_ref persisted".to_owned(),
-        });
-    }
-    Ok(())
-}
-
-#[cfg(feature = "cli-tool")]
-fn assert_x402_escalated_state(path: &Path, key: &str) -> Result<(), HarnessReplayError> {
-    let store = FileBackedEffectStateStore::open(path).map_err(|source| {
-        RuntimeError::effect_state("reading x402 recovery fixture state", source)
-    })?;
-    let key = x402_paid_echo_key(key);
-    let mutation = store
-        .lookup_mutation(PAYMENT_EFFECT_FAMILY, &key)
-        .ok_or_else(|| HarnessReplayError::Mismatch {
-            field: "metadata.x402_idempotency_recovery_state",
-            expected: "rail mutation".to_owned(),
-            actual: "none".to_owned(),
-        })?;
-    if mutation.status == EffectMutationStatus::Escalated
-        && mutation.recovery_state == EffectRecoveryState::Escalated
-    {
-        return Ok(());
-    }
-    Err(HarnessReplayError::Mismatch {
-        field: "metadata.x402_idempotency_recovery_state",
-        expected: "escalated".to_owned(),
-        actual: format!("{:?}/{:?}", mutation.status, mutation.recovery_state),
-    })
-}
-
-#[cfg(feature = "cli-tool")]
-fn x402_paid_echo_key(key: &str) -> EffectIdempotencyKey {
-    EffectIdempotencyKey::new("mock", "merchant:paid-echo", key)
-}
-
-#[cfg(feature = "cli-tool")]
-fn create_harness_temp_dir(name: &str) -> Result<PathBuf, HarnessReplayError> {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_nanos());
-    let path = std::env::temp_dir().join(format!(
-        "runx-harness-{name}-{}-{nanos}",
-        std::process::id()
-    ));
-    fs::create_dir_all(&path)
-        .map_err(|source| RuntimeError::io("creating x402 idempotency fixture temp dir", source))?;
-    Ok(path)
-}
-
-#[cfg(all(test, feature = "cli-tool"))]
-mod tests {
-    use std::collections::BTreeMap;
-
-    use runx_contracts::ReceiptIssuerType;
-
-    use super::super::fixtures::HarnessExpectation;
-    use super::*;
-    use crate::receipts::{
-        Ed25519ReceiptSigner, Ed25519ReceiptVerifier, RuntimeReceiptSigningError,
-    };
-
-    const CREATED_AT: &str = "2026-05-25T00:00:00Z";
-    const FIXTURE_KID: &str = "runx-harness-sequence-prod-key";
-    const FIXTURE_SEED: [u8; 32] = [0x42; 32];
-
-    #[test]
-    // rust-style-allow: long-function because the test builds a minimal signed
-    // harness sequence so the sequence seal policy is checked without shell fixtures.
-    fn sequence_output_uses_supplied_production_signature_policy() -> Result<(), HarnessReplayError>
-    {
-        let signer =
-            Ed25519ReceiptSigner::from_seed(FIXTURE_KID, ReceiptIssuerType::Hosted, &FIXTURE_SEED)
-                .map_err(signing_error)?;
-        let verifier = Ed25519ReceiptVerifier::new([signer.production_key()]);
-        let signature_policy =
-            RuntimeReceiptSignaturePolicy::production_signing(&signer, &verifier);
-        let output = SkillOutput {
-            status: InvocationStatus::Success,
-            stdout: r#"{"ok":true}"#.to_owned(),
-            stderr: String::new(),
-            exit_code: Some(0),
-            duration_ms: 1,
-            metadata: JsonObject::new(),
-        };
-        let receipt = step_receipt_with_disposition_and_policy(
-            StepReceiptWithDisposition {
-                graph_name: "x402_sequence",
-                step_id: "fulfill",
-                attempt: 1,
-                output: &output,
-                created_at: CREATED_AT,
-                disposition: ClosureDisposition::Closed,
-                reason_code: "process_closed".to_owned(),
-                summary: "fulfilled".to_owned(),
-            },
-            signature_policy,
-        )?;
-        let receipt_id = receipt.id.to_string();
-        let mut steps = vec![StepRun {
-            step_id: "fulfill".to_owned(),
-            attempt: 1,
-            skill: "fulfill".to_owned(),
-            runner: None,
-            fanout_group: None,
-            output,
-            outputs: JsonObject::new(),
-            receipt,
-            admission_witness: StepAdmissionWitness::local_runtime("fulfill", &receipt_id),
-        }];
-        let fixture = HarnessFixture {
-            name: "x402-sequence".to_owned(),
-            kind: HarnessFixtureKind::Graph,
-            target: String::new(),
-            runner: None,
-            inputs: JsonObject::new(),
-            env: BTreeMap::new(),
-            caller: JsonObject::new(),
-            expect: HarnessExpectation::default(),
-            metadata: JsonObject::new(),
-        };
-
-        let output = sequence_output_from_steps(
-            &fixture,
-            &mut steps,
-            CREATED_AT,
-            signature_policy,
-            HarnessExpectedStatus::PolicyDenied,
-            GraphClosure {
-                disposition: ClosureDisposition::Blocked,
-                reason_code: "x402_idempotency_capability_reuse_blocked".to_owned(),
-                summary: "second spend capability use denied before rail".to_owned(),
-            },
-        )?;
-
-        assert!(output.receipt.signature.value.starts_with("base64:"));
-        assert!(!output.receipt.signature.value.starts_with("sig:"));
-        assert!(
-            output
-                .step_receipts
-                .iter()
-                .all(|receipt| receipt.signature.value.starts_with("base64:"))
-        );
-        Ok(())
-    }
-
-    fn signing_error(error: RuntimeReceiptSigningError) -> HarnessReplayError {
-        HarnessReplayError::Runtime(RuntimeError::ReceiptInvalid {
-            message: error.to_string(),
-        })
-    }
-}
-
 fn run_skill_fixture<A>(
     fixture: &HarnessFixture,
     skill_dir: PathBuf,
@@ -935,6 +372,7 @@ where
         status: status_from_disposition(&receipt.seal.disposition),
         receipt,
         step_receipts: Vec::new(),
+        steps: Vec::new(),
         skill_output: Some(skill_output),
     })
 }
@@ -1129,52 +567,8 @@ where
     let runtime = Runtime::new(adapter, options);
     let mut host = FixtureHost::new(fixture);
     let graph_run = runtime.run_graph_file_for_harness(graph_path, &mut host)?;
-    persist_payment_ledger_projection_if_configured(fixture, &graph_run, &runtime)?;
     let output = replay_output_from_graph(fixture, graph_run);
     Ok(output)
-}
-
-fn persist_payment_ledger_projection_if_configured<A>(
-    fixture: &HarnessFixture,
-    graph_run: &GraphRun,
-    runtime: &Runtime<A>,
-) -> Result<(), HarnessReplayError>
-where
-    A: SkillAdapter,
-{
-    if !runtime.options().env.contains_key(RUNX_RECEIPT_DIR_ENV) {
-        return Ok(());
-    }
-    if string_metadata(fixture, "payment_ledger_profile") != Some(X402_PAY_PAYMENT_PROFILE) {
-        return Ok(());
-    }
-    let cwd = std::env::current_dir().map_err(|source| {
-        RuntimeError::io("resolving cwd for payment ledger projection", source)
-    })?;
-    let workspace = WorkspaceEnv::new(runtime.options().env.clone(), cwd);
-    let receipts =
-        ReceiptServices::from_signature_config(runtime.options().receipt_signature.clone());
-    let receipt_path = receipts.resolve_path(&workspace, None, None);
-    let scenario_id = required_string_metadata(
-        &fixture.metadata,
-        "metadata.payment_ledger_scenario_id",
-        "payment_ledger_scenario_id",
-    )?;
-    persist_x402_payment_ledger_projection_event(
-        &receipt_path.path,
-        &format!("gx_{}", graph_run.graph.name),
-        &runtime.options().created_at,
-        &graph_run.receipt,
-        &graph_run.steps,
-        scenario_id.as_str(),
-    )
-    .map(|_| ())
-    .map_err(|source| {
-        RuntimeError::ReceiptInvalid {
-            message: source.to_string(),
-        }
-        .into()
-    })
 }
 
 struct FixtureHost<'a> {
@@ -1295,6 +689,7 @@ fn replay_output_from_graph(fixture: &HarnessFixture, graph_run: GraphRun) -> Ha
         status: status_from_disposition(&graph_run.receipt.seal.disposition),
         receipt: graph_run.receipt,
         step_receipts,
+        steps: graph_run.steps,
         skill_output: None,
     }
 }

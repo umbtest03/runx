@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use runx_parser::GraphStep;
 
 use super::RUNX_MAX_FANOUT_CONCURRENCY_ENV;
+use crate::effects::RuntimeEffectRegistry;
 
 const DEFAULT_MAX_FANOUT_CONCURRENCY: usize = 1;
 const HARD_MAX_FANOUT_CONCURRENCY: usize = 64;
@@ -61,26 +62,11 @@ pub(super) fn scheduled_step<'a>(
     }
 }
 
-pub(super) fn parallel_safe_step_shape(step: &GraphStep) -> bool {
+pub(super) fn parallel_safe_step_shape(step: &GraphStep, effects: &RuntimeEffectRegistry) -> bool {
     step.run.is_none()
         && step.tool.is_none()
         && !step.mutating
-        && !has_payment_authority_inputs(step)
-}
-
-fn has_payment_authority_inputs(step: &GraphStep) -> bool {
-    step.inputs.keys().any(|key| is_payment_authority_key(key))
-        || step
-            .context_edges
-            .iter()
-            .any(|edge| is_payment_authority_key(&edge.input))
-}
-
-fn is_payment_authority_key(key: &str) -> bool {
-    matches!(
-        key,
-        "reserved_payment_authority" | "spend_capability_ref" | "payment_challenge"
-    )
+        && effects.allows_parallel_step(step)
 }
 
 fn configured_max_concurrency(env: &BTreeMap<String, String>) -> usize {

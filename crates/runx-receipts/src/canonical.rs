@@ -166,9 +166,8 @@ mod tests {
     const RECEIPT_ORACLE: &str = include_str!(
         "../../../fixtures/contracts/canonical-json/runx-receipt-c14n-v1.oracles.json"
     );
-    const STABLE_JSON_ORACLE: &str = include_str!(
-        "../../../fixtures/contracts/canonical-json/runx-stable-json-v1.cases.json"
-    );
+    const STABLE_JSON_ORACLE: &str =
+        include_str!("../../../fixtures/contracts/canonical-json/runx-stable-json-v1.cases.json");
 
     #[derive(Debug, Deserialize)]
     struct Fixture {

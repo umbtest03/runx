@@ -125,6 +125,8 @@ function runCutoverCheck() {
   checkEffectKernelPhase2NoDualPath();
   if (finalMode) {
     checkFinalPackageDirectories();
+    checkFinalRustKernelDomainFree();
+    checkFinalRuntimeCargoEdges();
   }
 }
 
@@ -269,6 +271,60 @@ function checkFinalPackageDirectories() {
       findings.push(`${relPath} remains in final cutover mode`);
     }
   }
+}
+
+function checkFinalRustKernelDomainFree() {
+  const sourceRoots = ["crates/runx-runtime/src", "crates/runx-core/src"];
+  const manifestFiles = ["crates/runx-runtime/Cargo.toml", "crates/runx-core/Cargo.toml"];
+  const files = [
+    ...sourceFiles(sourceRoots, [".rs"]),
+    ...manifestFiles.map((relPath) => path.join(workspaceRoot, relPath)).filter(existsSync),
+  ];
+  const bannedParts = new Set(["payment", "settlement", "spend", "x402", "rail"]);
+  for (const filePath of files) {
+    const rel = relative(filePath);
+    const lines = readFileSync(filePath, "utf8").split(/\r?\n/u);
+    lines.forEach((line, index) => {
+      for (const token of line.matchAll(/[A-Za-z_][A-Za-z0-9_]*/gu)) {
+        const parts = splitIdentifierParts(token[0]);
+        const banned = parts.find((part) => bannedParts.has(part));
+        if (banned) {
+          findings.push(`${rel}:${index + 1} contains final-cutover domain token '${banned}' in '${token[0]}'`);
+        }
+      }
+    });
+  }
+}
+
+function checkFinalRuntimeCargoEdges() {
+  const result = spawnSync("cargo", [
+    "tree",
+    "--manifest-path",
+    "crates/Cargo.toml",
+    "-p",
+    "runx-runtime",
+    "--edges",
+    "normal",
+  ], {
+    cwd: workspaceRoot,
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    findings.push(`cargo tree failed for runx-runtime: ${result.stderr || result.stdout}`);
+    return;
+  }
+  if (/\brunx-pay\b|\brunx_pay\b/u.test(result.stdout)) {
+    findings.push("runx-runtime has a normal Cargo edge to runx-pay in final cutover mode");
+  }
+}
+
+function splitIdentifierParts(token) {
+  return token
+    .replace(/([a-z0-9])([A-Z])/gu, "$1_$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/gu, "$1_$2")
+    .toLowerCase()
+    .split(/_+/u)
+    .filter(Boolean);
 }
 
 function importingTestFiles() {

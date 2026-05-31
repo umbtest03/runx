@@ -2,19 +2,16 @@
 // signature policy, and local proof sealing stay together until the runtime
 // receipt builder is split out.
 use crate::adapter::SkillOutput;
+use crate::effects::{RuntimeEffectRegistry, effect_verification_refs};
 use crate::execution::output_projection::{
     StepOutputProjection, StepOutputRefs, project_step_output,
-};
-use crate::payment::supervisor::{
-    payment_supervisor_evidence_from_metadata, payment_supervisor_proof_from_metadata,
-    rebind_supervisor_proof_to_receipt,
 };
 use crate::{RuntimeError, StepRun};
 use runx_contracts::schema::NonEmptyString;
 use runx_contracts::{
     ActForm, AuthorityAttenuation, AuthoritySubsetResult, Closure, ClosureDisposition,
     CriterionBinding, CriterionStatus, Decision, DecisionChoice, DecisionInputs,
-    DecisionJustification, FanoutReceiptSyncPoint, Intent, JsonObject, Lineage, ProofKind,
+    DecisionJustification, FanoutReceiptSyncPoint, Intent, JsonObject, Lineage,
     RECEIPT_CANONICALIZATION, Receipt, ReceiptAct, ReceiptAuthority, ReceiptEnforcement,
     ReceiptIdempotency, ReceiptIssuer, ReceiptSchema, Reference, ReferenceType, Seal,
     SignatureAlgorithm, Subject, SuccessCriterion, json_string_field, receipt_subject_kind,
@@ -222,6 +219,24 @@ pub fn graph_receipt_with_signature_policy(
     created_at: &str,
     signature_policy: RuntimeReceiptSignaturePolicy<'_>,
 ) -> Result<Receipt, RuntimeError> {
+    graph_receipt_with_effects_and_signature_policy(
+        graph_name,
+        steps,
+        sync_points,
+        created_at,
+        RuntimeEffectRegistry::default(),
+        signature_policy,
+    )
+}
+
+pub(crate) fn graph_receipt_with_effects_and_signature_policy(
+    graph_name: &str,
+    steps: &mut [StepRun],
+    sync_points: Vec<FanoutReceiptSyncPoint>,
+    created_at: &str,
+    effects: RuntimeEffectRegistry,
+    signature_policy: RuntimeReceiptSignaturePolicy<'_>,
+) -> Result<Receipt, RuntimeError> {
     graph_receipt_with_disposition_and_policy(
         graph_name,
         steps,
@@ -232,6 +247,7 @@ pub fn graph_receipt_with_signature_policy(
             reason_code: "graph_closed".to_owned(),
             summary: format!("graph {graph_name} completed"),
         },
+        effects,
         signature_policy,
     )
 }
@@ -255,6 +271,7 @@ pub(crate) fn graph_receipt_with_disposition(
             reason_code,
             summary,
         },
+        RuntimeEffectRegistry::default(),
         RuntimeReceiptSignaturePolicy::local_development(),
     )
 }
@@ -271,43 +288,19 @@ pub(crate) fn graph_receipt_with_disposition_and_policy(
     sync_points: Vec<FanoutReceiptSyncPoint>,
     created_at: &str,
     closure: GraphClosure,
+    effects: RuntimeEffectRegistry,
     signature_policy: RuntimeReceiptSignaturePolicy<'_>,
 ) -> Result<Receipt, RuntimeError> {
-    let build_graph_receipt = |children: Vec<Reference>| {
-        let seal = seal(
-            closure.disposition.clone(),
-            closure.reason_code.clone(),
-            closure.summary.clone(),
-            created_at,
-            Vec::new(),
-        );
-        build_receipt(BuildReceipt {
-            // Placeholder id; `seal_receipt` content-addresses it. The content
-            // address excludes lineage, so it is stable across the parent-link
-            // pass below regardless of which children are attached.
-            id: format!("hrn_rcpt_{graph_name}"),
-            graph_name,
-            node_id: "graph",
-            kind: receipt_subject_kind::GRAPH.into(),
-            created_at,
-            decisions: Vec::new(),
-            acts: Vec::new(),
-            seal,
-            children,
-            sync_points: sync_points.clone(),
-            signals: Vec::new(),
-        })
-    };
-
     // Pass 1: learn the stable content-addressed id. The final pass below is
     // the only graph body digest/signature/proof seal this path needs.
-    let mut receipt = build_graph_receipt(Vec::new());
+    let mut receipt =
+        build_graph_receipt(graph_name, Vec::new(), &sync_points, created_at, &closure);
     content_address_receipt(&mut receipt, signature_policy)?;
     let parent_ref = Reference::runx(ReferenceType::Receipt, &receipt.id);
 
     // Attach the parent link to each child and re-seal them (ids are stable
     // because lineage is excluded from the content address; only digests move).
-    attach_parent_to_child_receipts(steps, &parent_ref, signature_policy)?;
+    attach_parent_to_child_receipts(steps, &parent_ref, &effects, signature_policy)?;
     let child_refs = steps
         .iter()
         .map(|step| child_receipt_reference(&step.receipt))
@@ -315,7 +308,8 @@ pub(crate) fn graph_receipt_with_disposition_and_policy(
 
     // Pass 2: re-seal the graph with the final child refs. The content address
     // is unchanged (lineage excluded); only the full digest commits the children.
-    let mut receipt = build_graph_receipt(child_refs);
+    let mut receipt =
+        build_graph_receipt(graph_name, child_refs, &sync_points, created_at, &closure);
     seal_receipt_unvalidated(&mut receipt, signature_policy)?;
 
     validate_receipt_tree_with_policy(
@@ -324,6 +318,34 @@ pub(crate) fn graph_receipt_with_disposition_and_policy(
         signature_policy,
     )?;
     Ok(receipt)
+}
+
+fn build_graph_receipt(
+    graph_name: &str,
+    children: Vec<Reference>,
+    sync_points: &[FanoutReceiptSyncPoint],
+    created_at: &str,
+    closure: &GraphClosure,
+) -> Receipt {
+    build_receipt(BuildReceipt {
+        id: format!("hrn_rcpt_{graph_name}"),
+        graph_name,
+        node_id: "graph",
+        kind: receipt_subject_kind::GRAPH.into(),
+        created_at,
+        decisions: Vec::new(),
+        acts: Vec::new(),
+        seal: seal(
+            closure.disposition.clone(),
+            closure.reason_code.clone(),
+            closure.summary.clone(),
+            created_at,
+            Vec::new(),
+        ),
+        children,
+        sync_points: sync_points.to_vec(),
+        signals: Vec::new(),
+    })
 }
 
 fn validate_receipt_tree_with_policy<'a>(
@@ -581,30 +603,10 @@ fn output_refs(output: &SkillOutput, projected_refs: &StepOutputRefs) -> StepOut
 }
 
 fn collect_supervisor_metadata_refs(metadata: &JsonObject, refs: &mut StepOutputRefs) {
-    let Ok(Some(proof)) = payment_supervisor_proof_from_metadata(metadata) else {
-        let Ok(Some(evidence)) = payment_supervisor_evidence_from_metadata(metadata) else {
-            return;
-        };
-        refs.verification_refs.push(Reference {
-            uri: evidence.proof_ref.into(),
-            reference_type: ReferenceType::Verification,
-            provider: None,
-            locator: Some(evidence.idempotency_key.into()),
-            label: Some("payment rail supervisor proof".to_owned().into()),
-            observed_at: None,
-            proof_kind: Some(ProofKind::PaymentRail),
-        });
+    let Ok(mut verification_refs) = effect_verification_refs(metadata) else {
         return;
     };
-    refs.verification_refs.push(Reference {
-        uri: proof.proof_ref.into(),
-        reference_type: ReferenceType::Verification,
-        provider: None,
-        locator: Some(proof.idempotency_key.into()),
-        label: Some("payment rail supervisor proof".to_owned().into()),
-        observed_at: None,
-        proof_kind: Some(ProofKind::PaymentRail),
-    });
+    refs.verification_refs.append(&mut verification_refs);
 }
 
 fn disposition(output: &SkillOutput) -> ClosureDisposition {
@@ -635,6 +637,7 @@ fn child_receipt_reference(receipt: &Receipt) -> Reference {
 fn attach_parent_to_child_receipts(
     steps: &mut [StepRun],
     parent_ref: &Reference,
+    effects: &RuntimeEffectRegistry,
     signature_policy: RuntimeReceiptSignaturePolicy<'_>,
 ) -> Result<(), RuntimeError> {
     for step in steps {
@@ -643,13 +646,11 @@ fn attach_parent_to_child_receipts(
             .get_or_insert_with(Lineage::default)
             .parent = Some(parent_ref.clone());
         seal_receipt_unvalidated(&mut step.receipt, signature_policy)?;
-        // Re-bind any supervisor proof to the re-sealed child digest so payment
-        // ledger projection validates against the final receipt body.
-        rebind_supervisor_proof_to_receipt(&mut step.output.metadata, &step.receipt).map_err(
-            |error| RuntimeError::ReceiptInvalid {
+        effects
+            .refresh_output_metadata(&mut step.output, &step.receipt)
+            .map_err(|error| RuntimeError::ReceiptInvalid {
                 message: error.to_string(),
-            },
-        )?;
+            })?;
     }
     Ok(())
 }

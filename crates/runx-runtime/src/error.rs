@@ -5,7 +5,6 @@ use runx_core::state_machine::FanoutSyncDecision;
 use thiserror::Error;
 
 use crate::credentials::CredentialDeliveryError;
-use crate::effects::state::EffectStateError;
 
 #[derive(Debug, Error)]
 pub enum RuntimeError {
@@ -72,12 +71,8 @@ pub enum RuntimeError {
     SandboxViolation { message: String },
     #[error("credential delivery failed: {0}")]
     CredentialDelivery(#[from] CredentialDeliveryError),
-    #[error("effect state failed while {context}: {source}")]
-    EffectState {
-        context: String,
-        #[source]
-        source: EffectStateError,
-    },
+    #[error("effect state failed while {context}: {message}")]
+    EffectState { context: String, message: String },
     #[error("skill file is missing at {path}")]
     SkillFileMissing { path: PathBuf },
     #[error("skill '{skill_name}' failed: {message}")]
@@ -101,10 +96,10 @@ impl RuntimeError {
         }
     }
 
-    pub(crate) fn effect_state(context: impl Into<String>, source: EffectStateError) -> Self {
+    pub(crate) fn effect_state(context: impl Into<String>, source: impl std::fmt::Display) -> Self {
         Self::EffectState {
             context: context.into(),
-            source,
+            message: source.to_string(),
         }
     }
 }

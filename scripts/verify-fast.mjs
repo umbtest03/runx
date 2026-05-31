@@ -48,6 +48,7 @@ await runParallelGroup("source checks", [
 await runSerialGroup("rust structure checks", [
   step("rust:crate-graph", "pnpm", ["rust:crate-graph"]),
   step("rust:style", "pnpm", ["rust:style"]),
+  step("cutover:legacy-check", "pnpm", ["cutover:legacy-check"]),
 ]);
 
 const cliBuild = await runStep(

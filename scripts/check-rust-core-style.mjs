@@ -7,6 +7,7 @@ const rustRoots = [
   "crates/runx-cli/src",
   "crates/runx-contracts/src",
   "crates/runx-core/src",
+  "crates/runx-pay/src",
   "crates/runx-parser/src",
   "crates/runx-receipts/src",
   "crates/runx-runtime/src",

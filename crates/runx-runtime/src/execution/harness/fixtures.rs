@@ -47,21 +47,6 @@ const HARNESS_FIXTURE_CASES: &[HarnessFixtureCase] = &[
             },
         ],
     },
-    HarnessFixtureCase {
-        name: "payment-approval-graph",
-        fixture_path: "fixtures/harness/payment-approval-graph.yaml",
-        root_oracle_path: "fixtures/harness/oracle/payment-approval-graph.receipt.json",
-        step_oracles: &[
-            HarnessFixtureStepOracle {
-                step_id: "approve-spend",
-                oracle_path: "fixtures/harness/oracle/payment-approval-graph.approve-spend.json",
-            },
-            HarnessFixtureStepOracle {
-                step_id: "fulfill",
-                oracle_path: "fixtures/harness/oracle/payment-approval-graph.fulfill.json",
-            },
-        ],
-    },
 ];
 
 #[must_use]

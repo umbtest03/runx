@@ -328,7 +328,7 @@ impl GraphExecution {
     where
         A: SkillAdapter,
     {
-        if !parallel_safe_step_shape(step) {
+        if !parallel_safe_step_shape(step, &runtime.options().effects) {
             return false;
         }
         let Ok(Some(skill)) = self.cached_step_skill(graph_dir, step) else {

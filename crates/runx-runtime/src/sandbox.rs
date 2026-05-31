@@ -41,6 +41,7 @@ pub struct SandboxPlan {
     pub cleanup_paths: Vec<PathBuf>,
 }
 
+#[cfg(feature = "cli-tool")]
 pub(crate) struct SandboxProcessPlan {
     pub(crate) command: String,
     pub(crate) args: Vec<String>,
@@ -51,6 +52,7 @@ pub(crate) struct SandboxProcessPlan {
 }
 
 impl SandboxPlan {
+    #[cfg(feature = "cli-tool")]
     pub(crate) fn into_process_plan(mut self) -> SandboxProcessPlan {
         SandboxProcessPlan {
             command: std::mem::take(&mut self.command),
@@ -207,7 +209,7 @@ mod tests {
             writable_paths: vec![
                 "{{workspace_path}}".to_owned(),
                 "{{ fixture }}".to_owned(),
-                "{{ env.RUNX_RAIL_COUNT_PATH }}".to_owned(),
+                "{{ env.RUNX_EFFECT_COUNT_PATH }}".to_owned(),
                 "logs".to_owned(),
             ],
             require_enforcement: None,
@@ -221,8 +223,8 @@ mod tests {
         .into_iter()
         .collect();
         let env = [(
-            "RUNX_RAIL_COUNT_PATH".to_owned(),
-            "/tmp/runx-rail-count.txt".to_owned(),
+            "RUNX_EFFECT_COUNT_PATH".to_owned(),
+            "/tmp/runx-effect-count.txt".to_owned(),
         )]
         .into_iter()
         .collect();
@@ -231,7 +233,7 @@ mod tests {
             resolved_writable_paths(Some(&sandbox), &inputs, &env),
             vec![
                 "/tmp/runx-fixture".to_owned(),
-                "/tmp/runx-rail-count.txt".to_owned(),
+                "/tmp/runx-effect-count.txt".to_owned(),
                 "logs".to_owned()
             ]
         );

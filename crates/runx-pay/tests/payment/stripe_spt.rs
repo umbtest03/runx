@@ -9,14 +9,12 @@ use runx_contracts::{
     ResolutionResponseActor,
 };
 use runx_core::state_machine::GraphStatus;
-use runx_runtime::effects::{
-    EffectSettlementEvidence, EffectSettlementRequest, EffectSupervisor, EffectSupervisorError,
-    RuntimeEffectRegistry,
-};
-use runx_runtime::payment::supervisor::{
+use runx_pay::supervisor::{
     PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID, PaymentSupervisorError,
-    PaymentSupervisorSettlementEvidence, payment_supervisor_evidence_to_effect_record,
+    PaymentSupervisorSettlementEvidence, PaymentSupervisorSettlementRequest,
 };
+use runx_pay::{PaymentRailSupervisor, PaymentRuntimeEffect};
+use runx_runtime::effects::RuntimeEffectRegistry;
 use runx_runtime::{
     Host, InvocationStatus, Runtime, RuntimeError, RuntimeOptions, SkillAdapter, SkillInvocation,
     SkillOutput,
@@ -103,7 +101,7 @@ fn stripe_spt_payment_decline_returns_governed_error_without_sealing_success()
     let fixture = StripeSptFixture::new()?;
     let adapter = StripeSptAdapter::new(StripeSptScenario::Declined);
     let invocations = adapter.invocations();
-    let runtime = Runtime::new(adapter, RuntimeOptions::local_development());
+    let runtime = Runtime::new(adapter, runtime_options_with_effects(Vec::new()));
     let mut host = ApprovalHost::approved(true);
 
     let result = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host);
@@ -142,7 +140,7 @@ fn stripe_spt_payment_timeout_preserves_idempotency_for_recovery()
     let fixture = StripeSptFixture::new()?;
     let adapter = StripeSptAdapter::new(StripeSptScenario::Timeout);
     let invocations = adapter.invocations();
-    let runtime = Runtime::new(adapter, RuntimeOptions::local_development());
+    let runtime = Runtime::new(adapter, runtime_options_with_effects(Vec::new()));
     let mut host = ApprovalHost::approved(true);
 
     let result = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host);
@@ -194,8 +192,8 @@ fn runtime_options_with_effects(
     evidence: Vec<PaymentSupervisorSettlementEvidence>,
 ) -> RuntimeOptions {
     RuntimeOptions {
-        effects: RuntimeEffectRegistry::with_payment_effect(ExpectedEffectSupervisor::new(
-            evidence,
+        effects: RuntimeEffectRegistry::with_effect(PaymentRuntimeEffect::new(
+            ExpectedEffectSupervisor::new(evidence),
         )),
         ..RuntimeOptions::local_development()
     }
@@ -217,12 +215,11 @@ impl ExpectedEffectSupervisor {
     }
 }
 
-impl EffectSupervisor for ExpectedEffectSupervisor {
+impl PaymentRailSupervisor for ExpectedEffectSupervisor {
     fn settlement_evidence(
         &self,
-        request: EffectSettlementRequest<'_>,
-    ) -> Result<EffectSettlementEvidence, EffectSupervisorError> {
-        let request = request.payment_rail()?;
+        request: PaymentSupervisorSettlementRequest<'_>,
+    ) -> Result<PaymentSupervisorSettlementEvidence, PaymentSupervisorError> {
         let evidence = self
             .evidence_by_proof_ref
             .get(request.proof_ref)
@@ -242,9 +239,7 @@ impl EffectSupervisor for ExpectedEffectSupervisor {
             request.idempotency_key,
             &evidence.idempotency_key,
         )?;
-        Ok(EffectSettlementEvidence::generic(
-            payment_supervisor_evidence_to_effect_record(evidence),
-        ))
+        Ok(evidence)
     }
 }
 

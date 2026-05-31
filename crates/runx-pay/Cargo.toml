@@ -1,14 +1,14 @@
 [package]
-name = "runx-payments"
+name = "runx-pay"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
-description = "Payment authority and settlement helpers for runx."
+description = "Payment authority and effect helpers for runx."
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 readme = "README.md"
-keywords = ["runx", "payments", "authority", "agents", "workflow"]
+keywords = ["runx", "pay", "authority", "agents", "workflow"]
 categories = ["development-tools"]
 include = ["Cargo.toml", "README.md", "src/**/*.rs"]
 
@@ -18,13 +18,20 @@ workspace = true
 [dependencies]
 runx-contracts.workspace = true
 runx-core.workspace = true
+runx-parser.workspace = true
+runx-runtime.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+runx-receipts.workspace = true
+tempfile = "3.23.0"
 
 [features]
 default = ["std"]
 std = []
 
 [lib]
-name = "runx_payments"
+name = "runx_pay"
 path = "src/lib.rs"

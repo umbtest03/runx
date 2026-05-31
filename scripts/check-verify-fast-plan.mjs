@@ -16,6 +16,7 @@ for (const forbidden of [
   "create-skill package contract",
   "rust:crate-graph",
   "rust:style",
+  "cutover:legacy-check",
   "build native runx binary",
   "build harness fixture oracle binary",
   "test:fast",
@@ -27,6 +28,7 @@ for (const forbidden of [
 
 for (const required of [
   'await runSerialGroup("rust structure checks"',
+  'step("cutover:legacy-check"',
   'step("build native runx binary"',
   'step("build harness fixture oracle binary"',
   'step("build workspace"',

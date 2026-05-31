@@ -1637,6 +1637,7 @@ name = "runx-cli"
 version = "0.6.0"
 dependencies = [
  "runx-contracts",
+ "runx-pay",
  "runx-runtime",
  "serde",
  "serde_json",
@@ -1689,12 +1690,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "runx-payments"
+name = "runx-pay"
 version = "0.1.0"
 dependencies = [
  "runx-contracts",
  "runx-core",
+ "runx-parser",
+ "runx-receipts",
+ "runx-runtime",
  "serde",
+ "serde_json",
+ "tempfile",
  "thiserror",
 ]
 
@@ -1726,7 +1732,6 @@ dependencies = [
  "runx-contracts",
  "runx-core",
  "runx-parser",
- "runx-payments",
  "runx-receipts",
  "rustix",
  "rustls",

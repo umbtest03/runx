@@ -26,7 +26,7 @@ use crate::receipts::paths::{RUNX_CWD_ENV, RUNX_PROJECT_DIR_ENV, RUNX_RECEIPT_DI
 use crate::receipts::{
     RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV,
     RUNX_RECEIPT_SIGN_KID_ENV, RuntimeReceiptSignatureConfig, RuntimeReceiptSignaturePolicy,
-    graph_receipt_with_disposition_and_policy, graph_receipt_with_signature_policy,
+    graph_receipt_with_disposition_and_policy, graph_receipt_with_effects_and_signature_policy,
 };
 use crate::services::ReceiptServices;
 
@@ -215,11 +215,12 @@ where
         let mut execution = GraphExecution::new(&graph);
         match execution.run(self, graph_dir, &graph, host, None) {
             Ok(()) => {
-                let receipt = graph_receipt_with_signature_policy(
+                let receipt = graph_receipt_with_effects_and_signature_policy(
                     &graph.name,
                     &mut execution.runs,
                     execution.sync_points.clone(),
                     &self.options.created_at,
+                    self.options.effects.clone(),
                     self.options.signature_policy(),
                 )?;
                 execution.record_lifecycle(
@@ -241,6 +242,7 @@ where
                         reason_code: "graph_blocked".to_owned(),
                         summary: format!("graph {} blocked at {step_id}: {reason}", graph.name),
                     },
+                    self.options.effects.clone(),
                     self.options.signature_policy(),
                 )?;
                 execution.record_lifecycle(
@@ -314,11 +316,12 @@ where
     ) -> Result<GraphRun, RuntimeError> {
         let mut execution = GraphExecution::from_checkpoint(&graph, checkpoint)?;
         execution.run(self, graph_dir, &graph, host, None)?;
-        let receipt = graph_receipt_with_signature_policy(
+        let receipt = graph_receipt_with_effects_and_signature_policy(
             &graph.name,
             &mut execution.runs,
             execution.sync_points.clone(),
             &self.options.created_at,
+            self.options.effects.clone(),
             self.options.signature_policy(),
         )?;
         execution.record_lifecycle(host, LifecycleEvent::graph_completed(&graph.name, &receipt))?;
@@ -341,11 +344,12 @@ where
             });
         }
         let mut execution = GraphExecution::from_checkpoint(&graph, checkpoint)?;
-        let receipt = graph_receipt_with_signature_policy(
+        let receipt = graph_receipt_with_effects_and_signature_policy(
             &graph.name,
             &mut execution.runs,
             execution.sync_points.clone(),
             &self.options.created_at,
+            self.options.effects.clone(),
             self.options.signature_policy(),
         )?;
         execution.record_lifecycle(host, LifecycleEvent::graph_completed(&graph.name, &receipt))?;

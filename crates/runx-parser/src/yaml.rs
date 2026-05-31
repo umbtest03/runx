@@ -6,6 +6,7 @@ use serde::de::DeserializeOwned;
 use crate::ParseError;
 
 const DIVERGENT_BOOLISH: &[&str] = &["yes", "no", "on", "off"];
+const LEFT_BRACE_BYTE: u8 = b'{';
 
 pub fn parse_yaml_document<T>(source: &str) -> Result<T, ParseError>
 where
@@ -98,7 +99,7 @@ fn top_level_plain_key(trimmed: &str) -> Option<&str> {
     let bytes = trimmed.as_bytes();
     if bytes
         .first()
-        .is_some_and(|byte| matches!(byte, b'-' | b'?' | b'{' | b'[' | b'"' | b'\''))
+        .is_some_and(|byte| matches!(*byte, b'-' | b'?' | LEFT_BRACE_BYTE | b'[' | b'"' | b'\''))
     {
         return None;
     }
@@ -312,8 +313,7 @@ mod tests {
     // following ambiguous colon. The new state machine consumes `\` plus the
     // next byte as one escape unit and resolves the close correctly.
     #[test]
-    fn parity_subset_accepts_backslash_escape_in_double_quote()
-    -> Result<(), crate::ParseError> {
+    fn parity_subset_accepts_backslash_escape_in_double_quote() -> Result<(), crate::ParseError> {
         for literal in [
             "key: \"a\\\\b\"",
             "key: \"trailing\\\\\"",
@@ -335,10 +335,8 @@ mod tests {
         // close-quote position incorrectly suppressed the toggle, so it
         // missed the trailing colon-space. The state machine correctly
         // exits the quote at the close and flags the colon-space.
-        let result = assert_yaml_parity_subset(
-            "fixture",
-            "key: plain \"escaped\\\\\" trailing: oops",
-        );
+        let result =
+            assert_yaml_parity_subset("fixture", "key: plain \"escaped\\\\\" trailing: oops");
         assert!(result.is_err(), "expected rejection, got {result:?}");
     }
 
@@ -362,10 +360,7 @@ mod tests {
         // and could leave itself inside an apparent quote when the trailing
         // colon-space appeared. The state machine resolves the `''` escape
         // and flags the trailing colon-space.
-        let result = assert_yaml_parity_subset(
-            "fixture",
-            "key: plain 'it''s' trailing: oops",
-        );
+        let result = assert_yaml_parity_subset("fixture", "key: plain 'it''s' trailing: oops");
         assert!(result.is_err(), "expected rejection, got {result:?}");
     }
 }

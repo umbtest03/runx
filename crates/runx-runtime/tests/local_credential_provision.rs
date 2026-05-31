@@ -91,7 +91,9 @@ fn run_without_descriptor_delivers_no_credential() -> Result<(), Box<dyn std::er
 
 fn run_skill(mut request: SkillRunRequest) -> Result<RunResult, Box<dyn std::error::Error>> {
     crate::support::insert_test_signing_env(&mut request.env);
-    LocalOrchestrator.run_skill(&request).map_err(Into::into)
+    LocalOrchestrator::default()
+        .run_skill(&request)
+        .map_err(Into::into)
 }
 
 /// A cli-tool skill that echoes the delivered `$GITHUB_TOKEN`. The command is a

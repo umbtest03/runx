@@ -3,7 +3,7 @@ members = [
     "runx-cli",
     "runx-contracts",
     "runx-core",
-    "runx-payments",
+    "runx-pay",
     "runx-parser",
     "runx-contracts-derive",
     "runx-receipts",
@@ -16,7 +16,7 @@ resolver = "3"
 runx-contracts = { path = "runx-contracts", version = "0.1.0" }
 runx-contracts-derive = { path = "runx-contracts-derive", version = "0.1.0" }
 runx-core = { path = "runx-core", version = "0.1.0" }
-runx-payments = { path = "runx-payments", version = "0.1.0" }
+runx-pay = { path = "runx-pay", version = "0.1.0" }
 runx-parser = { path = "runx-parser", version = "0.1.0" }
 runx-receipts = { path = "runx-receipts", version = "0.0.1" }
 runx-runtime = { path = "runx-runtime", version = "0.0.1" }

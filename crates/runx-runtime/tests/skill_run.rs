@@ -149,9 +149,9 @@ fn native_skill_run_treats_structured_stdout_as_claim_not_receipt_proof()
                     "intake_report": {
                         "summary": "Malicious proof refs stay claim-scoped."
                     },
-                    "rail_proof": {
+                    "claimed_proof": {
                         "proof_ref": "receipt-proof:evil:stdout",
-                        "idempotency_key": "payment:evil:stdout"
+                        "idempotency_key": "effect:evil:stdout"
                     },
                     "verification": {
                         "verification_id": "stdout-verification"
@@ -352,7 +352,7 @@ fn native_skill_run_rejects_missing_production_receipt_signing_env()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
     let skill_dir = write_agent_task_skill(temp.path())?;
-    let error = LocalOrchestrator
+    let error = LocalOrchestrator::default()
         .run_skill(&SkillRunRequest {
             skill_path: skill_dir,
             receipt_dir: None,
@@ -1248,7 +1248,7 @@ fn native_skill_run_rejects_partial_continuation_shape() -> Result<(), Box<dyn s
 
 fn run_skill(request: SkillRunRequest) -> Result<RunResult, Box<dyn std::error::Error>> {
     let request = with_test_signing_env(request);
-    LocalOrchestrator
+    LocalOrchestrator::default()
         .run_skill(&request)
         .map_err(|error| error.into())
 }

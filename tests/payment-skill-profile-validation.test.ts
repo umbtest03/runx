@@ -95,7 +95,7 @@ describe("payment skill execution profiles", () => {
         expect(manifest.skill ?? skill.name, `${skill.name} profile skill binding`).toBe(skill.name);
 
         const version = await buildRegistryFixtureVersion(markdown, {
-          owner: "runx-payments",
+          owner: "runx-pay",
           version: "validation",
           profileDocument,
         });

@@ -9,20 +9,18 @@ use runx_contracts::{
     ResolutionResponse, ResolutionResponseActor,
 };
 use runx_core::state_machine::GraphStatus;
-use runx_receipts::ReceiptTreeConfig;
-use runx_runtime::effects::PAYMENT_EFFECT_FAMILY;
-use runx_runtime::effects::state::{
+use runx_pay::PAYMENT_EFFECT_FAMILY;
+use runx_pay::state::{
     EffectMutationStatus, EffectRecoveryState, FileBackedEffectStateStore,
     RUNX_EFFECT_STATE_PATH_ENV,
 };
-use runx_runtime::effects::{
-    EffectSettlementEvidence, EffectSettlementRequest, EffectSupervisor, EffectSupervisorError,
-    RuntimeEffectRegistry,
-};
-use runx_runtime::payment::supervisor::{
+use runx_pay::supervisor::{
     PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID, PaymentSupervisorError,
-    PaymentSupervisorSettlementEvidence, payment_supervisor_evidence_to_effect_record,
+    PaymentSupervisorSettlementEvidence, PaymentSupervisorSettlementRequest,
 };
+use runx_pay::{PaymentRailSupervisor, PaymentRuntimeEffect};
+use runx_receipts::ReceiptTreeConfig;
+use runx_runtime::effects::RuntimeEffectRegistry;
 use runx_runtime::{
     Host, InvocationStatus, Runtime, RuntimeError, RuntimeOptions, SkillAdapter, SkillInvocation,
     SkillOutput, validate_runtime_receipt_tree,
@@ -74,7 +72,7 @@ fn denied_payment_approval_emits_denied_output_and_blocks_fulfill()
     let fixture = GraphFixture::new()?;
     let runtime = Runtime::new(
         RecordingAdapter::default(),
-        RuntimeOptions::local_development(),
+        runtime_options_with_effects(Vec::new()),
     );
     let mut host = ApprovalHost::approved(false);
 
@@ -180,7 +178,7 @@ fn payment_spend_success_without_runtime_supervisor_is_denied_before_graph_succe
     let fixture = GraphFixture::new()?;
     let runtime = Runtime::new(
         RecordingAdapter::default(),
-        RuntimeOptions::local_development(),
+        runtime_options_with_effects(Vec::new()),
     );
     let mut host = ApprovalHost::approved(true);
 
@@ -195,8 +193,9 @@ fn payment_spend_success_without_runtime_supervisor_is_denied_before_graph_succe
             assert_eq!(verb, AuthorityVerb::Spend);
             assert_eq!(step_id, "fulfill");
             assert!(
-                reason.contains("supervisor") && reason.contains("not configured"),
-                "payment authority denial should name the missing runtime supervisor, got: {reason}"
+                reason.contains("supervisor-verified rail proof")
+                    || reason.contains("no supervisor settlement"),
+                "payment authority denial should name the missing supervisor evidence, got: {reason}"
             );
         }
         Ok(run) => {
@@ -219,7 +218,7 @@ fn payment_spend_success_without_rail_proof_is_denied_before_graph_success()
     let fixture = GraphFixture::new()?;
     let runtime = Runtime::new(
         RecordingAdapter::without_rail_proof(),
-        RuntimeOptions::local_development(),
+        runtime_options_with_effects(Vec::new()),
     );
     let mut host = ApprovalHost::approved(true);
 
@@ -266,7 +265,7 @@ fn payment_spend_authority_is_detected_from_reserved_authority_not_scope_string(
     let fixture = GraphFixture::with_fulfill_options(FulfillAdmission::Valid, FulfillScope::None)?;
     let runtime = Runtime::new(
         RecordingAdapter::without_rail_proof(),
-        RuntimeOptions::local_development(),
+        runtime_options_with_effects(Vec::new()),
     );
     let mut host = ApprovalHost::approved(true);
 
@@ -348,7 +347,7 @@ fn non_payment_step_without_rail_admission_inputs_invokes_adapter()
         GraphFixture::with_fulfill_options(FulfillAdmission::MissingAll, FulfillScope::None)?;
     let adapter = RecordingAdapter::default();
     let invocations = adapter.invocations();
-    let runtime = Runtime::new(adapter, RuntimeOptions::local_development());
+    let runtime = Runtime::new(adapter, runtime_options_with_effects(Vec::new()));
     let mut host = ApprovalHost::approved(true);
 
     let run = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host)?;
@@ -683,6 +682,7 @@ fn x402_paid_echo_partial_mutation_escalates_without_second_rail()
         adapter,
         RuntimeOptions {
             env,
+            effects: runtime_effects(Vec::new()),
             ..RuntimeOptions::local_development()
         },
     );
@@ -752,7 +752,7 @@ fn x402_paid_echo_partial_mutation_escalates_without_second_rail()
     let mutation = store
         .lookup_mutation(
             PAYMENT_EFFECT_FAMILY,
-            &runx_runtime::effects::state::EffectIdempotencyKey::new(
+            &runx_pay::state::EffectIdempotencyKey::new(
                 "mock",
                 "merchant:paid-echo",
                 PAID_ECHO_IDEMPOTENCY_KEY,
@@ -770,7 +770,7 @@ fn x402_paid_echo_denied_approval_never_invokes_payment_or_echo()
     let fixture = PaidEchoFixture::new()?;
     let adapter = PaidEchoAdapter::new(PaidEchoRailProof::Present);
     let invocations = adapter.invocations();
-    let runtime = Runtime::new(adapter, RuntimeOptions::local_development());
+    let runtime = Runtime::new(adapter, runtime_options_with_effects(Vec::new()));
     let mut host = ApprovalHost::approved(false);
 
     let result = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host);
@@ -813,7 +813,7 @@ fn x402_paid_echo_missing_rail_proof_never_invokes_echo() -> Result<(), Box<dyn 
     let fixture = PaidEchoFixture::new()?;
     let adapter = PaidEchoAdapter::new(PaidEchoRailProof::Missing);
     let invocations = adapter.invocations();
-    let runtime = Runtime::new(adapter, RuntimeOptions::local_development());
+    let runtime = Runtime::new(adapter, runtime_options_with_effects(Vec::new()));
     let mut host = ApprovalHost::approved(true);
 
     let result = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host);
@@ -862,7 +862,7 @@ fn assert_payment_admission_denied_before_adapter(
     let fixture = GraphFixture::with_fulfill_options(admission, FulfillScope::PaymentSpend)?;
     let adapter = RecordingAdapter::default();
     let invocations = adapter.invocations();
-    let runtime = Runtime::new(adapter, RuntimeOptions::local_development());
+    let runtime = Runtime::new(adapter, runtime_options_with_effects(Vec::new()));
     let mut host = ApprovalHost::approved(true);
 
     let result = runtime.run_graph_file_with_host(fixture.graph_path(), &mut host);
@@ -908,7 +908,9 @@ fn runtime_options_with_effects(
 }
 
 fn runtime_effects(evidence: Vec<PaymentSupervisorSettlementEvidence>) -> RuntimeEffectRegistry {
-    RuntimeEffectRegistry::with_payment_effect(ExpectedEffectSupervisor::new(evidence))
+    RuntimeEffectRegistry::with_effect(PaymentRuntimeEffect::new(ExpectedEffectSupervisor::new(
+        evidence,
+    )))
 }
 
 #[derive(Clone, Debug)]
@@ -927,12 +929,11 @@ impl ExpectedEffectSupervisor {
     }
 }
 
-impl EffectSupervisor for ExpectedEffectSupervisor {
+impl PaymentRailSupervisor for ExpectedEffectSupervisor {
     fn settlement_evidence(
         &self,
-        request: EffectSettlementRequest<'_>,
-    ) -> Result<EffectSettlementEvidence, EffectSupervisorError> {
-        let request = request.payment_rail()?;
+        request: PaymentSupervisorSettlementRequest<'_>,
+    ) -> Result<PaymentSupervisorSettlementEvidence, PaymentSupervisorError> {
         let evidence = self
             .evidence_by_proof_ref
             .get(request.proof_ref)
@@ -952,9 +953,7 @@ impl EffectSupervisor for ExpectedEffectSupervisor {
             request.idempotency_key,
             &evidence.idempotency_key,
         )?;
-        Ok(EffectSettlementEvidence::generic(
-            payment_supervisor_evidence_to_effect_record(evidence),
-        ))
+        Ok(evidence)
     }
 }
 
