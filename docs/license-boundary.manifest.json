@@ -22,6 +22,11 @@
       "phase1_state": "keep",
       "decision": "Policy and authority enforcement stay MIT; no brokerage or provider calls."
     },
+    "runx-payments": {
+      "class": "mit-oss",
+      "phase1_state": "keep",
+      "decision": "Native payment governance and deterministic test settlement helpers stay MIT; real rails, secrets, and provider calls remain hosted."
+    },
     "runx-parser": {
       "class": "mit-oss",
       "phase1_state": "keep",

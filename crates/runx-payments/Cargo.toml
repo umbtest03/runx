@@ -1,0 +1,30 @@
+[package]
+name = "runx-payments"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+description = "Payment authority and settlement helpers for runx."
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+keywords = ["runx", "payments", "authority", "agents", "workflow"]
+categories = ["development-tools"]
+include = ["Cargo.toml", "README.md", "src/**/*.rs"]
+
+[lints]
+workspace = true
+
+[dependencies]
+runx-contracts.workspace = true
+runx-core.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[features]
+default = ["std"]
+std = []
+
+[lib]
+name = "runx_payments"
+path = "src/lib.rs"
