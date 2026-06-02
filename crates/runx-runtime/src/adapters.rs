@@ -7,6 +7,9 @@ pub mod a2a;
 #[cfg(feature = "agent")]
 pub mod agent;
 
+#[cfg(feature = "agent")]
+pub mod agent_loop;
+
 #[cfg(feature = "catalog")]
 pub mod catalog;
 
