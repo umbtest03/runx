@@ -30,4 +30,4 @@ runners:
         - id: echo
           skill: ../external-adapter-tool
           inputs:
-            message: "{{message}}"
+            message: "$input.message"
