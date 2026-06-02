@@ -20,6 +20,7 @@ mod external;
 mod external_adapter;
 mod fanout_parity;
 mod fanout_proptest;
+mod governance_witness;
 mod harness_fixtures;
 mod hello_graph;
 mod journal_history;

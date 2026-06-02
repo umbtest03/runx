@@ -132,16 +132,7 @@ mod tests {
     }
 
     #[test]
-    fn prompt_carries_instructions_and_final_result_directive() {
-        let prompt = build_prompt("Do the thing", &JsonObject::new());
-        assert!(
-            prompt.contains("Do the thing") && prompt.contains(FINAL_RESULT_TOOL),
-            "prompt should carry the instructions and the final-result directive; got: {prompt:?}"
-        );
-    }
-
-    #[test]
-    fn prompt_embeds_inputs_json() {
+    fn prompt_carries_instructions_directive_and_inputs() {
         let mut inputs = JsonObject::new();
         inputs.insert(
             "issue_title".to_owned(),
@@ -150,9 +141,10 @@ mod tests {
         let prompt = build_prompt("Triage", &inputs);
         assert!(
             prompt.contains("Triage")
+                && prompt.contains(FINAL_RESULT_TOOL)
                 && prompt.contains("issue_title")
                 && prompt.contains("bug report"),
-            "prompt should embed the inputs JSON so the model sees the act inputs; got: {prompt:?}"
+            "prompt should carry the instructions, the final-result directive, and the inputs JSON; got: {prompt:?}"
         );
     }
 }

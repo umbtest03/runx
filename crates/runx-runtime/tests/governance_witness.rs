@@ -1,0 +1,88 @@
+#![cfg(feature = "cli-tool")]
+//! Conformance for the uniform-governance seal invariant.
+//!
+//! Every registered graph step is admitted centrally and its admission witness is
+//! sealed in one central place (`run_registered_step`). So an admitted step records
+//! which authority admitted the act, and an unadmitted step falls back to a
+//! local-runtime witness rather than fabricating one. Because the seal is central
+//! and step-type-agnostic, exercising one real graph proves the invariant for every
+//! step type, so this is two focused end-to-end checks rather than one per type.
+
+use std::path::Path;
+
+use runx_contracts::AuthorityVerb;
+use runx_core::state_machine::AuthorityAdmissionWitness;
+use runx_runtime::adapters::cli_tool::CliToolAdapter;
+use runx_runtime::{
+    EffectAdmission, EffectStepRequest, Runtime, RuntimeEffect, RuntimeEffectError,
+    RuntimeEffectRegistry, RuntimeOptions,
+};
+
+const HELLO_GRAPH: &str = "../../examples/hello-graph/graph.yaml";
+
+/// An effect that admits every step, emitting a known authority witness so the test
+/// can assert the runtime records exactly that authority.
+struct AdmitEveryStep;
+
+impl RuntimeEffect for AdmitEveryStep {
+    fn family(&self) -> &'static str {
+        "test-admit"
+    }
+
+    fn admit(
+        &self,
+        _request: EffectStepRequest<'_>,
+    ) -> Result<Option<EffectAdmission>, RuntimeEffectError> {
+        Ok(Some(EffectAdmission::new(
+            "test-admit",
+            AuthorityVerb::Execute,
+            AuthorityAdmissionWitness {
+                verb: AuthorityVerb::Execute,
+                parent_term_id: "parent-term".to_owned(),
+                child_term_id: "child-term".to_owned(),
+                idempotency_key: None,
+                capability_ref: None,
+            },
+            (),
+        )))
+    }
+}
+
+fn options_with_effects(effects: RuntimeEffectRegistry) -> RuntimeOptions {
+    let mut options = crate::support::signed_runtime_options().expect("signed runtime options");
+    options.effects = effects;
+    options
+}
+
+#[test]
+fn admitted_step_records_authority_in_sealed_witness() {
+    let runtime = Runtime::new(
+        CliToolAdapter,
+        options_with_effects(RuntimeEffectRegistry::with_effect(AdmitEveryStep)),
+    );
+    let run = runtime
+        .run_graph_file(Path::new(HELLO_GRAPH))
+        .expect("graph runs to completion");
+    let authority = run.steps[0]
+        .admission_witness
+        .authority
+        .as_ref()
+        .expect("an admitted step must record its authority in the sealed witness");
+    assert_eq!(authority.verb, AuthorityVerb::Execute);
+    assert_eq!(authority.child_term_id, "child-term");
+}
+
+#[test]
+fn unadmitted_step_records_local_runtime_witness() {
+    let runtime = Runtime::new(
+        CliToolAdapter,
+        options_with_effects(RuntimeEffectRegistry::empty()),
+    );
+    let run = runtime
+        .run_graph_file(Path::new(HELLO_GRAPH))
+        .expect("graph runs to completion");
+    assert!(
+        run.steps[0].admission_witness.authority.is_none(),
+        "a step with no admitted authority must not fabricate an authority witness"
+    );
+}
