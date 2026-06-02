@@ -85,4 +85,21 @@ mod tests {
             "an unresolved tool must fail, not panic or succeed; got: {result:?}"
         );
     }
+
+    #[test]
+    fn non_object_input_coerces_without_panicking() {
+        // A misbehaving model can emit a non-object input. It must coerce to empty
+        // args (not panic), and the unresolved tool then fails cleanly.
+        let executor = RuntimeToolExecutor::new(
+            BTreeMap::new(),
+            PathBuf::from("."),
+            CredentialDelivery::none(),
+        );
+        let result =
+            executor.execute("definitely-not-a-real-tool", &JsonValue::String("oops".to_owned()));
+        assert!(
+            matches!(&result, Err(RuntimeError::SkillFailed { .. })),
+            "a non-object input must coerce, not panic; got: {result:?}"
+        );
+    }
 }

@@ -273,4 +273,113 @@ mod tests {
             "loop should fail closed on an empty turn; got: {result:?}"
         );
     }
+
+    struct ErrExecutor;
+    impl ToolExecutor for ErrExecutor {
+        fn execute(&self, _tool: &str, _input: &JsonValue) -> Result<SkillOutput, RuntimeError> {
+            Err(RuntimeError::SkillFailed {
+                skill_name: "pay".to_owned(),
+                message: "rail down".to_owned(),
+            })
+        }
+    }
+
+    #[test]
+    fn loop_propagates_executor_error() {
+        // The model calls a tool on round 1; the executor errors. The loop must
+        // surface that error rather than swallow it or finalize.
+        let config = AgentLoopConfig {
+            max_rounds: 8,
+            final_result_tool: FINAL.to_owned(),
+        };
+        let result = run_agent_loop(&config, &ScriptedModel, &ErrExecutor, "go".to_owned());
+        assert!(
+            matches!(&result, Err(RuntimeError::SkillFailed { message, .. }) if message.contains("rail down")),
+            "an executor error must propagate; got: {result:?}"
+        );
+    }
+
+    struct FailingExecutor;
+    impl ToolExecutor for FailingExecutor {
+        fn execute(&self, _tool: &str, _input: &JsonValue) -> Result<SkillOutput, RuntimeError> {
+            Ok(SkillOutput {
+                status: InvocationStatus::Failure,
+                stdout: String::new(),
+                stderr: "insufficient funds".to_owned(),
+                exit_code: Some(1),
+                duration_ms: 0,
+                metadata: JsonObject::new(),
+            })
+        }
+    }
+
+    #[test]
+    fn loop_records_tool_failure_and_still_finalizes() {
+        // A non-success tool output is a failure, not an error: the loop feeds it
+        // back, records it in telemetry, and the model can still finalize.
+        let config = AgentLoopConfig {
+            max_rounds: 8,
+            final_result_tool: FINAL.to_owned(),
+        };
+        let resolution = run_agent_loop(&config, &ScriptedModel, &FailingExecutor, "go".to_owned())
+            .expect("a failing tool should not abort the loop");
+        let telemetry = resolution.telemetry.expect("telemetry present");
+        let executions = telemetry.tool_executions.expect("tool executions present");
+        assert!(
+            executions.len() == 1
+                && executions[0].tool == "pay"
+                && executions[0].status == "failure",
+            "a non-success tool output must be recorded as a failure; got: {executions:?}"
+        );
+        assert_eq!(
+            telemetry.tool_calls,
+            Some(1),
+            "the failed call still counts toward tool_calls"
+        );
+    }
+
+    struct RepeatThenFinal;
+    impl ModelCaller for RepeatThenFinal {
+        fn next_tool_uses(
+            &self,
+            transcript: &[AgentTurn],
+        ) -> Result<Vec<AgentToolUse>, RuntimeError> {
+            let executed = transcript
+                .iter()
+                .filter(|turn| matches!(turn, AgentTurn::ToolResults(_)))
+                .count();
+            if executed >= 2 {
+                Ok(vec![AgentToolUse {
+                    id: "f".to_owned(),
+                    name: FINAL.to_owned(),
+                    input: JsonValue::Null,
+                }])
+            } else {
+                Ok(vec![AgentToolUse {
+                    id: format!("c{executed}"),
+                    name: "pay".to_owned(),
+                    input: JsonValue::Null,
+                }])
+            }
+        }
+    }
+
+    #[test]
+    fn telemetry_dedupes_tool_names_but_counts_every_call() {
+        // The model calls "pay" twice across rounds, then finalizes. Telemetry
+        // dedupes the tool name but counts both calls.
+        let config = AgentLoopConfig {
+            max_rounds: 8,
+            final_result_tool: FINAL.to_owned(),
+        };
+        let resolution = run_agent_loop(&config, &RepeatThenFinal, &OkExecutor, "go".to_owned())
+            .expect("should finalize after two calls");
+        let telemetry = resolution.telemetry.expect("telemetry present");
+        assert_eq!(telemetry.tool_calls, Some(2), "both 'pay' calls count");
+        assert_eq!(
+            telemetry.tools,
+            Some(vec!["pay".to_owned()]),
+            "repeated tool names dedupe to a single entry"
+        );
+    }
 }

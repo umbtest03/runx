@@ -139,4 +139,20 @@ mod tests {
             "prompt should carry the instructions and the final-result directive; got: {prompt:?}"
         );
     }
+
+    #[test]
+    fn prompt_embeds_inputs_json() {
+        let mut inputs = JsonObject::new();
+        inputs.insert(
+            "issue_title".to_owned(),
+            JsonValue::String("bug report".to_owned()),
+        );
+        let prompt = build_prompt("Triage", &inputs);
+        assert!(
+            prompt.contains("Triage")
+                && prompt.contains("issue_title")
+                && prompt.contains("bug report"),
+            "prompt should embed the inputs JSON so the model sees the act inputs; got: {prompt:?}"
+        );
+    }
 }

@@ -271,4 +271,67 @@ mod tests {
             "no tool_use blocks should yield no uses; got: {result:?}"
         );
     }
+
+    #[test]
+    fn malformed_json_body_is_a_parse_error() {
+        let stub = StubTransport {
+            body: "not json at all".to_owned(),
+            status: 200,
+            requests: RefCell::new(Vec::new()),
+        };
+        let result = caller(&stub).next_tool_uses(&[AgentTurn::User("go".to_owned())]);
+        assert!(
+            matches!(&result, Err(_)),
+            "a malformed body must error, not panic; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn absent_content_yields_empty() {
+        let stub = StubTransport {
+            body: "{}".to_owned(),
+            status: 200,
+            requests: RefCell::new(Vec::new()),
+        };
+        let result = caller(&stub).next_tool_uses(&[AgentTurn::User("go".to_owned())]);
+        assert!(
+            matches!(&result, Ok(uses) if uses.is_empty()),
+            "a response with no content array should yield no uses; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn tool_use_block_missing_id_or_name_is_skipped() {
+        // One block missing id, one missing name, one well-formed: only the
+        // well-formed block survives. A partial block is never half-parsed.
+        let stub = StubTransport {
+            body: r#"{"content":[
+                {"type":"tool_use","name":"no_id","input":{}},
+                {"type":"tool_use","id":"no_name","input":{}},
+                {"type":"tool_use","id":"ok","name":"pay","input":{"a":1}}
+            ]}"#
+            .to_owned(),
+            status: 200,
+            requests: RefCell::new(Vec::new()),
+        };
+        let result = caller(&stub).next_tool_uses(&[AgentTurn::User("go".to_owned())]);
+        assert!(
+            matches!(&result, Ok(uses) if uses.len() == 1 && uses[0].id == "ok" && uses[0].name == "pay"),
+            "blocks missing id or name must be skipped; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn tool_use_missing_input_defaults_to_null() {
+        let stub = StubTransport {
+            body: r#"{"content":[{"type":"tool_use","id":"t","name":"pay"}]}"#.to_owned(),
+            status: 200,
+            requests: RefCell::new(Vec::new()),
+        };
+        let result = caller(&stub).next_tool_uses(&[AgentTurn::User("go".to_owned())]);
+        assert!(
+            matches!(&result, Ok(uses) if uses.len() == 1 && matches!(uses[0].input, JsonValue::Null)),
+            "a tool_use with no input defaults to a null input; got: {result:?}"
+        );
+    }
 }
