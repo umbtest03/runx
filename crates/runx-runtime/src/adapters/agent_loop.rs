@@ -274,9 +274,12 @@ mod tests {
         );
     }
 
-    struct ErrExecutor;
+    struct ErrExecutor {
+        calls: std::cell::Cell<u32>,
+    }
     impl ToolExecutor for ErrExecutor {
         fn execute(&self, _tool: &str, _input: &JsonValue) -> Result<SkillOutput, RuntimeError> {
+            self.calls.set(self.calls.get() + 1);
             Err(RuntimeError::SkillFailed {
                 skill_name: "pay".to_owned(),
                 message: "rail down".to_owned(),
@@ -287,12 +290,22 @@ mod tests {
     #[test]
     fn loop_propagates_executor_error() {
         // The model calls a tool on round 1; the executor errors. The loop must
-        // surface that error rather than swallow it or finalize.
+        // actually invoke the executor and surface its error rather than swallow it
+        // or finalize. The call counter proves the error originates in the executor,
+        // not the model.
+        let executor = ErrExecutor {
+            calls: std::cell::Cell::new(0),
+        };
         let config = AgentLoopConfig {
             max_rounds: 8,
             final_result_tool: FINAL.to_owned(),
         };
-        let result = run_agent_loop(&config, &ScriptedModel, &ErrExecutor, "go".to_owned());
+        let result = run_agent_loop(&config, &ScriptedModel, &executor, "go".to_owned());
+        assert_eq!(
+            executor.calls.get(),
+            1,
+            "the executor must actually be invoked before its error can propagate"
+        );
         assert!(
             matches!(&result, Err(RuntimeError::SkillFailed { message, .. }) if message.contains("rail down")),
             "an executor error must propagate; got: {result:?}"
@@ -336,50 +349,59 @@ mod tests {
             Some(1),
             "the failed call still counts toward tool_calls"
         );
+        assert_eq!(
+            telemetry.rounds,
+            Some(2),
+            "the failure was fed back and the loop continued to a second round before finalizing"
+        );
     }
 
-    struct RepeatThenFinal;
-    impl ModelCaller for RepeatThenFinal {
+    struct DistinctThenRepeat;
+    impl ModelCaller for DistinctThenRepeat {
         fn next_tool_uses(
             &self,
             transcript: &[AgentTurn],
         ) -> Result<Vec<AgentToolUse>, RuntimeError> {
+            // Call pay, then read, then pay again (a repeat), then finalize.
             let executed = transcript
                 .iter()
                 .filter(|turn| matches!(turn, AgentTurn::ToolResults(_)))
                 .count();
-            if executed >= 2 {
-                Ok(vec![AgentToolUse {
-                    id: "f".to_owned(),
-                    name: FINAL.to_owned(),
-                    input: JsonValue::Null,
-                }])
-            } else {
-                Ok(vec![AgentToolUse {
-                    id: format!("c{executed}"),
-                    name: "pay".to_owned(),
-                    input: JsonValue::Null,
-                }])
-            }
+            let name = match executed {
+                0 => "pay",
+                1 => "read",
+                2 => "pay",
+                _ => FINAL,
+            };
+            Ok(vec![AgentToolUse {
+                id: format!("c{executed}"),
+                name: name.to_owned(),
+                input: JsonValue::Null,
+            }])
         }
     }
 
     #[test]
     fn telemetry_dedupes_tool_names_but_counts_every_call() {
-        // The model calls "pay" twice across rounds, then finalizes. Telemetry
-        // dedupes the tool name but counts both calls.
+        // The model calls pay, read, pay, then finalizes. Telemetry must count all
+        // three calls, retain the two distinct names in order, and dedupe the
+        // repeated 'pay'. This catches broken dedup, lost distinct names, and order.
         let config = AgentLoopConfig {
             max_rounds: 8,
             final_result_tool: FINAL.to_owned(),
         };
-        let resolution = run_agent_loop(&config, &RepeatThenFinal, &OkExecutor, "go".to_owned())
-            .expect("should finalize after two calls");
+        let resolution = run_agent_loop(&config, &DistinctThenRepeat, &OkExecutor, "go".to_owned())
+            .expect("should finalize after three calls");
         let telemetry = resolution.telemetry.expect("telemetry present");
-        assert_eq!(telemetry.tool_calls, Some(2), "both 'pay' calls count");
+        assert_eq!(
+            telemetry.tool_calls,
+            Some(3),
+            "all three calls (pay, read, pay) count"
+        );
         assert_eq!(
             telemetry.tools,
-            Some(vec!["pay".to_owned()]),
-            "repeated tool names dedupe to a single entry"
+            Some(vec!["pay".to_owned(), "read".to_owned()]),
+            "distinct names are retained in order and the repeated 'pay' is deduped"
         );
     }
 }
