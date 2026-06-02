@@ -1,3 +1,6 @@
+// rust-style-allow: large-file because the governed HTTP front keeps the request
+// engine, the skill adapter, and their unit tests in one review unit, mirroring
+// runtime_http.rs.
 //! Governed HTTP execution on the runtime HTTP transport.
 //!
 //! The keystone call-out front. Given a method, URL, and inputs, this builds a
@@ -75,6 +78,9 @@ fn with_query(url: &str, inputs: &JsonObject) -> String {
 /// safe path segment (empty or containing URL-significant characters), fails
 /// closed. This lets the http source express REST resource paths like
 /// `/v1/pets/{id}` without a separate spec resolver.
+// rust-style-allow: long-function because the style checker's brace counter
+// miscounts the '{' and '}' char literals in this placeholder scanner; the
+// function itself is short.
 fn resolve_path_template(
     url: &str,
     inputs: &JsonObject,
@@ -502,7 +508,7 @@ mod tests {
 
     #[test]
     fn substitute_secrets_resolves_a_delivered_secret_and_fails_closed_on_a_missing_one()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), RuntimeError> {
         let delivery = crate::credentials::CredentialDelivery::from_local_descriptor(
             "github",
             "api_key",
@@ -510,7 +516,8 @@ mod tests {
             "ref-1",
             Vec::new(),
             "ghp_secret",
-        )?;
+        )
+        .map_err(|error| failure(format!("building the test credential delivery: {error}")))?;
         let secrets = delivery.secret_env();
         assert_eq!(
             substitute_secrets("Bearer ${secret:GITHUB_TOKEN}", secrets)?,
