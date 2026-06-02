@@ -65,11 +65,33 @@ source:
     )?;
     assert_eq!(skill.source.source_type, SourceKind::Http);
     assert_eq!(skill.source.source_type.as_str(), "http");
+    let http = skill.source.http.as_ref().expect("http config is present");
+    assert_eq!(http.url, "https://api.example.test/v1/pets");
+    assert_eq!(http.method.as_deref(), Some("POST"));
+    Ok(())
+}
+
+#[test]
+fn http_source_parses_headers_and_private_network_opt_in() -> Result<(), String> {
+    let skill = parse_strict(
+        r#"---
+name: http-internal
+source:
+  type: http
+  url: http://127.0.0.1:8732/v1/pets
+  allow_private_network: true
+  headers:
+    authorization: "Bearer ${secret:TOKEN}"
+---
+# HTTP
+"#,
+    )?;
+    let http = skill.source.http.as_ref().expect("http config is present");
+    assert_eq!(http.allow_private_network, Some(true));
     assert_eq!(
-        skill.source.url.as_deref(),
-        Some("https://api.example.test/v1/pets")
+        http.headers.as_ref().and_then(|h| h.get("authorization")).map(String::as_str),
+        Some("Bearer ${secret:TOKEN}")
     );
-    assert_eq!(skill.source.method.as_deref(), Some("POST"));
     Ok(())
 }
 

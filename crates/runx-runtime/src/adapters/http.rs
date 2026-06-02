@@ -8,6 +8,8 @@
 //! transport the Anthropic resolver and the registry client use, so there is one
 //! governed HTTP path, not a parallel one.
 
+use std::collections::BTreeMap;
+
 use runx_contracts::{JsonObject, JsonValue};
 use serde_json::Value as WireValue;
 
@@ -143,25 +145,19 @@ fn substitute_secrets(value: &str, secrets: &SecretEnv) -> Result<String, Runtim
     Ok(out)
 }
 
-/// Build the request headers from the source's `headers` map, resolving any
-/// `${secret:NAME}` references. Header names and values are otherwise passed
+/// Build the request headers from the source's validated `headers` map, resolving
+/// any `${secret:NAME}` references. Header names and values are otherwise passed
 /// through verbatim; the transport validates them and redacts sensitive ones.
 fn resolve_headers(
-    source: &JsonObject,
+    headers: Option<&BTreeMap<String, String>>,
     secrets: &SecretEnv,
 ) -> Result<Vec<RuntimeHttpHeader>, RuntimeError> {
-    let Some(headers) = source.get("headers") else {
+    let Some(headers) = headers else {
         return Ok(Vec::new());
     };
-    let headers = headers
-        .as_object()
-        .ok_or_else(|| failure("source.headers must be an object of header name to value".to_owned()))?;
     headers
         .iter()
         .map(|(name, value)| {
-            let value = value
-                .as_str()
-                .ok_or_else(|| failure(format!("source.headers.{name} must be a string")))?;
             Ok(RuntimeHttpHeader::new(
                 name.clone(),
                 substitute_secrets(value, secrets)?,
@@ -210,21 +206,27 @@ impl SkillAdapter for HttpSkillAdapter {
                 adapter_type: request.source.source_type.as_str().to_owned(),
             });
         }
-        let url = request
+        let http = request
             .source
-            .url
-            .clone()
-            .ok_or_else(|| failure("http source is missing source.url".to_owned()))?;
+            .http
+            .as_ref()
+            .ok_or_else(|| failure("http source is missing its http config".to_owned()))?;
         let call = HttpCall {
-            method: parse_method(request.source.method.as_deref())?,
-            url,
+            method: parse_method(http.method.as_deref())?,
+            url: http.url.clone(),
             headers: resolve_headers(
-                &request.source.raw,
+                http.headers.as_ref(),
                 request.credential_delivery.secret_env(),
             )?,
         };
-        let transport = ReqwestHttpTransport::new()
-            .map_err(|error| failure(format!("http transport unavailable: {error}")))?;
+        // Default transport blocks private/loopback networks; the source must
+        // explicitly opt in to reach them (mirrors the sandbox network opt-in).
+        let transport = if http.allow_private_network.unwrap_or(false) {
+            ReqwestHttpTransport::with_private_network_access()
+        } else {
+            ReqwestHttpTransport::new()
+        }
+        .map_err(|error| failure(format!("http transport unavailable: {error}")))?;
         execute_http_call(&transport, &call, &merged_inputs(&request))
     }
 }

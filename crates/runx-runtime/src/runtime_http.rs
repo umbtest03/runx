@@ -138,11 +138,19 @@ impl ReqwestHttpTransport {
         })
     }
 
-    #[cfg(test)]
-    fn with_private_network_access_for_tests() -> Result<Self, RuntimeHttpError> {
+    /// Build a transport that may reach private or loopback networks. This is the
+    /// explicit, opt-in escape from the default SSRF/private-network block; callers
+    /// must require an operator-declared opt-in (e.g. an `http` source's
+    /// `allowPrivateNetwork`) before choosing it, never as a default.
+    pub fn with_private_network_access() -> Result<Self, RuntimeHttpError> {
         let mut transport = Self::with_timeouts(Duration::from_secs(30), Duration::from_secs(10))?;
         transport.allow_private_networks = true;
         Ok(transport)
+    }
+
+    #[cfg(test)]
+    fn with_private_network_access_for_tests() -> Result<Self, RuntimeHttpError> {
+        Self::with_private_network_access()
     }
 
     #[cfg(test)]

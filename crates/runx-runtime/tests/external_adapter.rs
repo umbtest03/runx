@@ -851,8 +851,7 @@ fn skill_source(
         hook: None,
         outputs: None,
         graph: None,
-        url: None,
-        method: None,
+        http: None,
         raw,
     })
 }
@@ -891,8 +890,7 @@ fn skill_source_manifest_path(path: &str) -> Result<SkillSource, Box<dyn std::er
         hook: None,
         outputs: None,
         graph: None,
-        url: None,
-        method: None,
+        http: None,
         raw,
     })
 }

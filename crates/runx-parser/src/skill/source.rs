@@ -4,9 +4,9 @@ use crate::ValidationError;
 use crate::graph::{RawGraphIr, validate_graph_document};
 
 use super::{
-    InputMode, SkillMcpServer, SkillSource, SourceKind, field_value, first_value, optional_object,
-    optional_string, optional_string_array, optional_u64, required_object, required_string,
-    validate_sandbox, validation_error,
+    InputMode, SkillHttpSource, SkillMcpServer, SkillSource, SourceKind, field_value, first_value,
+    optional_bool, optional_object, optional_string, optional_string_array, optional_u64,
+    required_object, required_string, validate_sandbox, validation_error,
 };
 
 pub fn validate_skill_source(
@@ -52,8 +52,7 @@ pub(super) fn validate_source(
         hook: validate_hook(source, &source_type)?,
         outputs: optional_object(source.get("outputs"), "source.outputs")?,
         graph: validate_graph_source(source, &source_type)?,
-        url: validate_http_url(source, &source_type)?,
-        method: validate_http_method(source, &source_type)?,
+        http: validate_http_source(source, &source_type)?,
         raw: source.clone(),
         source_type: source_kind,
     })
@@ -189,32 +188,53 @@ fn validate_graph_source(
     validate_graph_document(graph.clone(), Some(RawGraphIr { document: graph })).map(Some)
 }
 
-fn validate_http_url(
+fn validate_http_source(
     source: &JsonObject,
     source_type: &str,
-) -> Result<Option<String>, ValidationError> {
-    if source_type == "http" {
-        return Ok(Some(required_string(source.get("url"), "source.url")?));
-    }
-    optional_string(source.get("url"), "source.url")
-}
-
-fn validate_http_method(
-    source: &JsonObject,
-    source_type: &str,
-) -> Result<Option<String>, ValidationError> {
+) -> Result<Option<SkillHttpSource>, ValidationError> {
     if source_type != "http" {
         return Ok(None);
     }
-    let Some(method) = optional_string(source.get("method"), "source.method")? else {
+    let url = required_string(source.get("url"), "source.url")?;
+    let method = match optional_string(source.get("method"), "source.method")? {
+        Some(method) => {
+            if !matches!(method.to_ascii_uppercase().as_str(), "GET" | "POST" | "DELETE") {
+                return Err(validation_error(format!(
+                    "source.method {method} is not supported; use GET, POST, or DELETE."
+                )));
+            }
+            Some(method)
+        }
+        None => None,
+    };
+    Ok(Some(SkillHttpSource {
+        url,
+        method,
+        headers: validate_http_headers(source.get("headers"))?,
+        allow_private_network: optional_bool(
+            source.get("allow_private_network"),
+            "source.allow_private_network",
+        )?,
+    }))
+}
+
+fn validate_http_headers(
+    value: Option<&JsonValue>,
+) -> Result<Option<std::collections::BTreeMap<String, String>>, ValidationError> {
+    let Some(value) = value else {
         return Ok(None);
     };
-    if !matches!(method.to_ascii_uppercase().as_str(), "GET" | "POST" | "DELETE") {
-        return Err(validation_error(format!(
-            "source.method {method} is not supported; use GET, POST, or DELETE."
-        )));
+    let object = value.as_object().ok_or_else(|| {
+        validation_error("source.headers must be an object of header name to value.".to_owned())
+    })?;
+    let mut headers = std::collections::BTreeMap::new();
+    for (name, value) in object {
+        let value = value.as_str().ok_or_else(|| {
+            validation_error(format!("source.headers.{name} must be a string."))
+        })?;
+        headers.insert(name.clone(), value.to_owned());
     }
-    Ok(Some(method))
+    Ok(Some(headers))
 }
 
 fn validate_agent_command_boundary(

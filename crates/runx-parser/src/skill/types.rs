@@ -136,10 +136,25 @@ pub struct SkillSource {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub graph: Option<crate::ExecutionGraph>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub url: Option<String>,
+    pub http: Option<SkillHttpSource>,
+    pub raw: JsonObject,
+}
+
+/// Config for an `http` source: the endpoint, the method, static request headers
+/// (whose values may carry `${secret:NAME}` references resolved at invocation),
+/// and an explicit, default-off opt-in to reach private or loopback networks
+/// (the governed transport blocks them otherwise, mirroring the sandbox network
+/// opt-in).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillHttpSource {
+    pub url: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub method: Option<String>,
-    pub raw: JsonObject,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub headers: Option<BTreeMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_private_network: Option<bool>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

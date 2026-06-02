@@ -21,9 +21,9 @@ pub use governance::validate_skill_artifact_contract;
 pub use markdown::{extract_skill_quality_profile, parse_skill_markdown};
 pub use source::validate_skill_source;
 pub use types::{
-    InputMode, RawSkillIr, SkillArtifactContract, SkillIdempotencyPolicy, SkillInput,
-    SkillMcpServer, SkillQualityProfile, SkillRetryPolicy, SkillRunnerDefinition, SkillSandbox,
-    SkillSource, SourceKind, ValidateSkillMode, ValidateSkillOptions, ValidatedSkill,
+    InputMode, RawSkillIr, SkillArtifactContract, SkillHttpSource, SkillIdempotencyPolicy,
+    SkillInput, SkillMcpServer, SkillQualityProfile, SkillRetryPolicy, SkillRunnerDefinition,
+    SkillSandbox, SkillSource, SourceKind, ValidateSkillMode, ValidateSkillOptions, ValidatedSkill,
 };
 
 pub(crate) use catalog::validate_catalog_metadata;
