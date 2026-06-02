@@ -358,16 +358,19 @@ fn execute_agent_skill_run(
         .and_then(|answers| answers.get(&request_id).cloned());
     let answer = match seeded_answer {
         Some(answer) => answer,
-        None => {
-            let Some(answers_path) = &request.answers_path else {
-                return Ok(JsonValue::Object(needs_agent_output(
-                    &run_id,
-                    &request_id,
-                    resolution_request,
-                )));
-            };
-            read_answer(answers_path, &request_id)?
-        }
+        None => match &request.answers_path {
+            Some(answers_path) => read_answer(answers_path, &request_id)?,
+            None => match try_inline_agent_resolution(&invocation)? {
+                InlineAgentOutcome::Resolved(answer) => answer,
+                InlineAgentOutcome::HostDrives => {
+                    return Ok(JsonValue::Object(needs_agent_output(
+                        &run_id,
+                        &request_id,
+                        resolution_request,
+                    )));
+                }
+            },
+        },
     };
     let stdout = serde_json::to_string(&answer)
         .map_err(|error| SkillRunError::Invalid(format!("failed to serialize answer: {error}")))?;
@@ -389,6 +392,75 @@ fn execute_agent_skill_run(
         &receipt,
         contract_json_value(&receipt)?,
     )))
+}
+
+/// Outcome of attempting the optional in-process managed-agent loop.
+enum InlineAgentOutcome {
+    /// The in-kernel loop ran and produced the agent answer payload.
+    Resolved(JsonValue),
+    /// No in-process provider is configured; yield to the host loop.
+    HostDrives,
+}
+
+/// Optionally run the managed-agent loop in-process. This is opt-in: only when a
+/// managed-agent provider (currently Anthropic) is configured does the runtime
+/// drive the agent itself; otherwise it yields to the host (`needs_agent`), the
+/// default shipped behavior. Per-call governance and receipt sealing are the same
+/// either way; the loop only adds the bounded autonomous run.
+#[cfg(feature = "agent")]
+fn try_inline_agent_resolution(
+    invocation: &SkillInvocation,
+) -> Result<InlineAgentOutcome, SkillRunError> {
+    use crate::adapters::agent::{AgentAdapterSourceType, AgentResolver, build_managed_agent_act_invocation};
+    use crate::adapters::agent_resolver::AnthropicAgentResolver;
+    use crate::runtime_http::ReqwestHttpTransport;
+    use runx_contracts::ResolutionRequest;
+
+    let source_type = if invocation.source.source_type == runx_parser::SourceKind::Agent {
+        AgentAdapterSourceType::Agent
+    } else if invocation.source.source_type == runx_parser::SourceKind::AgentStep {
+        AgentAdapterSourceType::AgentStep
+    } else {
+        return Ok(InlineAgentOutcome::HostDrives);
+    };
+
+    let config = match crate::config::load_managed_agent_config(
+        &invocation.env,
+        &invocation.skill_directory,
+    )
+    .map_err(|error| SkillRunError::Invalid(format!("managed agent config error: {error}")))?
+    {
+        Some(config) if config.provider.as_str().eq_ignore_ascii_case("anthropic") => config,
+        _ => return Ok(InlineAgentOutcome::HostDrives),
+    };
+
+    let agent_act = build_managed_agent_act_invocation(invocation, source_type)?;
+    let request = ResolutionRequest::AgentAct {
+        id: agent_act.id.clone(),
+        invocation: Box::new(agent_act),
+    };
+    let transport = ReqwestHttpTransport::new().map_err(|error| {
+        SkillRunError::Invalid(format!("managed agent transport error: {error}"))
+    })?;
+    let resolver = AnthropicAgentResolver::new(
+        transport,
+        config.api_key,
+        config.model,
+        invocation.env.clone(),
+        invocation.skill_directory.clone(),
+        invocation.credential_delivery.clone(),
+    );
+    let resolution = resolver
+        .resolve(request)
+        .map_err(|error| SkillRunError::Invalid(error.sanitized_message().to_owned()))?;
+    Ok(InlineAgentOutcome::Resolved(resolution.response.payload))
+}
+
+#[cfg(not(feature = "agent"))]
+fn try_inline_agent_resolution(
+    _invocation: &SkillInvocation,
+) -> Result<InlineAgentOutcome, SkillRunError> {
+    Ok(InlineAgentOutcome::HostDrives)
 }
 
 // rust-style-allow: long-function because graph-backed skill execution keeps
