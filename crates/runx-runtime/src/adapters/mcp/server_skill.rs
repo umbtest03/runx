@@ -211,6 +211,7 @@ fn execute_mcp_server_graph(
             env,
             receipt_signature: receipts.signature_config().clone(),
             effects: Default::default(),
+            credential_delivery: Default::default(),
         },
     );
     let mut host = McpServerHost::default();

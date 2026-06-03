@@ -260,7 +260,12 @@ where
 {
     let authority = request.authority.as_ref();
     let (skill_name, invocation) =
-        loaded_skill_invocation(skill, request.inputs, &request.runtime.options.env);
+        loaded_skill_invocation(
+            skill,
+            request.inputs,
+            &request.runtime.options.env,
+            &request.runtime.options.credential_delivery,
+        );
     if let Some(source_type) = agent_skill_source_type(invocation.source.source_type) {
         return run_agent_skill_step(
             request.runtime,
@@ -301,6 +306,7 @@ fn loaded_skill_invocation(
     skill: LoadedStepSkill,
     inputs: JsonObject,
     env: &std::collections::BTreeMap<String, String>,
+    credential_delivery: &crate::credentials::CredentialDelivery,
 ) -> (String, SkillInvocation) {
     let skill_name = skill.name.clone();
     let invocation = SkillInvocation {
@@ -310,7 +316,7 @@ fn loaded_skill_invocation(
         resolved_inputs: JsonObject::new(),
         skill_directory: skill.directory,
         env: env.clone(),
-        credential_delivery: crate::credentials::CredentialDelivery::none(),
+        credential_delivery: credential_delivery.clone(),
     };
     (skill_name, invocation)
 }
@@ -761,7 +767,7 @@ where
         resolved_inputs: JsonObject::new(),
         skill_directory: graph_dir.to_path_buf(),
         env: runtime.options.env.clone(),
-        credential_delivery: crate::credentials::CredentialDelivery::none(),
+        credential_delivery: runtime.options.credential_delivery.clone(),
     };
     let regular = invoke_regular_skill_step(runtime, step, invocation, authority, host)?;
     seal_regular_skill_step(
@@ -846,7 +852,7 @@ where
         resolved_inputs: JsonObject::new(),
         skill_directory: graph_dir.to_path_buf(),
         env: runtime.options.env.clone(),
-        credential_delivery: crate::credentials::CredentialDelivery::none(),
+        credential_delivery: runtime.options.credential_delivery.clone(),
     };
     let source_type = AgentActInvocationSourceType::AgentStep;
     let request_id = agent_act_invocation_id(&invocation, source_type);
@@ -1068,7 +1074,7 @@ where
             resolved_inputs: JsonObject::new(),
             skill_directory: graph_dir.to_path_buf(),
             env: runtime.options.env.clone(),
-            credential_delivery: crate::credentials::CredentialDelivery::none(),
+            credential_delivery: runtime.options.credential_delivery.clone(),
         };
         let output = CatalogAdapter::default().invoke(invocation)?;
         let projection = step_output_projection(step, &output)?;

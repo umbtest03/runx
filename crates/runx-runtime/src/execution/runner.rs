@@ -50,6 +50,10 @@ pub struct RuntimeOptions {
     pub env: BTreeMap<String, String>,
     pub receipt_signature: RuntimeReceiptSignatureConfig,
     pub effects: RuntimeEffectRegistry,
+    /// Credentials delivered to graph step invocations. Defaults to none; a
+    /// top-level skill run threads its own delivery here so credential-needing
+    /// graph-step tools (e.g. http tools with `${secret:NAME}` headers) resolve.
+    pub credential_delivery: crate::credentials::CredentialDelivery,
 }
 
 impl RuntimeOptions {
@@ -61,6 +65,7 @@ impl RuntimeOptions {
             env,
             receipt_signature: RuntimeReceiptSignatureConfig::local_development(),
             effects: RuntimeEffectRegistry::default(),
+            credential_delivery: crate::credentials::CredentialDelivery::none(),
         }
     }
 
@@ -78,6 +83,7 @@ impl RuntimeOptions {
             env,
             receipt_signature: receipt_services.signature_config().clone(),
             effects: RuntimeEffectRegistry::default(),
+            credential_delivery: crate::credentials::CredentialDelivery::none(),
         })
     }
 

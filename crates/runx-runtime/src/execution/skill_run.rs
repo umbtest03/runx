@@ -474,6 +474,14 @@ fn execute_graph_skill_run(
     manifest: &SkillRunnerManifest,
     runner: &SkillRunnerDefinition,
 ) -> Result<JsonValue, SkillRunError> {
+    // Graph runs deliver no credentials to their steps today: the local-credential
+    // model is a single env-var delivered to one skill process, which does not map
+    // to a multi-step graph (broadcasting one secret as process-env to every step's
+    // subprocess is a leak surface). Step handlers source delivery from
+    // RuntimeOptions.credential_delivery (set to none below); wiring real graph-step
+    // delivery (e.g. `${secret}` http headers in a graph) needs a graph-credential
+    // design, tracked separately. `${secret}` already works for http tools/skills
+    // invoked outside a graph, where credentials are delivered.
     if request.local_credential.is_some() {
         return Err(invalid(
             "local credential process-env delivery is not supported for graph runners",
@@ -496,6 +504,7 @@ fn execute_graph_skill_run(
             env,
             receipt_signature: receipts.signature_config().clone(),
             effects: effects.clone(),
+            credential_delivery: crate::credentials::CredentialDelivery::none(),
         },
     );
     // Seeded answers run a single fresh pass with the answers pre-loaded into the
