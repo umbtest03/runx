@@ -960,9 +960,32 @@ mod tests {
         JsonValue, ProofKind,
     };
 
+    /// Concrete error type for fallible tests, so `?` propagates the receipt and
+    /// serialization errors a test exercises without erasing them behind a trait
+    /// object.
+    #[derive(Debug)]
+    struct TestError(String);
+
+    impl From<RuntimeError> for TestError {
+        fn from(error: RuntimeError) -> Self {
+            Self(error.to_string())
+        }
+    }
+
+    impl From<runx_receipts::ReceiptError> for TestError {
+        fn from(error: runx_receipts::ReceiptError) -> Self {
+            Self(error.to_string())
+        }
+    }
+
+    impl From<serde_json::Error> for TestError {
+        fn from(error: serde_json::Error) -> Self {
+            Self(error.to_string())
+        }
+    }
+
     #[test]
-    fn credential_delivery_refs_are_sealed_as_verification_refs()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn credential_delivery_refs_are_sealed_as_verification_refs() -> Result<(), TestError> {
         let receipt = step_receipt(
             "credential_graph",
             "credential_step",
@@ -1003,7 +1026,7 @@ mod tests {
         Ok(())
     }
 
-    fn credential_output() -> Result<SkillOutput, Box<dyn std::error::Error>> {
+    fn credential_output() -> Result<SkillOutput, TestError> {
         let observation = CredentialDeliveryObservation {
             schema: CredentialDeliveryObservationSchema::V1,
             observation_id: "credential_delivery_observation_1".into(),

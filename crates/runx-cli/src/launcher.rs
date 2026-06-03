@@ -671,6 +671,9 @@ fn parse_kernel_plan(args: &[OsString]) -> Result<KernelPlan, String> {
     })
 }
 
+// rust-style-allow: long-function because this flat argument parser walks the
+// payment subcommand grammar in a single readable pass; extracting sub-parsers
+// would obscure which flags belong to which positional verb.
 fn parse_payment_plan(args: &[OsString]) -> Result<PaymentPlan, String> {
     let topic = os_arg(args, 1, "payment")?;
     if topic != "admission" {

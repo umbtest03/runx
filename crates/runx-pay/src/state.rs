@@ -700,6 +700,9 @@ impl Drop for EffectStateLock {
     }
 }
 
+// rust-style-allow: long-function because run-spend reservation enforces the
+// per-run cap through a single sequence of cap, ledger, and tally checks that
+// must remain linear so the spend invariant stays verifiable in one place.
 fn reserve_run_spend(
     state: &mut EffectFamilyState,
     family: &'static str,

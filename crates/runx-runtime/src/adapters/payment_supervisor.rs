@@ -1,3 +1,8 @@
+// rust-style-allow: large-file because the payment supervisor covers the full
+// settlement lifecycle (admission, reservation, capture, refund, receipt sealing)
+// against one external rail; keeping the lifecycle and its wire mapping in a single
+// module preserves a single auditable source of truth for how money moves.
+
 use std::future::Future;
 use std::pin::Pin;
 
@@ -1213,6 +1218,53 @@ mod tests {
         sha256_prefixed,
     };
 
+    /// Concrete error type for fallible tests, so `?` propagates the rail and wire
+    /// errors a test exercises without erasing them behind a trait object.
+    #[derive(Debug)]
+    struct TestError(String);
+
+    impl From<serde_json::Error> for TestError {
+        fn from(error: serde_json::Error) -> Self {
+            Self(error.to_string())
+        }
+    }
+
+    impl From<ExternalSignerError> for TestError {
+        fn from(error: ExternalSignerError) -> Self {
+            Self(error.to_string())
+        }
+    }
+
+    impl From<X402FacilitatorError> for TestError {
+        fn from(error: X402FacilitatorError) -> Self {
+            Self(error.to_string())
+        }
+    }
+
+    impl From<StripeSptIssuanceError> for TestError {
+        fn from(error: StripeSptIssuanceError) -> Self {
+            Self(error.to_string())
+        }
+    }
+
+    impl From<MppWireError> for TestError {
+        fn from(error: MppWireError) -> Self {
+            Self(error.to_string())
+        }
+    }
+
+    impl From<RailSupervisorError> for TestError {
+        fn from(error: RailSupervisorError) -> Self {
+            Self(error.to_string())
+        }
+    }
+
+    impl From<crate::PaymentAdmissionError> for TestError {
+        fn from(error: crate::PaymentAdmissionError) -> Self {
+            Self(error.to_string())
+        }
+    }
+
     #[derive(Clone, Copy, Debug)]
     struct FixtureX402RailClient;
 
@@ -1337,11 +1389,9 @@ mod tests {
     }
 
     #[test]
-    fn x402_dispatch_round_trips_settlement_evidence() {
+    fn x402_dispatch_round_trips_settlement_evidence() -> Result<(), TestError> {
         let supervisor = RailSupervisor::new(FixtureX402RailClient);
-        let evidence = supervisor
-            .settlement_evidence(request(X402_RAIL, Some("fulfilled")))
-            .unwrap_or_else(|error| panic!("fixture x402 settlement failed: {error}"));
+        let evidence = supervisor.settlement_evidence(request(X402_RAIL, Some("fulfilled")))?;
 
         assert_eq!(evidence.rail, X402_RAIL);
         assert_eq!(evidence.proof_ref, "proof_ref_1");
@@ -1353,15 +1403,15 @@ mod tests {
             evidence.provider_event_ref.as_deref(),
             Some("runx-runtime:test:proof_ref_1")
         );
+        Ok(())
     }
 
     #[test]
-    fn stripe_spt_dispatch_round_trips_charge_and_event_evidence() {
+    fn stripe_spt_dispatch_round_trips_charge_and_event_evidence() -> Result<(), TestError> {
         let supervisor =
             RailSupervisor::with_rails(FixtureX402RailClient, FixtureStripeSptRailClient);
-        let evidence = supervisor
-            .settlement_evidence(request(STRIPE_SPT_RAIL, Some("fulfilled")))
-            .unwrap_or_else(|error| panic!("fixture stripe-spt settlement failed: {error}"));
+        let evidence =
+            supervisor.settlement_evidence(request(STRIPE_SPT_RAIL, Some("fulfilled")))?;
 
         assert_eq!(evidence.rail, STRIPE_SPT_RAIL);
         assert_eq!(evidence.proof_ref, "ch_test_123");
@@ -1374,19 +1424,18 @@ mod tests {
             evidence.admission_token_digest.as_deref(),
             Some("sha256:admission")
         );
+        Ok(())
     }
 
     #[test]
-    fn mpp_fiat_dispatch_round_trips_payment_intent_evidence() {
+    fn mpp_fiat_dispatch_round_trips_payment_intent_evidence() -> Result<(), TestError> {
         let supervisor = RailSupervisor::with_all_rails(
             FixtureX402RailClient,
             FixtureStripeSptRailClient,
             FixtureMppFiatRailClient,
             FixtureMppTempoRailClient,
         );
-        let evidence = supervisor
-            .settlement_evidence(request(MPP_FIAT_RAIL, Some("fulfilled")))
-            .unwrap_or_else(|error| panic!("fixture mpp-fiat settlement failed: {error}"));
+        let evidence = supervisor.settlement_evidence(request(MPP_FIAT_RAIL, Some("fulfilled")))?;
 
         assert_eq!(evidence.rail, MPP_FIAT_RAIL);
         assert_eq!(evidence.proof_ref, "pi_mpp_fiat_test_123");
@@ -1398,19 +1447,19 @@ mod tests {
             evidence.shared_payment_token_ref.as_deref(),
             Some("spt_mpp_test_123")
         );
+        Ok(())
     }
 
     #[test]
-    fn mpp_tempo_dispatch_round_trips_transaction_evidence() {
+    fn mpp_tempo_dispatch_round_trips_transaction_evidence() -> Result<(), TestError> {
         let supervisor = RailSupervisor::with_all_rails(
             FixtureX402RailClient,
             FixtureStripeSptRailClient,
             FixtureMppFiatRailClient,
             FixtureMppTempoRailClient,
         );
-        let evidence = supervisor
-            .settlement_evidence(request(MPP_TEMPO_RAIL, Some("fulfilled")))
-            .unwrap_or_else(|error| panic!("fixture mpp-tempo settlement failed: {error}"));
+        let evidence =
+            supervisor.settlement_evidence(request(MPP_TEMPO_RAIL, Some("fulfilled")))?;
 
         assert_eq!(evidence.rail, MPP_TEMPO_RAIL);
         assert_eq!(evidence.proof_ref, tx_hash());
@@ -1419,6 +1468,7 @@ mod tests {
             Some(format!("mpp-tempo:tx:{}", tx_hash()).as_str())
         );
         assert!(evidence.shared_payment_token_ref.is_none());
+        Ok(())
     }
 
     #[test]
@@ -1491,7 +1541,7 @@ mod tests {
     }
 
     #[test]
-    fn mpp_stripe_wire_contract_pins_method_details_and_spt() {
+    fn mpp_stripe_wire_contract_pins_method_details_and_spt() -> Result<(), TestError> {
         let request = serde_json::from_value::<MppStripeChargeRequest>(serde_json::json!({
             "amount": "5000",
             "currency": "usd",
@@ -1503,17 +1553,14 @@ mod tests {
                 "paymentMethodTypes": ["card", "link"],
                 "metadata": {"challenge_id": "ch_mpp_123"}
             }
-        }))
-        .unwrap_or_else(|error| panic!("mpp stripe request should parse: {error}"));
-        validate_mpp_stripe_charge_request(&request)
-            .unwrap_or_else(|error| panic!("mpp stripe request should validate: {error}"));
+        }))?;
+        validate_mpp_stripe_charge_request(&request)?;
         let credential = MppStripeCredentialPayload {
             spt: "spt_1N4Zv32eZvKYlo2CPhVPkJlW".to_owned(),
             external_id: Some("client_order_789".to_owned()),
         };
 
-        validate_mpp_stripe_credential(&credential)
-            .unwrap_or_else(|error| panic!("mpp stripe credential should validate: {error}"));
+        validate_mpp_stripe_credential(&credential)?;
         assert_eq!(
             request.method_details.network_id,
             "profile_1MqDcVKA5fEO2tZvKQm9g8Yj"
@@ -1522,11 +1569,12 @@ mod tests {
             request.method_details.payment_method_types,
             ["card", "link"]
         );
+        Ok(())
     }
 
     #[test]
     fn mpp_tempo_wire_contract_accepts_pull_transaction_and_rejects_push()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), TestError> {
         let request = serde_json::from_value::<MppTempoChargeRequest>(serde_json::json!({
             "amount": "1000000",
             "currency": "0x20c0000000000000000000000000000000000000",
@@ -1585,7 +1633,7 @@ mod tests {
 
     #[test]
     fn mpp_tempo_wire_contract_rejects_fee_payer_memo_and_splits()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), TestError> {
         for (field, request) in [
             (
                 "feePayer",
@@ -1637,7 +1685,7 @@ mod tests {
     }
 
     #[test]
-    fn mpp_tempo_zero_amount_accepts_proof_only() -> Result<(), Box<dyn std::error::Error>> {
+    fn mpp_tempo_zero_amount_accepts_proof_only() -> Result<(), TestError> {
         let request = serde_json::from_value::<MppTempoChargeRequest>(serde_json::json!({
             "amount": "0",
             "currency": "0x20c0000000000000000000000000000000000000",
@@ -1676,7 +1724,7 @@ mod tests {
 
     #[test]
     fn external_signer_template_binds_admission_token_and_digest()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), TestError> {
         let request = external_signer_request(admission_token(), challenge())?;
 
         assert_eq!(request.schema, EXTERNAL_SIGNER_REQUEST_SCHEMA);
@@ -1731,7 +1779,7 @@ mod tests {
     }
 
     #[test]
-    fn external_signer_client_returns_signed_response() -> Result<(), Box<dyn std::error::Error>> {
+    fn external_signer_client_returns_signed_response() -> Result<(), TestError> {
         let request = external_signer_request(admission_token(), challenge())?;
         let client = ExternalSignerClient::with_transport(
             "https://signer.local/sign",
@@ -1758,7 +1806,7 @@ mod tests {
 
     #[test]
     fn external_signer_client_maps_template_mismatch_refusal()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), TestError> {
         let request = external_signer_request(admission_token(), challenge())?;
         let client = ExternalSignerClient::with_transport(
             "https://signer.local/sign",
@@ -1783,7 +1831,7 @@ mod tests {
 
     #[test]
     fn external_signer_client_rejects_malformed_refusal_code()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), TestError> {
         let request = external_signer_request(admission_token(), challenge())?;
         let client = ExternalSignerClient::with_transport(
             "https://signer.local/sign",
@@ -1811,7 +1859,7 @@ mod tests {
 
     #[test]
     fn external_signer_request_and_response_do_not_expose_private_key_material()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), TestError> {
         let request = external_signer_request(admission_token(), challenge())?;
         let response = client_signed_response(&request)?;
         let rendered = format!(
@@ -1830,7 +1878,7 @@ mod tests {
 
     #[test]
     fn stripe_spt_issuance_request_binds_admission_scope_and_digest()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), TestError> {
         let token = stripe_admission_token();
         let request =
             stripe_spt_issuance_request(&token, "acct_counterparty", "stripe-spt:idem-123")?;
@@ -1871,7 +1919,7 @@ mod tests {
 
     #[test]
     fn x402_facilitator_verify_and_settle_projects_tx_hash_evidence()
-    -> Result<(), Box<dyn std::error::Error>> {
+    -> Result<(), TestError> {
         let payment = facilitator_payment();
         let verifier = X402FacilitatorClient::with_transport(
             "https://facilitator.example",
@@ -1908,7 +1956,7 @@ mod tests {
     }
 
     #[test]
-    fn x402_facilitator_settle_requires_tx_hash_proof() -> Result<(), Box<dyn std::error::Error>> {
+    fn x402_facilitator_settle_requires_tx_hash_proof() -> Result<(), TestError> {
         let client = X402FacilitatorClient::with_transport(
             "https://facilitator.example",
             FixtureHttpTransport::new(
@@ -2044,7 +2092,7 @@ mod tests {
 
     fn client_signed_response(
         request: &super::ExternalSignerRequest,
-    ) -> Result<super::ExternalSignerSignedResponse, Box<dyn std::error::Error>> {
+    ) -> Result<super::ExternalSignerSignedResponse, TestError> {
         let client = ExternalSignerClient::with_transport(
             "https://signer.local/sign",
             FixtureHttpTransport::new(
@@ -2108,7 +2156,7 @@ mod tests {
         }
     }
 
-    fn signed_response_body(template_digest: &str) -> Result<String, Box<dyn std::error::Error>> {
+    fn signed_response_body(template_digest: &str) -> Result<String, TestError> {
         Ok(serde_json::to_string(&serde_json::json!({
             "schema": EXTERNAL_SIGNER_RESPONSE_SCHEMA,
             "status": "signed",
@@ -2139,7 +2187,7 @@ mod tests {
     fn refusal_response_body(
         code: ExternalSignerRefusalCode,
         message: &str,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<String, TestError> {
         Ok(serde_json::to_string(&serde_json::json!({
             "schema": EXTERNAL_SIGNER_RESPONSE_SCHEMA,
             "status": "refused",

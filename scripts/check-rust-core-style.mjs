@@ -22,6 +22,14 @@ const disallowedPatterns = [
   {
     pattern: /\bserde_json::Value\b/u,
     reason: "public Rust code should use typed structs/enums, not JSON values",
+    // Wire-boundary adapters legitimately parse/build untyped JSON with
+    // serde_json::Value and convert to/from the runx JsonValue only at the
+    // domain boundary (the documented convention; see agent_anthropic.rs).
+    allowlist: [
+      "crates/runx-runtime/src/adapters/agent_anthropic.rs",
+      "crates/runx-runtime/src/adapters/http.rs",
+      "crates/runx-runtime/src/adapters/payment_supervisor.rs",
+    ],
   },
   {
     pattern: /\bserde_(?:norway|yml)::Value\b/u,

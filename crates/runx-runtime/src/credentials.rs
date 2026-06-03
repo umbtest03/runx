@@ -699,8 +699,7 @@ mod tests {
     }
 
     #[test]
-    fn local_credential_observation_marks_credential_resolution_proof()
-    -> Result<(), CredentialDeliveryError> {
+    fn local_credential_observation_marks_credential_resolution_proof() -> Result<(), String> {
         let delivery = CredentialDelivery::from_local_descriptor(
             "github",
             "api_key",
@@ -708,18 +707,22 @@ mod tests {
             "local:github:grant_1",
             vec!["repo:read".to_owned()],
             "ghp_secret_value",
-        )?;
-        let refs = delivery.credential_refs().expect("credential refs");
+        )
+        .map_err(|error| error.to_string())?;
+        let refs = delivery
+            .credential_refs()
+            .ok_or_else(|| "expected credential refs".to_owned())?;
 
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].reference_type.as_str(), "credential");
         assert_eq!(refs[0].provider.as_deref(), Some("github"));
         assert_eq!(refs[0].proof_kind, Some(ProofKind::CredentialResolution));
-        assert!(
-            !serde_json::to_string(delivery.public_observation().expect("observation"))
-                .expect("observation serializes")
-                .contains("ghp_secret_value")
-        );
+        let observation = delivery
+            .public_observation()
+            .ok_or_else(|| "expected a public observation".to_owned())?;
+        let serialized =
+            serde_json::to_string(observation).map_err(|error| error.to_string())?;
+        assert!(!serialized.contains("ghp_secret_value"));
         Ok(())
     }
 

@@ -16,6 +16,11 @@
 //! [`AgentExecutionTelemetry`], [`AgentToolExecutionTrace`]) and tool execution
 //! reuses the runtime's universal [`SkillOutput`]; this module only adds the two
 //! seams that did not exist before (the per-turn model call and tool execution).
+//!
+// rust-style-allow: large-file because the governed agent loop, its provider and
+// executor seams, the transcript contracts, and the loop-coverage tests belong in
+// one cohesive unit; splitting them would scatter the single source of truth for
+// the tool-use protocol.
 
 use runx_contracts::JsonValue;
 
@@ -89,6 +94,9 @@ fn tool_result_content(output: &SkillOutput, is_error: bool) -> String {
 /// Run the bounded tool-use loop, returning the existing [`AgentResolution`] when
 /// the model finalizes. Fails closed on an empty turn or on exhausting the round
 /// budget without a final result.
+// rust-style-allow: long-function because this is one bounded round loop whose
+// turn sequencing (model call, fail-closed checks, per-tool execution, transcript
+// append, telemetry accumulation) must stay linear to remain auditable.
 pub fn run_agent_loop<M, T>(
     config: &AgentLoopConfig,
     model: &M,
@@ -327,7 +335,7 @@ mod tests {
     }
 
     #[test]
-    fn loop_records_tool_failure_and_still_finalizes() {
+    fn loop_records_tool_failure_and_still_finalizes() -> Result<(), String> {
         // A non-success tool output is a failure, not an error: the loop feeds it
         // back, records it in telemetry, and the model can still finalize.
         let config = AgentLoopConfig {
@@ -335,9 +343,13 @@ mod tests {
             final_result_tool: FINAL.to_owned(),
         };
         let resolution = run_agent_loop(&config, &ScriptedModel, &FailingExecutor, "go".to_owned())
-            .expect("a failing tool should not abort the loop");
-        let telemetry = resolution.telemetry.expect("telemetry present");
-        let executions = telemetry.tool_executions.expect("tool executions present");
+            .map_err(|error| format!("a failing tool should not abort the loop: {error}"))?;
+        let telemetry = resolution
+            .telemetry
+            .ok_or_else(|| "telemetry present".to_owned())?;
+        let executions = telemetry
+            .tool_executions
+            .ok_or_else(|| "tool executions present".to_owned())?;
         assert!(
             executions.len() == 1
                 && executions[0].tool == "pay"
@@ -354,6 +366,7 @@ mod tests {
             Some(2),
             "the failure was fed back and the loop continued to a second round before finalizing"
         );
+        Ok(())
     }
 
     struct DistinctThenRepeat;
@@ -382,7 +395,7 @@ mod tests {
     }
 
     #[test]
-    fn telemetry_dedupes_tool_names_but_counts_every_call() {
+    fn telemetry_dedupes_tool_names_but_counts_every_call() -> Result<(), String> {
         // The model calls pay, read, pay, then finalizes. Telemetry must count all
         // three calls, retain the two distinct names in order, and dedupe the
         // repeated 'pay'. This catches broken dedup, lost distinct names, and order.
@@ -391,8 +404,10 @@ mod tests {
             final_result_tool: FINAL.to_owned(),
         };
         let resolution = run_agent_loop(&config, &DistinctThenRepeat, &OkExecutor, "go".to_owned())
-            .expect("should finalize after three calls");
-        let telemetry = resolution.telemetry.expect("telemetry present");
+            .map_err(|error| format!("should finalize after three calls: {error}"))?;
+        let telemetry = resolution
+            .telemetry
+            .ok_or_else(|| "telemetry present".to_owned())?;
         assert_eq!(
             telemetry.tool_calls,
             Some(3),
@@ -403,5 +418,6 @@ mod tests {
             Some(vec!["pay".to_owned(), "read".to_owned()]),
             "distinct names are retained in order and the repeated 'pay' is deduped"
         );
+        Ok(())
     }
 }
