@@ -23,7 +23,7 @@ deny = [
   { name = "async-std", reason = "No async runtime exception is approved for the Rust parity workspace." },
   { name = "axum", reason = "No HTTP server framework exception is approved for the Rust parity workspace." },
   { name = "clap", reason = "CLI parsing remains hand-rolled for the cargo-installed launcher boundary." },
-  { name = "hyper", wrappers = ["reqwest", "hyper-rustls", "hyper-util"], reason = "No direct raw HTTP transport dependency; allowed only as reviewed reqwest transport internals." },
+  { name = "hyper", wrappers = ["reqwest", "hyper-rustls", "hyper-util", "runx-runtime"], reason = "Allowed as reqwest transport internals, and (runx-runtime, mcp-http-server feature) as the reviewed inbound server runtime driving rmcp's StreamableHttpService for the governed MCP-over-HTTP surface." },
   { name = "reqwest", wrappers = ["runx-runtime"], reason = "Approved only inside runx-runtime async-http; pure crates must not depend on the HTTP client." },
   # rmcp is intentionally not banned: it is the canonical protocol engine for
   # runx-runtime's MCP adapter boundary. scripts/check-rust-crate-graph.mjs

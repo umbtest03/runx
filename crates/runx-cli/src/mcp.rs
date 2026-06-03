@@ -9,6 +9,9 @@ pub struct McpPlan {
     pub refs: Vec<PathBuf>,
     pub receipt_dir: Option<PathBuf>,
     pub runner: Option<String>,
+    /// When set, serve the governed MCP server over streamable HTTP at this
+    /// address instead of over stdio.
+    pub http_listen: Option<String>,
 }
 
 pub fn parse_mcp_plan(args: &[OsString]) -> Result<McpPlan, String> {
@@ -19,6 +22,7 @@ pub fn parse_mcp_plan(args: &[OsString]) -> Result<McpPlan, String> {
     let mut refs = Vec::new();
     let mut receipt_dir = None;
     let mut runner = None;
+    let mut http_listen = None;
     let mut index = 2;
     while index < args.len() {
         let token = os_arg(args, index)?;
@@ -39,6 +43,11 @@ pub fn parse_mcp_plan(args: &[OsString]) -> Result<McpPlan, String> {
                 runner = Some(value);
                 index = next_index;
             }
+            "--http-listen" => {
+                let (value, next_index) = flag_value(args, index, flag, inline_value)?;
+                http_listen = Some(value);
+                index = next_index;
+            }
             _ => return Err(format!("unknown mcp serve flag {flag}")),
         }
     }
@@ -49,6 +58,7 @@ pub fn parse_mcp_plan(args: &[OsString]) -> Result<McpPlan, String> {
         refs,
         receipt_dir,
         runner,
+        http_listen,
     })
 }
 
@@ -70,11 +80,17 @@ pub fn run_native_mcp(plan: McpPlan) -> ExitCode {
                 return ExitCode::from(1);
             }
         };
-    match runx_runtime::adapters::mcp::serve_mcp_json_rpc(
-        std::io::stdin(),
-        std::io::stdout(),
-        options,
-    ) {
+    let result = match &plan.http_listen {
+        Some(listen_addr) => {
+            runx_runtime::adapters::mcp::serve_mcp_http_server_blocking(listen_addr, options)
+        }
+        None => runx_runtime::adapters::mcp::serve_mcp_json_rpc(
+            std::io::stdin(),
+            std::io::stdout(),
+            options,
+        ),
+    };
+    match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             let _ignored = writeln!(std::io::stderr(), "runx: {error}");

@@ -11,6 +11,8 @@
 
 mod adapter;
 mod framing;
+#[cfg(feature = "mcp-http-server")]
+mod http_server;
 mod rmcp_content_length;
 mod sandbox_metadata;
 mod server;
@@ -20,6 +22,8 @@ mod transport;
 mod types;
 
 pub use adapter::McpAdapter;
+#[cfg(feature = "mcp-http-server")]
+pub use http_server::{serve_mcp_http_server, serve_mcp_http_server_blocking};
 pub use server::{mcp_tool_result_from_host_result, serve_mcp_json_rpc};
 pub use templates::{map_mcp_arguments, stringify_mcp_tool_result};
 pub use transport::{FixtureMcpTransport, ProcessMcpTransport};

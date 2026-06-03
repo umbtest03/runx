@@ -250,7 +250,7 @@ Commands:
   runx parser eval --input <file|-> --json
   runx doctor [path] [--json]
   runx dev [root] [--lane lane] [--json]
-  runx mcp serve <skill-ref...> [--receipt-dir dir]
+  runx mcp serve <skill-ref...> [--receipt-dir dir] [--http-listen addr]
   runx skill <skill-ref|skill-dir|SKILL.md> [--input k=v] [--receipt-dir dir] [--run-id id] [--answers file] [--json]
   runx harness <fixture.yaml...|skill-dir|SKILL.md> [--receipt-dir dir] [--json]
   runx tool build <tool-dir>|--all [--json]

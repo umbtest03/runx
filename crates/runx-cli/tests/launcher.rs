@@ -69,6 +69,7 @@ fn routes_mcp_serve_to_native_plan() {
             refs: vec![PathBuf::from("fixtures/skills/echo")],
             receipt_dir: Some(PathBuf::from("receipts")),
             runner: Some("default".to_owned()),
+            http_listen: None,
         })
     );
 }

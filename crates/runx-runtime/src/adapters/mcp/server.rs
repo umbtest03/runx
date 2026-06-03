@@ -193,9 +193,7 @@ where
         MAX_SERVER_REQUEST_BYTES,
         error_state.clone(),
     );
-    let service = RmcpProofServer {
-        state: McpServerState::new(options),
-    };
+    let service = RmcpProofServer::from_options(options);
     let running = rmcp::serve_server(service, transport)
         .await
         .map_err(|error| {
@@ -215,8 +213,18 @@ where
         .map_err(|error| McpServerError::new(format!("MCP rmcp server task failed: {error}")))
 }
 
-struct RmcpProofServer {
+pub(super) struct RmcpProofServer {
     state: McpServerState,
+}
+
+impl RmcpProofServer {
+    /// Build a fresh governed server from options. Used by both the stdio path
+    /// and the streamable-HTTP service factory.
+    pub(super) fn from_options(options: McpServerOptions) -> Self {
+        Self {
+            state: McpServerState::new(options),
+        }
+    }
 }
 
 impl rmcp::ServerHandler for RmcpProofServer {
