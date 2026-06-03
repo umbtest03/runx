@@ -7,8 +7,8 @@
 //! surface. Each session gets a fresh governed server from the same options.
 use std::sync::Arc;
 
-use hyper_util::rt::{TokioExecutor, TokioIo};
-use hyper_util::server::conn::auto;
+use hyper::server::conn::http1;
+use hyper_util::rt::TokioIo;
 use hyper_util::service::TowerToHyperService;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp::transport::{StreamableHttpServerConfig, StreamableHttpService};
@@ -67,7 +67,7 @@ pub(crate) async fn serve_mcp_http_listener(
         tokio::spawn(async move {
             // Per-connection errors (client disconnects, malformed frames) are
             // isolated to the connection task; they must not stop the server.
-            let _ = auto::Builder::new(TokioExecutor::new())
+            let _ = http1::Builder::new()
                 .serve_connection(io, hyper_service)
                 .await;
         });
