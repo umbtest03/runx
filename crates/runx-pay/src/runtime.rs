@@ -204,6 +204,9 @@ impl RuntimeEffect for PaymentRuntimeEffect {
         )))
     }
 
+    // rust-style-allow: long-function because admission is one fail-closed
+    // decision path (parse submission, check idempotency, reserve, build the
+    // admission record) that must read top to bottom to stay auditable.
     fn admit(
         &self,
         request: EffectStepRequest<'_>,

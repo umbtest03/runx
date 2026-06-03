@@ -213,6 +213,9 @@ where
         self.run_graph_with_host_outcome(graph_dir, graph, host, BlockedGraphOutcome::Error)
     }
 
+    // rust-style-allow: long-function because graph execution drives one ordered
+    // ready-node loop (admit, dispatch to host, fold outcomes, advance frontier)
+    // whose step sequencing must stay in a single scope to keep the run auditable.
     fn run_graph_with_host_outcome(
         &self,
         graph_dir: &Path,

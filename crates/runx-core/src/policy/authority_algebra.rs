@@ -161,7 +161,8 @@ mod tests {
     }
 
     #[test]
-    fn effect_guard_decision_is_generic_for_deployment_receipt_before_success() {
+    fn effect_guard_decision_is_generic_for_deployment_receipt_before_success()
+    -> Result<(), String> {
         let parent = term(
             "parent",
             AuthorityResourceFamily::Deployment,
@@ -172,17 +173,19 @@ mod tests {
             }],
         );
         let child = term("child", AuthorityResourceFamily::Deployment, vec![]);
-        let family = authority_effect_family(&parent, &child).expect("effect family");
+        let family = authority_effect_family(&parent, &child)
+            .ok_or_else(|| "expected an effect family".to_owned())?;
         let decision = evaluate_authority_effect_guards(&parent, &child, family);
 
         assert_eq!(family, "deployment");
         assert!(decision.receipt_before_success_required);
         assert!(!decision.non_replay_required);
         assert_eq!(decision.proof_kinds, vec![ProofKind::CredentialResolution]);
+        Ok(())
     }
 
     #[test]
-    fn effect_guard_decision_is_generic_for_delete_style_non_replay() {
+    fn effect_guard_decision_is_generic_for_delete_style_non_replay() -> Result<(), String> {
         let parent = term(
             "parent",
             AuthorityResourceFamily::Deployment,
@@ -193,7 +196,8 @@ mod tests {
             }],
         );
         let child = term("child", AuthorityResourceFamily::Deployment, vec![]);
-        let family = authority_effect_family(&parent, &child).expect("effect family");
+        let family = authority_effect_family(&parent, &child)
+            .ok_or_else(|| "expected an effect family".to_owned())?;
         let decision = evaluate_authority_effect_guards(&parent, &child, family);
 
         assert_eq!(family, "deployment-delete");
@@ -209,6 +213,7 @@ mod tests {
             "deployment",
             AuthorityEffectGuardKind::NonReplay
         ));
+        Ok(())
     }
 
     #[test]

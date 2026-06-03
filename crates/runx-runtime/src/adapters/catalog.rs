@@ -1,3 +1,7 @@
+// rust-style-allow: large-file because the skill catalog adapter, its source
+// resolution, artifact projection, and the catalog-coverage tests form one
+// cohesive unit; splitting them would fracture how a skill is resolved and run.
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
