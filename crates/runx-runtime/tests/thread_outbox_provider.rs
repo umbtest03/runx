@@ -5,7 +5,7 @@ use runx_contracts::{
     CredentialDeliveryMode, CredentialDeliveryObservation, CredentialDeliveryObservationStatus,
     CredentialDeliveryPurpose, CredentialMaterialRole, Reference, ReferenceType,
     ThreadOutboxProviderFetch, ThreadOutboxProviderIdempotencyStatus, ThreadOutboxProviderManifest,
-    ThreadOutboxProviderObservationStatus, ThreadOutboxProviderPush,
+    ThreadOutboxProviderObservationStatus, ThreadOutboxProviderOperation, ThreadOutboxProviderPush,
 };
 use runx_core::policy::{CredentialBindingDecision, CredentialEnvelope};
 use runx_runtime::{
@@ -34,6 +34,18 @@ fn provider_process_pushes_idempotently_and_injects_delivery_observation()
         ThreadOutboxProviderObservationStatus::Accepted
     );
     assert_eq!(
+        outcome.observation.operation,
+        ThreadOutboxProviderOperation::Push
+    );
+    assert_eq!(
+        outcome.observation.request_id.as_str(),
+        push.push_id.as_str()
+    );
+    assert_eq!(
+        outcome.observation.idempotency.key.as_str(),
+        push.idempotency.key.as_str()
+    );
+    assert_eq!(
         outcome.observation.idempotency.status,
         ThreadOutboxProviderIdempotencyStatus::Created
     );
@@ -53,6 +65,31 @@ fn provider_process_pushes_idempotently_and_injects_delivery_observation()
             .map(|locator| locator.locator.as_str()),
         Some("runxhq/runx#77/comment-1001")
     );
+    assert_eq!(
+        outcome.observation.provider_event_id_hash.as_deref(),
+        Some("sha256:github-comment-1001")
+    );
+    assert_eq!(
+        outcome
+            .observation
+            .readback_summary
+            .as_ref()
+            .map(|summary| (
+                summary.item_count,
+                summary.cursor.as_deref(),
+                summary.latest_provider_event_id_hash.as_deref()
+            )),
+        Some((1, Some("cursor-2"), Some("sha256:github-comment-1001")))
+    );
+    assert_eq!(
+        outcome
+            .observation
+            .redaction_refs
+            .as_ref()
+            .map(|refs| refs.iter().map(|r| r.uri.as_str()).collect::<Vec<_>>()),
+        Some(vec!["runx:redaction_policy:provider-output"])
+    );
+    assert_eq!(outcome.process_exit_code, Some(0));
     Ok(())
 }
 
@@ -71,6 +108,18 @@ fn provider_process_reports_idempotent_replay() -> Result<(), Box<dyn std::error
         outcome.observation.idempotency.status,
         ThreadOutboxProviderIdempotencyStatus::Replayed
     );
+    assert_eq!(
+        outcome.observation.idempotency.key.as_str(),
+        push.idempotency.key.as_str()
+    );
+    assert_eq!(
+        outcome
+            .observation
+            .provider_locator
+            .as_ref()
+            .map(|locator| locator.locator.as_str()),
+        Some("runxhq/runx#77/comment-1001")
+    );
     Ok(())
 }
 
@@ -86,12 +135,32 @@ fn provider_process_fetch_shapes_readback_receipt() -> Result<(), Box<dyn std::e
     )?;
 
     assert_eq!(
+        outcome.observation.operation,
+        ThreadOutboxProviderOperation::Fetch
+    );
+    assert_eq!(
+        outcome.observation.request_id.as_str(),
+        fetch.fetch_id.as_str()
+    );
+    assert_eq!(
+        outcome.observation.idempotency.key.as_str(),
+        fetch.idempotency.key.as_str()
+    );
+    assert_eq!(
+        outcome.observation.idempotency.status,
+        ThreadOutboxProviderIdempotencyStatus::Replayed
+    );
+    assert_eq!(
         outcome
             .observation
             .readback_summary
             .as_ref()
-            .map(|summary| summary.item_count),
-        Some(1)
+            .map(|summary| (
+                summary.item_count,
+                summary.cursor.as_deref(),
+                summary.latest_provider_event_id_hash.as_deref()
+            )),
+        Some((1, Some("cursor-2"), Some("sha256:github-comment-1001")))
     );
     assert_eq!(
         outcome.observation.provider_event_id_hash.as_deref(),

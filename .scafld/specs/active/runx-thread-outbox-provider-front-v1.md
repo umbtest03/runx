@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: runx-thread-outbox-provider-front-v1
 created: '2026-06-04T06:20:35Z'
-updated: '2026-06-04T06:20:35Z'
-status: draft
+updated: '2026-06-04T22:53:15Z'
+status: active
 harden_status: needs_revision
 size: medium
 risk_level: high
@@ -13,21 +13,14 @@ risk_level: high
 
 ## Current State
 
-Status: draft
-Current phase: phase1
-Next: harden
-Reason: reframed to parity-first after inventory: the Rust provider supervisor and
-protocol exist, but no SourceKind/graph dispatch route exists and `issue-to-pr`
-still mutates providers through the live TS `thread.push_outbox` tool. Direct
-cutover is not yet safe.
-Blockers: Phase 1 must prove fixture/local Rust-front parity before any graph
-dispatch or `issue-to-pr` route changes.
-Allowed follow-up command: `scafld harden runx-thread-outbox-provider-front-v1`
-Latest runner update: 2026-06-04T22:18:00Z
+Status: active
+Current phase: phase2
+Next: build
+Reason: phase phase1 completed; phase phase2 opened
+Blockers: none
+Allowed follow-up command: `scafld handoff runx-thread-outbox-provider-front-v1`
+Latest runner update: 2026-06-04T22:53:15Z
 Review gate: not_started
-
-Roadmap: Wave 4 (later). Migrates the provider-mutation boundary into the kernel.
-The live TS path ships today; move it only after Rust-front parity is proven.
 
 ## Summary
 
@@ -137,44 +130,40 @@ Validation:
 
 ## Phase 1: Rust-front parity, fixture-only
 
-Status: pending
+Status: completed
 Dependencies: the inert supervisor, the protocol contract
 
 Objective: prove the existing Rust supervisor can carry provider push/readback
-frames at parity with the current packaging contract without touching live
-`issue-to-pr`.
 
 Changes:
 - Keep `skills/issue-to-pr/X.yaml` unchanged.
-- Add or tighten Rust fixture parity around
-  `ThreadOutboxProviderProcessSupervisor::invoke_push` / `invoke_fetch`.
-- Feed the supervisor frames equivalent to the current TS outbox packaging
-  contract and assert operation, request id, idempotency, provider locator,
-  provider event hash, readback summary, delivery observations, and redaction.
+- Add or tighten Rust fixture parity around `ThreadOutboxProviderProcessSupervisor::invoke_push` / `invoke_fetch`.
+- Feed the supervisor frames equivalent to the current TS outbox packaging contract and assert operation, request id, idempotency, provider locator, provider event hash, readback summary, delivery observations, and redaction.
 
 Acceptance:
-- [ ] `ac1` command - Rust provider fixture parity holds
+- [x] `ac1` command - Rust provider fixture parity holds
   - Command: `cargo nextest run --manifest-path crates/Cargo.toml -p runx-runtime --all-features thread_outbox_provider`
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `ac2` command - live issue-to-pr route is not cut over in Phase 1
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-6
+- [x] `ac2` command - live issue-to-pr route is not cut over in Phase 1
   - Command: `rg -n "tool: thread\\.push_outbox" skills/issue-to-pr/X.yaml`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-7
 
 ## Phase 2: Non-default dispatch route, fixture-only
 
-Status: pending
+Status: active
 Dependencies: Phase 1
 
 Objective: dispatch a thread-outbox-provider graph/source route through the Rust
-front against a fixture provider, without cutting over `issue-to-pr`.
 
 Changes:
-- Add the smallest parser/runtime dispatch surface for
-  `thread-outbox-provider`, fixture-only first.
-- Seal push/fetch observations as receipts and preserve `CredentialDelivery`
-  behavior.
+- Add the smallest parser/runtime dispatch surface for `thread-outbox-provider`, fixture-only first.
+- Seal push/fetch observations as receipts and preserve `CredentialDelivery` behavior.
 
 Acceptance:
 - [ ] `ac3` command - fixture graph dispatch seals provider push/readback
