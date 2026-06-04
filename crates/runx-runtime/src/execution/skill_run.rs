@@ -1613,11 +1613,11 @@ mod tests {
     #[test]
     fn graph_source_registry_fails_closed_on_unregistered_source() {
         let mut raw = JsonObject::new();
-        raw.insert("type".to_owned(), JsonValue::String("mcp".to_owned()));
+        raw.insert("type".to_owned(), JsonValue::String("a2a".to_owned()));
         let invocation = SkillInvocation {
-            skill_name: "fixture-mcp".to_owned(),
+            skill_name: "fixture-a2a".to_owned(),
             source: SkillSource {
-                source_type: SourceKind::Mcp,
+                source_type: SourceKind::A2a,
                 command: None,
                 args: Vec::new(),
                 cwd: None,
@@ -1649,7 +1649,7 @@ mod tests {
         assert!(
             matches!(
                 &result,
-                Err(RuntimeError::UnsupportedSource { source_kind }) if source_kind == "mcp"
+                Err(RuntimeError::UnsupportedSource { source_kind }) if source_kind == "a2a"
             ),
             "unexpected unregistered graph source result: {result:?}"
         );
