@@ -208,8 +208,7 @@ mod tests {
             other => {
                 return Err(io::Error::other(format!(
                     "unexpected provider permission admission: {other:?}"
-                ))
-                .into());
+                )));
             }
         };
 
@@ -218,9 +217,9 @@ mod tests {
         let context = match admission.context::<ProviderPermissionAdmission>() {
             Some(context) => context,
             None => {
-                return Err(
-                    io::Error::other("missing provider permission admission context").into(),
-                );
+                return Err(io::Error::other(
+                    "missing provider permission admission context",
+                ));
             }
         };
         assert_eq!(context.required_scopes, vec!["repo.read"]);
@@ -252,8 +251,7 @@ mod tests {
             other => {
                 return Err(io::Error::other(format!(
                     "unexpected provider permission result: {other:?}"
-                ))
-                .into());
+                )));
             }
         };
 
@@ -268,7 +266,9 @@ mod tests {
             {
                 Ok(())
             }
-            other => Err(io::Error::other(format!("unexpected denial error: {other:?}")).into()),
+            other => Err(io::Error::other(format!(
+                "unexpected denial error: {other:?}"
+            ))),
         }
     }
 
