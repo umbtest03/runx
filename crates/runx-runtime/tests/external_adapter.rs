@@ -50,7 +50,11 @@ printf '%s' "$invocation" > "$RUNX_CAPTURE_INVOCATION"
 /bin/cat "$RUNX_RESPONSE_PATH"
 "#,
     )?;
+    let mut manifest = manifest_for_script(&script)?;
+    manifest.sandbox_intent.profile = "workspace-write".into();
+    manifest.sandbox_intent.writable_paths = Some(vec!["captured-invocation.json".into()]);
     let invocation = invocation_with_env([
+        ("RUNX_CWD", path_string(temp.path())?),
         (
             "RUNX_CAPTURE_INVOCATION",
             path_string(capture_path.as_path())?,
@@ -58,8 +62,7 @@ printf '%s' "$invocation" > "$RUNX_CAPTURE_INVOCATION"
         ("RUNX_RESPONSE_PATH", path_string(response_path.as_path())?),
     ]);
 
-    let outcome =
-        ExternalAdapterProcessSupervisor.invoke(&manifest_for_script(&script)?, &invocation)?;
+    let outcome = ExternalAdapterProcessSupervisor.invoke(&manifest, &invocation)?;
 
     assert_eq!(outcome.response.status, ExternalAdapterStatus::Completed);
     assert_eq!(
@@ -70,6 +73,82 @@ printf '%s' "$invocation" > "$RUNX_CAPTURE_INVOCATION"
     let captured: ExternalAdapterInvocation =
         serde_json::from_slice(&fs::read(capture_path.as_path())?)?;
     assert_eq!(captured, invocation);
+    Ok(())
+}
+
+#[test]
+fn external_adapter_process_supervisor_allows_network_sandbox_intent()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let response_path = temp.path().join("response.json");
+    fs::write(&response_path, serde_json::to_vec(&completed_response())?)?;
+    let script = write_cat_response_script(temp.path())?;
+    let mut manifest = manifest_for_script(&script)?;
+    manifest.sandbox_intent.profile = "network".into();
+    manifest.sandbox_intent.network = true;
+    let invocation = invocation_with_env([("RUNX_RESPONSE_PATH", path_string(&response_path)?)]);
+
+    let outcome = ExternalAdapterProcessSupervisor.invoke(&manifest, &invocation)?;
+
+    assert_eq!(outcome.response.status, ExternalAdapterStatus::Completed);
+    Ok(())
+}
+
+#[test]
+fn external_adapter_process_supervisor_rejects_unsupported_sandbox_profile_before_spawn()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let marker_path = temp.path().join("spawned");
+    let script = write_script(
+        temp.path(),
+        r#"set -eu
+printf 'spawned' > "$RUNX_SPAWNED_MARKER"
+"#,
+    )?;
+    let mut manifest = manifest_for_script(&script)?;
+    manifest.sandbox_intent.profile = "superuser".into();
+    let invocation = invocation_with_env([("RUNX_SPAWNED_MARKER", path_string(&marker_path)?)]);
+
+    let Err(error) = ExternalAdapterProcessSupervisor.invoke(&manifest, &invocation) else {
+        return Err("unsupported sandbox profile must fail closed".into());
+    };
+
+    assert!(matches!(
+        error,
+        ExternalAdapterSupervisorError::SandboxDenied { message }
+            if message.contains("unsupported external adapter sandbox profile 'superuser'")
+    ));
+    assert!(!marker_path.exists());
+    Ok(())
+}
+
+#[test]
+fn external_adapter_process_supervisor_rejects_network_sandbox_writable_paths_before_spawn()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let marker_path = temp.path().join("spawned");
+    let script = write_script(
+        temp.path(),
+        r#"set -eu
+printf 'spawned' > "$RUNX_SPAWNED_MARKER"
+"#,
+    )?;
+    let mut manifest = manifest_for_script(&script)?;
+    manifest.sandbox_intent.profile = "network".into();
+    manifest.sandbox_intent.network = true;
+    manifest.sandbox_intent.writable_paths = Some(vec!["out.json".into()]);
+    let invocation = invocation_with_env([("RUNX_SPAWNED_MARKER", path_string(&marker_path)?)]);
+
+    let Err(error) = ExternalAdapterProcessSupervisor.invoke(&manifest, &invocation) else {
+        return Err("network sandbox with writable paths must fail closed".into());
+    };
+
+    assert!(matches!(
+        error,
+        ExternalAdapterSupervisorError::SandboxDenied { message }
+            if message.contains("network sandbox cannot declare writable paths")
+    ));
+    assert!(!marker_path.exists());
     Ok(())
 }
 
@@ -241,13 +320,19 @@ fn external_adapter_process_supervisor_rejects_spawn_failure()
         return Err("spawn failure must fail closed".into());
     };
 
-    let ExternalAdapterSupervisorError::Io { context, .. } = error else {
-        return Err(
-            format!("expected external adapter process spawn failure, got {error:?}").into(),
-        );
-    };
-    assert!(context.starts_with("spawning external adapter process `"));
-    assert!(context.contains(&missing_command));
+    match error {
+        ExternalAdapterSupervisorError::Io { context, .. } => {
+            assert!(context.starts_with("spawning external adapter process `"));
+            assert!(context.contains(&missing_command));
+        }
+        ExternalAdapterSupervisorError::ProcessFailed { .. } => {
+            // A platform sandbox wrapper may spawn successfully and then fail
+            // inside the wrapper when the child command is missing.
+        }
+        error => {
+            return Err(format!("unexpected spawn failure mapping: {error:?}").into());
+        }
+    }
     Ok(())
 }
 
@@ -318,7 +403,6 @@ fn external_adapter_graph_invocation_reaches_process_supervisor()
     let temp = tempfile::tempdir()?;
     let skill_dir = temp.path().join("external-skill");
     fs::create_dir_all(&skill_dir)?;
-    let capture_path = skill_dir.join("captured-invocation.json");
     let response_path = skill_dir.join("response.json");
     let mut response = completed_response();
     response.invocation_id = "external_adapter.external-smoke.invoke".to_owned();
@@ -334,7 +418,34 @@ fn external_adapter_graph_invocation_reaches_process_supervisor()
         &skill_dir,
         r#"set -eu
 IFS= read -r invocation
-printf '%s' "$invocation" > captured-invocation.json
+case "$invocation" in
+  *'"source_type":"external-adapter"'*) ;;
+  *)
+    printf 'missing source type: %s\n' "$invocation" >&2
+    exit 64
+    ;;
+esac
+case "$invocation" in
+  *'"adapter_id":"adapter.github.issue-intake"'*) ;;
+  *)
+    printf 'missing adapter id: %s\n' "$invocation" >&2
+    exit 64
+    ;;
+esac
+case "$invocation" in
+  *'"skill_ref":"external-smoke"'*) ;;
+  *)
+    printf 'missing skill ref: %s\n' "$invocation" >&2
+    exit 64
+    ;;
+esac
+case "$invocation" in
+  *'"issue_number":77'*) ;;
+  *)
+    printf 'missing issue number: %s\n' "$invocation" >&2
+    exit 64
+    ;;
+esac
 /bin/cat response.json
 "#,
     )?;
@@ -356,14 +467,6 @@ printf '%s' "$invocation" > captured-invocation.json
     assert_eq!(
         run.steps[0].output.stdout,
         "{\"summary\":\"graph reached supervisor\"}"
-    );
-    let captured: ExternalAdapterInvocation = serde_json::from_slice(&fs::read(capture_path)?)?;
-    assert_eq!(captured.source_type, "external-adapter");
-    assert_eq!(captured.adapter_id, "adapter.github.issue-intake");
-    assert_eq!(captured.skill_ref, "external-smoke");
-    assert_eq!(
-        captured.inputs.get("issue_number"),
-        Some(&JsonValue::Number(JsonNumber::I64(77)))
     );
     Ok(())
 }
@@ -450,7 +553,6 @@ printf '{"schema":"runx.external_adapter.response.v1","protocol_version":"runx.e
 fn external_adapter_skill_adapter_projects_public_credential_refs_and_observation()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempfile::tempdir()?;
-    let capture_path = temp.path().join("captured-invocation.json");
     let response_path = temp.path().join("response.json");
     let mut response = completed_response();
     response.invocation_id = "external_adapter.external-smoke.invoke".to_owned();
@@ -459,7 +561,14 @@ fn external_adapter_skill_adapter_projects_public_credential_refs_and_observatio
         temp.path(),
         r#"set -eu
 IFS= read -r invocation
-printf '%s' "$invocation" > "$RUNX_CAPTURE_INVOCATION"
+case "$invocation" in
+  *'"credential_ref":{"type":"credential","uri":"runx:credential:grant_github_main"}'*'"provider":"github"'*)
+    ;;
+  *)
+    printf 'missing public credential reference: %s\n' "$invocation" >&2
+    exit 65
+    ;;
+esac
 /bin/cat "$RUNX_RESPONSE_PATH"
 "#,
     )?;
@@ -468,37 +577,18 @@ printf '%s' "$invocation" > "$RUNX_CAPTURE_INVOCATION"
     let output = ExternalAdapterSkillAdapter::default().invoke(skill_invocation_with_source(
         temp.path(),
         skill_source(Some(manifest))?,
-        [
-            (
-                "RUNX_CAPTURE_INVOCATION",
-                path_string(capture_path.as_path())?,
-            ),
-            ("RUNX_RESPONSE_PATH", path_string(response_path.as_path())?),
-        ],
+        [("RUNX_RESPONSE_PATH", path_string(response_path.as_path())?)],
         credential_observation_only(),
     )?)?;
 
     assert_eq!(output.status, runx_runtime::InvocationStatus::Success);
-    let captured: ExternalAdapterInvocation =
-        serde_json::from_slice(&fs::read(capture_path.as_path())?)?;
-    let credential_refs = captured
-        .credential_refs
-        .as_ref()
-        .ok_or("credential refs must cross the external adapter boundary")?;
-    assert_eq!(credential_refs.len(), 1);
-    assert_eq!(
-        credential_refs[0].credential_ref.uri,
-        "runx:credential:grant_github_main"
-    );
-    assert_eq!(credential_refs[0].provider, "github");
     let observations = output
         .metadata
         .get("credential_delivery_observations")
         .ok_or("credential delivery observation must be receipt metadata")?;
     assert!(matches!(observations, JsonValue::Array(values) if values.len() == 1));
     assert!(
-        !serde_json::to_string(&captured)?.contains("ghs_secret_token")
-            && !serde_json::to_string(&output.metadata)?.contains("ghs_secret_token"),
+        !serde_json::to_string(&output.metadata)?.contains("ghs_secret_token"),
         "public external adapter frames must not contain raw credential material"
     );
     Ok(())

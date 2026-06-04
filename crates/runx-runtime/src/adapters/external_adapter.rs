@@ -19,6 +19,8 @@ use runx_contracts::{
     ExternalAdapterResponse, ExternalAdapterStatus, ExternalAdapterTransportKind, JsonNumber,
     JsonObject, JsonValue, Reference, ReferenceType,
 };
+use runx_core::policy::{CwdPolicy, SandboxProfile};
+use runx_parser::{SkillSandbox, SkillSource, SourceKind};
 use thiserror::Error;
 
 use crate::RuntimeError;
@@ -27,6 +29,7 @@ use crate::adapter_pipeline::{AdapterCapture, AdapterInvocationPlan, AdapterProj
 use crate::credentials::CredentialDelivery;
 use crate::process::{ProcessOutcome, ProcessSpec, ProcessStdin, run_process};
 use crate::receipts::paths::RUNX_RECEIPT_DIR_ENV;
+use crate::sandbox::{SandboxPlan, prepare_process_sandbox};
 use crate::time::now_iso8601;
 
 const MANIFEST_INLINE_FIELD: &str = "external_adapter_manifest";
@@ -243,6 +246,8 @@ pub enum ExternalAdapterSupervisorError {
     InvalidInvocationTimeout,
     #[error("external adapter invocation env value '{key}' must be a string")]
     InvalidEnvValue { key: String },
+    #[error("external adapter sandbox denied: {message}")]
+    SandboxDenied { message: String },
     #[error("external adapter process timed out after {timeout_ms}ms")]
     TimedOut {
         timeout_ms: u64,
@@ -783,20 +788,167 @@ fn run_external_adapter_process(
     invocation: &ExternalAdapterInvocation,
     credential_delivery: &CredentialDelivery,
 ) -> Result<ProcessOutcome, ExternalAdapterSupervisorError> {
-    let mut spec = ProcessSpec::new("external adapter", command.to_owned(), RESPONSE_LIMIT_BYTES)
-        .args(manifest.transport.args.clone().unwrap_or_default())
-        .env(process_env(invocation, credential_delivery)?)
-        .stdin(Some(ProcessStdin::new(
-            invocation_stdin(invocation)?,
-            "writing external adapter invocation",
-        )))
-        .timeout(Some(Duration::from_millis(manifest.timeouts.invocation_ms)));
-    if let Some(cwd) = invocation.cwd.as_ref() {
-        spec = spec.cwd(cwd.to_string());
-    }
+    let sandbox =
+        external_adapter_sandbox_plan(command, manifest, invocation, credential_delivery)?;
+    let spec = ProcessSpec::new(
+        "external adapter",
+        sandbox.command.clone(),
+        RESPONSE_LIMIT_BYTES,
+    )
+    .args(sandbox.args.clone())
+    .cwd(sandbox.cwd.clone())
+    .env(sandbox.env.clone())
+    .stdin(Some(ProcessStdin::new(
+        invocation_stdin(invocation)?,
+        "writing external adapter invocation",
+    )))
+    .timeout(Some(Duration::from_millis(manifest.timeouts.invocation_ms)));
     run_process(spec).map_err(|error| match error {
         crate::process::ProcessSupervisorError::Io { context, source } => io_error(context, source),
     })
+}
+
+fn external_adapter_sandbox_plan(
+    command: &str,
+    manifest: &ExternalAdapterManifest,
+    invocation: &ExternalAdapterInvocation,
+    credential_delivery: &CredentialDelivery,
+) -> Result<SandboxPlan, ExternalAdapterSupervisorError> {
+    validate_external_adapter_sandbox_intent(manifest)?;
+    let skill_directory = external_adapter_skill_directory(manifest, invocation)?;
+    let base_env = process_env(invocation, credential_delivery)?;
+    let source = external_adapter_sandbox_source(command, manifest, &base_env)?;
+    prepare_process_sandbox(&source, &skill_directory, &JsonObject::new(), &base_env).map_err(
+        |error| ExternalAdapterSupervisorError::SandboxDenied {
+            message: error.to_string(),
+        },
+    )
+}
+
+fn external_adapter_skill_directory(
+    manifest: &ExternalAdapterManifest,
+    invocation: &ExternalAdapterInvocation,
+) -> Result<PathBuf, ExternalAdapterSupervisorError> {
+    if let Some(cwd) = invocation.cwd.as_ref() {
+        return Ok(PathBuf::from(cwd.as_str()));
+    }
+    let Some(first_arg) = manifest
+        .transport
+        .args
+        .as_ref()
+        .and_then(|args| args.first())
+    else {
+        return Err(missing_external_adapter_cwd());
+    };
+    let path = Path::new(first_arg);
+    if !path.is_absolute() {
+        return Err(missing_external_adapter_cwd());
+    }
+    path.parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(missing_external_adapter_cwd)
+}
+
+fn missing_external_adapter_cwd() -> ExternalAdapterSupervisorError {
+    ExternalAdapterSupervisorError::SandboxDenied {
+        message: "external adapter invocation cwd is required unless the process manifest points at an absolute adapter script".to_owned(),
+    }
+}
+
+fn validate_external_adapter_sandbox_intent(
+    manifest: &ExternalAdapterManifest,
+) -> Result<(), ExternalAdapterSupervisorError> {
+    let profile = external_adapter_sandbox_profile(manifest.sandbox_intent.profile.as_str())?;
+    let writable_paths = manifest
+        .sandbox_intent
+        .writable_paths
+        .as_ref()
+        .map_or(0, Vec::len);
+    if profile == SandboxProfile::Network && writable_paths > 0 {
+        return Err(ExternalAdapterSupervisorError::SandboxDenied {
+            message: "network sandbox cannot declare writable paths; use unrestricted-local-dev for combined local write and network access".to_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn external_adapter_sandbox_source(
+    command: &str,
+    manifest: &ExternalAdapterManifest,
+    base_env: &BTreeMap<String, String>,
+) -> Result<SkillSource, ExternalAdapterSupervisorError> {
+    Ok(SkillSource {
+        source_type: SourceKind::ExternalAdapter,
+        command: Some(command.to_owned()),
+        args: manifest.transport.args.clone().unwrap_or_default(),
+        cwd: None,
+        timeout_seconds: None,
+        input_mode: None,
+        sandbox: Some(external_adapter_skill_sandbox(manifest, base_env)?),
+        server: None,
+        catalog_ref: None,
+        tool: None,
+        arguments: None,
+        agent_card_url: None,
+        agent_identity: None,
+        agent: None,
+        task: None,
+        hook: None,
+        outputs: None,
+        graph: None,
+        http: None,
+        raw: JsonObject::new(),
+    })
+}
+
+fn external_adapter_skill_sandbox(
+    manifest: &ExternalAdapterManifest,
+    base_env: &BTreeMap<String, String>,
+) -> Result<SkillSandbox, ExternalAdapterSupervisorError> {
+    let intent = &manifest.sandbox_intent;
+    Ok(SkillSandbox {
+        profile: external_adapter_sandbox_profile(intent.profile.as_str())?,
+        cwd_policy: Some(external_adapter_cwd_policy(intent.cwd_policy.as_str())?),
+        env_allowlist: Some(base_env.keys().cloned().collect()),
+        network: Some(intent.network),
+        writable_paths: intent
+            .writable_paths
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|path| path.into_string())
+            .collect(),
+        require_enforcement: None,
+        approved_escalation: None,
+        raw: JsonObject::new(),
+    })
+}
+
+fn external_adapter_sandbox_profile(
+    profile: &str,
+) -> Result<SandboxProfile, ExternalAdapterSupervisorError> {
+    match profile {
+        "readonly" => Ok(SandboxProfile::Readonly),
+        "workspace-write" => Ok(SandboxProfile::WorkspaceWrite),
+        "network" => Ok(SandboxProfile::Network),
+        "unrestricted-local-dev" => Ok(SandboxProfile::UnrestrictedLocalDev),
+        profile => Err(ExternalAdapterSupervisorError::SandboxDenied {
+            message: format!("unsupported external adapter sandbox profile '{profile}'"),
+        }),
+    }
+}
+
+fn external_adapter_cwd_policy(
+    cwd_policy: &str,
+) -> Result<CwdPolicy, ExternalAdapterSupervisorError> {
+    match cwd_policy {
+        "skill-directory" => Ok(CwdPolicy::SkillDirectory),
+        "workspace" => Ok(CwdPolicy::Workspace),
+        "custom" => Ok(CwdPolicy::Custom),
+        cwd_policy => Err(ExternalAdapterSupervisorError::SandboxDenied {
+            message: format!("unsupported external adapter cwd policy '{cwd_policy}'"),
+        }),
+    }
 }
 
 fn process_env(
