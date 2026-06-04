@@ -60,6 +60,11 @@
     "digest": "e89540cf5c3100a0459bfad61925275ccaf968b4030b2afebb95cced26ab7ee4"
   },
   {
+    "skill_id": "runx/inbox-and-calendar-exec",
+    "version": "sha-f4b8474fed66",
+    "digest": "c901733cb87251e3508bf49af8d006978b4fbf63a73a722a68a476968b1a6435"
+  },
+  {
     "skill_id": "runx/issue-intake",
     "version": "sha-5e4b3ac95882",
     "digest": "cc964980fe249ac3633e7b30c664648f0df9406a0254ede9bb0e3cbcdebdd603"
@@ -73,6 +78,16 @@
     "skill_id": "runx/issue-triage",
     "version": "sha-61e562d632df",
     "digest": "10cbe7f936bc12f7f5e5a2aa926382a6b556c3ae0a572b0851d795316d909ab7"
+  },
+  {
+    "skill_id": "runx/knowledge-router",
+    "version": "sha-c952df0ffc58",
+    "digest": "45e33971d320dd19dc43236eb160e6b6fcfd086556e491a341a181a7c9b341c2"
+  },
+  {
+    "skill_id": "runx/lead-enrichment",
+    "version": "sha-ebde084e87e3",
+    "digest": "a8d1d744f3ec502ed3dd719bd06434d05854a2eaf55ce8ed8ceb57fe830f3b88"
   },
   {
     "skill_id": "runx/least-privilege-auditor",
@@ -223,6 +238,11 @@
     "skill_id": "runx/sourcey",
     "version": "sha-bd5029ad4d2b",
     "digest": "1a13cfbc840bf80aea286069fdfc747fc3e39d62bfa3a82009b718a55efb1ae0"
+  },
+  {
+    "skill_id": "runx/sql-analyst",
+    "version": "sha-fe63382fa5ea",
+    "digest": "054798d4b29958f90300ea940c94b73233c0d5c5ff19e7156278b31e99e68475"
   },
   {
     "skill_id": "runx/stripe-charge",

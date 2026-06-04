@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 
 const schema = "runx.inline_harness_sweep.v1";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const defaultExpectedSkillCount = 51;
+const defaultExpectedSkillCount = 56;
 
 try {
   const options = parseArgs(process.argv.slice(2));
