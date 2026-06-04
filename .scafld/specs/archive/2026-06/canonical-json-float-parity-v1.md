@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: canonical-json-float-parity-v1
 created: '2026-05-29T00:00:00Z'
-updated: '2026-05-29T00:00:00Z'
-status: active
+updated: '2026-06-04T20:48:45Z'
+status: completed
 harden_status: not_run
 size: small
 risk_level: medium
@@ -13,18 +13,14 @@ risk_level: medium
 
 ## Current State
 
-Status: active
-Current phase: phase1
-Next: implement
-Reason: Cross-language receipt content addressing depends on byte-identical
-canonical JSON output between Rust (`runx-receipts::canonical`) and TS
-(`@runxhq/contracts/canonical-json`). The Rust writer's number leaf routes
-through `JsonNumber::Display`, which uses Rust's default `{}` formatter for
-non-integer-typed finite `f64`. That formatter never switches to scientific
-notation, while JS `JSON.stringify` switches outside roughly `[1e-7, 1e21]`.
-This is a reachable divergence because skill output JSON is user-controlled
-and is canonicalized into receipts.
-Blockers: none.
+Status: completed
+Current phase: final
+Next: done
+Reason: task completed
+Blockers: none
+Allowed follow-up command: `none`
+Latest runner update: 2026-06-04T20:48:45Z
+Review gate: pass
 
 ## Summary
 
@@ -126,3 +122,23 @@ Independent of Phase 1; sequenced after to keep diffs small.
 
 Phase 3 (`yaml-parity-subset-hardening-v1`): unrelated boundary; tracks
 separately.
+
+## Review
+
+Status: completed
+Verdict: pass
+Mode: verify
+Provider: command
+Output: command.stdout
+Summary: Canonical JSON float parity is implemented and verified. Rust canonical number emission routes JsonNumber through serde_json::to_string, the numbers oracle is loaded by Rust and TS tests, cargo test -p runx-receipts passed, pnpm --filter @runxhq/contracts test passed, and the oracle digest/UTF-8 invariant check passed for the committed stable JSON cases.
+
+Attack log:
+- `crates/runx-receipts/src/canonical.rs`: verify number leaf routes through serde_json::to_string rather than Display -> clean
+- `fixtures/contracts/canonical-json/runx-stable-json-v1.numbers.cases.json`: verify number oracle exists and is loaded by Rust and TS tests -> clean
+- `cargo test -p runx-receipts`: run Rust receipt/canonical tests -> clean
+- `pnpm --filter @runxhq/contracts test`: run TS canonical contract tests -> clean
+- `oracle digest fields`: verify expected_utf8_hex and sha256 fields match expected_canonical_json -> clean
+
+Findings:
+- none
+
