@@ -35,6 +35,16 @@ const runs = path.join(root, "runs");
 const states = fs.existsSync(runs)
   ? fs.readdirSync(runs).filter((name) => name.endsWith(".graph-state.json"))
   : [];
+const receipts = fs
+  .readdirSync(root)
+  .filter((name) => name.endsWith(".json") && name !== "index.json")
+  .map((name) => JSON.parse(fs.readFileSync(path.join(root, name), "utf8")))
+  .filter((receipt) => receipt?.schema === "runx.receipt.v1" && typeof receipt?.id === "string");
+
+if (receipts.length === 0) {
+  console.error("OpenAPI graph did not write a signed runx.receipt.v1 receipt");
+  process.exit(1);
+}
 
 for (const name of states) {
   const state = JSON.parse(fs.readFileSync(path.join(runs, name), "utf8"));
@@ -55,6 +65,7 @@ for (const name of states) {
           method: output.method,
           status_code: output.status_code,
           response: output.response,
+          receipts: receipts.map((receipt) => receipt.id),
         },
         null,
         2,

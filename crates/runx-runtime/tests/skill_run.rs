@@ -597,7 +597,7 @@ fn native_graph_transition_gate_rejects_skill_claim_as_fact()
         .to_string(),
     )?;
 
-    let error = match run_skill(SkillRunRequest {
+    let blocked = run_skill(SkillRunRequest {
         skill_path: skill_dir,
         receipt_dir: Some(receipt_dir.clone()),
         run_id: Some(run_id.to_owned()),
@@ -606,15 +606,17 @@ fn native_graph_transition_gate_rejects_skill_claim_as_fact()
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
         local_credential: None,
-    }) {
-        Ok(_) => return Err("skill claim unexpectedly satisfied transition gate".into()),
-        Err(error) => error,
-    };
+    })?;
+    let output = object(&blocked.output, "blocked graph result")?;
+    assert_eq!(string_field(output, "status"), Some("sealed"));
+    let closure = object_field(output, "closure").ok_or("missing closure")?;
+    assert_eq!(string_field(closure, "disposition"), Some("blocked"));
+    assert_eq!(string_field(closure, "reason_code"), Some("graph_blocked"));
     assert!(
-        error
-            .to_string()
+        string_field(closure, "summary")
+            .unwrap_or_default()
             .contains("transition gate 'decide.skill_claim.approved' is unresolved"),
-        "unexpected error: {error}"
+        "unexpected closure: {closure:?}"
     );
 
     Ok(())
