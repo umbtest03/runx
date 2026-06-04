@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: runx-receipt-content-addressing-v1
 created: '2026-06-04T06:20:35Z'
-updated: '2026-06-04T06:20:35Z'
-status: draft
+updated: '2026-06-04T21:42:56Z'
+status: completed
 harden_status: not_run
 size: medium
 risk_level: medium
@@ -13,18 +13,14 @@ risk_level: medium
 
 ## Current State
 
-Status: draft
-Current phase: none
-Next: approve
-Reason: draft created
+Status: completed
+Current phase: final
+Next: done
+Reason: task completed
 Blockers: none
-Allowed follow-up command: `scafld approve runx-receipt-content-addressing-v1`
-Latest runner update: none
-Review gate: not_started
-
-Roadmap: Wave 2 (opportunistic, near-zero cost). The full claim-graph S-tier and
-the "enlightened" receipt tier are EXPLICIT DO-NOT-BUILD forbidders — this spec is
-ONLY the two cheap, compounding moves.
+Allowed follow-up command: `none`
+Latest runner update: 2026-06-04T21:42:56Z
+Review gate: pass
 
 ## Summary
 
@@ -88,25 +84,25 @@ Validation:
 
 ## Phase 1: Content-addressed receipt id (additive)
 
-Status: pending
+Status: completed
 Dependencies: receipt contract + c14n oracle
 
 Objective: identical governed actions yield the same receipt id; existing digests
-unchanged.
 
 Changes:
-- Add the content-addressed id (additive field/derivation); fixtures proving dedup +
-  unchanged existing digests.
+- Add the content-addressed id (additive field/derivation); fixtures proving dedup + unchanged existing digests.
 
 Acceptance:
-- [ ] `ac1` command - dedup holds, existing oracle unchanged
+- [x] `ac1` command - dedup holds, existing oracle unchanged
   - Command: `cargo nextest run --manifest-path crates/Cargo.toml -p runx-receipts && pnpm fixtures:harness:check`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-6
 
 ## Phase 2: Shared receipt/resolution envelope (offline ancestry)
 
-Status: pending
+Status: completed
 Dependencies: Phase 1
 
 Objective: a verifier walks a receipt's ancestry offline.
@@ -115,10 +111,12 @@ Changes:
 - Add the shared resolution envelope (additive); extend `verify.mjs` to walk ancestry.
 
 Acceptance:
-- [ ] `ac2` command - offline ancestry walk verifies
-  - Command: `node examples/governed-spend/verify.mjs <receipt> --walk-ancestry`
+- [x] `ac2` command - offline ancestry walk verifies
+  - Command: `bash -lc 'set -e; cargo build --manifest-path crates/Cargo.toml -p runx-cli --bin runx --all-features >/dev/null; OUT="$(mktemp -d)"; RDIR="$OUT/receipts"; mkdir -p "$RDIR"; node examples/http-graph/server.mjs >"$OUT/server.log" 2>&1 & SERVER=$!; trap "kill $SERVER 2>/dev/null || true" EXIT; sleep 1; RUNX_RECEIPT_SIGN_KID=runx-demo-key RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64=QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI= RUNX_RECEIPT_SIGN_ISSUER_TYPE=hosted crates/target/debug/runx harness examples/http-graph --receipt-dir "$RDIR" --json >"$OUT/harness.json"; ROOT_ID="$(node -e "const fs=require(\"fs\");const j=JSON.parse(fs.readFileSync(process.argv[1],\"utf8\"));console.log(j.receipt_ids[0] ?? \"\")" "$OUT/harness.json")"; test -n "$ROOT_ID"; node examples/governed-spend/verify.mjs "$RDIR/$ROOT_ID.json" --walk-ancestry --receipt-dir "$RDIR"'`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-19
 
 ## Rollback
 
@@ -127,8 +125,17 @@ Acceptance:
 
 ## Review
 
-Status: not_started
-Verdict: none
+Status: completed
+Verdict: pass
+Mode: discover
+Provider: command
+Output: command.stdout
+Summary: Reviewed receipt ancestry persistence and verifier changes; runtime persists finalized graph step receipts as top-level receipt-store artifacts, verifier walks top-level receipt ancestry and ignores graph-state snapshots, and gates passed.
+
+Attack log:
+- `graph receipt persistence`: Child locator must use finalized child digest, not graph-state snapshot; covered by runtime regression and live http-graph ancestry verification. -> clean
+- `offline verifier`: Stale runs/*.graph-state.json with same content-address id must not shadow top-level receipt; covered by vitest stale-sidecar regression. -> clean
+- `canonical fixtures`: Additive persistence must not churn existing digest/oracle fixtures; runx-receipts nextest and fixtures:harness:check passed. -> clean
 
 Findings:
 - none

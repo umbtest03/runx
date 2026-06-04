@@ -7,6 +7,7 @@
 //
 // Usage:
 //   node verify.mjs <receipt.json> [--pubkey <base64-raw-ed25519>] [--seed <base64-32-byte-seed>]
+//   node verify.mjs <receipt.json> --walk-ancestry [--receipt-dir <dir>]
 //
 // If neither --pubkey nor --seed is given, the public demo seed is used (the
 // same throwaway test key the demo signs with). For a real deployment you pass
@@ -14,12 +15,18 @@
 //
 import crypto from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 
 const DEMO_SEED_B64 = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI="; // public test key
+const MAX_ANCESTRY_DEPTH = 64;
 
 function arg(name) {
   const i = process.argv.indexOf(name);
   return i >= 0 ? process.argv[i + 1] : undefined;
+}
+
+function hasFlag(name) {
+  return process.argv.includes(name);
 }
 
 // runx.receipt.c14n.v1: strip the envelope's own signature/digest/metadata,
@@ -54,50 +61,180 @@ function rawPubBytes(keyObj) {
 
 const receiptPath = process.argv[2];
 if (!receiptPath || receiptPath.startsWith("--")) {
-  console.error("usage: node verify.mjs <receipt.json> [--pubkey <b64>] [--seed <b64>]");
+  console.error("usage: node verify.mjs <receipt.json> [--pubkey <b64>] [--seed <b64>] [--walk-ancestry] [--receipt-dir <dir>]");
   process.exit(2);
 }
-const r = JSON.parse(fs.readFileSync(receiptPath, "utf8"));
-
 const pub = arg("--pubkey")
   ? publicKeyFromRaw(arg("--pubkey"))
   : publicKeyFromSeed(arg("--seed") ?? DEMO_SEED_B64);
+const walkAncestry = hasFlag("--walk-ancestry");
+const receiptDir = arg("--receipt-dir") ?? path.dirname(path.resolve(receiptPath));
+const ancestryIndex = walkAncestry ? buildReceiptIndex(receiptDir) : new Map();
 
-const checks = [];
+function sha256Prefixed(text) {
+  return "sha256:" + crypto.createHash("sha256").update(text, "utf8").digest("hex");
+}
 
-// 1. The named key matches the public key we are verifying with.
-const ourKeyHash = "sha256:" + crypto.createHash("sha256").update(rawPubBytes(pub)).digest("hex");
-checks.push(["issuer key matches the public key", ourKeyHash === r.issuer?.public_key_sha256,
-  `issuer=${r.issuer?.public_key_sha256} ours=${ourKeyHash}`]);
+function readReceipt(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
 
-// 2. The digest is the canonical hash of THIS receipt's body (content binding).
-const body = { ...r }; delete body.signature; delete body.digest; delete body.metadata;
-const recomputed = "sha256:" + crypto.createHash("sha256").update(canon(body), "utf8").digest("hex");
-checks.push(["digest is the hash of the receipt body", recomputed === r.digest,
-  `receipt=${r.digest} recomputed=${recomputed}`]);
+function receiptBody(r) {
+  const body = { ...r };
+  delete body.signature;
+  delete body.digest;
+  delete body.metadata;
+  return body;
+}
 
-// 3. The Ed25519 signature is valid over that digest.
-let sigOk = false, sigDetail = "";
-try {
-  const sig = Buffer.from(r.signature.value.split("base64:")[1], "base64url");
-  sigOk = sig.length === 64 && crypto.verify(null, Buffer.from(r.digest), pub, sig);
-  sigDetail = `alg=${r.signature.alg} sigBytes=${sig.length}`;
-} catch (e) { sigDetail = String(e); }
-checks.push(["signature is valid over the digest", sigOk, sigDetail]);
+function receiptIdentityBody(r) {
+  const body = receiptBody(r);
+  delete body.id;
+  delete body.lineage;
+  return body;
+}
+
+function childReceiptId(ref) {
+  if (ref?.type !== "receipt" || typeof ref?.uri !== "string") return undefined;
+  return ref.uri.startsWith("runx:receipt:") ? ref.uri.slice("runx:receipt:".length) : undefined;
+}
+
+function buildReceiptIndex(dir) {
+  const index = new Map();
+  for (const filePath of candidateReceiptFiles(dir)) {
+    let value;
+    try {
+      value = readReceipt(filePath);
+    } catch {
+      continue;
+    }
+    collectReceipts(value, filePath, index);
+  }
+  return index;
+}
+
+function candidateReceiptFiles(dir) {
+  const files = [];
+  try {
+    for (const name of fs.readdirSync(dir)) {
+      if (name !== "index.json" && name.endsWith(".json")) files.push(path.join(dir, name));
+    }
+  } catch {
+    return files;
+  }
+  return files;
+}
+
+function collectReceipts(value, sourcePath, index) {
+  if (!value || typeof value !== "object") return;
+  if (value.schema === "runx.receipt.v1" && typeof value.id === "string") {
+    const bucket = index.get(value.id) ?? [];
+    bucket.push({ receipt: value, sourcePath });
+    index.set(value.id, bucket);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectReceipts(item, sourcePath, index);
+    return;
+  }
+  for (const child of Object.values(value)) collectReceipts(child, sourcePath, index);
+}
+
+function resolveIndexedReceipt(id) {
+  if (!/^[A-Za-z0-9:_-]+$/.test(id)) return { status: "unsafe" };
+  const matches = ancestryIndex.get(id) ?? [];
+  if (matches.length === 0) return { status: "missing" };
+  if (matches.length > 1) return { status: "ambiguous", matches };
+  return { status: "found", ...matches[0] };
+}
 
 let allPass = true;
-console.log(`receipt: ${receiptPath}`);
-console.log(`  id         : ${r.id}`);
-console.log(`  disposition: ${r.seal?.disposition} (${r.seal?.reason_code})`);
-console.log(`  issuer     : ${r.issuer?.type}/${r.issuer?.kid}`);
-console.log("");
-for (const [label, ok, detail] of checks) {
+
+function check(label, ok, detail) {
   allPass = allPass && ok;
   console.log(`  [${ok ? "PASS" : "FAIL"}] ${label}`);
   if (!ok) console.log(`         ${detail}`);
 }
+
+function verifyOne(filePath, expectedParentId, depth, seen, receipt) {
+  const r = receipt ?? readReceipt(filePath);
+  const prefix = depth === 0 ? "receipt" : `child depth=${depth}`;
+  console.log(`${prefix}: ${filePath}`);
+  console.log(`  id         : ${r.id}`);
+  console.log(`  disposition: ${r.seal?.disposition} (${r.seal?.reason_code})`);
+  console.log(`  issuer     : ${r.issuer?.type}/${r.issuer?.kid}`);
+  console.log("");
+
+  if (seen.has(r.id)) {
+    check("ancestry is acyclic", false, `cycle at ${r.id}`);
+    return;
+  }
+  seen.add(r.id);
+
+  // 1. The named key matches the public key we are verifying with.
+  const ourKeyHash = "sha256:" + crypto.createHash("sha256").update(rawPubBytes(pub)).digest("hex");
+  check("issuer key matches the public key", ourKeyHash === r.issuer?.public_key_sha256,
+    `issuer=${r.issuer?.public_key_sha256} ours=${ourKeyHash}`);
+
+  // 2. The digest is the canonical hash of THIS receipt's body (content binding).
+  const recomputed = sha256Prefixed(canon(receiptBody(r)));
+  check("digest is the hash of the receipt body", recomputed === r.digest,
+    `receipt=${r.digest} recomputed=${recomputed}`);
+
+  // 3. The id is content-addressed, independent of id/signature/digest/metadata/lineage.
+  const recomputedId = sha256Prefixed(canon(receiptIdentityBody(r)));
+  check("id is the hash of the receipt identity body", recomputedId === r.id,
+    `receipt=${r.id} recomputed=${recomputedId}`);
+
+  // 4. The Ed25519 signature is valid over that digest.
+  let sigOk = false, sigDetail = "";
+  try {
+    const sig = Buffer.from(r.signature.value.split("base64:")[1], "base64url");
+    sigOk = sig.length === 64 && crypto.verify(null, Buffer.from(r.digest), pub, sig);
+    sigDetail = `alg=${r.signature.alg} sigBytes=${sig.length}`;
+  } catch (e) { sigDetail = String(e); }
+  check("signature is valid over the digest", sigOk, sigDetail);
+
+  if (expectedParentId) {
+    const actualParent = childReceiptId(r.lineage?.parent);
+    check("child lineage parent points at the parent receipt", actualParent === expectedParentId,
+      `parent=${actualParent ?? "<missing>"} expected=${expectedParentId}`);
+  }
+
+  const children = Array.isArray(r.lineage?.children) ? r.lineage.children : [];
+  if (!walkAncestry) {
+    console.log("");
+    return;
+  }
+  check("ancestry depth stays bounded", depth < MAX_ANCESTRY_DEPTH, `depth=${depth}`);
+  for (const [index, childRef] of children.entries()) {
+    const childId = childReceiptId(childRef);
+    check(`lineage child ${index} uses runx receipt ref`, Boolean(childId),
+      `ref=${JSON.stringify(childRef)}`);
+    if (!childId) continue;
+    const expectedDigest = childRef.locator;
+    const resolved = resolveIndexedReceipt(childId);
+    check(`lineage child ${index} receipt resolves locally`, resolved.status === "found",
+      `status=${resolved.status}`);
+    if (resolved.status !== "found") continue;
+    const child = resolved.receipt;
+    check(`lineage child ${index} ref resolves by id`, child.id === childId,
+      `child=${child.id} expected=${childId}`);
+    if (expectedDigest) {
+      check(`lineage child ${index} locator matches child digest`, child.digest === expectedDigest,
+        `locator=${expectedDigest} child=${child.digest}`);
+    }
+    console.log("");
+    verifyOne(resolved.sourcePath, r.id, depth + 1, seen, child);
+  }
+  console.log("");
+}
+
+verifyOne(path.resolve(receiptPath), undefined, 0, new Set());
 console.log("");
 console.log(allPass
-  ? "VERIFIED: runx signed exactly this receipt content. Verified with the Node standard library, trusting nothing from runx."
+  ? (walkAncestry
+    ? "VERIFIED: runx signed this receipt tree. Ancestry was walked offline with the Node standard library, trusting nothing from runx."
+    : "VERIFIED: runx signed exactly this receipt content. Verified with the Node standard library, trusting nothing from runx.")
   : "NOT VERIFIED.");
 process.exit(allPass ? 0 : 1);

@@ -1106,7 +1106,7 @@ fn native_graph_skill_run_executes_nested_cli_tool_skill() -> Result<(), Box<dyn
 
     let result = run_skill(SkillRunRequest {
         skill_path: skill_dir,
-        receipt_dir: Some(receipt_dir),
+        receipt_dir: Some(receipt_dir.clone()),
         run_id: None,
         answers_path: None,
         inputs,
@@ -1128,6 +1128,43 @@ fn native_graph_skill_run_executes_nested_cli_tool_skill() -> Result<(), Box<dyn
     assert_eq!(
         string_field(declared_nested, "message"),
         Some("Nested graph bug")
+    );
+    let root_receipt_id = string_field(output, "receipt_id").ok_or("missing receipt id")?;
+    let steps = array_field(payload, "steps").ok_or("missing graph steps")?;
+    let nested_step_summary = object(&steps[0], "nested step summary")?;
+    let nested_receipt_id =
+        string_field(nested_step_summary, "receipt_id").ok_or("missing nested receipt id")?;
+    assert!(receipt_dir.join(format!("{root_receipt_id}.json")).exists());
+    assert!(
+        receipt_dir
+            .join(format!("{nested_receipt_id}.json"))
+            .exists()
+    );
+
+    let root_receipt = crate::support::read_test_signed_receipt(&receipt_dir, root_receipt_id)?;
+    let child_receipt = crate::support::read_test_signed_receipt(&receipt_dir, nested_receipt_id)?;
+    let child_refs = &root_receipt
+        .lineage
+        .as_ref()
+        .ok_or("root receipt missing lineage")?
+        .children;
+    assert_eq!(child_refs.len(), 1);
+    assert_eq!(
+        child_refs[0].uri.as_str(),
+        format!("runx:receipt:{nested_receipt_id}")
+    );
+    assert_eq!(
+        child_refs[0].locator.as_deref(),
+        Some(child_receipt.digest.as_str())
+    );
+    let parent_ref = child_receipt
+        .lineage
+        .as_ref()
+        .and_then(|lineage| lineage.parent.as_ref())
+        .ok_or("nested receipt missing parent lineage")?;
+    assert_eq!(
+        parent_ref.uri.as_str(),
+        format!("runx:receipt:{root_receipt_id}")
     );
 
     Ok(())

@@ -532,7 +532,7 @@ fn execute_graph_skill_run(
                         next_checkpoint,
                         &mut final_host,
                     )?;
-                    write_skill_receipt(request, workspace, receipts, &run.receipt)?;
+                    write_graph_receipts(request, workspace, receipts, &run)?;
                     let payload = graph_payload(&run)?;
                     let output = graph_skill_output(&payload, &run)?;
                     return Ok(JsonValue::Object(sealed_output(
@@ -648,12 +648,7 @@ fn seal_blocked_graph_skill_run(
         context.summary,
         &mut final_host,
     )?;
-    write_skill_receipt(
-        context.request,
-        context.workspace,
-        context.receipts,
-        &run.receipt,
-    )?;
+    write_graph_receipts(context.request, context.workspace, context.receipts, &run)?;
     let payload = graph_payload(&run)?;
     let output = graph_skill_output(&payload, &run)?;
     Ok(JsonValue::Object(sealed_output(
@@ -1269,6 +1264,18 @@ fn write_skill_receipt(
     receipts
         .write_local_receipt(receipt, &receipt_path)
         .map_err(Into::into)
+}
+
+fn write_graph_receipts(
+    request: &SkillRunRequest,
+    workspace: &WorkspaceEnv,
+    receipts: &ReceiptServices,
+    run: &GraphRun,
+) -> Result<(), SkillRunError> {
+    for step in &run.steps {
+        write_skill_receipt(request, workspace, receipts, &step.receipt)?;
+    }
+    write_skill_receipt(request, workspace, receipts, &run.receipt)
 }
 
 fn agent_invocation_source_type(
