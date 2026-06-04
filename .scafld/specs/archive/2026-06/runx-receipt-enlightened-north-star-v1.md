@@ -2,11 +2,9 @@
 spec_version: '2.0'
 task_id: runx-receipt-enlightened-north-star-v1
 created: '2026-05-23T00:00:00Z'
-updated: '2026-05-23T00:00:00Z'
-status: draft
-do_not_execute: true
-build_gate: never_build_without_explicit_confirmation
-tier: enlightened
+updated: '2026-06-04T22:18:44Z'
+status: cancelled
+harden_status: not_run
 size: north-star
 risk_level: extreme
 ---
@@ -132,3 +130,15 @@ tier's meaning. Enlightened is recorded as a north star: the dissolution of the
 execution/proof, schema/instance, type-taxonomy, and work/learning gaps into one
 self-verifying recursive claim. Held as a forbidder, never a build target, with explicit
 self-awareness that pursuing it directly is the elegance-trap that already caused harm.
+
+## Current State
+
+Status: cancelled
+Current phase: none
+Next: done
+Reason: cancel
+Blockers: none
+Allowed follow-up command: `none`
+Latest runner update: none
+Review gate: not_started
+

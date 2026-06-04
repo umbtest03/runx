@@ -2,11 +2,9 @@
 spec_version: '2.0'
 task_id: runx-receipt-claim-graph-s-tier-v1
 created: '2026-05-23T00:00:00Z'
-updated: '2026-05-23T00:00:00Z'
-status: draft
-do_not_execute: true
-build_gate: requires_explicit_confirmation
-tier: s
+updated: '2026-06-04T22:18:44Z'
+status: cancelled
+harden_status: not_run
 size: xl
 risk_level: high
 ---
@@ -119,3 +117,15 @@ Conversation 2026-05-23: asked for the A+, S, and enlightened shapes. S tier is 
 phase change from a well-formed receipt document to a content-addressed signed-claim
 graph where integrity is structural. Captured as a direction; build only the two
 flagged cheap moves early, and the rest only on explicit confirmation.
+
+## Current State
+
+Status: cancelled
+Current phase: none
+Next: done
+Reason: cancel
+Blockers: none
+Allowed follow-up command: `none`
+Latest runner update: none
+Review gate: not_started
+

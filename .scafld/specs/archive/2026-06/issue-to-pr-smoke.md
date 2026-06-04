@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: issue-to-pr-smoke
 created: '2026-05-04T00:00:00Z'
-updated: '2026-05-04T00:00:00Z'
-status: draft
+updated: '2026-06-04T22:17:36Z'
+status: cancelled
 harden_status: not_run
 size: micro
 risk_level: low
@@ -13,12 +13,12 @@ risk_level: low
 
 ## Current State
 
-Status: draft
+Status: cancelled
 Current phase: none
-Next: none
-Reason: none
+Next: done
+Reason: cancel
 Blockers: none
-Allowed follow-up command: none
+Allowed follow-up command: `none`
 Latest runner update: none
 Review gate: not_started
 
