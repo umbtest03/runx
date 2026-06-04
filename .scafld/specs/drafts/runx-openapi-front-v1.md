@@ -62,8 +62,9 @@ Out of scope:
 
 - A first-class `SourceKind::OpenApi` variant (revisit only if the external-adapter
   route proves demand; tracked, not built here).
-- Auth/connect for arbitrary providers beyond what the BYO connect-session
-  delivers (dependency, not this spec).
+- Hosted OAuth/connect brokerage for arbitrary providers (cloud/private
+  dependency, not this spec). OSS demos use public/no-auth APIs or local
+  descriptor delivery.
 - Non-OpenAPI spec formats (gRPC, GraphQL) and OpenAPI features beyond the
   declared subset (3.x, JSON bodies, the operations the skill selects).
 - Mutating operations before the governed-tool-call convention lands.
@@ -74,8 +75,8 @@ Out of scope:
   front (`runtime_http` / `SourceKind::Http`), credential delivery.
 - The governed-tool-call convention (admission-ref-in / proof-out) for
   money/mutation operations (governed-execution-layer.md item 5 / Wave 1 spike).
-- The BYO connect-session for non-public/authenticated OpenAPI APIs (the one
-  remaining platform unlock; public/no-auth or fixture-key APIs work without it).
+- Local credential descriptors for fixture-key APIs; hosted OAuth/connect
+  brokerage remains a cloud/private dependency for live authenticated providers.
 
 ## Assumptions
 
@@ -83,8 +84,9 @@ Out of scope:
   right seam (verified shipped + dogfooded via `examples/external-adapter-graph`).
 - The existing `openapi-tool`/`openapi-graph` examples already prove the read path
   against a checked-in spec; this productizes ingestion of an arbitrary spec.
-- Public, no-auth or fixture-key OpenAPI APIs are sufficient for the first demo;
-  authenticated providers wait on the BYO connect-session.
+- Public, no-auth or local-descriptor fixture-key OpenAPI APIs are sufficient for
+  the first OSS demo; live hosted OAuth providers wait on the cloud/private
+  broker.
 
 ## Touchpoints
 
@@ -99,9 +101,9 @@ Out of scope:
 - **Spec sprawl.** OpenAPI specs are large and inconsistent. Mitigation: support a
   bounded subset (3.x, JSON bodies, declared operations) and fail closed on
   unsupported shapes rather than guessing.
-- **Auth gap.** Authenticated APIs need the BYO connect-session. Mitigation: scope
-  the first front + demo to public/no-auth or fixture-key APIs; gate auth'd APIs on
-  the unlock.
+- **Auth gap.** Live OAuth APIs need the cloud/private broker. Mitigation: scope
+  the first front + demo to public/no-auth or local-descriptor fixture-key APIs;
+  gate hosted OAuth APIs on the cloud unlock.
 - **Mutation safety.** A POST/PUT/DELETE operation moves state. Mitigation: gate
   mutating operations behind the governed-tool-call convention + an authority; do
   not expose mutation blindly.
@@ -133,8 +135,8 @@ Changes:
   param/body validation, governed call via `runtime_http`, sealed output.
 - Graduate the `openapi-tool`/`openapi-graph` examples to ingest a real spec and
   add a harness case.
-- Wire credential delivery for the no-auth/fixture-key path; leave auth'd providers
-  behind the BYO connect-session.
+- Wire credential delivery for the no-auth/local-descriptor fixture-key path;
+  leave hosted OAuth providers behind the cloud/private broker.
 
 Acceptance:
 - [ ] `ac1` command - openapi skill runs a governed call and seals a receipt

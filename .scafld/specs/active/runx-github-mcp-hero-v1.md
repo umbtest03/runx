@@ -57,7 +57,7 @@ In scope:
   for the first-party skill siblings.
 
 Out of scope:
-- Non-GitHub providers (BYO connect-session, separate).
+- Non-GitHub hosted provider brokerage (cloud/private, separate).
 - Any write beyond the single scoped PR comment; auto-merge; PR-opening (that is the
   TS `issue-to-pr` lane, not this hero).
 
