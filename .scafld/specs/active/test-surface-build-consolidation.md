@@ -179,7 +179,7 @@ The forward standard for runx Rust testing:
   <https://github.com/runxhq/runx/actions/runs/26987384653/job/79639879363>)
   completed in 8m30s. Warm rerun `26987685828` (`905290f7`, checks job
   <https://github.com/runxhq/runx/actions/runs/26987685828/job/79640782639>)
-  completed in 7m34s. Final current-HEAD run `26988331644` (`63d9350d`,
+  completed in 7m34s. Final code run `26988331644` (`63d9350d`,
   checks job
   <https://github.com/runxhq/runx/actions/runs/26988331644/job/79642794879>)
   completed in 7m51s after the directory-target guard hardening.
@@ -233,7 +233,7 @@ Optional, lower priority:
   wall time recorded before/after.
   - Status: pass
   - Evidence: `ci` workflow_dispatch on branch `codex/readiness-ci-dry-run`
-    passed at run `26987384653`, warm rerun `26987685828`, and final current-HEAD
+    passed at run `26987384653`, warm rerun `26987685828`, and final code
     run `26988331644`; each includes the Rust checks step with
     `cargo nextest run --workspace --all-features`.
 
