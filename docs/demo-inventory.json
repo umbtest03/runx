@@ -22,6 +22,11 @@
       "command": "sh examples/openapi-graph/run.sh"
     },
     {
+      "path": "examples/nws-weather-openapi",
+      "proof": "A real public National Weather Service API call executes through the governed HTTP front and seals stable provider metadata.",
+      "command": "sh examples/nws-weather-openapi/run.sh"
+    },
+    {
       "path": "examples/governed-spend",
       "proof": "Payment authority, over-cap refusal, x402/Stripe dogfood receipts, and offline verification.",
       "command": "pnpm demos:check && pnpm x402:dogfood:local"
@@ -63,6 +68,7 @@
     "examples/external-adapter-tool",
     "examples/host-protocol",
     "examples/http-tool",
+    "examples/nws-weather-points",
     "examples/openapi-tool",
     "examples/post-merge-final-outcome-publisher",
     "examples/thread-outbox-provider-fetch",

@@ -28,6 +28,7 @@ The curated proof set is also machine-checked in
 | `github-mcp-hero` | mcp (governed GitHub read plus refused write) | `sh examples/github-mcp-hero/run.sh` |
 | `http-graph` | http (governed local fixture call) | `sh examples/http-graph/run.sh` |
 | `openapi-graph` + `openapi-tool` | OpenAPI via external-adapter (an OpenAPI operation executed and sealed) | `sh examples/openapi-graph/run.sh` |
+| `nws-weather-openapi` + `nws-weather-points` | http against a real OpenAPI-described public provider | `sh examples/nws-weather-openapi/run.sh` |
 | `governed-spend` | payment authority, x402/Stripe dogfood receipts, and offline verification | `pnpm demos:check && pnpm x402:dogfood:local` |
 
 ## Runnable previews
@@ -49,7 +50,7 @@ set.
 
 These directories are intentionally not user-facing demos by themselves:
 `adapter-kit`, `byo-http-tool`, `external-adapter-tool`, `host-protocol`,
-`http-tool`, `openapi-tool`, `post-merge-final-outcome-publisher`,
+`http-tool`, `nws-weather-points`, `openapi-tool`, `post-merge-final-outcome-publisher`,
 `thread-outbox-provider-fetch`, `thread-outbox-provider-fixture`, and
 `thread-outbox-provider-push`.
 
