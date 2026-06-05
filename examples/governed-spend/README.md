@@ -74,6 +74,25 @@ This script is not, by itself, an upstream x402 protocol conformance test. It
 proves the Runx receipt, authority, signer, and settlement-recording seam. Use the
 upstream conformance process below to prove the standard HTTP 402 flow.
 
+## Zero-funded x402 dogfood
+
+Use this when you want to exercise everything that is honest to exercise without
+a funded testnet wallet:
+
+```bash
+pnpm x402:dogfood:local
+```
+
+The command runs the deterministic Runx payment demos and verifies the emitted
+receipts. It also prints preflight reports for the upstream x402, x402-rs, and
+CDP lanes so the live requirements are visible. Missing funded wallet env is a
+reported live-lane blocker, not a local dogfood failure.
+
+This is the correct no-account loop. It proves authority, refusal, receipt
+signing, offline verification, and that the live lanes are wired. It does not
+claim public-chain settlement. For that, use the upstream conformance or x402-rs
+interop process with dedicated funded testnet wallets.
+
 ## Upstream x402 conformance process
 
 Use this when you need to prove the x402 shape itself, not a runx-authored mock.

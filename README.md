@@ -25,6 +25,21 @@ Then inspect the emitted receipt. The full walkthrough is in
 [docs/skill-to-graph.md](docs/skill-to-graph.md).
 For governed code changes, see [docs/issue-to-pr.md](docs/issue-to-pr.md).
 
+## Zero-Funded Payment Dogfood
+
+Run the local payment dogfood lane without a funded wallet, hosted account, or
+provider keys:
+
+```bash
+pnpm x402:dogfood:local
+```
+
+This proves runx payment authority, refusal, receipt signing, offline receipt
+verification, and the documented x402 upstream/x402-rs/CDP preflight shape. It
+does not claim real x402 settlement; the live conformance lanes require dedicated
+funded testnet wallets. See [docs/demos.md](docs/demos.md#payment-demo-gate) for
+the full split between local dogfood and live protocol conformance.
+
 ## Requirements
 
 Native CLI:
