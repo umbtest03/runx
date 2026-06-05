@@ -17,7 +17,7 @@ Status: review
 Current phase: final
 Next: repair
 Reason: review gate fail: 1 finding(s), 1 completion blocker(s)
-Blockers: none
+Blockers: `ci-dry-run-missing` (branch CI dry-run evidence and warm-run timing)
 Allowed follow-up command: `scafld handoff test-surface-build-consolidation`
 Latest runner update: 2026-06-04T21:13:05Z
 Review gate: fail
@@ -213,7 +213,7 @@ Optional, lower priority:
   decide explicitly.
 
 - [ ] `p2_ac1` command - oss Cargo cache uses rust-cache.
-  - Command: `rg -n "Swatinem/rust-cache" oss/.github/workflows/ci.yml`
+  - Command: `rg -n "Swatinem/rust-cache" .github/workflows/ci.yml`
   - Expected kind: `reviewed_output`
 - [ ] `p2_ac2` manual - branch CI run green end to end under nextest; warm-run
   wall time recorded before/after.
