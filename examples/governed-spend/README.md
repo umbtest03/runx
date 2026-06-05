@@ -44,6 +44,31 @@ operator-keyed testnet transcript. Without those keys it writes a deterministic
 mock transcript. In both modes the offline receipts are real signed artifacts:
 one scoped x402 spend, then one over-run-cap refusal before money moves.
 
+## x402 testnet demo
+
+```bash
+./x402.sh
+```
+
+Without x402 environment variables this writes a deterministic mock transcript.
+With an operator signer and facilitator exported in the calling shell, it performs
+a real x402 testnet settlement and verifies both receipts offline:
+
+```bash
+export RUNX_X402_DEMO_MODE=live
+export RUNX_X402_FACILITATOR=https://...
+export RUNX_X402_SIGNER=https://...
+export RUNX_X402_CHAIN_ID=84532
+export RUNX_X402_TOKEN_CONTRACT=0x...
+export RUNX_X402_VERIFYING_CONTRACT=0x...
+export RUNX_X402_FROM=0x...
+export RUNX_X402_PAY_TO=0x...
+./x402.sh
+```
+
+The signer endpoint receives the runx-bound EIP-712 template and returns only a
+signature. runx never stores the wallet key.
+
 ## Stripe SPT test-mode demo
 
 ```bash
@@ -75,7 +100,6 @@ same agent now fulfills, because the spend is within its authority.
 
 The kernel, the quote/reserve/fulfill graph, the fail-closed authority subset proof,
 the authority admission that refuses before any rail, and signed receipts are real and ship today. The
-rails run through deterministic test supervisors by default. The optional Stripe
-SPT script can call Stripe test mode when operator-provided test credentials are
-present; x402 still requires the separate Base Sepolia rail build. The refusal
-needs no rail, which is the point.
+rails run through deterministic test supervisors by default. The optional x402 and
+Stripe SPT scripts can call test networks/providers when operator-provided
+credentials are present. The refusal needs no rail, which is the point.
