@@ -30,6 +30,10 @@ pnpm demos:check
 This runs the safe payment demo paths (`payments-demo.mjs`, x402 mock, and Stripe
 SPT mock) and verifies every emitted receipt with the standalone verifier.
 
+For a real x402 conformance run, use the upstream-standard process documented in
+`examples/governed-spend/README.md` before running `examples/governed-spend/x402.sh`
+in live mode.
+
 ## Runnable Previews
 
 These examples are useful local proofs but are not part of the featured,

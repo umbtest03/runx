@@ -69,6 +69,52 @@ export RUNX_X402_PAY_TO=0x...
 The signer endpoint receives the runx-bound EIP-712 template and returns only a
 signature. runx never stores the wallet key.
 
+## Upstream x402 conformance process
+
+Use this when you need to prove the x402 shape itself, not a runx-authored mock.
+The source of truth is the upstream standard repository:
+
+```bash
+git clone https://github.com/x402-foundation/x402 /tmp/x402-upstream
+cd /tmp/x402-upstream
+git rev-parse HEAD
+```
+
+Run an upstream minimal example from that checkout, following its local README
+for the current SDK version. Prefer the TypeScript example when validating the
+runx demo path, because the runx wrapper is Node-based:
+
+```bash
+find examples -maxdepth 3 -name README.md -print
+# then run the minimal TypeScript buyer/server/facilitator example documented
+# by the upstream checkout, without editing the upstream source.
+```
+
+Rules for a clean conformance run:
+
+1. Do not patch or copy upstream protocol code into runx.
+2. Record the upstream commit SHA beside the run output.
+3. If an upstream example needs configuration, set environment variables only;
+   do not commit secrets, private keys, generated wallets, or `.env` files.
+4. If the upstream example exposes a facilitator endpoint, export it as
+   `RUNX_X402_FACILITATOR`; otherwise use an official test facilitator.
+5. Export a signer endpoint as `RUNX_X402_SIGNER`. The signer must return only a
+   signature, signer address, and template digest; runx must never receive the
+   wallet private key.
+6. Run `./x402.sh` with `RUNX_X402_DEMO_MODE=live`.
+
+The run is accepted only when:
+
+- The upstream example succeeds from a clean checkout at a recorded commit.
+- `./x402.sh` reports `mode: live` and `operator_keyed: true`.
+- The settlement has a non-mock `tx_hash` / rail reference returned by the
+  facilitator.
+- Both `x402-settlement.receipt.json` and `x402-refusal.receipt.json` verify with
+  `node examples/governed-spend/verify.mjs`.
+
+If any of those fail, call it a local mock or conformance failure, not a real x402
+test.
+
 ## Stripe SPT test-mode demo
 
 ```bash
