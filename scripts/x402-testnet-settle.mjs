@@ -268,7 +268,7 @@ function runGovernedRefusalHarness(receiptDir) {
   writeFileSync(outPath, result.stdout || "");
   writeFileSync(errPath, result.stderr || "");
   return {
-    status: result.status === 0 ? "unexpected_allow" : "refused",
+    status: result.status === 0 ? "sealed_refusal" : "runtime_refusal",
     exit_code: result.status,
     stdout: outPath,
     stderr: errPath,
