@@ -10,10 +10,12 @@
 // The risk of `autotests = false` is silent loss of coverage: someone adds
 // tests/new_thing.rs and forgets `mod new_thing;`, so Cargo never builds it and
 // nobody notices. This guard fails when a top-level tests/*.rs file is not
-// referenced by integration.rs, when a directory-style tests/<name>/main.rs target
-// would be dropped by `autotests = false`, when integration.rs references a
-// module with no matching file or mod.rs, and when a test mutates process-global state
-// (which is unsafe across tests sharing one binary under `cargo test`).
+// referenced by integration.rs, when Cargo.toml is missing the explicit
+// integration target required by `autotests = false`, when a directory-style
+// tests/<name>/main.rs target would be dropped by `autotests = false`, when
+// integration.rs references a module with no matching file or mod.rs, and when a
+// test mutates process-global state (which is unsafe across tests sharing one
+// binary under `cargo test`).
 //
 // Usage: node scripts/check-integration-test-modules.mjs
 
@@ -71,6 +73,36 @@ function moduleHasSource(testsDir, name) {
   );
 }
 
+function hasIntegrationTestTarget(cargoToml) {
+  let inTestTarget = false;
+  let targetName = "";
+  let targetPath = "";
+
+  function matchesIntegrationTarget() {
+    return targetName === "integration" && targetPath === "tests/integration.rs";
+  }
+
+  for (const rawLine of cargoToml.split("\n")) {
+    const line = rawLine.replace(/\s+#.*$/, "").trim();
+    const table = /^\[\[?([^\]]+)\]\]?/.exec(line);
+    if (table) {
+      if (inTestTarget && matchesIntegrationTarget()) return true;
+      inTestTarget = line === "[[test]]";
+      targetName = "";
+      targetPath = "";
+      continue;
+    }
+    if (!inTestTarget) continue;
+
+    const assignment = /^([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*"([^"]*)"\s*$/.exec(line);
+    if (!assignment) continue;
+    if (assignment[1] === "name") targetName = assignment[2];
+    if (assignment[1] === "path") targetPath = assignment[2];
+  }
+
+  return inTestTarget && matchesIntegrationTarget();
+}
+
 const crates = readdirSync(cratesDir, { withFileTypes: true })
   .filter((d) => d.isDirectory())
   .map((d) => path.join(cratesDir, d.name))
@@ -85,6 +117,15 @@ for (const crate of crates) {
   const testsDir = path.join(crate, "tests");
   const rel = path.relative(ossRoot, crate);
   const integrationPath = path.join(testsDir, "integration.rs");
+
+  if (!hasIntegrationTestTarget(cargo)) {
+    errors.push(
+      `${rel}: autotests = false but Cargo.toml is missing an explicit ` +
+        `[[test]] target with name = "integration" and ` +
+        `path = "tests/integration.rs".`,
+    );
+    continue;
+  }
 
   if (!existsSync(integrationPath)) {
     errors.push(`${rel}: autotests = false but tests/integration.rs is missing.`);
