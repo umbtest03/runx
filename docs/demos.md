@@ -18,7 +18,7 @@ export RUNX_RECEIPT_SIGN_ISSUER_TYPE=hosted
 | `examples/http-graph` | A graph step uses the governed HTTP front against a local fixture and seals a receipt tree. | `sh examples/http-graph/run.sh` | harness |
 | `examples/openapi-graph` | An OpenAPI-described operation is executed through the governed external-adapter lane and sealed. | `sh examples/openapi-graph/run.sh` | harness |
 | `examples/governed-spend/skills/overspend-refused` | A spend request over authority is refused and sealed as a deterministic local receipt. | `runx harness examples/governed-spend/skills/overspend-refused` | harness |
-| `examples/governed-spend/x402.sh` | x402 testnet path, deterministic by default and live when operator signer/facilitator endpoints are exported; settlement and refusal receipts verify offline. | `sh examples/governed-spend/x402.sh` | `pnpm demos:check` |
+| `examples/governed-spend/x402.sh` | x402 receipt path over the Runx signer/facilitator seam, deterministic by default and live when compatible operator endpoints are exported; settlement and refusal receipts verify offline. | `sh examples/governed-spend/x402.sh` | `pnpm demos:check` |
 | `examples/governed-spend/stripe-spt.sh` | Stripe SPT test-mode path, deterministic by default and live when operator test credentials are exported; settlement and refusal receipts verify offline. | `sh examples/governed-spend/stripe-spt.sh` | `pnpm demos:check` |
 
 ## Payment Demo Gate
@@ -30,9 +30,12 @@ pnpm demos:check
 This runs the safe payment demo paths (`payments-demo.mjs`, x402 mock, and Stripe
 SPT mock) and verifies every emitted receipt with the standalone verifier.
 
-For a real x402 conformance run, use the upstream-standard process documented in
-`examples/governed-spend/README.md` before running `examples/governed-spend/x402.sh`
-in live mode.
+For a real x402 protocol conformance run, use
+`node scripts/x402-upstream-conformance.mjs --check` and then
+`node scripts/x402-upstream-conformance.mjs --run` from a clean upstream checkout
+with dedicated funded testnet wallets. That proves the official HTTP 402 flow.
+Run `examples/governed-spend/x402.sh` separately when you need Runx receipt proof
+for a compatible signer/facilitator seam.
 
 ## Runnable Previews
 

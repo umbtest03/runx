@@ -495,6 +495,9 @@ function usage(exitCode) {
       "  RUNX_X402_DEMO_MODE=mock node scripts/x402-testnet-settle.mjs --demo [--receipt-dir <dir>]",
       "  RUNX_X402_DEMO_MODE=auto node scripts/x402-testnet-settle.mjs --demo [--receipt-dir <dir>]",
       "",
+      "This is the Runx signer/facilitator receipt seam. For upstream HTTP 402 protocol conformance, run:",
+      "  node scripts/x402-upstream-conformance.mjs --check",
+      "",
     ].join("\n"),
   );
   process.exit(exitCode);

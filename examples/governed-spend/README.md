@@ -44,15 +44,16 @@ operator-keyed testnet transcript. Without those keys it writes a deterministic
 mock transcript. In both modes the offline receipts are real signed artifacts:
 one scoped x402 spend, then one over-run-cap refusal before money moves.
 
-## x402 testnet demo
+## x402 receipt demo
 
 ```bash
 ./x402.sh
 ```
 
 Without x402 environment variables this writes a deterministic mock transcript.
-With an operator signer and facilitator exported in the calling shell, it performs
-a real x402 testnet settlement and verifies both receipts offline:
+With a Runx-compatible operator signer and facilitator exported in the calling
+shell, it performs a real testnet settlement through the Runx signer/facilitator
+seam and verifies both receipts offline:
 
 ```bash
 export RUNX_X402_DEMO_MODE=live
@@ -69,6 +70,10 @@ export RUNX_X402_PAY_TO=0x...
 The signer endpoint receives the runx-bound EIP-712 template and returns only a
 signature. runx never stores the wallet key.
 
+This script is not, by itself, an upstream x402 protocol conformance test. It
+proves the Runx receipt, authority, signer, and settlement-recording seam. Use the
+upstream conformance process below to prove the standard HTTP 402 flow.
+
 ## Upstream x402 conformance process
 
 Use this when you need to prove the x402 shape itself, not a runx-authored mock.
@@ -80,15 +85,70 @@ cd /tmp/x402-upstream
 git rev-parse HEAD
 ```
 
-Run an upstream minimal example from that checkout, following its local README
-for the current SDK version. Prefer the TypeScript example when validating the
-runx demo path, because the runx wrapper is Node-based:
+Install the upstream e2e runner from the official checkout:
 
 ```bash
-find examples -maxdepth 3 -name README.md -print
-# then run the minimal TypeScript buyer/server/facilitator example documented
-# by the upstream checkout, without editing the upstream source.
+cd /tmp/x402-upstream/e2e
+pnpm install:all
 ```
+
+From the Runx OSS checkout, preflight the exact upstream scenario:
+
+```bash
+pnpm x402:conformance
+```
+
+The preflight records the upstream commit SHA and prints missing environment
+variables without reading or writing secrets. The minimal official scenario is
+the TypeScript facilitator + Express resource server + fetch client, filtered to
+Base Sepolia EVM, exact settlement, and `/exact/evm/eip3009`:
+
+```bash
+pnpm --dir /tmp/x402-upstream/e2e test \
+  --testnet \
+  --families=evm \
+  --versions=2 \
+  --schemes=exact \
+  --clients=fetch \
+  --servers=express \
+  --facilitators=typescript \
+  --endpoints=/exact/evm/eip3009 \
+  --min \
+  --output-json=/tmp/runx-x402-upstream-conformance/x402-upstream-e2e.json \
+  --log=/tmp/runx-x402-upstream-conformance/x402-upstream-e2e.log
+```
+
+Run it through the Runx wrapper when dedicated funded test wallets are ready:
+
+```bash
+export X402_UPSTREAM_DIR=/tmp/x402-upstream
+export RUNX_X402_CONFORMANCE_ARTIFACT_DIR=/tmp/runx-x402-upstream-conformance
+export SERVER_EVM_ADDRESS=0x...
+export CLIENT_EVM_PRIVATE_KEY=0x...
+export FACILITATOR_EVM_PRIVATE_KEY=0x...
+export SERVER_SVM_ADDRESS=...
+export CLIENT_SVM_PRIVATE_KEY=...
+export FACILITATOR_SVM_PRIVATE_KEY=...
+node scripts/x402-upstream-conformance.mjs --run
+```
+
+The current upstream runner checks the SVM variables before applying the EVM-only
+filter, so they are required even for this EVM-only scenario. Use dedicated
+testnet wallets only; the upstream e2e runner may move funds between configured
+wallets as part of normal setup/cleanup.
+
+If you only need the narrower upstream SDK-level Base Sepolia settle check, use
+the upstream EVM package integration test instead:
+
+```bash
+cd /tmp/x402-upstream/typescript/packages/mechanisms/evm
+export CLIENT_PRIVATE_KEY=0x...
+export FACILITATOR_PRIVATE_KEY=0x...
+pnpm exec vitest run --config vitest.integration.config.ts test/integrations/exact-evm.test.ts
+```
+
+That is useful for rail mechanics, but it is not the full HTTP 402
+client/server/facilitator conformance run.
 
 Rules for a clean conformance run:
 
@@ -96,21 +156,22 @@ Rules for a clean conformance run:
 2. Record the upstream commit SHA beside the run output.
 3. If an upstream example needs configuration, set environment variables only;
    do not commit secrets, private keys, generated wallets, or `.env` files.
-4. If the upstream example exposes a facilitator endpoint, export it as
-   `RUNX_X402_FACILITATOR`; otherwise use an official test facilitator.
-5. Export a signer endpoint as `RUNX_X402_SIGNER`. The signer must return only a
-   signature, signer address, and template digest; runx must never receive the
-   wallet private key.
-6. Run `./x402.sh` with `RUNX_X402_DEMO_MODE=live`.
+4. Do not use the upstream `mock-facilitator` as settlement proof. It is a
+   startup fallback and intentionally errors if `/verify` or `/settle` are called.
+5. If you also need Runx receipt proof for the same rail, run `./x402.sh` with
+   `RUNX_X402_DEMO_MODE=live` against a compatible signer/facilitator seam after
+   the upstream conformance run succeeds.
 
 The run is accepted only when:
 
-- The upstream example succeeds from a clean checkout at a recorded commit.
-- `./x402.sh` reports `mode: live` and `operator_keyed: true`.
-- The settlement has a non-mock `tx_hash` / rail reference returned by the
-  facilitator.
+- `node scripts/x402-upstream-conformance.mjs --run` succeeds from a clean
+  upstream checkout at a recorded commit.
+- The upstream output JSON records a successful TypeScript facilitator + Express
+  server + fetch client scenario for `/exact/evm/eip3009`.
+- If `./x402.sh` is also run, it reports `mode: live` and `operator_keyed: true`,
+  and the settlement has a non-mock `tx_hash` / rail reference.
 - Both `x402-settlement.receipt.json` and `x402-refusal.receipt.json` verify with
-  `node examples/governed-spend/verify.mjs`.
+  `node examples/governed-spend/verify.mjs` when the Runx receipt demo is run.
 
 If any of those fail, call it a local mock or conformance failure, not a real x402
 test.

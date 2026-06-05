@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 #
-# x402 governed-spend demo.
+# x402 governed-spend receipt demo.
 #
 # Default mode is deterministic mock. Set RUNX_X402_FACILITATOR and
 # RUNX_X402_SIGNER in the calling shell, plus the signer/template fields required
-# by scripts/x402-testnet-settle.mjs, to run a real Base Sepolia settlement.
+# by scripts/x402-testnet-settle.mjs, to run a real Base Sepolia settlement over
+# the Runx signer/facilitator seam. For upstream HTTP 402 protocol conformance,
+# use scripts/x402-upstream-conformance.mjs.
 #
 set -euo pipefail
 
