@@ -27,6 +27,7 @@ export RUNX_RECEIPT_SIGN_ISSUER_TYPE=hosted
 | `openapi-graph` + `openapi-tool` | OpenAPI via external-adapter (an OpenAPI operation executed and sealed) | `sh examples/openapi-graph/run.sh` (real call against a local fixture) |
 | `byo-http-graph` + `byo-http-tool` | BYO local credential over the governed HTTP front | `sh examples/byo-http-graph/run.sh` (credentialed local fixture read) |
 | `thread-outbox-provider-graph` + `thread-outbox-provider-{push,fetch}` | thread-outbox-provider (graph-step source; fixture provider publication/readback) | `runx harness examples/thread-outbox-provider-graph` |
+| `post-merge-publish/final-outcome.yaml` + `post-merge-final-outcome-publisher` | thread-outbox-provider final provider-state publication | `runx harness examples/post-merge-publish/final-outcome.yaml` |
 
 `external-adapter` and `thread-outbox-provider` are graph-step sources, not
 top-level runners, so their examples are driven by graphs. Graph input values

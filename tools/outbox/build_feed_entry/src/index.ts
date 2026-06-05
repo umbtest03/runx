@@ -29,7 +29,7 @@ export default defineTool({
     status_snapshot: recordInput({ optional: true, description: "Native scafld status payload." }),
     draft_pull_request: recordInput({ optional: true, description: "Draft pull-request packet from outbox.build_pull_request." }),
     pull_request_outbox_entry: recordInput({ optional: true, description: "Published or refreshed pull-request outbox entry." }),
-    push_result: recordInput({ optional: true, description: "Provider push result from thread.push_outbox." }),
+    push_result: recordInput({ optional: true, description: "Provider push result from the thread-outbox-provider front." }),
   },
   output: {
     named_emits: {

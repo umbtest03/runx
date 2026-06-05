@@ -741,7 +741,7 @@ fn builtin_source_handlers() -> Vec<SourceHandler> {
 }
 
 #[derive(Clone, Debug)]
-struct SkillRunGraphAdapter {
+pub(crate) struct SkillRunGraphAdapter {
     sources: SourceAdapterRegistry,
 }
 

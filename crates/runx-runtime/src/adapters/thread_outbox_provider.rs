@@ -9,20 +9,22 @@ use std::path::{Component, Path, PathBuf};
 
 use runx_contracts::{
     JsonObject, JsonValue, ThreadOutboxProviderFetch, ThreadOutboxProviderManifest,
-    ThreadOutboxProviderOperation, ThreadOutboxProviderPush,
+    ThreadOutboxProviderOperation,
 };
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
 use crate::RuntimeError;
-use crate::adapter::{
-    CREDENTIAL_DELIVERY_OBSERVATIONS_METADATA, InvocationStatus, SkillAdapter, SkillInvocation,
-    SkillOutput,
-};
+use crate::adapter::{SkillAdapter, SkillInvocation, SkillOutput};
 use crate::outbox_provider::{
-    ThreadOutboxProviderProcessOutcome, ThreadOutboxProviderProcessSupervisor,
-    ThreadOutboxProviderSupervisorError, ThreadOutboxProviderSupervisorOptions,
+    ThreadOutboxProviderProcessSupervisor, ThreadOutboxProviderSupervisorError,
+    ThreadOutboxProviderSupervisorOptions,
 };
+
+mod dynamic_push;
+mod output;
+use dynamic_push::{dynamic_push_from_inputs, skipped_dynamic_push_outcome};
+use output::skill_output_from_outcome;
 
 const THREAD_OUTBOX_PROVIDER: &str = "thread-outbox-provider";
 const CONFIG_FIELD: &str = "thread_outbox_provider";
@@ -30,11 +32,6 @@ const MANIFEST_PATH_FIELD: &str = "manifest_path";
 const OPERATION_FIELD: &str = "operation";
 const PUSH_PATH_FIELD: &str = "push_path";
 const FETCH_PATH_FIELD: &str = "fetch_path";
-const OBSERVATION_METADATA: &str = "thread_outbox_provider_observation";
-const OPERATION_METADATA: &str = "thread_outbox_provider_operation";
-const PROVIDER_LOCATOR_METADATA: &str = "thread_outbox_provider_locator";
-const PROVIDER_EVENT_HASH_METADATA: &str = "thread_outbox_provider_event_hash";
-
 #[derive(Clone, Debug, Default)]
 pub struct ThreadOutboxProviderSkillAdapter {
     supervisor_options: ThreadOutboxProviderSupervisorOptions,
@@ -98,6 +95,20 @@ pub enum ThreadOutboxProviderSkillAdapterError {
         #[source]
         source: serde_json::Error,
     },
+    #[error("thread-outbox-provider dynamic push input '{field}' is required")]
+    MissingDynamicInput { field: &'static str },
+    #[error("thread-outbox-provider dynamic push input '{field}' must be {expected}")]
+    InvalidDynamicInput {
+        field: &'static str,
+        expected: &'static str,
+    },
+    #[error(
+        "thread-outbox-provider dynamic push input '{field}' must contain a non-empty '{nested}' string"
+    )]
+    MissingDynamicInputString {
+        field: &'static str,
+        nested: &'static str,
+    },
     #[error(transparent)]
     Supervisor(#[from] ThreadOutboxProviderSupervisorError),
 }
@@ -130,13 +141,25 @@ fn invoke_thread_outbox_provider_skill(
         });
     let outcome = match config.operation {
         ThreadOutboxProviderOperation::Push => {
-            let push_path = config.push_path.as_deref().ok_or(
-                ThreadOutboxProviderSkillAdapterError::MissingConfigField {
-                    field: PUSH_PATH_FIELD,
-                },
-            )?;
-            let push: ThreadOutboxProviderPush =
-                contract_from_skill_file(&request.skill_directory, PUSH_PATH_FIELD, push_path)?;
+            let push = match config.push_path.as_deref() {
+                Some(push_path) => {
+                    contract_from_skill_file(&request.skill_directory, PUSH_PATH_FIELD, push_path)?
+                }
+                None => {
+                    let Some(push) = dynamic_push_from_inputs(
+                        &manifest,
+                        &request.inputs,
+                        &request.credential_delivery,
+                    )?
+                    else {
+                        return skill_output_from_outcome(skipped_dynamic_push_outcome(
+                            &manifest,
+                            &request.inputs,
+                        )?);
+                    };
+                    push
+                }
+            };
             supervisor.invoke_push(&manifest, &push, &request.credential_delivery)?
         }
         ThreadOutboxProviderOperation::Fetch => {
@@ -301,65 +324,6 @@ fn validate_relative_path(
             path: relative_path.to_owned(),
         })
     }
-}
-
-fn skill_output_from_outcome(
-    outcome: ThreadOutboxProviderProcessOutcome,
-) -> Result<SkillOutput, ThreadOutboxProviderSkillAdapterError> {
-    let observation_value = contract_json_value(&outcome.observation, "serializing observation")?;
-    let stdout = serde_json::to_string(&outcome.observation).map_err(|source| {
-        json_error(
-            "serializing thread-outbox-provider observation stdout",
-            source,
-        )
-    })?;
-    let mut metadata = JsonObject::new();
-    metadata.insert(OBSERVATION_METADATA.to_owned(), observation_value);
-    metadata.insert(
-        OPERATION_METADATA.to_owned(),
-        JsonValue::String(operation_label(&outcome.observation.operation).to_owned()),
-    );
-    if let Some(locator) = &outcome.observation.provider_locator {
-        metadata.insert(
-            PROVIDER_LOCATOR_METADATA.to_owned(),
-            JsonValue::String(locator.locator.to_string()),
-        );
-    }
-    if let Some(event_hash) = &outcome.observation.provider_event_id_hash {
-        metadata.insert(
-            PROVIDER_EVENT_HASH_METADATA.to_owned(),
-            JsonValue::String(event_hash.to_string()),
-        );
-    }
-    if let Some(delivery_observations) = &outcome.observation.delivery_observations {
-        metadata.insert(
-            CREDENTIAL_DELIVERY_OBSERVATIONS_METADATA.to_owned(),
-            contract_json_value(delivery_observations, "serializing delivery observations")?,
-        );
-    }
-    Ok(SkillOutput {
-        status: InvocationStatus::Success,
-        stdout,
-        stderr: outcome.redacted_stderr,
-        exit_code: outcome.process_exit_code,
-        duration_ms: outcome.duration_ms,
-        metadata,
-    })
-}
-
-fn operation_label(operation: &ThreadOutboxProviderOperation) -> &'static str {
-    match operation {
-        ThreadOutboxProviderOperation::Push => "push",
-        ThreadOutboxProviderOperation::Fetch => "fetch",
-    }
-}
-
-fn contract_json_value(
-    value: &impl serde::Serialize,
-    context: &'static str,
-) -> Result<JsonValue, ThreadOutboxProviderSkillAdapterError> {
-    let value = serde_json::to_value(value).map_err(|source| json_error(context, source))?;
-    serde_json::from_value(value).map_err(|source| json_error(context, source))
 }
 
 fn json_error(

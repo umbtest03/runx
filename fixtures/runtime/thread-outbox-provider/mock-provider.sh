@@ -36,6 +36,53 @@ if [ "$MODE" = "leaky" ]; then
   echo "diagnostic leaked credential ${TOKEN}" >&2
 fi
 
+if [ "$MODE" = "envelope" ]; then
+  cat <<'JSON'
+{
+  "observation": {
+    "schema": "runx.thread_outbox_provider.observation.v1",
+    "protocol_version": "runx.thread_outbox_provider.v1",
+    "observation_id": "thread_obs_123",
+    "adapter_id": "thread-provider.github",
+    "provider": "github",
+    "operation": "push",
+    "request_id": "thread_push_123",
+    "status": "accepted",
+    "idempotency": {
+      "key": "thread-outbox:github:runxhq/runx#77:outbox_entry_123",
+      "status": "created"
+    },
+    "provider_locator": {
+      "provider": "github",
+      "locator": "runxhq/runx#77/comment-1001"
+    },
+    "provider_event_id_hash": "sha256:github-comment-1001",
+    "readback_summary": {
+      "item_count": 1,
+      "cursor": "cursor-2",
+      "latest_provider_event_id_hash": "sha256:github-comment-1001"
+    },
+    "observed_at": "2026-05-22T00:00:02Z"
+  },
+  "output": {
+    "thread": {
+      "locator": "github://runxhq/runx/issues/77",
+      "messages": []
+    },
+    "outbox_entry": {
+      "entry_id": "outbox_entry_123",
+      "status": "published"
+    },
+    "push": {
+      "provider": "github",
+      "locator": "runxhq/runx#77/comment-1001"
+    }
+  }
+}
+JSON
+  exit 0
+fi
+
 if [ "$MODE" = "spawn-marker" ]; then
   MARKER="${2:?missing marker path}"
   (

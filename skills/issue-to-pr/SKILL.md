@@ -22,7 +22,7 @@ Branch creation and provider PR mutation are outside scafld. The caller or
 adapter prepares the branch, then passes the intended branch into this lane.
 The lane records that branch in the draft PR packet, and the GitHub adapter
 fails closed if the workspace checkout does not match it. The final
-`thread.push_outbox` step is the only provider push boundary.
+`issue-to-pr-push-outbox` step is the only provider push boundary.
 
 ## Lifecycle
 

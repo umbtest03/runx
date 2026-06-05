@@ -202,7 +202,7 @@ impl LocalOrchestrator {
         options.effects = self.effects.clone();
         Ok(super::harness::run_harness_fixture_with_adapter(
             &request.fixture_path,
-            crate::adapters::cli_tool::CliToolAdapter,
+            super::skill_run::SkillRunGraphAdapter::default(),
             options,
         )?)
     }

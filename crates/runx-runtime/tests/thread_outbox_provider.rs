@@ -213,20 +213,72 @@ fn provider_process_rejects_secret_like_response_fields() -> Result<(), Box<dyn 
 }
 
 #[test]
-fn provider_process_rejects_process_env_credential_delivery()
+fn provider_process_injects_and_redacts_process_env_credential_delivery()
 -> Result<(), Box<dyn std::error::Error>> {
     let manifest = manifest_with_fixture_args(&["leaky"])?;
     let push = push_fixture()?;
     let delivery = credential_delivery()?;
 
-    let result =
-        ThreadOutboxProviderProcessSupervisor::default().invoke_push(&manifest, &push, &delivery);
+    let outcome = ThreadOutboxProviderProcessSupervisor::default()
+        .invoke_push(&manifest, &push, &delivery)?;
 
-    assert!(matches!(
-        result,
-        Err(ThreadOutboxProviderSupervisorError::CredentialProcessEnvUnsupported)
-    ));
-    assert!(!format!("{result:?}").contains("ghs_TEST_SECRET_TOKEN"));
+    assert_eq!(
+        outcome.observation.status,
+        ThreadOutboxProviderObservationStatus::Accepted
+    );
+    assert!(
+        outcome
+            .redacted_stderr
+            .contains("diagnostic leaked credential [redacted-credential]")
+    );
+    let errors = outcome
+        .observation
+        .errors
+        .as_ref()
+        .ok_or("leaky fixture should return a redacted diagnostic error")?;
+    assert_eq!(
+        errors[0].message.as_str(),
+        "provider mentioned [redacted-credential]"
+    );
+    assert_eq!(
+        outcome
+            .observation
+            .delivery_observations
+            .as_ref()
+            .map(Vec::len),
+        Some(1)
+    );
+    assert!(!format!("{outcome:?}").contains("ghs_TEST_SECRET_TOKEN"));
+    Ok(())
+}
+
+#[test]
+fn provider_process_accepts_runtime_output_envelope() -> Result<(), Box<dyn std::error::Error>> {
+    let manifest = manifest_with_fixture_args(&["envelope"])?;
+    let push = push_fixture()?;
+
+    let outcome = ThreadOutboxProviderProcessSupervisor::default().invoke_push(
+        &manifest,
+        &push,
+        &CredentialDelivery::none(),
+    )?;
+
+    assert_eq!(
+        outcome.observation.status,
+        ThreadOutboxProviderObservationStatus::Accepted
+    );
+    let output = outcome
+        .provider_output
+        .as_ref()
+        .ok_or("enveloped provider response should project graph output")?;
+    assert_eq!(
+        output
+            .get("push")
+            .and_then(JsonValue::as_object)
+            .and_then(|push| push.get("locator"))
+            .and_then(JsonValue::as_str),
+        Some("runxhq/runx#77/comment-1001")
+    );
     Ok(())
 }
 
@@ -316,6 +368,167 @@ fn provider_front_dispatches_push_from_skill_source() -> Result<(), Box<dyn std:
     Ok(())
 }
 
+#[cfg(feature = "thread-outbox-provider")]
+#[test]
+fn provider_front_projects_runtime_output_envelope() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let skill_dir = temp.path();
+    let mut manifest = manifest_with_fixture_args(&["envelope"])?;
+    manifest.transport.args = Some(vec![
+        fixture_script()?.to_string_lossy().into_owned(),
+        "envelope".to_owned(),
+    ]);
+    std::fs::write(
+        skill_dir.join("manifest.json"),
+        serde_json::to_string_pretty(&manifest)?,
+    )?;
+    std::fs::write(
+        skill_dir.join("push.json"),
+        serde_json::to_string_pretty(&push_fixture()?)?,
+    )?;
+
+    let output = ThreadOutboxProviderSkillAdapter::default().invoke(SkillInvocation {
+        skill_name: "fixture-thread-outbox-provider-push".to_owned(),
+        source: thread_outbox_source("push", "push.json"),
+        inputs: JsonObject::new(),
+        resolved_inputs: JsonObject::new(),
+        skill_directory: skill_dir.to_path_buf(),
+        env: Default::default(),
+        credential_delivery: CredentialDelivery::none(),
+    })?;
+    let stdout: JsonValue = serde_json::from_str(&output.stdout)?;
+
+    assert_eq!(
+        stdout
+            .as_object()
+            .and_then(|object| object.get("push"))
+            .and_then(JsonValue::as_object)
+            .and_then(|push| push.get("locator"))
+            .and_then(JsonValue::as_str),
+        Some("runxhq/runx#77/comment-1001")
+    );
+    assert!(
+        stdout
+            .as_object()
+            .is_some_and(|object| object.contains_key("thread_outbox_provider_observation"))
+    );
+    Ok(())
+}
+
+#[cfg(feature = "thread-outbox-provider")]
+#[test]
+fn provider_front_builds_dynamic_push_from_inputs() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let skill_dir = temp.path();
+    let mut manifest = manifest_with_fixture_args(&["envelope"])?;
+    manifest.transport.args = Some(vec![
+        fixture_script()?.to_string_lossy().into_owned(),
+        "envelope".to_owned(),
+    ]);
+    std::fs::write(
+        skill_dir.join("manifest.json"),
+        serde_json::to_string_pretty(&manifest)?,
+    )?;
+
+    let mut inputs = JsonObject::new();
+    inputs.insert(
+        "thread".to_owned(),
+        serde_json::from_value(serde_json::json!({
+            "thread_locator": "github://runxhq/runx/issues/77",
+            "adapter": {
+                "type": "github",
+                "adapter_ref": "runxhq/runx#issue/77"
+            }
+        }))?,
+    );
+    inputs.insert(
+        "outbox_entry".to_owned(),
+        serde_json::from_value(serde_json::json!({
+            "entry_id": "123",
+            "kind": "message",
+            "thread_locator": "github://runxhq/runx/issues/77",
+            "metadata": {
+                "body_markdown": "Provider outcome observed: merged."
+            }
+        }))?,
+    );
+    inputs.insert(
+        "next_status".to_owned(),
+        JsonValue::String("published".to_owned()),
+    );
+
+    let output = ThreadOutboxProviderSkillAdapter::default().invoke(SkillInvocation {
+        skill_name: "dynamic-thread-outbox-provider-push".to_owned(),
+        source: thread_outbox_dynamic_source("push"),
+        inputs,
+        resolved_inputs: JsonObject::new(),
+        skill_directory: skill_dir.to_path_buf(),
+        env: Default::default(),
+        credential_delivery: CredentialDelivery::none(),
+    })?;
+    let stdout: JsonValue = serde_json::from_str(&output.stdout)?;
+
+    assert_eq!(
+        stdout
+            .as_object()
+            .and_then(|object| object.get("push"))
+            .and_then(JsonValue::as_object)
+            .and_then(|push| push.get("locator"))
+            .and_then(JsonValue::as_str),
+        Some("runxhq/runx#77/comment-1001")
+    );
+    Ok(())
+}
+
+#[cfg(feature = "thread-outbox-provider")]
+#[test]
+fn provider_front_skips_dynamic_push_when_thread_is_missing()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let skill_dir = temp.path();
+    let manifest = manifest_with_fixture_args(&["envelope"])?;
+    std::fs::write(
+        skill_dir.join("manifest.json"),
+        serde_json::to_string_pretty(&manifest)?,
+    )?;
+
+    let mut inputs = JsonObject::new();
+    inputs.insert(
+        "outbox_entry".to_owned(),
+        serde_json::from_value(serde_json::json!({
+            "entry_id": "pull_request:fixture-task",
+            "kind": "pull_request",
+            "status": "proposed"
+        }))?,
+    );
+
+    let output = ThreadOutboxProviderSkillAdapter::default().invoke(SkillInvocation {
+        skill_name: "dynamic-thread-outbox-provider-push".to_owned(),
+        source: thread_outbox_dynamic_source("push"),
+        inputs,
+        resolved_inputs: JsonObject::new(),
+        skill_directory: skill_dir.to_path_buf(),
+        env: Default::default(),
+        credential_delivery: CredentialDelivery::none(),
+    })?;
+    let stdout: JsonValue = serde_json::from_str(&output.stdout)?;
+
+    assert_eq!(
+        stdout
+            .as_object()
+            .and_then(|object| object.get("push"))
+            .and_then(JsonValue::as_object)
+            .and_then(|push| push.get("status"))
+            .and_then(JsonValue::as_str),
+        Some("skipped")
+    );
+    assert_eq!(
+        stdout.as_object().and_then(|object| object.get("thread")),
+        Some(&JsonValue::Null)
+    );
+    Ok(())
+}
+
 fn manifest_with_fixture_args(
     fixture_args: &[&str],
 ) -> Result<ThreadOutboxProviderManifest, Box<dyn std::error::Error>> {
@@ -369,6 +582,50 @@ fn thread_outbox_source(operation: &str, frame_path: &str) -> runx_parser::Skill
     config.insert(
         format!("{operation}_path"),
         JsonValue::String(frame_path.to_owned()),
+    );
+    let mut raw = JsonObject::new();
+    raw.insert(
+        "type".to_owned(),
+        JsonValue::String("thread-outbox-provider".to_owned()),
+    );
+    raw.insert(
+        "thread_outbox_provider".to_owned(),
+        JsonValue::Object(config),
+    );
+    runx_parser::SkillSource {
+        source_type: runx_parser::SourceKind::ThreadOutboxProvider,
+        command: None,
+        args: Vec::new(),
+        cwd: None,
+        timeout_seconds: None,
+        input_mode: None,
+        sandbox: None,
+        server: None,
+        catalog_ref: None,
+        tool: None,
+        arguments: None,
+        agent_card_url: None,
+        agent_identity: None,
+        agent: None,
+        task: None,
+        hook: None,
+        outputs: None,
+        graph: None,
+        http: None,
+        raw,
+    }
+}
+
+#[cfg(feature = "thread-outbox-provider")]
+fn thread_outbox_dynamic_source(operation: &str) -> runx_parser::SkillSource {
+    let mut config = JsonObject::new();
+    config.insert(
+        "operation".to_owned(),
+        JsonValue::String(operation.to_owned()),
+    );
+    config.insert(
+        "manifest_path".to_owned(),
+        JsonValue::String("manifest.json".to_owned()),
     );
     let mut raw = JsonObject::new();
     raw.insert(

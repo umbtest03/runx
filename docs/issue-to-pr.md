@@ -232,8 +232,11 @@ the same native run:
 pnpm dogfood:github-issue-to-pr -- --mode create --run-id <run-id> --answers answers.json --allow-repo owner/repo --repo owner/repo --issue 123 --workspace /path/to/repo
 ```
 
-When the graph seals, the provider push remains inside the existing
-`thread.push_outbox` step. The command rehydrates the source thread and emits a
+When the graph seals, provider push runs through the `issue-to-pr-push-outbox`
+subskill on the Rust `thread-outbox-provider` front. The front supervises
+provider process execution, credential delivery, redaction, and sealed
+observation while preserving the graph output fields consumed by downstream
+story packaging. The dogfood command rehydrates the source thread and emits a
 machine-readable dossier with source issue URL, PR URL, branch, run id, receipt
 refs, source-thread publication refs, and the human merge gate without printing
 absolute local paths.

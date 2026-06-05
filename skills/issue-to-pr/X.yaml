@@ -624,7 +624,7 @@ runners:
             policy_action: issue-to-pr
         - id: push-pull-request
           label: push the PR outbox entry through thread
-          tool: thread.push_outbox
+          skill: ./push-outbox
           scopes:
             - thread:push
           context:
@@ -652,7 +652,7 @@ runners:
             push_result: push-pull-request.push
         - id: push-feed-entry
           label: update source thread feed
-          tool: thread.push_outbox
+          skill: ./push-outbox
           scopes:
             - thread:push
           context:

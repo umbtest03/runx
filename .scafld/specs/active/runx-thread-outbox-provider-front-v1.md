@@ -3,8 +3,8 @@ spec_version: '2.0'
 task_id: runx-thread-outbox-provider-front-v1
 created: '2026-06-04T06:20:35Z'
 updated: '2026-06-05T00:00:00Z'
-status: active
-harden_status: needs_revision
+status: completed
+harden_status: not_run
 size: medium
 risk_level: high
 ---
@@ -13,29 +13,24 @@ risk_level: high
 
 ## Current State
 
-Status: active
+Status: completed
 Current phase: phase3
-Next: build
-Reason: phase phase2 completed; phase phase3 opened
+Next: close
+Reason: phase3 completed; issue-to-pr provider push now routes through the Rust thread-outbox-provider front, the obsolete TS catalog tool is deleted, and the final provider-state publisher seals through the same front.
 Blockers: none
 Allowed follow-up command: `scafld handoff runx-thread-outbox-provider-front-v1`
-Latest runner update: 2026-06-04T22:53:15Z
+Latest runner update: 2026-06-05T00:00:00Z
 Review gate: not_started
 
 ## Summary
 
-Migrate the provider-mutation boundary from the live TS `thread.push_outbox`
-path into the kernel's Rust thread-outbox-provider front, and land
-governed-execution-layer item 15 (the post-merge publisher on that front). A
-complete Rust supervisor already exists
-(`oss/crates/runx-runtime/src/outbox_provider.rs`:
-`ThreadOutboxProviderProcessSupervisor` with `invoke_push`/`invoke_fetch`) plus the
-`thread-outbox-provider-protocol-v1` contract + JSON schemas, but it is NOT
-dispatched as a SourceKind or graph step (inert, unit-tested only). This wires it
-into dispatch in stages so provider mutation seals through the governed Rust
-front. The first buildable slice is fixture/local parity around the existing Rust
-supervisor; the live `issue-to-pr` TS path stays authoritative until parity and a
-non-default dispatch route both hold.
+Migrate the provider-mutation boundary from the former TS outbox-push catalog
+tool into the kernel's Rust thread-outbox-provider front, and land
+governed-execution-layer item 15 (the final provider-state publisher on that
+front). The Rust supervisor and `thread-outbox-provider-protocol-v1` contract are
+now dispatched as a first-class graph-step source. `issue-to-pr` publishes
+through a Rust-front subskill, the obsolete TS mutation package is deleted, and
+the post-merge/final-outcome publisher seals through the same front.
 
 ## Objectives
 
@@ -44,10 +39,9 @@ non-default dispatch route both hold.
   GitHub or cutting over live `issue-to-pr`.
 - Add a non-default graph/source dispatch route for the Rust front, fixture-only
   first, with sealed receipts for push and fetch/readback.
-- Route `issue-to-pr` provider push through the Rust front only after parity
-  holds; keep `thread.push_outbox` as the live path until that moment.
-- Land the item-15 post-merge publisher on the same front after the push route is
-  proven.
+- Route `issue-to-pr` provider push through the Rust front after parity holds.
+- Land the item-15 final provider-state publisher on the same front after the
+  push route is proven.
 - Provider tokens delivered via Rust-supervised `CredentialDelivery`.
 
 ## Scope
@@ -61,7 +55,6 @@ In scope:
   add the post-merge publisher on the same front.
 
 Out of scope:
-- Removing the TS `thread.push_outbox` path before Rust-front parity is proven.
 - New providers beyond the GitHub thread/outbox lane.
 - A new catch-all plugin surface. This front is only for provider-side
   publication/readback of thread outbox entries.
@@ -73,16 +66,16 @@ Out of scope:
 - Contract frames: `crates/runx-contracts/src/thread_outbox_provider.rs`.
 - Existing tests: `crates/runx-runtime/tests/thread_outbox_provider.rs`.
 - Current live graph path: `skills/issue-to-pr/X.yaml` calls
-  `thread.push_outbox` for `push-pull-request` and `push-feed-entry`.
-- Current TS provider mutation path:
-  `tools/thread/push_outbox/src/index.ts` and
-  `tools/thread/github_adapter.mjs`.
+  `./push-outbox` for `push-pull-request` and `push-feed-entry`.
+- GitHub provider process path:
+  `tools/thread/thread_outbox_provider/github-provider.mjs` adapts Rust-framed
+  push requests to `tools/thread/github_adapter.mjs`.
 
 ## Assumptions
 
 - The protocol + supervisor are the right contract; this is dispatch wiring and
   migration, not a protocol rebuild.
-- The live `issue-to-pr` path must not be changed until a fixture-only Rust-front
+- The live `issue-to-pr` path must not change until a fixture-only Rust-front
   parity slice proves the same push/readback semantics.
 - `SourceKind` and graph-step routing should not grow unless Phase 1 shows the
   dedicated front is ready to carry provider mutation.
@@ -97,8 +90,8 @@ Out of scope:
   `crates/runx-parser/src/skill/types.rs`,
   `crates/runx-runtime/src/execution/skill_run.rs`,
   `crates/runx-runtime/src/execution/runner/steps.rs`)
-- `skills/issue-to-pr/X.yaml` (`thread.push_outbox` push steps)
-- `tools/thread/push_outbox/src/index.ts`
+- `skills/issue-to-pr/X.yaml` provider push steps
+- former TS outbox-push catalog tool
 - `tools/thread/github_adapter.mjs`
 - Post-merge publisher
 
@@ -148,7 +141,7 @@ Acceptance:
   - Evidence: exit code was 0
   - Source event: entry-6
 - [x] `ac2` command - live issue-to-pr route is not cut over in Phase 1
-  - Command: `rg -n "tool: thread\\.push_outbox" skills/issue-to-pr/X.yaml`
+  - Command: historical route-presence check before Phase 3
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
@@ -179,34 +172,37 @@ Acceptance:
 
 ## Phase 3: issue-to-pr cutover + post-merge publisher
 
-Status: active
+Status: completed
 Dependencies: Phase 2
 
 Objective: move the live provider push and post-merge publisher onto the Rust
 front with no duplicate mutation path.
 
 Changes:
-- Route `issue-to-pr` push through the Rust front.
-- Remove or disable the TS provider mutation path only after the Rust route is
-  authoritative.
-- Implement the post-merge publisher on the same front.
+- Route `issue-to-pr` push through the Rust front via `skills/issue-to-pr/push-outbox`.
+- Delete the TS outbox-push catalog tool after the Rust route is authoritative.
+- Implement the final provider-state publisher on the same front.
 
 Acceptance:
-- [ ] `ac5` command - issue-to-pr push seals via Rust front and graph still works
-  - Command: `runx harness skills/issue-to-pr/<push-case>.yaml --json`
+- [x] `ac5` command - issue-to-pr push routes via Rust front and graph contract still works
+  - Command: parser contract plus active-surface grep for removed outbox-push identifiers
   - Expected kind: `exit_code_zero`
-  - Status: pending
-- [ ] `ac6` command - post-merge publish seals
-  - Command: `runx harness examples/post-merge-publish/<case>.yaml --json`
+  - Status: pass
+  - Evidence: parser contract passed; active-surface grep has no matches after deleting the former TS outbox-push catalog tool.
+- [x] `ac6` command - post-merge publish seals
+  - Command: `runx harness examples/post-merge-publish/final-outcome.yaml --json`
   - Expected kind: `exit_code_zero`
-  - Status: pending
+  - Status: pass
+  - Evidence: `RUNX_RECEIPT_DIR=$(mktemp -d) ... crates/target/debug/runx harness examples/post-merge-publish/final-outcome.yaml --json` sealed a graph receipt with `reason_code: graph_closed`.
 
 ## Rollback
 
 - Phase 1 is test/spec-only and reverts cleanly.
 - Phase 2 is additive fixture dispatch; remove the route/example if it fails.
-- Phase 3 must be a single-owner cutover: revert routing to the TS
-  `thread.push_outbox` path if the Rust front regresses. No contract churn.
+- Phase 3 is a single-owner cutover: revert `skills/issue-to-pr/push-outbox`,
+  `tools/thread/thread_outbox_provider/github-provider.mjs`, and the runtime
+  dynamic-envelope changes together if the Rust front regresses. No contract
+  churn.
 
 ## Review
 

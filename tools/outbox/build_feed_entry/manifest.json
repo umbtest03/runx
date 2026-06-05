@@ -38,7 +38,7 @@
     "push_result": {
       "type": "json",
       "required": false,
-      "description": "Provider push result from thread.push_outbox."
+      "description": "Provider push result from the thread-outbox-provider front."
     },
     "review_result": {
       "type": "json",
@@ -102,7 +102,7 @@
       }
     }
   },
-  "source_hash": "sha256:71ae41bc93bab2258f94c3aef1f2bc4497104a2e1421364cd02ad686ff0c0fe5",
-  "schema_hash": "sha256:b138a2713b6600a37fe6e075c6aca3c5449bcc71dd78f3876be1335788d8ecc8",
+  "source_hash": "sha256:d649604e8d7baf1a49d92c0076e26444141c0f7ba46051ddffd9261393d25422",
+  "schema_hash": "sha256:cad8d177163f7dc398b94353320c97f84b80f6b2fb24dc1827b7645b68338378",
   "toolkit_version": "0.1.4"
 }

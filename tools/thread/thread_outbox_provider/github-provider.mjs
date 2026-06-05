@@ -1,0 +1,153 @@
+#!/usr/bin/env node
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+
+import {
+  fetchGitHubIssueThread,
+  firstNonEmptyString,
+  isRecord,
+  optionalRecord,
+  prune,
+  pushGitHubMessage,
+  pushGitHubPullRequest,
+} from "../github_adapter.mjs";
+
+try {
+  const request = JSON.parse(readFileSync(0, "utf8"));
+  const payload = providerPayload(request);
+  const thread = asRecord(payload.thread, "payload.thread");
+  const outboxEntry = asRecord(payload.outbox_entry, "payload.outbox_entry");
+  const draftPullRequest = optionalRecord(payload.draft_pull_request);
+  const workspacePath = firstNonEmptyString(payload.workspace_path);
+  const nextStatus = firstNonEmptyString(payload.next_status);
+  const kind = firstNonEmptyString(outboxEntry.kind);
+  const env = process.env;
+
+  let result;
+  if (kind === "pull_request") {
+    result = pushGitHubPullRequest({
+      thread,
+      draftPullRequest,
+      outboxEntry,
+      workspacePath,
+      nextStatus,
+      env,
+    });
+  } else if (kind === "message") {
+    result = pushGitHubMessage({
+      thread,
+      outboxEntry,
+      workspacePath,
+      nextStatus,
+      env,
+    });
+  } else {
+    throw new Error(`unsupported GitHub outbox entry kind '${kind ?? "unknown"}'`);
+  }
+
+  const adapterRef = firstNonEmptyString(optionalRecord(thread.adapter)?.adapter_ref);
+  const refreshedThread = adapterRef
+    ? fetchGitHubIssueThread({ adapterRef, env, cwd: workspacePath ?? process.cwd() })
+    : thread;
+  const pushedEntry = optionalRecord(result.outbox_entry) ?? outboxEntry;
+  const locator = firstNonEmptyString(
+    pushedEntry.locator,
+    optionalRecord(result.message)?.locator,
+    optionalRecord(result.pull_request)?.url,
+    request.thread_locator?.locator,
+  );
+
+  writeJson({
+    observation: observationFor({ request, locator }),
+    output: prune({
+      draft_pull_request: draftPullRequest,
+      outbox_entry: pushedEntry,
+      thread: refreshedThread,
+      push: prune({
+        status: "pushed",
+        provider: request.provider,
+        adapter: optionalRecord(thread.adapter),
+        locator,
+        message: optionalRecord(result.message),
+        pull_request: optionalRecord(result.pull_request),
+      }),
+    }),
+  });
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
+
+function providerPayload(request) {
+  if (!isRecord(request?.payload) || request.payload.format !== "json") {
+    throw new Error("thread-outbox-provider GitHub process requires JSON payload frames.");
+  }
+  const parsed = JSON.parse(String(request.payload.body ?? ""));
+  return asRecord(parsed, "payload.body");
+}
+
+function observationFor({ request, locator }) {
+  const observedAt = new Date().toISOString();
+  const providerLocator = locator
+    ? {
+        provider: request.provider,
+        locator,
+        provider_ref: locator.startsWith("http")
+          ? {
+              type: "external_url",
+              uri: locator,
+              provider: request.provider,
+            }
+          : undefined,
+      }
+    : undefined;
+
+  return prune({
+    schema: "runx.thread_outbox_provider.observation.v1",
+    protocol_version: "runx.thread_outbox_provider.v1",
+    observation_id: `thread_obs_${hashFragment(`${request.push_id}:${locator ?? ""}`, 24)}`,
+    adapter_id: request.adapter_id,
+    provider: request.provider,
+    operation: "push",
+    request_id: request.push_id,
+    status: "accepted",
+    idempotency: {
+      key: request.idempotency?.key,
+      status: "created",
+    },
+    provider_locator: providerLocator,
+    provider_event_id_hash: locator ? sha256Prefixed(locator) : undefined,
+    readback_summary: locator
+      ? {
+          item_count: 1,
+          latest_provider_event_id_hash: sha256Prefixed(locator),
+        }
+      : undefined,
+    redaction_refs: [
+      {
+        type: "redaction_policy",
+        uri: "runx:redaction_policy:provider-output",
+      },
+    ],
+    observed_at: observedAt,
+  });
+}
+
+function asRecord(value, field) {
+  if (!isRecord(value)) {
+    throw new Error(`${field} must be an object.`);
+  }
+  return value;
+}
+
+function hashFragment(value, length) {
+  return createHash("sha256").update(value).digest("hex").slice(0, length);
+}
+
+function sha256Prefixed(value) {
+  return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
+function writeJson(value) {
+  process.stdout.write(`${JSON.stringify(value)}\n`);
+}

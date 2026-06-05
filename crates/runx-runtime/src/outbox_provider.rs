@@ -36,9 +36,10 @@ impl Default for ThreadOutboxProviderSupervisorOptions {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ThreadOutboxProviderProcessOutcome {
     pub observation: ThreadOutboxProviderObservation,
+    pub provider_output: Option<runx_contracts::JsonObject>,
     pub redacted_stderr: String,
     pub process_exit_code: Option<i32>,
     pub duration_ms: u64,
@@ -91,9 +92,6 @@ impl ThreadOutboxProviderProcessSupervisor {
         request: ThreadOutboxProviderRequest<'_>,
         credential_delivery: &CredentialDelivery,
     ) -> Result<ThreadOutboxProviderProcessOutcome, ThreadOutboxProviderSupervisorError> {
-        credential_delivery
-            .reject_process_env_boundary("thread-outbox-provider")
-            .map_err(|_| ThreadOutboxProviderSupervisorError::CredentialProcessEnvUnsupported)?;
         let started = Instant::now();
         let command = process_command(manifest)?;
         let mut child = Command::new(command);
@@ -105,6 +103,7 @@ impl ThreadOutboxProviderProcessSupervisor {
         }
         child
             .env_clear()
+            .envs(credential_delivery.secret_env().iter())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -133,10 +132,12 @@ impl ThreadOutboxProviderProcessSupervisor {
                 limit_bytes: self.options.output_limit_bytes,
             });
         }
-        let observation = parse_observation(&output.stdout, credential_delivery)?;
+        let provider_response = parse_provider_response(&output.stdout, credential_delivery)?;
+        let observation = provider_response.observation;
         validate_observation(manifest, &request, &observation)?;
         Ok(ThreadOutboxProviderProcessOutcome {
             observation,
+            provider_output: provider_response.output,
             redacted_stderr,
             process_exit_code: output.status.code(),
             duration_ms: duration_ms(started),
@@ -176,12 +177,10 @@ pub enum ThreadOutboxProviderSupervisorError {
     ResponseTooLarge { limit_bytes: usize },
     #[error("thread outbox provider stderr exceeded {limit_bytes} bytes")]
     StderrTooLarge { limit_bytes: usize },
-    #[error(
-        "thread outbox provider process credential delivery must use structured credential refs, not ambient child environment"
-    )]
-    CredentialProcessEnvUnsupported,
     #[error("thread outbox provider response was empty")]
     EmptyResponse,
+    #[error("thread outbox provider response envelope output must be an object when present")]
+    InvalidResponseEnvelopeOutput,
     #[error("thread outbox provider response contained private secret-like field '{field}'")]
     SecretFieldRejected { field: String },
     #[error(
@@ -362,10 +361,15 @@ fn wait_for_output(
     }
 }
 
-fn parse_observation(
+struct ThreadOutboxProviderProviderResponse {
+    observation: ThreadOutboxProviderObservation,
+    output: Option<runx_contracts::JsonObject>,
+}
+
+fn parse_provider_response(
     bytes: &[u8],
     credential_delivery: &CredentialDelivery,
-) -> Result<ThreadOutboxProviderObservation, ThreadOutboxProviderSupervisorError> {
+) -> Result<ThreadOutboxProviderProviderResponse, ThreadOutboxProviderSupervisorError> {
     let bytes = trim_ascii_whitespace(bytes);
     if bytes.is_empty() {
         return Err(ThreadOutboxProviderSupervisorError::EmptyResponse);
@@ -374,7 +378,8 @@ fn parse_observation(
         .map_err(|source| json_error("parsing thread outbox provider observation", source))?;
     reject_secret_like_fields(&value, "$")?;
     redact_json_value(&mut value, credential_delivery);
-    let redacted = serde_json::to_vec(&value).map_err(|source| {
+    let (observation_value, output) = provider_response_parts(value)?;
+    let redacted = serde_json::to_vec(&observation_value).map_err(|source| {
         json_error(
             "serializing redacted thread outbox provider observation",
             source,
@@ -387,7 +392,31 @@ fn parse_observation(
             observation.delivery_observations = Some(vec![delivery_observation.clone()]);
         }
     }
-    Ok(observation)
+    Ok(ThreadOutboxProviderProviderResponse {
+        observation,
+        output,
+    })
+}
+
+fn provider_response_parts(
+    value: JsonValue,
+) -> Result<(JsonValue, Option<runx_contracts::JsonObject>), ThreadOutboxProviderSupervisorError> {
+    match value {
+        JsonValue::Object(object) => {
+            let Some(observation_value) = object.get("observation") else {
+                return Ok((JsonValue::Object(object), None));
+            };
+            let output = match object.get("output") {
+                Some(JsonValue::Object(output)) => Some(output.clone()),
+                Some(JsonValue::Null) | None => None,
+                Some(_) => {
+                    return Err(ThreadOutboxProviderSupervisorError::InvalidResponseEnvelopeOutput);
+                }
+            };
+            Ok((observation_value.clone(), output))
+        }
+        other => Ok((other, None)),
+    }
 }
 
 fn validate_observation(

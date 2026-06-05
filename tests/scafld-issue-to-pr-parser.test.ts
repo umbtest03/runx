@@ -152,7 +152,7 @@ describe("scafld issue-to-PR skill contract", () => {
     });
     expect(graph.steps.find((step) => step.id === "package-pull-request")?.label).toBe("package reviewer PR story");
     expect(graph.steps.find((step) => step.id === "push-pull-request")).toMatchObject({
-      tool: "thread.push_outbox",
+      skill: "./push-outbox",
       context: {
         outbox_entry: "package-pull-request.outbox_entry.data",
         draft_pull_request: "package-pull-request.draft_pull_request.data",
@@ -178,7 +178,7 @@ describe("scafld issue-to-PR skill contract", () => {
       },
     });
     expect(graph.steps.find((step) => step.id === "push-feed-entry")).toMatchObject({
-      tool: "thread.push_outbox",
+      skill: "./push-outbox",
       context: {
         outbox_entry: "package-feed-entry.outbox_entry.data",
         draft_pull_request: "package-pull-request.draft_pull_request.data",
