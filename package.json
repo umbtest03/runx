@@ -71,6 +71,7 @@
     "receipts:canonical-check": "node scripts/check-receipt-canonical-production-path.mjs",
     "demos:check": "node scripts/check-demos.mjs",
     "x402:conformance": "node scripts/x402-upstream-conformance.mjs --check",
+    "x402:interop": "node scripts/x402-interop.mjs --target x402-rs --check",
     "verify:fast": "node scripts/verify-fast.mjs",
     "verify:fast:plan-check": "node scripts/check-verify-fast-plan.mjs",
     "lint": "pnpm typecheck"

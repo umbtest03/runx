@@ -150,6 +150,77 @@ pnpm exec vitest run --config vitest.integration.config.ts test/integrations/exa
 That is useful for rail mechanics, but it is not the full HTTP 402
 client/server/facilitator conformance run.
 
+## x402-rs interop process
+
+Use this when you need an independent implementation check after the canonical
+upstream conformance pass. `x402-rs` is not the source of truth for the standard,
+but its protocol-compliance harness is a strong adversarial target because it can
+run a TypeScript client + TypeScript server against a Rust facilitator.
+
+```bash
+git clone https://github.com/x402-rs/x402-rs /tmp/x402-rs
+cd /tmp/x402-rs
+git rev-parse HEAD
+```
+
+From the Runx OSS checkout, preflight the default x402-rs lane:
+
+```bash
+pnpm x402:interop
+```
+
+The default lane is:
+
+```bash
+pnpm --dir /tmp/x402-rs/protocol-compliance install --frozen-lockfile
+cargo build --manifest-path /tmp/x402-rs/Cargo.toml --package x402-facilitator
+pnpm --dir /tmp/x402-rs/protocol-compliance exec vitest run \
+  src/tests/v2-eip155-exact-ts-ts-rs.test.ts \
+  --reporter=verbose
+```
+
+Run it when dedicated funded testnet wallets are ready:
+
+```bash
+export X402_RS_DIR=/tmp/x402-rs
+export RUNX_X402_INTEROP_ARTIFACT_DIR=/tmp/runx-x402-rs-interop
+export BASE_SEPOLIA_RPC_URL=https://...
+export BASE_SEPOLIA_BUYER_PRIVATE_KEY=0x...
+export BASE_SEPOLIA_FACILITATOR_PRIVATE_KEY=0x...
+export SOLANA_DEVNET_RPC_URL=https://...
+export SOLANA_DEVNET_BUYER_PRIVATE_KEY=...
+export SOLANA_DEVNET_FACILITATOR_PRIVATE_KEY=...
+node scripts/x402-interop.mjs --target x402-rs --run
+```
+
+The current x402-rs compliance harness validates Solana environment variables at
+module load even for this EVM-only test selection, so the Solana variables are
+required. The accepted result is a successful v2 EIP-155 exact test where the
+TypeScript client and server interoperate with the Rust facilitator.
+
+## CDP hosted-facilitator plan
+
+Use CDP after the local independent-implementation lane is green. CDP is not a
+repository checkout; it is a hosted facilitator target. Preflight the plan:
+
+```bash
+node scripts/x402-interop.mjs --target cdp --check
+```
+
+The planned CDP lane should reuse the same Base Sepolia v2 exact flow, swapping
+only the facilitator URL and authentication:
+
+- Facilitator URL: `https://api.cdp.coinbase.com/platform/v2/x402`
+- Signup-free testnet fallback: `https://x402.org/facilitator`
+- Network: `eip155:84532` (Base Sepolia)
+- Scheme: `exact`
+- Token path: USDC / EIP-3009
+
+Do not build a Runx-specific shim for CDP. The CDP lane is accepted only when the
+standard HTTP 402 request/response flow succeeds through the hosted facilitator,
+with the same receipt verification run separately through `./x402.sh` if Runx
+receipt proof is also required.
+
 Rules for a clean conformance run:
 
 1. Do not patch or copy upstream protocol code into runx.

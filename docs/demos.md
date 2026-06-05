@@ -37,6 +37,10 @@ with dedicated funded testnet wallets. That proves the official HTTP 402 flow.
 Run `examples/governed-spend/x402.sh` separately when you need Runx receipt proof
 for a compatible signer/facilitator seam.
 
+For independent implementation coverage, use `pnpm x402:interop` against
+`x402-rs`. CDP is tracked as a hosted-facilitator profile via
+`node scripts/x402-interop.mjs --target cdp --check`.
+
 ## Runnable Previews
 
 These examples are useful local proofs but are not part of the featured,
