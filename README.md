@@ -14,6 +14,10 @@ Start with the checked-in hello-world skill:
 ```bash
 cd oss
 cargo build --manifest-path crates/Cargo.toml -p runx-cli
+export RUNX_RECEIPT_SIGN_KID=runx-demo-key
+export RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64=QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=
+export RUNX_RECEIPT_SIGN_ISSUER_TYPE=hosted
+export RUNX_RECEIPT_DIR="$(mktemp -d)"
 crates/target/debug/runx skill examples/hello-world \
   --message "hello from docs" \
   --non-interactive \
@@ -35,10 +39,13 @@ pnpm x402:dogfood:local
 ```
 
 This proves runx payment authority, refusal, receipt signing, offline receipt
-verification, and the documented x402 upstream/x402-rs/CDP preflight shape. It
-does not claim real x402 settlement; the live conformance lanes require dedicated
-funded testnet wallets. See [docs/demos.md](docs/demos.md#payment-demo-gate) for
-the full split between local dogfood and live protocol conformance.
+verification, and the documented x402 upstream/x402-rs/CDP/Stripe SPT preflight
+shape. It does not claim real x402 settlement or a real Stripe charge; live
+conformance lanes require dedicated funded testnet wallets or provider test
+credentials. No-secret preflight reports use `can_run: false` and `missing_env`
+to name live blockers without printing secret values. See
+[docs/demos.md](docs/demos.md#payment-demo-gate) for the full split between
+local dogfood and live protocol conformance.
 
 ## Requirements
 

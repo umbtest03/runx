@@ -27,6 +27,8 @@ for (const forbidden of [
 }
 
 for (const required of [
+  'step("readiness structural guard"',
+  'step("demo inventory guard"',
   'await runSerialGroup("rust structure checks"',
   'step("cutover:legacy-check"',
   'step("build native runx binary"',

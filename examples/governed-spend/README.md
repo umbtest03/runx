@@ -84,14 +84,44 @@ pnpm x402:dogfood:local
 ```
 
 The command runs the deterministic Runx payment demos and verifies the emitted
-receipts. It also prints preflight reports for the upstream x402, x402-rs, and
-CDP lanes so the live requirements are visible. Missing funded wallet env is a
-reported live-lane blocker, not a local dogfood failure.
+receipts. It also prints preflight reports for the upstream x402, x402-rs, CDP,
+and Stripe SPT lanes so the live requirements are visible. Missing funded wallet
+env or provider credentials are reported live-lane blockers, not local dogfood
+failures.
 
 This is the correct no-account loop. It proves authority, refusal, receipt
 signing, offline verification, and that the live lanes are wired. It does not
 claim public-chain settlement. For that, use the upstream conformance or x402-rs
 interop process with dedicated funded testnet wallets.
+
+## Live rail readiness matrix
+
+Use the local dogfood lane first. It does not need funded wallets, hosted
+accounts, provider keys, `.env` files, or generated credentials:
+
+```bash
+pnpm x402:dogfood:local
+```
+
+The live lanes are opt-in and require operator-owned external resources:
+
+For no-secret preflights, a zero exit means the readiness report was produced.
+Inspect `can_run`, `missing_env`, `invalid_env`, and `required_external` before
+claiming a live lane is runnable.
+
+| Lane | No-secret preflight | External funding/keys needed for live | Live command |
+| --- | --- | --- | --- |
+| Upstream x402 HTTP 402 conformance | `node scripts/x402-upstream-conformance.mjs --check` | Clean `x402-foundation/x402` checkout; dedicated funded EVM testnet wallets for `SERVER_EVM_ADDRESS`, `CLIENT_EVM_PRIVATE_KEY`, and `FACILITATOR_EVM_PRIVATE_KEY`; SVM address/key variables are also required by the current upstream runner before its EVM-only filter applies. | `node scripts/x402-upstream-conformance.mjs --run` |
+| x402-rs interop | `node scripts/x402-interop.mjs --target x402-rs --check` | Clean `x402-rs/x402-rs` checkout; Base Sepolia RPC URL; dedicated funded Base Sepolia buyer/facilitator private keys; Solana Devnet RPC URL and buyer/facilitator keys because the compliance harness validates them at module load. | `node scripts/x402-interop.mjs --target x402-rs --run` |
+| CDP hosted facilitator | `node scripts/x402-interop.mjs --target cdp --check` | CDP API credentials for hosted-facilitator authentication and a dedicated funded Base Sepolia payer wallet. The repo does not yet define a CDP live env contract, so do not invent or commit CDP env files. | Planned only |
+| Runx x402 receipt seam | `RUNX_X402_DEMO_MODE=mock sh examples/governed-spend/x402.sh` | Compatible facilitator URL, compatible external signer URL backed by a dedicated funded Base Sepolia operator wallet, chain/token/verifying-contract addresses, payer address, and pay-to address. runx receives only a signer endpoint response, not a wallet key. | `RUNX_X402_DEMO_MODE=live sh examples/governed-spend/x402.sh` |
+| Stripe SPT | `node scripts/stripe-spt-charge.mjs --check` | Stripe test-mode key via `STRIPE_SECRET_KEY` or `STRIPE_TEST_KEY`, plus `STRIPE_WEBHOOK_SECRET`. No funded wallet is required; live-mode Stripe keys are refused. | `RUNX_STRIPE_DEMO_MODE=live sh examples/governed-spend/stripe-spt.sh` |
+
+Keep artifact directories outside the repo or under ignored temp paths, for
+example `/tmp/runx-x402-upstream-conformance`, `/tmp/runx-x402-rs-interop`,
+`RUNX_X402_RECEIPT_DIR`, and `RUNX_STRIPE_RECEIPT_DIR`. Never commit secrets,
+private keys, generated wallets, `.env` files, upstream logs containing secrets,
+or receipt directories from live runs.
 
 ## Upstream x402 conformance process
 
@@ -273,6 +303,16 @@ test.
 ```
 
 Without Stripe environment variables this writes a deterministic mock transcript.
+Check live-readiness without calling Stripe or printing secret values:
+
+```bash
+node scripts/stripe-spt-charge.mjs --check
+```
+
+The check exits 0 when it emits a report. Without Stripe test credentials the
+report intentionally says `can_run: false` and names the missing env; that is a
+live-readiness blocker, not a local dogfood failure.
+
 With Stripe test-mode credentials exported in the calling shell, it performs a
 real Stripe SPT test-mode charge and verifies both receipts offline:
 
@@ -285,7 +325,8 @@ export RUNX_STRIPE_DEMO_MODE=live
 
 `STRIPE_TEST_KEY` is still accepted for older local setups. Live-mode keys are
 refused; the script accepts only `sk_test_` or `rk_test_` keys and never writes
-Stripe credentials to the receipt directory.
+Stripe credentials to the receipt directory. Live mode generates a fresh Stripe
+idempotency key for each run unless `RUNX_STRIPE_IDEMPOTENCY_KEY` is set.
 
 ## Tweak it
 

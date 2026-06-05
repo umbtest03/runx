@@ -33,9 +33,14 @@ if (!TARGETS.has(target)) {
 const mode = args.includes("--run") ? "run" : "check";
 const report = target === "x402-rs" ? x402RsReport(mode) : cdpReport(mode);
 
-if (mode === "check" || target === "cdp") {
+if (mode === "check") {
   write(report);
   process.exit(report.target_available === false ? 1 : 0);
+}
+
+if (target === "cdp") {
+  write(report);
+  fail("CDP hosted-facilitator live run is not implemented; use --check for the no-secret preflight report");
 }
 
 if (target === "x402-rs") {
@@ -86,8 +91,19 @@ function cdpReport(selectedMode) {
     target: "cdp",
     target_kind: "hosted_facilitator",
     target_status: "planned",
+    can_run: false,
     facilitator_url: "https://api.cdp.coinbase.com/platform/v2/x402",
     testnet_fallback_url: "https://x402.org/facilitator",
+    network: "eip155:84532",
+    scheme: "exact",
+    token_path: "USDC / EIP-3009",
+    required_external: [
+      "CDP API credentials for hosted-facilitator authentication",
+      "Dedicated funded Base Sepolia payer wallet for the v2 exact flow",
+      "Operator-owned receipt/artifact directory outside the repository",
+    ],
+    missing_env: [],
+    credential_env_contract: "not_implemented",
     required_next_step:
       "Add a hosted-facilitator run profile using official CDP authentication, then run the same Base Sepolia v2 exact flow against CDP.",
     notes: [

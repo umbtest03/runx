@@ -17,17 +17,41 @@ export RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64=QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJ
 export RUNX_RECEIPT_SIGN_ISSUER_TYPE=hosted
 ```
 
-## The fronts
+## Featured demos
+
+The curated proof set is also machine-checked in
+`../docs/demo-inventory.json`.
 
 | Example | Front | Run |
 | --- | --- | --- |
 | `hello-world` | cli-tool (top-level runner) | `runx harness examples/hello-world` |
+| `github-mcp-hero` | mcp (governed GitHub read plus refused write) | `sh examples/github-mcp-hero/run.sh` |
+| `http-graph` | http (governed local fixture call) | `sh examples/http-graph/run.sh` |
+| `openapi-graph` + `openapi-tool` | OpenAPI via external-adapter (an OpenAPI operation executed and sealed) | `sh examples/openapi-graph/run.sh` |
+| `governed-spend` | payment authority, x402/Stripe dogfood receipts, and offline verification | `pnpm demos:check && pnpm x402:dogfood:local` |
+
+## Runnable previews
+
+These are useful local proofs, but they are not the featured first-window demo
+set.
+
+| Example | Front | Run |
+| --- | --- | --- |
 | `managed-agent` | agent (host-drives default; yields `needs_agent` to the calling agent) | `runx harness examples/managed-agent` |
 | `external-adapter-graph` + `external-adapter-tool` | external-adapter (graph-step source; a governed subprocess adapter) | `runx harness examples/external-adapter-graph` |
-| `openapi-graph` + `openapi-tool` | OpenAPI via external-adapter (an OpenAPI operation executed and sealed) | `sh examples/openapi-graph/run.sh` (real call against a local fixture) |
 | `byo-http-graph` + `byo-http-tool` | BYO local credential over the governed HTTP front | `sh examples/byo-http-graph/run.sh` (credentialed local fixture read) |
+| `hello-graph` | graph harness baseline | `runx harness examples/hello-graph/harness.yaml` |
+| `http-tool-catalog` | HTTP tool catalog fixture | `sh examples/http-tool-catalog/run.sh` |
 | `thread-outbox-provider-graph` + `thread-outbox-provider-{push,fetch}` | thread-outbox-provider (graph-step source; fixture provider publication/readback) | `runx harness examples/thread-outbox-provider-graph` |
 | `post-merge-publish/final-outcome.yaml` + `post-merge-final-outcome-publisher` | thread-outbox-provider final provider-state publication | `runx harness examples/post-merge-publish/final-outcome.yaml` |
+
+## Fixture support
+
+These directories are intentionally not user-facing demos by themselves:
+`adapter-kit`, `byo-http-tool`, `external-adapter-tool`, `host-protocol`,
+`http-tool`, `openapi-tool`, `post-merge-final-outcome-publisher`,
+`thread-outbox-provider-fetch`, `thread-outbox-provider-fixture`, and
+`thread-outbox-provider-push`.
 
 `external-adapter` and `thread-outbox-provider` are graph-step sources, not
 top-level runners, so their examples are driven by graphs. Graph input values

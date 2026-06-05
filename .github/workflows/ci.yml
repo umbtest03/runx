@@ -94,6 +94,5 @@ jobs:
           cargo metadata --manifest-path crates/Cargo.toml --format-version 1 | node .scafld/scripts/check-license-edges.mjs --check edges
           cargo test --manifest-path crates/Cargo.toml -p runx-runtime --all-features --test integration -- license_boundary
 
-      - name: Advisory Rust kernel parity
-        continue-on-error: true # advisory check-rust-kernel-parity cargo-deny cargo public-api
+      - name: Rust kernel parity
         run: node scripts/check-rust-kernel-parity.mjs

@@ -36,9 +36,6 @@
       "nativePackagePattern": "@runxhq/cli-${platform}"
     }
   },
-  "devDependencies": {
-    "yaml": "^2.8.3"
-  },
   "files": [
     "LICENSE",
     "bin/runx",

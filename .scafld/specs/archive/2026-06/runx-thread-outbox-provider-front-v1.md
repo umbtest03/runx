@@ -2,7 +2,7 @@
 spec_version: '2.0'
 task_id: runx-thread-outbox-provider-front-v1
 created: '2026-06-04T06:20:35Z'
-updated: '2026-06-05T00:00:00Z'
+updated: '2026-06-05T04:15:27Z'
 status: completed
 harden_status: not_run
 size: medium
@@ -14,13 +14,13 @@ risk_level: high
 ## Current State
 
 Status: completed
-Current phase: phase3
-Next: close
+Current phase: final
+Next: done
 Reason: phase3 completed; issue-to-pr provider push now routes through the Rust thread-outbox-provider front, the obsolete TS catalog tool is deleted, and the final provider-state publisher seals through the same front.
 Blockers: none
-Allowed follow-up command: `scafld handoff runx-thread-outbox-provider-front-v1`
-Latest runner update: 2026-06-05T00:00:00Z
-Review gate: not_started
+Allowed follow-up command: `none`
+Latest runner update: 2026-06-05T04:15:27Z
+Review gate: not_required
 
 ## Summary
 

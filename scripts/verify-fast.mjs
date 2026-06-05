@@ -39,6 +39,8 @@ const rustBuildEnv = {
 const results = [];
 
 await runParallelGroup("source checks", [
+  step("readiness structural guard", "node", ["scripts/check-readiness-structural.mjs"]),
+  step("demo inventory guard", "node", ["scripts/check-demo-inventory.mjs"]),
   step("boundary:check", "pnpm", ["boundary:check"]),
   step("test:boundary", "pnpm", ["test:boundary"]),
   step("typecheck", "pnpm", ["typecheck"]),

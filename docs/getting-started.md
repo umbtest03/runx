@@ -23,6 +23,10 @@ cargo build --manifest-path crates/Cargo.toml -p runx-cli
 Run the skill directly through the CLI:
 
 ```bash
+export RUNX_RECEIPT_SIGN_KID=runx-demo-key
+export RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64=QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=
+export RUNX_RECEIPT_SIGN_ISSUER_TYPE=hosted
+export RUNX_RECEIPT_DIR="$(mktemp -d)"
 crates/target/debug/runx skill examples/hello-world \
   --message "hello from docs" \
   --non-interactive \
@@ -35,25 +39,22 @@ delegate to the same Rust binary behavior.
 
 ## Inspect The Receipt
 
-Receipts are written under `.runx/receipts` unless `RUNX_RECEIPT_DIR` is set.
-Use the id from the previous command as a history query:
+The quickstart writes receipts to the temporary directory stored in
+`RUNX_RECEIPT_DIR`. Use the id from the previous command as a history query:
 
 ```bash
 crates/target/debug/runx history <receipt-id> --json
 ```
 
-The history projection should show a `runx.receipt.v1` receipt. In
-local development that receipt is structurally checked but not
-production-verified, because the default deterministic pseudo signature is only
-for stable local fixtures. It is still durable evidence that runx executed the
-skill, recorded the input shape, and captured the output without relying on
-prose claims.
+The history projection should show a `runx.receipt.v1` receipt. The demo key
+above is intentionally public and exists only for local smoke tests. It is still
+durable evidence that runx executed the skill, recorded the input shape, and
+captured the output without relying on prose claims.
 
 ## Production Receipt Signing
 
-Local development uses deterministic pseudo signatures so fixtures stay stable.
-For production-trusted receipts, configure an Ed25519 signing key before running
-skills, graphs, harness replay, or MCP server calls:
+For production-trusted receipts, replace the demo key with an Ed25519 signing
+key before running skills, graphs, harness replay, or MCP server calls:
 
 ```bash
 export RUNX_RECEIPT_SIGN_KID="hosted-prod-key"

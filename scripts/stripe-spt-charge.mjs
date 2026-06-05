@@ -9,14 +9,22 @@ import { sha256Hex, sha256Prefixed, signedDemoReceipt } from "./lib/demo-receipt
 const PREVIEW_VERSION = "2026-04-22.preview";
 const STRIPE_API = "https://api.stripe.com";
 const SPT_FIELD = "payment_method_data[shared_payment_granted_token]";
+const STRIPE_KEY_ENVS = ["STRIPE_SECRET_KEY", "STRIPE_TEST_KEY"];
 
 const args = process.argv.slice(2);
 
 if (args.includes("--help") || args.includes("-h")) {
   usage(0);
 }
-if (!args.includes("--demo")) {
+const command = args.includes("--check") ? "check" : args.includes("--demo") ? "demo" : undefined;
+if (!command) {
   usage(1);
+}
+
+if (command === "check") {
+  const report = stripePreflightReport();
+  write(report);
+  process.exit(0);
 }
 
 const receiptDir = option("--receipt-dir") || mkdtempSync(path.join(os.tmpdir(), "runx-stripe-spt-demo-"));
@@ -42,7 +50,69 @@ const report = {
   receipts,
 };
 writeFileSync(path.join(receiptDir, "stripe-spt-demo-report.json"), `${JSON.stringify(report, null, 2)}\n`);
-console.log(JSON.stringify(report, null, 2));
+write(report);
+
+function stripePreflightReport() {
+  const keyName = stripeKeyEnvName();
+  const key = keyName ? envOr(keyName, "") : "";
+  const webhookSecret = envOr("STRIPE_WEBHOOK_SECRET", "");
+  const missingEnv = [];
+  const invalidEnv = [];
+
+  if (!key) {
+    missingEnv.push("STRIPE_SECRET_KEY or STRIPE_TEST_KEY");
+  } else if (!isStripeTestKey(key)) {
+    invalidEnv.push({
+      name: keyName,
+      expected: "test-mode sk_test_ or rk_test_ key",
+    });
+  }
+
+  if (!webhookSecret) {
+    missingEnv.push("STRIPE_WEBHOOK_SECRET");
+  } else if (!webhookSecret.startsWith("whsec_")) {
+    invalidEnv.push({
+      name: "STRIPE_WEBHOOK_SECRET",
+      expected: "Stripe test-mode webhook signing secret with whsec_ prefix",
+    });
+  }
+
+  return {
+    schema: "runx.stripe_spt.preflight.v1",
+    mode: "check",
+    target: "stripe-spt",
+    target_kind: "provider_test_mode",
+    stripe_api: STRIPE_API,
+    stripe_version: PREVIEW_VERSION,
+    required_env: [
+      {
+        any_of: STRIPE_KEY_ENVS,
+        expected: "Stripe test-mode sk_test_ or rk_test_ key; live-mode keys are refused",
+      },
+      {
+        name: "STRIPE_WEBHOOK_SECRET",
+        expected: "Stripe test-mode webhook signing secret with whsec_ prefix",
+      },
+    ],
+    optional_env: [
+      "RUNX_STRIPE_RECEIPT_DIR",
+      "RUNX_STRIPE_TEST_PAYMENT_METHOD",
+      "RUNX_STRIPE_AMOUNT_MINOR",
+      "RUNX_STRIPE_CURRENCY",
+    "RUNX_STRIPE_IDEMPOTENCY_KEY",
+    ],
+    missing_env: missingEnv,
+    invalid_env: invalidEnv,
+    can_run: missingEnv.length === 0 && invalidEnv.length === 0,
+    command: ["RUNX_STRIPE_DEMO_MODE=live", "sh", "examples/governed-spend/stripe-spt.sh"],
+    notes: [
+      "This preflight does not call Stripe and never prints configured secret values.",
+      "Stripe SPT dogfood uses Stripe test mode only; sk_live_ and rk_live_ keys are refused.",
+      "No funded wallet is required for Stripe SPT; a Stripe test account with SPT/test-helper access is required for the live demo path.",
+      "Live mode generates a unique idempotency key per run unless RUNX_STRIPE_IDEMPOTENCY_KEY is set.",
+    ],
+  };
+}
 
 async function liveSettlement() {
   const testKey = validateStripeTestKey(stripeKey || requiredStripeKey());
@@ -284,8 +354,15 @@ function admissionFromEnv(defaults = {}) {
     amount_minor: amount,
     currency: envOr("RUNX_STRIPE_CURRENCY", "USD"),
     counterparty: envOr("RUNX_STRIPE_COUNTERPARTY", "acct_demo_counterparty"),
-    idempotency_key: envOr("RUNX_STRIPE_IDEMPOTENCY_KEY", "stripe-spt-demo"),
+    idempotency_key: envOr("RUNX_STRIPE_IDEMPOTENCY_KEY", defaultIdempotencyKey()),
   };
+}
+
+function defaultIdempotencyKey() {
+  if (mode === "live") {
+    return `stripe-spt-demo:${crypto.randomUUID()}`;
+  }
+  return "stripe-spt-demo";
 }
 
 function stringField(object, field, required = true) {
@@ -326,7 +403,12 @@ function envOr(name, fallback) {
 }
 
 function stripeKeyFromEnv() {
-  return envOr("STRIPE_SECRET_KEY", "") || envOr("STRIPE_TEST_KEY", "");
+  const keyName = stripeKeyEnvName();
+  return keyName ? envOr(keyName, "") : "";
+}
+
+function stripeKeyEnvName() {
+  return STRIPE_KEY_ENVS.find((name) => envOr(name, ""));
 }
 
 function requiredStripeKey() {
@@ -337,10 +419,14 @@ function validateStripeTestKey(key) {
   if (key.startsWith("sk_live_") || key.startsWith("rk_live_")) {
     fail("live-mode Stripe keys are refused; use a test-mode sk_test_ or rk_test_ key");
   }
-  if (!key.startsWith("sk_test_") && !key.startsWith("rk_test_")) {
+  if (!isStripeTestKey(key)) {
     fail("STRIPE_SECRET_KEY or STRIPE_TEST_KEY must be a test-mode sk_test_ or rk_test_ key");
   }
   return key;
+}
+
+function isStripeTestKey(key) {
+  return key.startsWith("sk_test_") || key.startsWith("rk_test_");
 }
 
 function option(name) {
@@ -349,10 +435,12 @@ function option(name) {
 }
 
 function usage(code) {
-  console.error("usage: node scripts/stripe-spt-charge.mjs --demo [--receipt-dir DIR]");
+  console.error("usage:");
+  console.error("  node scripts/stripe-spt-charge.mjs --check");
+  console.error("  node scripts/stripe-spt-charge.mjs --demo [--receipt-dir DIR]");
   console.error("");
   console.error("env:");
-  console.error("  STRIPE_SECRET_KEY          test-mode sk_test_ key for live demo mode");
+  console.error("  STRIPE_SECRET_KEY          test-mode sk_test_ or rk_test_ key for live demo mode");
   console.error("  STRIPE_TEST_KEY            backwards-compatible test-mode sk_test_ or rk_test_ key");
   console.error("  STRIPE_WEBHOOK_SECRET      whsec_ signing secret required for live demo mode");
   console.error("  RUNX_STRIPE_DEMO_MODE      auto (default), mock, or live");
@@ -362,4 +450,8 @@ function usage(code) {
 function fail(message) {
   console.error(`stripe-spt-charge: ${message}`);
   process.exit(1);
+}
+
+function write(value) {
+  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }

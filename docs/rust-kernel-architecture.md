@@ -1,9 +1,8 @@
 # Rust kernel architecture
 
-Status: draft, prerequisite for `rust-runx-cli-placeholder`,
-`rust-cli-feature-parity-matrix`, `rust-kernel-parity-fixtures`,
-`rust-state-machine-parity`, `rust-policy-parity`, and
-`rust-parity-ci-governance`.
+Status: historical architecture note. The Rust local runtime has cut over; the
+older Rust parity prerequisite specs named by this document are archival context,
+not active release blockers.
 
 This document captures the architectural decisions that the Rust parity
 specs depend on. The goal is to make the choices explicit once, so each spec

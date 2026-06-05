@@ -1,0 +1,72 @@
+{
+  "schema": "runx.demo_inventory.v1",
+  "featured": [
+    {
+      "path": "examples/hello-world",
+      "proof": "Native CLI top-level skill and harness baseline.",
+      "command": "runx harness examples/hello-world"
+    },
+    {
+      "path": "examples/github-mcp-hero",
+      "proof": "Governed GitHub MCP read succeeds, out-of-scope write is refused, denial receipt verifies offline.",
+      "command": "sh examples/github-mcp-hero/run.sh"
+    },
+    {
+      "path": "examples/http-graph",
+      "proof": "Governed HTTP front call against a local fixture seals a receipt tree.",
+      "command": "sh examples/http-graph/run.sh"
+    },
+    {
+      "path": "examples/openapi-graph",
+      "proof": "OpenAPI-described operation executes through the governed external-adapter lane and seals.",
+      "command": "sh examples/openapi-graph/run.sh"
+    },
+    {
+      "path": "examples/governed-spend",
+      "proof": "Payment authority, over-cap refusal, x402/Stripe dogfood receipts, and offline verification.",
+      "command": "pnpm demos:check && pnpm x402:dogfood:local"
+    }
+  ],
+  "runnable_preview": [
+    {
+      "path": "examples/byo-http-graph",
+      "command": "sh examples/byo-http-graph/run.sh"
+    },
+    {
+      "path": "examples/external-adapter-graph",
+      "command": "runx harness examples/external-adapter-graph"
+    },
+    {
+      "path": "examples/hello-graph",
+      "command": "runx harness examples/hello-graph/harness.yaml"
+    },
+    {
+      "path": "examples/http-tool-catalog",
+      "command": "sh examples/http-tool-catalog/run.sh"
+    },
+    {
+      "path": "examples/managed-agent",
+      "command": "runx harness examples/managed-agent"
+    },
+    {
+      "path": "examples/post-merge-publish",
+      "command": "runx harness examples/post-merge-publish/final-outcome.yaml"
+    },
+    {
+      "path": "examples/thread-outbox-provider-graph",
+      "command": "runx harness examples/thread-outbox-provider-graph"
+    }
+  ],
+  "fixture_support": [
+    "examples/adapter-kit",
+    "examples/byo-http-tool",
+    "examples/external-adapter-tool",
+    "examples/host-protocol",
+    "examples/http-tool",
+    "examples/openapi-tool",
+    "examples/post-merge-final-outcome-publisher",
+    "examples/thread-outbox-provider-fetch",
+    "examples/thread-outbox-provider-fixture",
+    "examples/thread-outbox-provider-push"
+  ]
+}

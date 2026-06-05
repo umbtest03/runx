@@ -2,10 +2,9 @@
 // oracle plus stable-json case oracle) belong next to the writer they pin.
 use std::io::{self, Write};
 
+use crate::ReceiptError;
 use runx_contracts::{JsonNumber, JsonValue, Receipt, sha256_prefixed};
 use serde::Serialize;
-
-use crate::ReceiptError;
 
 pub fn canonical_receipt_json(receipt: &Receipt) -> Result<String, ReceiptError> {
     let value = receipt_value(receipt)?;
@@ -49,10 +48,10 @@ pub fn content_addressed_receipt_id(receipt: &Receipt) -> Result<String, Receipt
 }
 
 fn receipt_value(receipt: &Receipt) -> Result<JsonValue, ReceiptError> {
-    let value = serde_json::to_value(receipt).map_err(|source| ReceiptError::Serialization {
+    let json = serde_json::to_string(receipt).map_err(|source| ReceiptError::Serialization {
         message: source.to_string(),
     })?;
-    serde_json::from_value(value).map_err(|source| ReceiptError::Serialization {
+    serde_json::from_str(&json).map_err(|source| ReceiptError::Serialization {
         message: source.to_string(),
     })
 }

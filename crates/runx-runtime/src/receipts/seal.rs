@@ -614,8 +614,10 @@ fn collect_credential_delivery_refs(metadata: &JsonObject, refs: &mut StepOutput
     let Some(value) = metadata.get(CREDENTIAL_DELIVERY_OBSERVATIONS_METADATA) else {
         return;
     };
-    let Ok(observations) = serde_json::to_value(value)
-        .and_then(serde_json::from_value::<Vec<CredentialDeliveryObservation>>)
+    let Ok(encoded) = serde_json::to_string(value) else {
+        return;
+    };
+    let Ok(observations) = serde_json::from_str::<Vec<CredentialDeliveryObservation>>(&encoded)
     else {
         return;
     };
@@ -1063,10 +1065,10 @@ mod tests {
             observed_at: "2026-05-28T00:00:00Z".into(),
         };
         let mut metadata = JsonObject::new();
+        let observation_json = serde_json::to_string(&vec![observation])?;
         metadata.insert(
             CREDENTIAL_DELIVERY_OBSERVATIONS_METADATA.to_owned(),
-            serde_json::to_value(vec![observation])
-                .and_then(serde_json::from_value::<JsonValue>)?,
+            serde_json::from_str::<JsonValue>(&observation_json)?,
         );
         Ok(SkillOutput {
             status: InvocationStatus::Success,

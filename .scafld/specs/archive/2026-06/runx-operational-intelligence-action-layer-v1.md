@@ -2,9 +2,9 @@
 spec_version: '2.0'
 task_id: runx-operational-intelligence-action-layer-v1
 created: '2026-05-27T14:41:04Z'
-updated: '2026-06-04T22:43:40Z'
+updated: '2026-06-05T04:15:27Z'
 status: completed
-harden_status: needs_revision
+harden_status: not_run
 size: large
 risk_level: high
 ---

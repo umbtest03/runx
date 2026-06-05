@@ -42,19 +42,25 @@ for (const field of ["main", "types", "exports", "dependencies", "devDependencie
     throw new Error(`CLI selector package must not declare ${field}`);
   }
 }
-for (const platform of supportedPlatforms) {
-  const packageName = `@runxhq/cli-${platform}`;
-  assertEqual(
-    manifest.optionalDependencies?.[packageName],
-    manifest.version,
-    `optionalDependencies.${packageName} must match the selector version`,
+// The workspace manifest intentionally omits native optionalDependencies so
+// local installs do not resolve platform packages before a coordinated release.
+// `scripts/package-rust-cli.ts` emits them into the publish artifact, and
+// `scripts/check-rust-cli-release-artifacts.ts` verifies that release shape.
+if (Object.hasOwn(manifest, "optionalDependencies")) {
+  for (const platform of supportedPlatforms) {
+    const packageName = `@runxhq/cli-${platform}`;
+    assertEqual(
+      manifest.optionalDependencies?.[packageName],
+      manifest.version,
+      `optionalDependencies.${packageName} must match the selector version`,
+    );
+  }
+  assertArrayEqual(
+    Object.keys(manifest.optionalDependencies ?? {}).sort(),
+    supportedPlatforms.map((platform) => `@runxhq/cli-${platform}`).sort(),
+    "CLI selector optional dependencies changed",
   );
 }
-assertArrayEqual(
-  Object.keys(manifest.optionalDependencies ?? {}).sort(),
-  supportedPlatforms.map((platform) => `@runxhq/cli-${platform}`).sort(),
-  "CLI selector optional dependencies changed",
-);
 
 const topology = JSON.parse(await readFile(path.join(cliPackageRoot, "native", "supported-platforms.json"), "utf8"));
 assertEqual(topology.schema, "runx.rust_cli_selector_topology.v1", "topology manifest schema changed");
