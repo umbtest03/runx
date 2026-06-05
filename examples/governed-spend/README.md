@@ -44,6 +44,27 @@ operator-keyed testnet transcript. Without those keys it writes a deterministic
 mock transcript. In both modes the offline receipts are real signed artifacts:
 one scoped x402 spend, then one over-run-cap refusal before money moves.
 
+## Stripe SPT test-mode demo
+
+```bash
+./stripe-spt.sh
+```
+
+Without Stripe environment variables this writes a deterministic mock transcript.
+With Stripe test-mode credentials exported in the calling shell, it performs a
+real Stripe SPT test-mode charge and verifies both receipts offline:
+
+```bash
+export STRIPE_SECRET_KEY=sk_test_...
+export STRIPE_WEBHOOK_SECRET=whsec_...
+export RUNX_STRIPE_DEMO_MODE=live
+./stripe-spt.sh
+```
+
+`STRIPE_TEST_KEY` is still accepted for older local setups. Live-mode keys are
+refused; the script accepts only `sk_test_` or `rk_test_` keys and never writes
+Stripe credentials to the receipt directory.
+
 ## Tweak it
 
 In [`skills/overspend-refused/X.yaml`](skills/overspend-refused/X.yaml), raise the
@@ -54,5 +75,7 @@ same agent now fulfills, because the spend is within its authority.
 
 The kernel, the quote/reserve/fulfill graph, the fail-closed authority subset proof,
 the authority admission that refuses before any rail, and signed receipts are real and ship today. The
-rails run through deterministic test supervisors, not live providers, so nothing
-settles on-chain. The refusal needs no rail, which is the point.
+rails run through deterministic test supervisors by default. The optional Stripe
+SPT script can call Stripe test mode when operator-provided test credentials are
+present; x402 still requires the separate Base Sepolia rail build. The refusal
+needs no rail, which is the point.

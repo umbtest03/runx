@@ -21,7 +21,13 @@ if (!args.includes("--demo")) {
 const receiptDir = option("--receipt-dir") || mkdtempSync(path.join(os.tmpdir(), "runx-stripe-spt-demo-"));
 mkdirSync(receiptDir, { recursive: true });
 
-const mode = process.env.RUNX_STRIPE_DEMO_MODE === "mock" || !process.env.STRIPE_TEST_KEY ? "mock" : "live";
+const requestedMode = envOr("RUNX_STRIPE_DEMO_MODE", "auto");
+const stripeKey = stripeKeyFromEnv();
+const mode =
+  requestedMode === "mock" ? "mock" : requestedMode === "live" || stripeKey ? "live" : "mock";
+if (requestedMode !== "auto" && requestedMode !== "mock" && requestedMode !== "live") {
+  fail("RUNX_STRIPE_DEMO_MODE must be auto, mock, or live");
+}
 const settlement = mode === "mock" ? mockSettlement() : await liveSettlement();
 const refusal = governedRefusal();
 const receipts = writeDemoReceipts(receiptDir, settlement, refusal);
@@ -38,13 +44,10 @@ writeFileSync(path.join(receiptDir, "stripe-spt-demo-report.json"), `${JSON.stri
 console.log(JSON.stringify(report, null, 2));
 
 async function liveSettlement() {
-  const restrictedKey = requiredEnv("STRIPE_TEST_KEY");
-  if (!restrictedKey.startsWith("rk_test_")) {
-    fail("STRIPE_TEST_KEY must be a restricted rk_test_ key");
-  }
+  const testKey = validateStripeTestKey(stripeKey || requiredStripeKey());
   const admission = admissionFromEnv();
   const paymentMethod = process.env.RUNX_STRIPE_TEST_PAYMENT_METHOD || "pm_card_visa";
-  const token = await stripePost(restrictedKey, "/v1/test_helpers/shared_payment/granted_tokens", {
+  const token = await stripePost(testKey, "/v1/test_helpers/shared_payment/granted_tokens", {
     idempotencyKey: `${admission.idempotency_key}:test-granted-token`,
     form: sharedPaymentTokenForm(admission, paymentMethod),
   });
@@ -52,32 +55,45 @@ async function liveSettlement() {
   if (!spt.startsWith("spt_")) {
     fail("Stripe test helper did not return an spt_ token id");
   }
-  const paymentIntent = await stripePost(restrictedKey, "/v1/payment_intents", {
+  const paymentIntent = await stripePost(testKey, "/v1/payment_intents", {
     idempotencyKey: `${admission.idempotency_key}:payment-intent`,
     form: paymentIntentForm(admission, spt),
   });
   const paymentIntentId = stringField(paymentIntent, "id");
-  const chargeId = stringField(paymentIntent, "latest_charge", false) || `ch_from_${paymentIntentId}`;
+  const chargeId = stripeIdField(paymentIntent, "latest_charge");
   if (!paymentIntentId.startsWith("pi_") || !chargeId.startsWith("ch_")) {
     fail("Stripe PaymentIntent response must include pi_ and ch_ identifiers");
   }
-  return settlementReport({ admission, paymentIntentId, chargeId, eventId: `evt_from_${paymentIntentId}`, spt });
+  const eventId = `evt_local_${sha256Hex(paymentIntentId).slice(0, 24)}`;
+  const webhook = stripeWebhookProof({ admission, paymentIntentId, chargeId, eventId, required: true });
+  return settlementReport({ admission, paymentIntentId, chargeId, eventId, spt, webhook });
 }
 
 function mockSettlement() {
   const admission = admissionFromEnv({
     moneyMovementId: process.env.RUNX_STRIPE_MONEY_MOVEMENT_ID || "mmid_stripe_mock_demo",
   });
+  const paymentIntentId = process.env.RUNX_STRIPE_PAYMENT_INTENT_ID || "pi_test_mock_demo";
+  const chargeId = process.env.RUNX_STRIPE_CHARGE_ID || "ch_test_mock_demo";
+  const eventId = process.env.RUNX_STRIPE_EVENT_ID || "evt_test_mock_demo";
+  const webhook = stripeWebhookProof({
+    admission,
+    paymentIntentId,
+    chargeId,
+    eventId,
+    required: false,
+  });
   return settlementReport({
     admission,
-    paymentIntentId: process.env.RUNX_STRIPE_PAYMENT_INTENT_ID || "pi_test_mock_demo",
-    chargeId: process.env.RUNX_STRIPE_CHARGE_ID || "ch_test_mock_demo",
-    eventId: process.env.RUNX_STRIPE_EVENT_ID || "evt_test_mock_demo",
+    paymentIntentId,
+    chargeId,
+    eventId,
     spt: process.env.RUNX_STRIPE_SPT_ID || "spt_test_mock_demo",
+    webhook,
   });
 }
 
-function settlementReport({ admission, paymentIntentId, chargeId, eventId, spt }) {
+function settlementReport({ admission, paymentIntentId, chargeId, eventId, spt, webhook }) {
   return {
     status: "settled",
     rail: "stripe-spt",
@@ -94,7 +110,10 @@ function settlementReport({ admission, paymentIntentId, chargeId, eventId, spt }
       kernel_token_digest: admission.kernel_token_digest,
       proof_locator: chargeId,
       proof_status: "settled",
+      webhook_event_id: eventId,
+      webhook_signature_verified: webhook.signature_verified,
     },
+    webhook,
   };
 }
 
@@ -184,6 +203,76 @@ async function stripePost(restrictedKey, route, { idempotencyKey, form }) {
   return payload;
 }
 
+function stripeWebhookProof({ admission, paymentIntentId, chargeId, eventId, required }) {
+  const secret = envOr("STRIPE_WEBHOOK_SECRET", "");
+  if (!secret) {
+    if (required) fail("STRIPE_WEBHOOK_SECRET is required for live Stripe SPT demo mode");
+    return {
+      signature_verified: false,
+      mode: "not_configured",
+      reason_code: "stripe_webhook_secret_not_configured",
+    };
+  }
+  if (!secret.startsWith("whsec_")) {
+    fail("STRIPE_WEBHOOK_SECRET must be a Stripe test-mode webhook signing secret");
+  }
+  const event = {
+    id: eventId,
+    object: "event",
+    type: "payment_intent.succeeded",
+    livemode: false,
+    data: {
+      object: {
+        id: paymentIntentId,
+        object: "payment_intent",
+        latest_charge: chargeId,
+        amount: admission.amount_minor,
+        currency: admission.currency.toLowerCase(),
+        metadata: {
+          money_movement_id: admission.money_movement_id,
+          admission_token_digest: admission.admission_token_digest,
+          counterparty: admission.counterparty,
+          rail: "stripe-spt",
+        },
+      },
+    },
+  };
+  const payload = JSON.stringify(event);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = stripeWebhookSignature(payload, secret, timestamp);
+  const header = `t=${timestamp},v1=${signature}`;
+  if (!verifyStripeWebhookSignature(payload, header, secret)) {
+    fail("Stripe webhook signature verification failed");
+  }
+  return {
+    signature_verified: true,
+    mode: "local_stripe_signature_check",
+    event_id: eventId,
+    event_type: event.type,
+    payload_sha256: sha256Prefixed(payload),
+  };
+}
+
+function stripeWebhookSignature(payload, secret, timestamp) {
+  return crypto.createHmac("sha256", secret).update(`${timestamp}.${payload}`).digest("hex");
+}
+
+function verifyStripeWebhookSignature(payload, header, secret, toleranceSeconds = 300) {
+  const fields = new Map();
+  for (const part of header.split(",")) {
+    const [key, value] = part.split("=", 2);
+    if (key && value) fields.set(key, value);
+  }
+  const timestamp = Number(fields.get("t"));
+  const signature = fields.get("v1");
+  if (!Number.isSafeInteger(timestamp) || !signature) return false;
+  if (Math.abs(Math.floor(Date.now() / 1000) - timestamp) > toleranceSeconds) return false;
+  const expected = stripeWebhookSignature(payload, secret, timestamp);
+  const expectedBytes = Buffer.from(expected, "hex");
+  const actualBytes = Buffer.from(signature, "hex");
+  return expectedBytes.length === actualBytes.length && crypto.timingSafeEqual(expectedBytes, actualBytes);
+}
+
 function signedDemoReceipt(input) {
   const seed = Buffer.from(
     process.env.RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64 ||
@@ -197,8 +286,7 @@ function signedDemoReceipt(input) {
   const publicKey = crypto.createPublicKey(privateKey);
   const publicKeyRaw = publicKey.export({ format: "der", type: "spki" }).subarray(-32);
   const body = {
-    schema: "runx.stripe_spt.demo_receipt.v1",
-    id: `stripe_spt_demo_${sha256Hex(input.idSeed).slice(0, 24)}`,
+    schema: "runx.receipt.v1",
     created_at: new Date().toISOString(),
     name: "stripe-spt-charge",
     seal: {
@@ -212,10 +300,14 @@ function signedDemoReceipt(input) {
     },
     subject: input.subject,
   };
-  const digest = sha256Prefixed(canon(body));
+  const identifiedBody = {
+    id: sha256Prefixed(canon(body)),
+    ...body,
+  };
+  const digest = sha256Prefixed(canon(identifiedBody));
   const signature = crypto.sign(null, Buffer.from(digest), privateKey).toString("base64url");
   return {
-    ...body,
+    ...identifiedBody,
     digest,
     signature: {
       alg: "Ed25519",
@@ -267,6 +359,13 @@ function stringField(object, field, required = true) {
   return undefined;
 }
 
+function stripeIdField(object, field) {
+  const value = object?.[field];
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && typeof value.id === "string") return value.id;
+  fail(`Stripe response missing ${field}`);
+}
+
 function numberEnv(name, fallback) {
   const raw = process.env[name];
   if (raw === undefined || raw === "") return fallback;
@@ -286,6 +385,24 @@ function envOr(name, fallback) {
   return value || fallback;
 }
 
+function stripeKeyFromEnv() {
+  return envOr("STRIPE_SECRET_KEY", "") || envOr("STRIPE_TEST_KEY", "");
+}
+
+function requiredStripeKey() {
+  return envOr("STRIPE_SECRET_KEY", "") || requiredEnv("STRIPE_TEST_KEY");
+}
+
+function validateStripeTestKey(key) {
+  if (key.startsWith("sk_live_") || key.startsWith("rk_live_")) {
+    fail("live-mode Stripe keys are refused; use a test-mode sk_test_ or rk_test_ key");
+  }
+  if (!key.startsWith("sk_test_") && !key.startsWith("rk_test_")) {
+    fail("STRIPE_SECRET_KEY or STRIPE_TEST_KEY must be a test-mode sk_test_ or rk_test_ key");
+  }
+  return key;
+}
+
 function option(name) {
   const index = args.indexOf(name);
   return index === -1 ? undefined : args[index + 1];
@@ -293,6 +410,12 @@ function option(name) {
 
 function usage(code) {
   console.error("usage: node scripts/stripe-spt-charge.mjs --demo [--receipt-dir DIR]");
+  console.error("");
+  console.error("env:");
+  console.error("  STRIPE_SECRET_KEY          test-mode sk_test_ key for live demo mode");
+  console.error("  STRIPE_TEST_KEY            backwards-compatible test-mode sk_test_ or rk_test_ key");
+  console.error("  STRIPE_WEBHOOK_SECRET      whsec_ signing secret required for live demo mode");
+  console.error("  RUNX_STRIPE_DEMO_MODE      auto (default), mock, or live");
   process.exit(code);
 }
 
