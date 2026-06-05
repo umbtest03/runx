@@ -2,11 +2,11 @@
 spec_version: '2.0'
 task_id: runx-hosted-ops-v1
 created: '2026-06-04T06:20:35Z'
-updated: '2026-06-04T06:20:35Z'
+updated: '2026-06-05T03:25:35Z'
 status: draft
 harden_status: not_run
-size: medium
-risk_level: medium
+size: large
+risk_level: high
 ---
 
 # runx-hosted-ops-v1
@@ -16,119 +16,120 @@ risk_level: medium
 Status: draft
 Current phase: none
 Next: approve
-Reason: draft created
-Blockers: none
+Reason: last readiness lane; hosted launch work starts only after OSS gates, demos, action layer, outbox, live rails, and release readiness are clean
+Blockers: runx-release-readiness-v1 should land first
 Allowed follow-up command: `scafld approve runx-hosted-ops-v1`
 Latest runner update: none
 Review gate: not_started
 
-Roadmap: Wave 4 (later). Sequenced AFTER the magnet + heroes; these gate a public
-hosted launch, not the demo. Cloud is edit-restricted — this scopes work, the
-cloud team executes.
-
 ## Summary
 
-The hosted-product + ops initiatives for runx beyond the local CLI. The hosted
-layer is further along than the docs imply but built on a spawn-per-run / serial-
-drain topology, not the resident-kernel keystone the docs name. This scopes: the
-resident-kernel transport (kernel run once behind the cloud-to-kernel bridge, with
-per-principal isolation, not one binary per user — the unbuilt scaling keystone) +
-process lifecycle at scale (general pooling / crash-recovery across many
-integrations, beyond today's MCP session pooling); deploy ops (secrets, backups,
-manifests, readiness — the payment-finality worker/config shape); marketplace trust
-hardening (non-GitHub author verification, maturity-graduation automation, a
-moderation/abuse surface); hosted product UX; and issuer-key publication.
+Hosted ops is not a demo lane. It is the public hosted-launch lane after the OSS
+surface is sealed: resident-kernel transport, process lifecycle, isolation,
+secrets, backups, readiness, marketplace trust, issuer key publication, and cloud
+operational UX. The local OSS kernel remains the source of truth; hosted wraps it
+with production lifecycle and trust machinery.
 
 ## Objectives
 
-- Resident-kernel transport: the kernel runs once behind the Phase-0 bridge with
-  per-principal isolation (the scaling keystone), replacing spawn-per-run for
-  hosted multi-tenant.
-- Process lifecycle at scale: pooling, crash recovery, graceful degradation across
-  dozens of concurrent integrations.
-- Deploy ops: secrets, backups, deploy manifests, readiness gates that match the
-  running processes (no parsed-but-unused flags).
-- Marketplace trust hardening + hosted UX + issuer-key (JWKS) publication.
+- Resident-kernel transport behind the cloud-to-kernel bridge, with per-principal
+  isolation and no spawn-per-run scaling bottleneck for steady hosted operation.
+- Process lifecycle: pooling, crash recovery, graceful drain, observability, and
+  bounded concurrency across many integrations.
+- Deploy ops: secrets, backups, manifests, readiness probes, rollback, and
+  operational runbooks that match the running processes.
+- Marketplace trust: non-GitHub author verification, maturity graduation,
+  moderation/abuse handling, and public issuer JWKS publication.
+- Hosted UX only after the operational substrate exists.
 
 ## Scope
 
 In scope:
-- The resident-kernel transport + process lifecycle keystone; deploy ops; the
-  marketplace trust gaps (non-GitHub author verification, maturity-graduation
-  automation, moderation/abuse); hosted UX polish.
+- Cloud resident-kernel transport and lifecycle work.
+- Hosted deploy/secrets/backups/readiness.
+- Marketplace trust and issuer key publication.
+- Hosted UX needed to operate the launch safely.
 
 Out of scope:
-- The magnet + heroes (earlier waves); anything gating the demo (this gates the
-  public hosted launch, not the launch demo).
+- Local OSS cleanup, demo gallery work, A2A, new rails, and demo-specific polish.
+- Any fallback that duplicates the OSS kernel semantics in TypeScript.
 
 ## Dependencies
 
-- SHIPPED: the cloud-to-kernel bridge (Phase 0); registry trust tiers + GitHub-app
-  ownership claim + self-publish reindex.
+- `runx-readiness-gate-hardening-v1`
+- `runx-demo-surface-prune-v1`
+- `runx-operational-action-layer-v1`
+- `runx-thread-outbox-product-cutover-v1`
+- `runx-live-rail-verification-v1`
+- `runx-release-readiness-v1`
 
 ## Assumptions
 
-- The current spawn-per-run/serial-drain hosted topology works for low concurrency;
-  the resident-kernel transport is a real rebuild for hosted scale, not a tweak.
-
-## Touchpoints
-
-- The cloud-to-kernel bridge; the hosted worker/runtime-service; deploy manifests +
-  secrets/backups; the marketplace/registry trust surface; the issuer signing key.
+- The existing hosted path can remain spawn-per-run until the resident transport
+  is proven.
+- Hosted code may be edited, but OSS kernel semantics remain authoritative.
 
 ## Risks
 
-- **Topology mismatch.** Resident-kernel is a real rebuild vs spawn-per-run.
-  Mitigation: stage it; keep spawn-per-run until the resident transport is proven.
-- **Cloud edit-restriction.** This spec scopes; the cloud team executes; do not
-  clobber cloud work.
+- **Cloud topology rebuild.** Mitigation: stage resident-kernel transport behind a
+  feature gate and retain current hosted execution until cutover proof is green.
+- **Secret handling drift.** Mitigation: use central secret management and add
+  explicit tests/guards for no secret persistence in receipts/logs.
+- **Marketplace trust gaps.** Mitigation: block public hosted launch until issuer
+  keys, author verification, and moderation surfaces exist.
 
 ## Acceptance
 
-Profile: standard
+Profile: strict
 
 Validation:
-- A resident kernel serves multiple principals with isolation behind the bridge;
-  process lifecycle handles N concurrent integrations with crash recovery; deploy
-  ops (secrets/backups/manifests/readiness) are complete and match running
-  processes; marketplace trust gaps closed; issuer pubkey published (JWKS).
+- Hosted resident kernel serves multiple principals with isolation.
+- Lifecycle tests prove crash recovery, drain, and concurrency limits.
+- Deploy readiness checks cover secrets, backups, manifests, and rollback.
+- Marketplace trust checks cover author verification, maturity, moderation, and
+  JWKS publication.
+- No cloud TypeScript path reimplements OSS kernel decisions.
 
-## Phase 1: Resident-kernel transport + process lifecycle
+## Phase 1: Resident-kernel transport
 
 Status: pending
-Dependencies: cloud-to-kernel bridge (shipped)
+Dependencies: release readiness
 
-Objective: hosted multi-tenant runs the kernel once, per-principal isolated, with
-real process lifecycle.
-
-Changes:
-- Resident-kernel transport behind the bridge; pooling/crash-recovery/lifecycle.
+Objective: hosted execution uses a resident kernel with per-principal isolation.
 
 Acceptance:
-- [ ] `ac1` manual - resident kernel serves multiple principals with isolation + recovery
+- [ ] `p1_ac1` manual - resident kernel isolation and lifecycle proof
   - Expected kind: `manual`
   - Status: pending
 
-## Phase 2: Deploy ops + marketplace trust + hosted UX
+## Phase 2: Deploy ops and lifecycle
 
 Status: pending
 Dependencies: Phase 1
 
-Objective: a public hosted launch is operationally ready.
-
-Changes:
-- Secrets/backups/manifests/readiness; non-GitHub author verification + maturity
-  automation + moderation; issuer pubkey (JWKS) publication; hosted UX.
+Objective: production operations are explicit and tested.
 
 Acceptance:
-- [ ] `ac2` manual - deploy ops + marketplace trust + key publication complete
+- [ ] `p2_ac1` manual - secrets/backups/manifests/readiness/rollback proof
+  - Expected kind: `manual`
+  - Status: pending
+
+## Phase 3: Marketplace trust and hosted UX
+
+Status: pending
+Dependencies: Phase 2
+
+Objective: public hosted launch is trust-ready.
+
+Acceptance:
+- [ ] `p3_ac1` manual - marketplace trust and JWKS publication proof
   - Expected kind: `manual`
   - Status: pending
 
 ## Rollback
 
-- Staged; keep spawn-per-run until the resident transport is proven. Cloud-side;
-  no OSS kernel change required.
+- Keep spawn-per-run hosted execution available until resident-kernel transport is
+  proven. Revert hosted transport/lifecycle changes together.
 
 ## Review
 
@@ -148,12 +149,12 @@ Findings:
 
 ## Metadata
 
-- created_by: scafld
+- created_by: codex
 
 ## Origin
 
-Created by: scafld
-Source: plan
+Created by: Codex
+Source: operator readiness queue
 
 ## Harden Rounds
 
