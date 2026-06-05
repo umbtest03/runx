@@ -23,6 +23,32 @@ export RUNX_RECEIPT_SIGN_ISSUER_TYPE=hosted
 
 ## Payment Demo Gate
 
+For a zero-funded local dogfood run:
+
+```sh
+pnpm x402:dogfood:local
+```
+
+This runs the deterministic Runx payment receipt demos and then preflights the
+upstream x402, x402-rs, and CDP live lanes. The receipt demos must pass. The live
+preflights may report missing upstream checkouts, credentials, or funded testnet
+wallets; that is expected on a no-account machine and is not counted as a local
+dogfood failure.
+
+What this proves:
+
+- Runx admits bounded payment authority and refuses overspend before a rail call.
+- Settlement and refusal receipt artifacts are signed and verify offline.
+- The independent/live protocol lanes are documented and machine-discoverable.
+
+What this does not prove:
+
+- A real x402 payment settled on Base Sepolia or another public testnet.
+- CDP or another hosted facilitator accepted a live settlement.
+- A real wallet/provider key was usable.
+
+For the stricter payment demo gate only:
+
 ```sh
 pnpm demos:check
 ```
