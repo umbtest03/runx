@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: test-surface-build-consolidation
 created: '2026-05-27T13:45:00Z'
-updated: '2026-06-04T20:50:02Z'
-status: review
+updated: '2026-06-05T01:13:56Z'
+status: completed
 harden_status: not_run
 size: large
 risk_level: medium
@@ -13,13 +13,13 @@ risk_level: medium
 
 ## Current State
 
-Status: review
+Status: completed
 Current phase: final
-Next: complete
-Reason: review gate pass: 2 finding(s), 0 completion blocker(s)
+Next: done
+Reason: finalization receipt passed
 Blockers: none
-Allowed follow-up command: `scafld complete test-surface-build-consolidation`
-Latest runner update: 2026-06-05T01:00:10Z
+Allowed follow-up command: `none`
+Latest runner update: 2026-06-05T01:11:48Z
 Review gate: pass
 
 ## Summary
@@ -237,6 +237,24 @@ Optional, lower priority:
     run `26988331644`; each includes the Rust checks step with
     `cargo nextest run --workspace --all-features`.
 
+## Phase 3: Closure Evidence
+
+Status: pass
+Dependencies: none
+
+Objective: record post-review readiness evidence in the scafld ledger after the
+
+Changes:
+- none
+
+Acceptance:
+- [x] `p3_ac1` command - fast readiness suite stays green
+  - Command: `pnpm verify:fast`
+  - Expected kind: `exit_code_zero`
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-21
+
 ## Rollback
 
 - Phase 1 is the high-value change and the only one touching test layout. Each
@@ -253,36 +271,31 @@ Verdict: pass
 Mode: discover
 Provider: claude:claude-opus-4-8
 Output: claude.mcp_submit_review
-Summary: Discover-mode re-review of the test-build consolidation. No task changes since the prior passing review (baseline clean, task_changes none, ambient_drift none); the implementation landed in earlier commits, so this is an independent re-verification of delivered work. Confirmed directly: all 7 spec-listed crates (runtime/contracts/cli/core/receipts/parser/sdk) set autotests=false AND declare a `[[test]] name="integration" path="tests/integration.rs"` target. runtime/tests/integration.rs declares exactly 42 sibling modules matching the 42 tests/*.rs files on disk; cli declares 13 test modules plus `support` (resolved via tests/support/mod.rs). A glob for crates/*/tests/*/main.rs returns nothing, so the directory-target guard neither false-fails nor masks coverage loss. The guard runs in verify:fast's unconditional source-checks group (verify-fast.mjs:45) and CI runs pnpm verify:fast (ci.yml:52). CI gates intact: nextest + cargo test --doc + heavy-graph (ci.yml:84-87,76-77), prebuilt advisory tools via taiki-e/install-action with no cargo install (62-66), Swatinem/rust-cache@v2 workspaces: crates (72-74), and the license-boundary retarget `--test integration -- license_boundary` (ci.yml:95) maps to runtime's declared license_boundary module (integration.rs:28). The previously-flagged directory blind spot (commit 63d9350d) and pub-mod regex brittleness (the mod regex now accepts `pub`/`pub(...)` at column 0, check-integration-test-modules.mjs:57) are both fixed. No completion blockers found. Two low non-blocking items: (1) NEW — the guard verifies tests/integration.rs exists but never enforces the `[[test]]` stanza that autotests=false makes mandatory, so removing that stanza would silently drop a crate's entire integration suite while the guard stays green (current state correct in all 7 crates, so latent only); (2) carry-forward — dod6/p2_ac2 greenness and warm-time evidence rests on external GitHub Actions runs (cited SHAs 995dd53b/905290f7/63d9350d are real repo commits) that a read-only reviewer cannot fetch. No test assertions, fixtures, or coverage removed; no regression introduced.
+Summary: Discover-mode re-review of the test-build consolidation. Session reports baseline clean, task_changes none, ambient_drift none; the implementation landed in earlier commits, so this is an independent re-verification of delivered work. Verified directly: all 7 spec-listed crates (runtime/contracts/cli/core/receipts/parser/sdk) set autotests=false AND declare an explicit [[test]] name="integration" path="tests/integration.rs" target (runtime:88-90, contracts:41-43, cli:52-54, receipts:41-43, parser:37-39, sdk:31-33, core:39-41) — the prior review's guard-missing-test-target-stanza finding is fixed in code (check-integration-test-modules.mjs:76-104,121-128). Module-to-file parity confirmed for every consolidated crate: runtime 42 mods = 42 sibling files, contracts 16=16, cli 13 + support, core 6=6, receipts 3=3, parser 5=5, sdk 3=3; cli's shared support resolves via tests/support/mod.rs. A glob for crates/*/tests/*/main.rs returns nothing, so the directory-target guard neither false-fails nor masks coverage loss. The process-global-mutation ban is currently green: a grep for env::set_var/env::remove_var/set_current_dir across crates/**/tests/**/*.rs returns no matches. Guard wiring intact: verify-fast.mjs:45 runs the guard unconditionally and ci.yml:52 runs pnpm verify:fast. CI gates intact: nextest --all-features (ci.yml:84), cargo test --doc (87), heavy graph (76-77), prebuilt advisory tools via taiki-e/install-action with no cargo install (62-66), Swatinem/rust-cache@v2 workspaces: crates (72-74), and the license-boundary retarget --test integration -- license_boundary (95) maps to runtime's declared mod license_boundary (integration.rs:28). No completion blockers found. Two low non-blocking items: (1) carry-forward — dod6/p2_ac2 greenness and warm-time evidence rests on external GitHub Actions runs a read-only reviewer cannot fetch; (2) NEW — the just-added hasIntegrationTestTarget parser only recognizes double-quoted name/path values, so a valid single-quoted TOML stanza would cause a false guard failure (fails loud, not silent, so safe). No test assertions, fixtures, or coverage removed; no regression introduced.
 
 Attack log:
-- `crates/*/Cargo.toml [[test]] stanza vs autotests=false (dod1/dod5)`: Check whether each autotests=false crate actually declares a [[test]] integration target and whether the guard enforces it -> finding (All 7 crates declare [[test]] name=integration path=tests/integration.rs, so current coverage is intact. But the guard only checks the integration.rs file exists (line 89), not the stanza — a latent silent-coverage-loss gap that is exactly the dod5 promise.)
-- `crates/runx-runtime/tests/integration.rs vs tests/*.rs (dod1)`: Count declared modules against on-disk sibling test files to confirm no file is silently un-compiled -> clean (42 mod declarations (lines 8-49) exactly match 42 tests/*.rs files (glob returned 43 incl integration.rs). support declared and tests/support.rs exists.)
-- `crates/runx-cli/tests/integration.rs + tests/support (regression: shared helper resolution)`: Confirm shared support module resolves and no top-level test file is orphaned -> clean (13 test modules + `mod support;` resolves via tests/support/mod.rs (glob confirmed). moduleHasSource accepts name/mod.rs.)
-- `crates/*/tests/*/main.rs (regression: directory-style targets)`: Search for directory-style integration targets that autotests=false would silently drop or that would trip the guard -> clean (Glob returned no files; the directory check (108-122) neither false-fails nor masks loss.)
-- `scripts/verify-fast.mjs:45 + .github/workflows/ci.yml:52 (guard wiring)`: Confirm the coverage guard actually executes in CI and is not dead code -> clean (verify-fast runs node scripts/check-integration-test-modules.mjs in the unconditional parallel source-checks group; ci.yml runs pnpm verify:fast. Cannot be bypassed silently.)
-- `.github/workflows/ci.yml (dod3/dod4/p2_ac1)`: Confirm nextest + doctest + heavy-graph gates, prebuilt advisory tools with no cargo install, and Swatinem rust-cache -> clean (62-66 taiki-e/install-action installs cargo-nextest,cargo-deny,cargo-public-api; 72-74 rust-cache workspaces:crates; 84 nextest --all-features; 87 cargo test --doc; 76-77 heavy graph. No `cargo install` present.)
-- `.github/workflows/ci.yml:95 (regression: --test retargeting)`: Confirm the license-boundary guard still runs the same module subset after consolidation -> clean (`--test integration -- license_boundary` filters to the license_boundary:: module; runtime integration.rs declares `mod license_boundary;` (line 28). A filter can only narrow, never add coverage gaps.)
-- `scripts/check-integration-test-modules.mjs:57 (prior pub-mod finding)`: Re-check whether the previously-flagged mod-detection regex brittleness was fixed -> clean (Regex now /^(?:pub(?:\s*\([^)]*\))?\s+)?mod\s+.../ accepts plain mod, pub mod, and pub(...) mod at column 0. Prior low finding resolved.)
+- `crates/*/Cargo.toml [[test]] stanza vs autotests=false (prior finding fix)`: Verify each autotests=false crate now declares the explicit [[test]] name=integration path=tests/integration.rs target that the prior review flagged as unenforced -> clean (All 7 crates declare the stanza (runtime:88-90, contracts:41-43, cli:52-54, receipts:41-43, parser:37-39, sdk:31-33, core:39-41) and the guard now enforces it via hasIntegrationTestTarget (mjs:76-104,121-128). Prior guard-missing-test-target-stanza finding is fixed.)
+- `crates/runx-runtime/tests/integration.rs vs tests/*.rs (dod1)`: Count declared modules against on-disk sibling test files to confirm no file is silently un-compiled -> clean (42 mod declarations (lines 8-49) exactly match 42 tests/*.rs sibling files including support.)
+- `contracts/core/receipts/parser/sdk integration.rs vs tests/*.rs (dod1)`: Confirm module/file parity for the remaining consolidated crates -> clean (contracts 16=16, core 6=6, receipts 3=3, parser 5=5, sdk 3=3. Every on-disk test file is declared; every declared module has a file.)
+- `crates/runx-cli/tests/support (regression: shared helper resolution)`: Confirm cli's 13 test modules plus shared support resolve and no top-level file is orphaned -> clean (13 test mods + mod support; support resolves via tests/support/mod.rs (glob confirmed). All 13 sibling .rs files declared.)
+- `crates/*/tests/*/main.rs (regression: directory-style targets)`: Search for directory-style integration targets that autotests=false would silently drop or that would trip the guard -> clean (Glob returned no files; the directory-target guard (mjs:151-163) neither false-fails nor masks loss.)
+- `crates/**/tests/**/*.rs process-global mutation ban (dod5)`: Grep test code for env::set_var/env::remove_var/set_current_dir to confirm the guard's ban is currently green and not silently failing CI -> clean (No matches across all crate test trees, so the banned-mutation scan passes; guard stays green.)
+- `scripts/verify-fast.mjs:45 + .github/workflows/ci.yml:52 (guard wiring)`: Confirm the coverage guard actually executes in CI and is not dead code -> clean (verify-fast.mjs:45 runs node scripts/check-integration-test-modules.mjs; ci.yml:52 runs pnpm verify:fast. Cannot be bypassed silently.)
+- `.github/workflows/ci.yml (dod3/dod4/p2_ac1)`: Confirm nextest + doctest + heavy-graph gates, prebuilt advisory tools with no cargo install, and Swatinem rust-cache -> clean (62-66 taiki-e/install-action installs cargo-nextest,cargo-deny,cargo-public-api; 72-74 rust-cache workspaces:crates; 84 nextest --all-features; 87 cargo test --doc; 76-77 heavy graph. No cargo install present.)
+- `.github/workflows/ci.yml:95 (regression: --test retargeting)`: Confirm the license-boundary guard still runs the same module subset after consolidation -> clean (--test integration -- license_boundary filters to the license_boundary:: module; runtime integration.rs declares mod license_boundary; (line 28). A filter narrows, never widens, coverage gaps.)
+- `scripts/check-integration-test-modules.mjs:97 (guard TOML parsing robustness)`: Probe the just-added stanza detector for parsing gaps that could cause false failures or missed detection -> finding (Assignment regex only accepts double-quoted name/path values; valid single-quoted TOML stanzas would false-fail. Fails loud, not silent. Low non-blocking robustness item.)
 - `dod6/p2_ac2 external CI evidence`: Cross-check cited CI run commit SHAs against git history and assess read-only verifiability of greenness -> finding (SHAs 995dd53b/905290f7/63d9350d are real repo commits, but Actions job greenness and warm-time numbers are not fetchable in read-only mode (low residual).)
-- `workspace classification / spec mutation`: Confirm changes are limited to CI tooling + spec evidence with no out-of-scope drift or production test-logic -> clean (scafld reports baseline clean, task_changes none, ambient_drift none. Guard and ci.yml are CI tooling, not production code; test-logic-separation invariant preserved.)
+- `workspace classification / spec mutation`: Confirm changes are limited to CI tooling + guard + spec evidence with no out-of-scope drift or production test-logic -> clean (scafld reports baseline clean, task_changes none, ambient_drift none. Guard and ci.yml are CI tooling, not production code; test-logic-separation invariant preserved.)
 
 Findings:
-- [medium/non-blocking] `guard-missing-test-target-stanza` Coverage guard does not enforce the [[test]] target stanza that autotests=false makes mandatory.
-  - Location: `oss/scripts/check-integration-test-modules.mjs:89`
-  - Evidence: For an autotests=false crate the guard only checks existsSync(tests/integration.rs) (line 89) and then validates module<->file parity. It never parses Cargo.toml for a `[[test]] name="integration" path="tests/integration.rs"` stanza. Under autotests=false Cargo performs NO automatic target discovery, so without that stanza Cargo compiles zero integration tests for the crate even though integration.rs and all module files still exist on disk. All 7 crates currently declare the stanza (verified: contracts:41, cli:52, parser:37, sdk:31, receipts:41, core:39, runtime:88), so there is no coverage loss today.
-  - Impact: This is the exact dod5 failure mode ('prevents silent coverage loss'). A future edit or merge that drops the [[test]] block (e.g. conflict resolution) would silently remove a crate's entire integration suite while the guard reports green — a larger blind spot than the directory-target case that already warranted a hardening commit (63d9350d).
-  - Validation: Read check-integration-test-modules.mjs:81-133; grepped all 7 Cargo.toml files and confirmed each declares the integration [[test]] target, so the gap is latent not active.
 - [low/non-blocking] `dod6-external-run-unverifiable` dod6/p2_ac2 green-CI and warm-time evidence rests on external GitHub Actions runs not fetchable in read-only review.
   - Location: `oss/.scafld/specs/active/test-surface-build-consolidation.md:177`
-  - Evidence: dod6 cites workflow_dispatch runs 26987384653 (995dd53b), 26987685828 (905290f7), and 26988331644 (63d9350d). The SHAs correspond to real recent commits in this repo, corroborating the references, but a read-only reviewer cannot open the Actions job URLs to confirm the runs were green or the warm wall-time figures.
-  - Impact: Criteria depending on real CI behavior (suite green under nextest; warm wall time reduced) cannot be independently confirmed locally. Operator should open the cited job URLs and confirm green before complete.
+  - Evidence: dod6 cites workflow_dispatch runs 26987384653 (995dd53b), 26987685828 (905290f7), and 26988331644 (63d9350d). The cited SHAs correspond to real recent commits in this repo, corroborating the references, but a read-only reviewer cannot open the Actions job URLs to confirm the runs were green or the warm wall-time figures.
+  - Impact: Criteria depending on real CI behavior (suite green under nextest; warm wall time reduced) cannot be independently confirmed locally.
   - Validation: Cross-checked cited SHAs against the local repo; external run greenness not fetchable in read-only mode.
+- [low/non-blocking] `guard-toml-single-quote-narrow` The integration [[test]] stanza detector only recognizes double-quoted TOML values; a valid single-quoted stanza would trip a false guard failure.
+  - Location: `oss/scripts/check-integration-test-modules.mjs:97`
+  - Evidence: hasIntegrationTestTarget parses name/path via /^([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*"([^"]*)"\s*$/ which only matches double-quoted strings. TOML also permits literal single-quoted strings, so `name = 'integration'` / `path = 'tests/integration.rs'` would not be recognized and the guard would error that the explicit [[test]] target is missing. All 7 crates currently use double quotes, so the path is not exercised today.
+  - Impact: Latent brittleness in the just-added fix. It fails loud (false-positive guard error blocking CI), not silently, so it cannot cause silent coverage loss — the failure mode dod5 guards against is preserved. Low risk.
+  - Validation: Read check-integration-test-modules.mjs:76-104; grepped all 7 Cargo.toml stanzas and confirmed each uses double-quoted name/path values, so the gap is latent, not active.
 
-Post-review follow-up:
-
-- `guard-missing-test-target-stanza` fixed immediately after review by requiring
-  each `autotests = false` crate to declare an explicit `[[test]]` target with
-  `name = "integration"` and `path = "tests/integration.rs"` before the guard
-  trusts `tests/integration.rs`. Verified with
-  `node scripts/check-integration-test-modules.mjs` and `pnpm verify:fast`.

@@ -1,0 +1,72 @@
+{
+  "body": {
+    "schema_version": 1,
+    "task_id": "test-surface-build-consolidation",
+    "session_id": "test-surface-build-consolidation",
+    "verdict": "pass",
+    "snapshot_mode": "working_tree",
+    "base_commit": "27528156fdd4e0137f77d636eb593c71377ed040",
+    "head_commit": "27528156fdd4e0137f77d636eb593c71377ed040",
+    "scope": [
+      ".scafld/specs/active/test-surface-build-consolidation.md",
+      "scripts/check-integration-test-modules.mjs"
+    ],
+    "tree_sha": "04bb6d08ea8c93909e70b1aba6b690173fb48cf0",
+    "file_digests": {
+      "scripts/check-integration-test-modules.mjs": "3ed265415c6ffa5469c59076a336406117d518aa63b8178f84dbb7c3a0165899"
+    },
+    "ignored_unreviewed": [],
+    "reviewed_context_provenance": [
+      {
+        "kind": "evidence_file",
+        "path": "scripts/check-integration-test-modules.mjs",
+        "sha256": "3ed265415c6ffa5469c59076a336406117d518aa63b8178f84dbb7c3a0165899",
+        "bytes": 7792
+      }
+    ],
+    "reviewer": {
+      "provider": "codex",
+      "model": "gpt-5.5",
+      "binary_sha256": "baefc109b871e73a7bab298ee19b8bf73c8b647c4f8649a9794fc5db01db17b9",
+      "endpoint_host": "api.openai.com"
+    },
+    "host_under_review": {
+      "agent": "codex",
+      "session_id": "test-surface-build-consolidation"
+    },
+    "independence": {
+      "level": "isolation_only",
+      "distinct": false,
+      "downgraded": "same_vendor",
+      "reason": "isolation_only: reviewer \"codex\" matches host \"codex\"; the review is isolated but same-vendor, so correlated blind spots remain possible"
+    },
+    "spec_fingerprint": "d28d794dfc849b55295d8087ebd8779c73e341a6e3bfb789dbbb4c69d02bc508",
+    "acceptance_declared": true,
+    "acceptance": [
+      {
+        "id": "p3_ac1",
+        "command": "pnpm verify:fast",
+        "expected_kind": "exit_code_zero",
+        "status": "pass",
+        "reason": "exit code was 0",
+        "output_sha256": "92e46115cabcfa1e71f2466dab5f90aece796f9bc1434da0895283cdb8154051",
+        "diagnostic": ".scafld/runs/test-surface-build-consolidation/diagnostics/command-1780621944663952000.txt"
+      }
+    ],
+    "open_blockers": [],
+    "mutation_guard": {
+      "status": "clean",
+      "scope": [
+        ".scafld/specs/active/test-surface-build-consolidation.md",
+        "scripts/check-integration-test-modules.mjs"
+      ]
+    },
+    "ledger_head": "feab3c6b7cc558b7c7d24892440de437537d9243433f0c4b22520b93ac1fedb6",
+    "minted_at": "2026-06-05T01:11:48Z"
+  },
+  "signature": {
+    "alg": "ed25519",
+    "key_id": "ed25519:RGGe6gUQpsB6KGu0VcnMxGUL5IA1I1VDSKi3ecCzYOU",
+    "sig": "G0ZBbxVyPywlFdCCzgq0bG2q0dwkDg9qEe8ol/JTXoG6d8ROBgSpqRQ3PnX9VqGnL1rqMRfXWxmYfV3SQVgZBw=="
+  }
+}
