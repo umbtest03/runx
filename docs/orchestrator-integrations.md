@@ -4,6 +4,7 @@ The orchestrator integration goal is distribution, not only connectivity:
 
 - a runx listing on n8n's public integrations surface
 - a runx app page in Zapier's public App Directory
+- follow-on listings in adjacent automation, connector, CI, and MCP registries
 - backlinks from those pages to runx-owned landing and support pages
 
 Self-hosted n8n command nodes and webhook templates are useful dogfood, but they
@@ -83,12 +84,188 @@ Proposed public Zapier v1:
 Real blocker: Zapier public listing requires a production HTTPS runx API and
 reviewable test account. Webhook templates alone do not qualify.
 
+## Other Registries We Overlooked
+
+n8n and Zapier are still the first backlink targets because they map cleanly to
+the product story: no-code workflow triggers call a governed runx step. The
+next surfaces should be prioritized by whether they create an indexed public
+listing and whether they can reuse the same hosted run-skill and receipt APIs.
+
+### Priority 0: Same Buyer, Same API
+
+These should sit directly behind n8n and Zapier once the hosted API exists.
+
+**Make**
+
+Target: Make's public integrations surface and community/approved app path.
+
+Make says community apps can be public, appear with other public apps on the
+Integrations page, and can receive a Make landing page with a link to the
+partner's site. A public app can be shared by invite link; an approved app is
+available to all Make users after review.
+
+Proposed Make v1:
+
+- App name: `runx`
+- Module: `Run Skill`
+- Module: `Get Receipt`
+- Optional later module: `Resume Run` only after external resume exists
+- Backlink target: `https://runx.ai/integrations/make`
+
+Real blocker: Make cloud cannot call localhost. The Make app is gated on the
+same production HTTPS run-skill API as Zapier.
+
+**Pipedream**
+
+Target: Pipedream's Marketplace and source-available component registry.
+
+Pipedream verified components are sources and actions curated through a GitHub
+PR process; registered components appear in Pipedream's Marketplace and in the
+workflow builder UI. Private or non-conforming components do not earn the same
+registry value.
+
+Proposed Pipedream v1:
+
+- App integration: `runx`
+- Action: `Run Skill`
+- Action: `Get Receipt`
+- Source later: `New Run Completed` after webhook/resume/event delivery exists
+- Backlink target: `https://runx.ai/integrations/pipedream`
+
+Real blocker: same as Zapier and Make: production HTTPS API, stable auth, and
+reviewable component behavior.
+
+**Microsoft Power Platform**
+
+Target: certified connector pages across Power Automate, Power Apps, Logic
+Apps, and Copilot Studio.
+
+Microsoft connector certification makes a custom connector publicly available,
+adds it to official connector documentation, and gives each connector its own
+public page. This is higher effort than n8n/Zapier, but it is likely the
+strongest enterprise directory surface.
+
+Proposed Power Platform v1:
+
+- Connector name: `runx`
+- Action: `Run Skill`
+- Action: `Get Receipt`
+- No payment/asset-transfer action in public v1
+- Backlink target: `https://runx.ai/integrations/power-automate`
+
+Real blocker: certification needs a production API, stable OpenAPI/connector
+definition, publisher identity, support process, and Microsoft review.
+
+### Priority 1: Developer And OSS Distribution
+
+These are useful backlinks and developer discovery surfaces, but they should not
+pull product/API work ahead of the hosted run-skill seam.
+
+**Node-RED Flow Library**
+
+Target: `flows.nodered.org`.
+
+Node-RED nodes are npm packages and must be manually submitted to the Flow
+Library; publishing to npm with the old keyword path is not enough by itself.
+
+Proposed package:
+
+- `@runxhq/node-red-runx`
+- Node: `runx skill`
+- Node: `runx receipt`
+- Backlink target: `https://runx.ai/integrations/node-red`
+
+This can support self-hosted/local runx better than cloud-only registries, but a
+public package still needs clear credential handling and docs.
+
+**Activepieces**
+
+Target: Activepieces pieces ecosystem.
+
+Activepieces supports publishing pieces by contributing back to the main
+repository, publishing a community npm package, or publishing privately. Pieces
+are TypeScript packages and can expose actions and triggers.
+
+Proposed piece:
+
+- Package: `@activepieces/piece-runx`
+- Action: `Run Skill`
+- Action: `Get Receipt`
+- Trigger later: `Run Completed`
+- Backlink target: `https://runx.ai/integrations/activepieces`
+
+Real blocker: a cloud-usable community piece still needs the hosted runx API.
+
+**GitHub Actions Marketplace**
+
+Target: GitHub Actions Marketplace.
+
+This is CI distribution rather than workflow-orchestrator distribution, but it
+is a low-friction backlink surface for developers. GitHub requires a public
+repository, a single root `action.yml` or `action.yaml`, and a unique action
+metadata `name`.
+
+Proposed action:
+
+- Repository: `runxhq/runx-action`
+- Action name: `runx`
+- Operation: run a governed skill in CI and upload/print receipt metadata
+- Backlink target: `https://runx.ai/integrations/github-actions`
+
+This can start as a CLI wrapper before hosted APIs are complete, but the public
+copy must be explicit that cloud orchestrator use is still hosted-API gated.
+
+**Official MCP Registry**
+
+Target: `registry.modelcontextprotocol.io`.
+
+The official MCP Registry hosts metadata, not artifacts. A server package must
+be published elsewhere first, then described with `server.json` and published
+with `mcp-publisher`.
+
+Proposed MCP listing:
+
+- Package/server name: `io.github.runxhq/runx`
+- Artifact: npm, PyPI, Docker, or a hosted MCP server depending on the packaging
+  decision
+- Backlink target: `https://runx.ai/integrations/mcp`
+
+This is not an n8n/Zapier replacement. It is agent-tool discovery and should be
+listed separately from workflow automation directories.
+
+### Priority 2: Enterprise Or Fit-Dependent Surfaces
+
+These are worth tracking, but only after the smaller public app/package surfaces
+prove demand.
+
+- **Workato**: community connectors and partner connectors can surface in
+  Workato's connector directory/community library. Strong enterprise audience,
+  but partner-led and higher support burden.
+- **IFTTT**: services get dedicated IFTTT service pages and Applets, but the fit
+  is weaker unless runx has consumer/IoT-style triggers and at least a dozen
+  useful Applets ready for review.
+- **Tray.ai**: custom connectors can be built and published/reviewed, but the
+  public backlink route is less direct than Make, Pipedream, or Power Platform.
+- **UiPath Marketplace**: useful if runx becomes an RPA/governed-automation
+  control point. Connector Builder has a publish-to-marketplace flow, but this
+  should follow enterprise demand.
+- **MuleSoft Anypoint Exchange**: relevant for API/enterprise integration and
+  now agent/MCP asset discovery, but mostly valuable when runx has enterprise
+  customers asking for Anypoint assets.
+
 ## Backlink Pack
 
-Before submitting either listing, runx needs stable public pages:
+Before submitting listings, runx needs stable public pages:
 
 - `https://runx.ai/integrations/n8n`
 - `https://runx.ai/integrations/zapier`
+- `https://runx.ai/integrations/make`
+- `https://runx.ai/integrations/pipedream`
+- `https://runx.ai/integrations/power-automate`
+- `https://runx.ai/integrations/node-red`
+- `https://runx.ai/integrations/activepieces`
+- `https://runx.ai/integrations/github-actions`
+- `https://runx.ai/integrations/mcp`
 - `https://runx.ai/docs/orchestrators`
 - `https://runx.ai/security`
 - `https://runx.ai/support`
@@ -138,7 +315,13 @@ That work proves workflow value and receipt shape. It is not the backlink path.
 5. Build a private Zapier integration against production HTTPS APIs.
 6. Run validation, turn on test Zaps, prepare test account, and submit for
    public Zapier App Directory review.
-7. Add Zap templates and embedded links after public approval.
+7. Build Make and Pipedream clients on the same hosted API.
+8. Build Node-RED, Activepieces, GitHub Actions, and MCP packages as developer
+   distribution surfaces.
+9. Evaluate Power Platform certification, Workato, IFTTT, Tray.ai, UiPath, and
+   MuleSoft after the smaller public listings prove demand.
+10. Add templates, embedded links, and co-marketing copy only after each listing
+    is approved or live.
 
 ## Source Links
 
@@ -154,3 +337,25 @@ That work proves workflow value and receipt shape. It is not the backlink path.
   `https://docs.zapier.com/integrations/quickstart/private-vs-public-integrations`
 - Zapier integration checks:
   `https://docs.zapier.com/integrations/publish/integration-checks-reference`
+- Make community apps FAQ:
+  `https://developers.make.com/custom-apps-documentation/community-apps/how-does-it-work`
+- Make app visibility:
+  `https://developers.make.com/custom-apps-documentation/create-your-first-app/app-visibility`
+- Pipedream components:
+  `https://pipedream.com/docs/components`
+- Microsoft connector certification:
+  `https://learn.microsoft.com/en-us/connectors/custom-connectors/submit-certification`
+- Node-RED packaging and Flow Library submission:
+  `https://nodered.org/docs/creating-nodes/packaging`
+- Activepieces sharing pieces:
+  `https://www.activepieces.com/docs/build-pieces/sharing-pieces/overview`
+- Activepieces publish custom pieces:
+  `https://www.activepieces.com/docs/build-pieces/misc/publish-piece`
+- GitHub Actions Marketplace publishing:
+  `https://docs.github.com/en/actions/how-tos/create-and-publish-actions/publish-in-github-marketplace`
+- MCP Registry quickstart:
+  `https://modelcontextprotocol.io/registry/quickstart`
+- Workato community connectors:
+  `https://docs.workato.com/developing-connectors/community/community`
+- IFTTT build your integration:
+  `https://ifttt.com/docs`

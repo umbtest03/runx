@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: runx-export-skills-v1
 created: '2026-06-09T13:18:08Z'
-updated: '2026-06-09T14:25:45Z'
-status: review
+updated: '2026-06-09T14:52:53Z'
+status: completed
 harden_status: not_run
 size: medium
 risk_level: medium
@@ -13,14 +13,14 @@ risk_level: medium
 
 ## Current State
 
-Status: review
+Status: completed
 Current phase: final
-Next: review
-Reason: build completed; ready for review
+Next: done
+Reason: task completed
 Blockers: none
-Allowed follow-up command: `scafld review runx-export-skills-v1`
-Latest runner update: 2026-06-09T14:25:45Z
-Review gate: not_started
+Allowed follow-up command: `none`
+Latest runner update: 2026-06-09T14:52:53Z
+Review gate: pass
 
 ## Summary
 
@@ -203,8 +203,23 @@ Acceptance:
 
 ## Review
 
-Status: not_started
-Verdict: none
+Status: completed
+Verdict: pass
+Mode: verify
+Provider: codex
+Output: codex.output_file
+Summary: Verification pass. The previously reported path traversal and input-name injection blockers are fixed in the runtime export loader and covered by focused export tests. Static review found no completion-blocking regressions in shim rendering, CLI dispatch, Codex rules merging, or managed pruning. Test reruns were blocked by the read-only review sandbox before execution.
+
+Attack log:
+- `.scafld/prompts/review.md; scafld status`: review gate and lifecycle -> clean (Read `.scafld/prompts/review.md` and confirmed `scafld status runx-export-skills-v1 --json` reports status `review` with native review as the next gate.)
+- `workspace status`: workspace classification -> clean (Checked `git status --short`; task-relevant export/runtime/test files are present alongside unrelated ambient drift, so review focused on scoped export changes and did not treat unrelated drift as a task finding.)
+- `crates/runx-runtime/src/export.rs; crates/runx-cli/tests/export.rs`: prior blocker verification: skill name traversal -> clean (Verified `crates/runx-runtime/src/export.rs` rejects exported skill names containing `.`, `..`, `/`, or `\` before shim paths are planned, and `crates/runx-cli/tests/export.rs` covers the escape case.)
+- `crates/runx-runtime/src/export.rs; crates/runx-cli/src/export/shim.rs; crates/runx-cli/tests/export.rs`: prior blocker verification: input flag injection -> clean (Verified `crates/runx-runtime/src/export.rs` now validates input names as safe ASCII identifier-like flags and rejects reserved `runx skill` names before `crates/runx-cli/src/export/shim.rs` interpolates them into the bash block. Tests cover unsafe and reserved names.)
+- `crates/runx-cli/src/export/shim.rs`: shim delegation contract -> clean (Checked Claude/Codex shim rendering. Generated commands still delegate to `runx skill`, global exports use absolute package paths, Claude project exports use project-relative paths, and Codex shims do not add Claude-only `allowed-tools`.)
+- `crates/runx-cli/src/export/managed.rs`: managed write and prune safety -> clean (Checked `write_files`, `prune_managed_files`, and Codex rule merge. Writes create parents, pruning is bounded to target skill directories and target markers, and rules replacement is bounded by explicit managed start/end markers.)
+- `crates/runx-cli/src/launcher.rs; crates/runx-cli/src/main.rs; scripts/generate-cli-feature-parity.ts; crates/runx-cli/tests/launcher.rs`: CLI routing and contract surface -> clean (Checked launcher, main dispatch, help/parity coverage, and tests. `runx export` routes to `RunExport`, native dispatch calls `run_native_export`, help includes the new grammar, and parity metadata includes the export command.)
+- `crates/runx-cli/src/export.rs; crates/runx-runtime/src/export.rs`: runtime boundary and parser ownership -> clean (Checked that the CLI calls `runx_runtime::export::load_export_skills` rather than importing `runx-parser` directly; parser dependency remains runtime-owned.)
+- `cargo test -p runx-cli export; cargo test -p runx-cli launcher`: acceptance rerun -> skipped (Attempted `cd crates && cargo test -p runx-cli export` and `cd crates && cargo test -p runx-cli launcher`; both failed before executing tests because the read-only sandbox cannot open `crates/target/debug/.cargo-lock` (`Operation not permitted`). Relied on recorded scafld pass evidence plus static verification.)
 
 Findings:
 - none
