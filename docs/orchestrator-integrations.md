@@ -41,6 +41,10 @@ Proposed package:
 - Secondary operation after receipts API exists: `Get Receipt`
 - Backlink target: a stable runx-owned n8n integration page, not a GitHub file
 
+Status: clean GitHub repo name reserved at
+`https://github.com/runxhq/n8n-nodes-runx`. No npm package should be published
+until the hosted API exists.
+
 Real blocker: a verified n8n Cloud-usable node needs a production HTTPS runx API.
 The local CLI/MCP path cannot be the verified listing path because n8n Cloud
 cannot run a local shell or reach localhost.
