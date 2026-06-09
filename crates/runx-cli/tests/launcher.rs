@@ -27,7 +27,7 @@ fn top_level_help_and_version_are_native() {
     let help = help_text();
     assert_help_line(
         &help,
-        "runx skill <skill-ref|skill-dir|SKILL.md> [--input k=v] [--receipt-dir dir] [--run-id id] [--answers file] [--json]",
+        "runx skill <skill-ref|skill-dir|SKILL.md> [--runner name] [--input k=v] [--receipt-dir dir] [--run-id id] [--answers file] [--json]",
     );
     assert_help_line(&help, "runx parser eval --input <file|-> --json");
     assert_help_line(
@@ -167,6 +167,8 @@ fn routes_canonical_skill_run_to_native_plan() {
         plan(&[
             "skill",
             "skills/issue-intake",
+            "--runner",
+            "intake",
             "--receipt-dir",
             ".runx/receipts",
             "--run-id",
@@ -175,19 +177,28 @@ fn routes_canonical_skill_run_to_native_plan() {
             "/tmp/answers.json",
             "--json",
             "--non-interactive",
+            "--input",
+            "severity=low",
             "--thread-title",
             "Docs bug",
         ]),
         LauncherAction::RunSkill(SkillPlan {
             skill_path: PathBuf::from("skills/issue-intake"),
+            runner: Some("intake".to_owned()),
             receipt_dir: Some(PathBuf::from(".runx/receipts")),
             run_id: Some("run_agent_task.issue-intake.output".to_owned()),
             answers: Some(PathBuf::from("/tmp/answers.json")),
             json: true,
-            inputs: [(
-                "thread_title".to_owned(),
-                runx_contracts::JsonValue::String("Docs bug".to_owned()),
-            )]
+            inputs: [
+                (
+                    "thread_title".to_owned(),
+                    runx_contracts::JsonValue::String("Docs bug".to_owned()),
+                ),
+                (
+                    "severity".to_owned(),
+                    runx_contracts::JsonValue::String("low".to_owned()),
+                )
+            ]
             .into_iter()
             .collect(),
             local_credential: None,

@@ -11,6 +11,58 @@ Self-hosted n8n command nodes and webhook templates are useful dogfood, but they
 do not earn those listings. A public listing needs an actual package/app that the
 orchestrator can review and expose to users.
 
+## Local CLI Operator Contract
+
+The local CLI is the reference implementation for self-hosted orchestrators and
+operator dogfood. It should feel direct, literal, and governed:
+
+```bash
+runx skill weather-forecast \
+  --input location="Sydney, AU" \
+  --input forecast_evidence='{"provider":"example","periods":[]}' \
+  --json
+
+runx skill nws-weather-forecast \
+  --runner forecast \
+  --office LWX \
+  --grid-x 97 \
+  --grid-y 71
+```
+
+Operator rules:
+
+- Bare local skill names resolve from the current workspace's `skills/`
+  directory.
+- `--input key=value` is the documented portable form; direct flags such as
+  `--office LWX` remain the ergonomic shorthand.
+- `--runner <name>` selects a non-default runner without changing the skill
+  package.
+- `--json` prints the full machine contract. Without `--json`, the CLI prints a
+  concise status view with run id, receipt id, and pending request ids rather
+  than dumping large provider payloads.
+- Exported Claude/Codex skills are shims. If invoked directly by path, the CLI
+  resolves the generated source marker back to the governed runx skill; stale
+  shims fail closed with an instruction to rerun `runx export`.
+
+## Hosted Connector Contract
+
+Cloud orchestrator packages should call the hosted API, not shell out:
+
+- `POST /v1/skills/{skill}/run` is the connector-friendly `Run Skill` action.
+  The `skill` path parameter is the skill reference; use a URL-encoded slash for
+  `owner/name` refs. The JSON body contains `inputs` and optional
+  `idempotency_key`.
+- `POST /v1/skills/{owner}/{name}/run` is the clean owner-scoped route for
+  registry skills.
+- `POST /v1/runs` remains the canonical hosted submission route when the caller
+  prefers body-level `skill`.
+- `GET /v1/runs/{id}` and receipt lookup are the poll/inspect surfaces returned
+  to users and workflow branches.
+
+The remaining directory blocker is production posture: deployed HTTPS,
+reviewable credentials/test accounts, docs, support pages, and a conservative
+public v1 skill policy.
+
 ## Target Surfaces
 
 ### n8n
@@ -43,11 +95,12 @@ Proposed package:
 
 Status: clean GitHub repo name reserved at
 `https://github.com/runxhq/n8n-nodes-runx`. No npm package should be published
-until the hosted API exists.
+until the hosted API is deployed with stable credentials, docs, and a reviewable
+test account.
 
-Real blocker: a verified n8n Cloud-usable node needs a production HTTPS runx API.
-The local CLI/MCP path cannot be the verified listing path because n8n Cloud
-cannot run a local shell or reach localhost.
+Real blocker: a verified n8n Cloud-usable node needs the production HTTPS runx
+API, not just source-level routes. The local CLI/MCP path cannot be the verified
+listing path because n8n Cloud cannot run a local shell or reach localhost.
 
 ## Zapier
 
@@ -97,7 +150,8 @@ listing and whether they can reuse the same hosted run-skill and receipt APIs.
 
 ### Priority 0: Same Buyer, Same API
 
-These should sit directly behind n8n and Zapier once the hosted API exists.
+These should sit directly behind n8n and Zapier once the hosted API is deployed
+and ready for third-party review.
 
 **Make**
 
@@ -136,8 +190,8 @@ Proposed Pipedream v1:
 - Source later: `New Run Completed` after webhook/resume/event delivery exists
 - Backlink target: `https://runx.ai/integrations/pipedream`
 
-Real blocker: same as Zapier and Make: production HTTPS API, stable auth, and
-reviewable component behavior.
+Real blocker: same as Zapier and Make: deployed production HTTPS API, stable
+auth, and reviewable component behavior.
 
 **Microsoft Power Platform**
 

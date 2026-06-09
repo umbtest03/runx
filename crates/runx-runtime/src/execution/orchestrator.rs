@@ -161,6 +161,20 @@ impl LocalOrchestrator {
         Ok(skill_result(output))
     }
 
+    pub fn run_skill_with_runner(
+        &self,
+        request: &SkillRunRequest,
+        runner: &str,
+    ) -> Result<RunResult, OrchestratorError> {
+        let overrides = super::skill_run::SkillRunOverrides {
+            runner: Some(runner.to_owned()),
+            seeded_answers: None,
+        };
+        let output =
+            super::skill_run::execute_skill_run_with_overrides(request, &overrides, &self.effects)?;
+        Ok(skill_result(output))
+    }
+
     pub fn run_graph(&self, request: &GraphRunRequest) -> Result<RunResult, OrchestratorError> {
         #[cfg(feature = "cli-tool")]
         {

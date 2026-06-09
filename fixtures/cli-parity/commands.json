@@ -533,6 +533,7 @@
         "<skill-ref|skill-dir|SKILL.md>"
       ],
       "flags": [
+        "--runner",
         "--input",
         "--receipt-dir",
         "--run-id",

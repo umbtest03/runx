@@ -349,11 +349,9 @@ async function executeLocalSkillCommand(options: {
 }): Promise<CliSkillRunResult> {
   const env = await withBundledCliToolRoots(options.env);
   const resolvedReceiptDir = options.parsed.receiptDir ? resolvePathFromUserInput(options.parsed.receiptDir, env) : undefined;
-  if (options.parsed.runner) {
-    throw new Error("native runx skill execution does not support --runner; encode runner selection in X.yaml.");
-  }
 
   const args = ["skill", options.skillPath, ...inputArgs(options.inputs), "--json"];
+  pushOptionalFlag(args, "--runner", options.parsed.runner);
   pushOptionalFlag(args, "--receipt-dir", resolvedReceiptDir);
   pushOptionalFlag(args, "--run-id", options.parsed.runId);
   pushOptionalFlag(

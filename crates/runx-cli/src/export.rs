@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::ffi::OsString;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -8,11 +7,12 @@ use std::process::ExitCode;
 use runx_runtime::export::{RunxExportLoadError, RunxExportLoadOptions};
 use serde::Serialize;
 
-use crate::cli_args::{os_arg, split_flag};
-
 mod managed;
+mod parser;
 mod report;
 mod shim;
+
+pub use parser::parse_export_plan;
 
 const CLAUDE_MARKER: &str = "runx-export:claude";
 const CODEX_MARKER: &str = "runx-export:codex";
@@ -104,58 +104,6 @@ impl From<RunxExportLoadError> for ExportError {
             RunxExportLoadError::Parse(message) => Self::Parse(message),
         }
     }
-}
-
-// rust-style-allow: long-function because this parser mirrors the flat native
-// launcher grammar and keeps all export flags in one auditable pass.
-pub fn parse_export_plan(args: &[OsString]) -> Result<ExportPlan, String> {
-    let target = match os_arg(args, 1, "export")? {
-        "claude" => Target::Claude,
-        "codex" => Target::Codex,
-        value => {
-            return Err(format!(
-                "runx export target must be claude or codex, got {value}"
-            ));
-        }
-    };
-    let mut refs = Vec::new();
-    let mut project = false;
-    let mut json = false;
-    let mut index = 2;
-
-    while index < args.len() {
-        let token = os_arg(args, index, "export")?;
-        if !token.starts_with("--") {
-            refs.push(token.to_owned());
-            index += 1;
-            continue;
-        }
-
-        let (flag, inline_value) = split_flag(token);
-        match flag {
-            "--json" => {
-                if inline_value.is_some() {
-                    return Err("--json does not take a value".to_owned());
-                }
-                json = true;
-            }
-            "--project" => {
-                if inline_value.is_some() {
-                    return Err("--project does not take a value".to_owned());
-                }
-                project = true;
-            }
-            _ => return Err(format!("unknown export flag {flag}")),
-        }
-        index += 1;
-    }
-
-    Ok(ExportPlan {
-        target,
-        refs,
-        project,
-        json,
-    })
 }
 
 pub fn run_native_export(plan: ExportPlan) -> ExitCode {
