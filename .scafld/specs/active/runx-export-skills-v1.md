@@ -2,8 +2,8 @@
 spec_version: '2.0'
 task_id: runx-export-skills-v1
 created: '2026-06-09T13:18:08Z'
-updated: '2026-06-09T14:22:42Z'
-status: blocked
+updated: '2026-06-09T14:25:45Z'
+status: review
 harden_status: not_run
 size: medium
 risk_level: medium
@@ -13,13 +13,13 @@ risk_level: medium
 
 ## Current State
 
-Status: blocked
-Current phase: phase3
-Next: repair
-Reason: phase phase3 acceptance failed
-Blockers: phase phase3 acceptance failed
-Allowed follow-up command: `scafld handoff runx-export-skills-v1`
-Latest runner update: 2026-06-09T14:22:42Z
+Status: review
+Current phase: final
+Next: review
+Reason: build completed; ready for review
+Blockers: none
+Allowed follow-up command: `scafld review runx-export-skills-v1`
+Latest runner update: 2026-06-09T14:25:45Z
 Review gate: not_started
 
 ## Summary
@@ -171,7 +171,7 @@ Acceptance:
 
 ## Phase 3: Integration Validation
 
-Status: blocked
+Status: completed
 Dependencies: Phase 2
 
 Objective: Prove the command compiles and does not break existing CLI/package
@@ -187,13 +187,13 @@ Acceptance:
   - Expected kind: `exit_code_zero`
   - Status: pass
   - Evidence: exit code was 0
-  - Source event: entry-27
-- [ ] `ac4` command - Workspace fast verification passes if affected
+  - Source event: entry-32
+- [x] `ac4` command - Workspace fast verification passes if affected
   - Command: `pnpm verify:fast`
   - Expected kind: `exit_code_zero`
-  - Status: fail
-  - Evidence: exit code was 1
-  - Source event: entry-28
+  - Status: pass
+  - Evidence: exit code was 0
+  - Source event: entry-33
 
 ## Rollback
 
