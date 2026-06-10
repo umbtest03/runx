@@ -49,3 +49,18 @@ The local kernel resolves authority in this order:
 4. Credential resolution returns an opaque credential envelope only after
    admission.
 5. The signed receipt records the proof, hashes outputs, and omits raw secrets.
+
+## Provider-Permission Grants
+
+`provider_permission` graph policy may declare required scopes, an expected
+grant id, and the authority verb. It must not declare `granted_scopes`; granted
+scopes come only from operator-carried runtime grant evidence.
+
+Provider-permission steps fail closed unless the operator supplies both:
+
+- `RUNX_PROVIDER_PERMISSION_GRANT_ID`
+- `RUNX_PROVIDER_PERMISSION_GRANTED_SCOPES`
+
+This is intentional. Older local runs that relied on an implicit grant id must
+set `RUNX_PROVIDER_PERMISSION_GRANT_ID` explicitly before executing
+provider-permission steps.

@@ -192,7 +192,7 @@ mod tests {
 
     use runx_contracts::{JsonObject, JsonValue};
     use runx_core::policy::SandboxProfile;
-    use runx_parser::SkillSandbox;
+    use runx_parser::{SkillSandbox, SourceKind};
 
     use super::backend::{SandboxRuntime, find_trusted_executable};
     use super::command::{
@@ -328,6 +328,37 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn process_child_env_strips_receipt_signing_env() -> Result<(), String> {
+        let temp = tempfile::tempdir().map_err(|source| source.to_string())?;
+        let source = source_for_child_env(SourceKind::CliTool);
+        let base_env = signing_env(temp.path());
+
+        let plan = prepare_process_sandbox(&source, temp.path(), &JsonObject::new(), &base_env)
+            .map_err(|source| source.to_string())?;
+
+        assert_child_env_has_no_receipt_signing_env(&plan.env);
+        Ok(())
+    }
+
+    #[test]
+    fn mcp_process_child_env_strips_receipt_signing_env() -> Result<(), String> {
+        let temp = tempfile::tempdir().map_err(|source| source.to_string())?;
+        let source = source_for_child_env(SourceKind::Mcp);
+        let server = SkillMcpServer {
+            command: "node".to_owned(),
+            args: vec!["server.mjs".to_owned()],
+            cwd: Some(temp.path().to_string_lossy().into_owned()),
+        };
+        let base_env = signing_env(temp.path());
+
+        let plan = prepare_mcp_process_sandbox(&source, &server, temp.path(), &base_env)
+            .map_err(|source| source.to_string())?;
+
+        assert_child_env_has_no_receipt_signing_env(&plan.env);
+        Ok(())
+    }
+
     fn readonly_sandbox() -> SkillSandbox {
         SkillSandbox {
             profile: SandboxProfile::Readonly,
@@ -339,6 +370,62 @@ mod tests {
             approved_escalation: None,
             raw: JsonObject::new(),
         }
+    }
+
+    fn source_for_child_env(source_type: SourceKind) -> SkillSource {
+        SkillSource {
+            source_type,
+            command: Some("node".to_owned()),
+            args: vec!["script.mjs".to_owned()],
+            cwd: None,
+            timeout_seconds: None,
+            input_mode: None,
+            sandbox: None,
+            server: None,
+            catalog_ref: None,
+            tool: None,
+            arguments: None,
+            agent_card_url: None,
+            agent_identity: None,
+            agent: None,
+            task: None,
+            hook: None,
+            outputs: None,
+            graph: None,
+            http: None,
+            raw: JsonObject::new(),
+        }
+    }
+
+    fn signing_env(workspace: &Path) -> BTreeMap<String, String> {
+        [
+            ("PATH".to_owned(), "/usr/bin".to_owned()),
+            (
+                crate::receipts::RUNX_RECEIPT_SIGN_KID_ENV.to_owned(),
+                "kid_prod".to_owned(),
+            ),
+            (
+                crate::receipts::RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV.to_owned(),
+                "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=".to_owned(),
+            ),
+            (
+                crate::receipts::RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV.to_owned(),
+                "hosted".to_owned(),
+            ),
+            (
+                crate::receipts::paths::RUNX_CWD_ENV.to_owned(),
+                workspace.to_string_lossy().into_owned(),
+            ),
+        ]
+        .into_iter()
+        .collect()
+    }
+
+    fn assert_child_env_has_no_receipt_signing_env(env: &BTreeMap<String, String>) {
+        assert!(!env.contains_key(crate::receipts::RUNX_RECEIPT_SIGN_KID_ENV));
+        assert!(!env.contains_key(crate::receipts::RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV));
+        assert!(!env.contains_key(crate::receipts::RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV));
+        assert_eq!(env.get("PATH"), Some(&"/usr/bin".to_owned()));
     }
 
     #[test]

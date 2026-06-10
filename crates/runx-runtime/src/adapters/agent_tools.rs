@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use runx_contracts::JsonValue;
+use runx_core::policy::admit_agent_tool_ref;
 
 use super::agent_loop::ToolExecutor;
 use super::catalog::{LocalToolRequest, resolve_and_invoke_local_tool};
@@ -49,6 +50,16 @@ impl RuntimeToolExecutor {
 
 impl ToolExecutor for RuntimeToolExecutor {
     fn execute(&self, tool: &str, input: &JsonValue) -> Result<SkillOutput, RuntimeError> {
+        let admission = admit_agent_tool_ref(tool);
+        if !admission.allowed {
+            return Err(RuntimeError::SkillFailed {
+                skill_name: MANAGED_AGENT_SKILL.to_owned(),
+                message: format!(
+                    "managed agent tool '{tool}' is not an admissible tool ref: {}",
+                    admission.reason
+                ),
+            });
+        }
         if !self.allowed_tools.contains(tool) {
             return Err(RuntimeError::SkillFailed {
                 skill_name: MANAGED_AGENT_SKILL.to_owned(),
@@ -107,10 +118,25 @@ mod tests {
             CredentialDelivery::none(),
             ["fs.read".to_owned()],
         );
-        let result = executor.execute("/tmp/manifest.json", &JsonValue::Null);
+        let result = executor.execute("git.status", &JsonValue::Null);
         assert!(
             matches!(&result, Err(RuntimeError::SkillFailed { message, .. }) if message.contains("not in the run's allowed_tools")),
             "a model-selected tool outside allowed_tools must fail before local resolution; got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn path_like_tool_is_rejected_even_when_allowlisted() {
+        let executor = RuntimeToolExecutor::new(
+            BTreeMap::new(),
+            PathBuf::from("."),
+            CredentialDelivery::none(),
+            ["/tmp/manifest.json".to_owned()],
+        );
+        let result = executor.execute("/tmp/manifest.json", &JsonValue::Null);
+        assert!(
+            matches!(&result, Err(RuntimeError::SkillFailed { message, .. }) if message.contains("not an admissible tool ref")),
+            "a path-like model-selected tool must fail before local resolution; got: {result:?}"
         );
     }
 }

@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use runx_contracts::{JsonObject, JsonValue};
+use runx_core::policy::admit_agent_tool_ref;
 
 use crate::ValidationError;
 
@@ -194,9 +195,11 @@ pub(super) fn validate_allowed_tools(
         return Ok(None);
     };
     for value in &values {
-        if value.trim().is_empty() {
+        let admission = admit_agent_tool_ref(value);
+        if !admission.allowed {
             return Err(validation_error(format!(
-                "{field} entries must not be empty."
+                "{field} entry {value:?} is not an admissible agent tool ref: {}.",
+                admission.reason
             )));
         }
     }

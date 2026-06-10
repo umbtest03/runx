@@ -11,6 +11,7 @@ mod retry;
 mod rfc3339;
 pub mod sandbox;
 pub mod scope;
+mod tool_ref;
 mod types;
 
 pub use authority_algebra::{
@@ -33,6 +34,7 @@ pub use sandbox::{
     admit_sandbox, is_reserved_runx_sandbox_env_name, normalize_sandbox_declaration,
     sandbox_requires_approval,
 };
+pub use tool_ref::{ToolRefAdmission, admit_agent_tool_ref};
 pub use types::{
     AdmissionDecision, AuthorityKind, AuthorityProof, AuthorityProofApproval,
     AuthorityProofApprovalDecision, AuthorityProofApprovalDecisionValue,

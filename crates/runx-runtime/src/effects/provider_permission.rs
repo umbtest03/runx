@@ -85,7 +85,7 @@ fn provider_permission_plan(
     let granted_scopes = granted_scopes_from_env(request.env);
     let missing_scopes = missing_scopes(&required_scopes, &granted_scopes);
     let expected_grant_id = string_field(policy, "grant_id");
-    let grant_id = provider_grant_id(request.env);
+    let grant_id = provider_grant_id(request.env, &verb)?;
     if let Some(expected) = expected_grant_id
         && expected != grant_id
     {
@@ -172,12 +172,21 @@ fn string_array_field(object: &JsonObject, key: &str) -> Option<Vec<String>> {
     )
 }
 
-fn provider_grant_id(env: &BTreeMap<String, String>) -> String {
+fn provider_grant_id(
+    env: &BTreeMap<String, String>,
+    verb: &AuthorityVerb,
+) -> Result<String, RuntimeEffectError> {
     env.get(PROVIDER_PERMISSION_GRANT_ID_ENV)
         .map(|value| value.trim())
         .filter(|value| !value.is_empty())
-        .unwrap_or("operator-provider-grant")
-        .to_owned()
+        .map(str::to_owned)
+        .ok_or_else(|| RuntimeEffectError::Denied {
+            family: PROVIDER_PERMISSION_EFFECT_FAMILY.to_owned(),
+            verb: verb.clone(),
+            message: format!(
+                "provider permission requires explicit operator grant id in {PROVIDER_PERMISSION_GRANT_ID_ENV}"
+            ),
+        })
 }
 
 fn granted_scopes_from_env(env: &BTreeMap<String, String>) -> Vec<String> {
@@ -307,6 +316,40 @@ mod tests {
     }
 
     #[test]
+    fn denies_when_operator_grant_id_is_missing() -> Result<(), io::Error> {
+        let effect = ProviderPermissionEffect;
+        let step = test_step("read_issue", vec!["repo.read"], false, "read", false);
+        let inputs = JsonObject::new();
+        let env = scopes_only_env("repo.read");
+
+        let result = effect.admit(EffectStepRequest {
+            step: &step,
+            inputs: &inputs,
+            env: &env,
+            graph_dir: Path::new("."),
+        });
+        let error = match result {
+            Err(error) => error,
+            other => {
+                return Err(io::Error::other(format!(
+                    "unexpected provider permission result: {other:?}"
+                )));
+            }
+        };
+
+        match error {
+            RuntimeEffectError::Denied { message, .. }
+                if message.contains(PROVIDER_PERMISSION_GRANT_ID_ENV) =>
+            {
+                Ok(())
+            }
+            other => Err(io::Error::other(format!(
+                "unexpected missing-grant denial error: {other:?}"
+            ))),
+        }
+    }
+
+    #[test]
     fn rejects_self_attested_granted_scopes_in_policy() -> Result<(), io::Error> {
         let effect = ProviderPermissionEffect;
         let step = test_step("read_issue", vec!["repo.read"], false, "read", true);
@@ -400,6 +443,15 @@ mod tests {
                 scopes.to_owned(),
             ),
         ]
+        .into_iter()
+        .collect()
+    }
+
+    fn scopes_only_env(scopes: &str) -> BTreeMap<String, String> {
+        [(
+            PROVIDER_PERMISSION_GRANTED_SCOPES_ENV.to_owned(),
+            scopes.to_owned(),
+        )]
         .into_iter()
         .collect()
     }

@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use runx_contracts::{JsonObject, JsonValue};
+use runx_core::policy::admit_agent_tool_ref;
 
 use super::helpers::{
     number_to_non_negative_integer, number_to_positive_integer, optional_bool,
@@ -56,10 +57,7 @@ pub fn validate_step(
         context_skills,
         scopes: optional_string_array(raw_step.get("scopes"), &format!("{field}.scopes"))?
             .unwrap_or_default(),
-        allowed_tools: optional_string_array(
-            raw_step.get("allowed_tools"),
-            &format!("{field}.allowed_tools"),
-        )?,
+        allowed_tools: validate_allowed_tools(raw_step.get("allowed_tools"), field)?,
         retry: validate_retry(raw_step.get("retry"), &format!("{field}.retry"))?,
         policy: optional_object(raw_step.get("policy"), &format!("{field}.policy"))?,
         fanout_group: optional_string(
@@ -73,6 +71,26 @@ pub fn validate_step(
             &format!("{field}.idempotency_key"),
         )?,
     })
+}
+
+fn validate_allowed_tools(
+    value: Option<&JsonValue>,
+    field: &str,
+) -> Result<Option<Vec<String>>, ValidationError> {
+    let Some(allowed_tools) = optional_string_array(value, &format!("{field}.allowed_tools"))?
+    else {
+        return Ok(None);
+    };
+    for tool in &allowed_tools {
+        let admission = admit_agent_tool_ref(tool);
+        if !admission.allowed {
+            return Err(validation_error(format!(
+                "{field}.allowed_tools entry {tool:?} is not an admissible agent tool ref: {}.",
+                admission.reason
+            )));
+        }
+    }
+    Ok(Some(allowed_tools))
 }
 
 fn validate_context_skills(
