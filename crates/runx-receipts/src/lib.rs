@@ -25,9 +25,12 @@ pub use tree::{
 pub use verify::{
     ReceiptError, ReceiptFinding, ReceiptFindingCode, ReceiptProofContext,
     ReceiptProofFindingSummary, ReceiptProofStatus, ReceiptProofStatusKind, ReceiptVerification,
-    SignatureVerificationFailure, SignatureVerifier, compute_verification_summary,
-    receipt_id_is_content_addressed, receipt_proof_status, validate_receipt,
-    validate_receipt_proof, verify_receipt, verify_receipt_proof,
+    ReceiptVerifyCheck, ReceiptVerifyFinding, ReceiptVerifyLineageCheck,
+    ReceiptVerifySignatureCheck, ReceiptVerifySignatureMode, ReceiptVerifyVerdict,
+    SignatureVerificationFailure, SignatureVerifier, VERIFY_VERDICT_SCHEMA,
+    compute_verification_summary, receipt_id_is_content_addressed, receipt_proof_status,
+    validate_receipt, validate_receipt_proof, verify_receipt, verify_receipt_document_verdict,
+    verify_receipt_proof, verify_receipt_verdict,
 };
 
 #[cfg(test)]

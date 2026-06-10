@@ -2,9 +2,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsString;
 use std::fmt;
 use std::fs;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 use runx_contracts::{Receipt, Reference, ReferenceType};
+use runx_receipts::{
+    ReceiptProofContext, ReceiptVerifySignatureMode, ReceiptVerifyVerdict,
+    SignatureVerificationFailure, SignatureVerifier, verify_receipt_document_verdict,
+};
 use runx_runtime::{
     Ed25519ReceiptVerifier, ReceiptPathInputs, ReceiptTreeConfig, RuntimeReceiptConfig,
     RuntimeReceiptSignaturePolicy, resolve_receipt_path, verify_runtime_receipt_tree_with_policy,
@@ -16,6 +21,7 @@ use crate::history::{
 };
 
 const RECEIPT_REFERENCE_PREFIX: &str = "runx:receipt:";
+const SINGLE_RECEIPT_MAX_BYTES: usize = 10 * 1024 * 1024;
 
 #[derive(Debug)]
 pub enum VerifyCliError {
@@ -49,7 +55,14 @@ pub struct VerifyCliResult {
 struct ParsedVerifyArgs {
     receipt_id: Option<String>,
     receipt_dir: Option<PathBuf>,
+    receipt: Option<ReceiptInput>,
     json: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum ReceiptInput {
+    Path(PathBuf),
+    Stdin,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -88,7 +101,19 @@ pub fn run_verify_command(
     env: &BTreeMap<String, String>,
     cwd: &Path,
 ) -> Result<VerifyCliResult, VerifyCliError> {
+    run_verify_command_with_stdin(args, env, cwd, io::empty())
+}
+
+pub fn run_verify_command_with_stdin<R: Read>(
+    args: &[OsString],
+    env: &BTreeMap<String, String>,
+    cwd: &Path,
+    stdin: R,
+) -> Result<VerifyCliResult, VerifyCliError> {
     let parsed = parse_verify_args(args)?;
+    if let Some(input) = parsed.receipt.as_ref() {
+        return run_single_receipt_verify(input, parsed.json, env, cwd, stdin);
+    }
     let receipt_config = RuntimeReceiptConfig::default();
     let resolved = resolve_receipt_path(ReceiptPathInputs {
         explicit_dir: parsed.receipt_dir.as_deref(),
@@ -199,6 +224,16 @@ fn parse_verify_args(args: &[OsString]) -> Result<ParsedVerifyArgs, VerifyCliErr
                     .ok_or_else(|| invalid_args("--receipt-dir requires a directory"))?;
                 parsed.receipt_dir = Some(PathBuf::from(value));
             }
+            "--receipt" => {
+                let value = iter
+                    .next()
+                    .ok_or_else(|| invalid_args("--receipt requires a path or -"))?;
+                parsed.receipt = Some(parse_receipt_input(value)?);
+            }
+            other if other.starts_with("--receipt=") => {
+                let value = other.trim_start_matches("--receipt=");
+                parsed.receipt = Some(parse_receipt_input_text(value)?);
+            }
             other if other.starts_with("--") => {
                 return Err(invalid_args(format!("unknown verify flag {other}")));
             }
@@ -210,7 +245,114 @@ fn parse_verify_args(args: &[OsString]) -> Result<ParsedVerifyArgs, VerifyCliErr
             }
         }
     }
+    if parsed.receipt.is_some() && (parsed.receipt_id.is_some() || parsed.receipt_dir.is_some()) {
+        return Err(invalid_args(
+            "--receipt cannot be combined with a receipt id or --receipt-dir",
+        ));
+    }
     Ok(parsed)
+}
+
+fn parse_receipt_input(value: &OsString) -> Result<ReceiptInput, VerifyCliError> {
+    let Some(text) = value.to_str() else {
+        return Err(invalid_args("--receipt path must be valid UTF-8"));
+    };
+    parse_receipt_input_text(text)
+}
+
+fn parse_receipt_input_text(value: &str) -> Result<ReceiptInput, VerifyCliError> {
+    if value.is_empty() {
+        return Err(invalid_args("--receipt requires a path or -"));
+    }
+    Ok(if value == "-" {
+        ReceiptInput::Stdin
+    } else {
+        ReceiptInput::Path(PathBuf::from(value))
+    })
+}
+
+fn run_single_receipt_verify<R: Read>(
+    input: &ReceiptInput,
+    json: bool,
+    env: &BTreeMap<String, String>,
+    cwd: &Path,
+    stdin: R,
+) -> Result<VerifyCliResult, VerifyCliError> {
+    let document = read_single_receipt_input(input, cwd, stdin)?;
+    let verifier = production_verifier(env)?;
+    let local_verifier = LocalDevelopmentReceiptVerifier;
+    let (signature_mode, signature_verifier): (ReceiptVerifySignatureMode, &dyn SignatureVerifier) =
+        match verifier.as_ref() {
+            Some(verifier) => (ReceiptVerifySignatureMode::Production, verifier),
+            None => (
+                ReceiptVerifySignatureMode::LocalDevelopment,
+                &local_verifier,
+            ),
+        };
+    let context = ReceiptProofContext {
+        signature_verifier: Some(signature_verifier),
+        authority_verified: false,
+        external_attestations_verified: false,
+        verified_redaction_refs: BTreeSet::new(),
+        verified_hash_commitments: BTreeSet::new(),
+    };
+    let verdict = verify_receipt_document_verdict(&document, &context, signature_mode);
+    let output = if json {
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&verdict).map_err(VerifyCliError::Serialize)?
+        )
+    } else {
+        render_single_receipt_verdict(&verdict)
+    };
+    Ok(VerifyCliResult {
+        output,
+        failed: !verdict.valid,
+    })
+}
+
+fn read_single_receipt_input<R: Read>(
+    input: &ReceiptInput,
+    cwd: &Path,
+    stdin: R,
+) -> Result<Vec<u8>, VerifyCliError> {
+    match input {
+        ReceiptInput::Path(path) => {
+            let path = if path.is_absolute() {
+                path.clone()
+            } else {
+                cwd.join(path)
+            };
+            if let Ok(metadata) = fs::metadata(&path) {
+                if metadata.len() > SINGLE_RECEIPT_MAX_BYTES as u64 {
+                    return Err(single_receipt_too_large());
+                }
+            }
+            let document = fs::read(&path).map_err(|error| {
+                VerifyCliError::Store(format!(
+                    "failed to read receipt {}: {error}",
+                    path.display()
+                ))
+            })?;
+            if document.len() > SINGLE_RECEIPT_MAX_BYTES {
+                return Err(single_receipt_too_large());
+            }
+            Ok(document)
+        }
+        ReceiptInput::Stdin => read_limited_stdin(stdin),
+    }
+}
+
+fn read_limited_stdin<R: Read>(stdin: R) -> Result<Vec<u8>, VerifyCliError> {
+    let mut limited = stdin.take((SINGLE_RECEIPT_MAX_BYTES + 1) as u64);
+    let mut document = Vec::new();
+    limited.read_to_end(&mut document).map_err(|error| {
+        VerifyCliError::Store(format!("failed to read receipt from stdin: {error}"))
+    })?;
+    if document.len() > SINGLE_RECEIPT_MAX_BYTES {
+        return Err(single_receipt_too_large());
+    }
+    Ok(document)
 }
 
 fn production_verifier(
@@ -400,10 +542,73 @@ fn render_report(report: &VerifyReport) -> String {
     output
 }
 
+fn render_single_receipt_verdict(verdict: &ReceiptVerifyVerdict) -> String {
+    let mut output = String::new();
+    output.push_str("receipt verification\n");
+    output.push_str(&format!(
+        "receipt: {}\n",
+        verdict.receipt_id.as_deref().unwrap_or("<unparsed>")
+    ));
+    output.push_str(&format!(
+        "signature: {} ({})\n",
+        verdict.signature.status, verdict.signature.mode
+    ));
+    output.push_str(&format!("digest: {}\n", verdict.digest.status));
+    output.push_str(&format!(
+        "content address: {}\n",
+        verdict.content_address.status
+    ));
+    output.push_str(&format!("lineage: {}\n", verdict.lineage.status));
+    for finding in &verdict.findings {
+        output.push_str(&format!(
+            "  {} at {}: {}\n",
+            finding.code,
+            if finding.path.is_empty() {
+                "<root>"
+            } else {
+                &finding.path
+            },
+            finding.message
+        ));
+    }
+    output.push_str(if verdict.valid {
+        "verification: ok\n"
+    } else {
+        "verification: FAILED\n"
+    });
+    output
+}
+
+struct LocalDevelopmentReceiptVerifier;
+
+impl SignatureVerifier for LocalDevelopmentReceiptVerifier {
+    fn verify(
+        &self,
+        _issuer: &runx_contracts::ReceiptIssuer,
+        signature: &runx_contracts::ReceiptSignature,
+        body_digest: &str,
+    ) -> Result<(), SignatureVerificationFailure> {
+        if !signature.value.starts_with("sig:sha256:") {
+            return Err(SignatureVerificationFailure::MalformedSignature);
+        }
+        if signature.value == format!("sig:{body_digest}") {
+            Ok(())
+        } else {
+            Err(SignatureVerificationFailure::SignatureMismatch)
+        }
+    }
+}
+
 fn non_empty_env<'a>(env: &'a BTreeMap<String, String>, key: &str) -> Option<&'a str> {
     env.get(key)
         .map(|value| value.trim())
         .filter(|value| !value.is_empty())
+}
+
+fn single_receipt_too_large() -> VerifyCliError {
+    invalid_args(format!(
+        "--receipt input exceeds {SINGLE_RECEIPT_MAX_BYTES} bytes"
+    ))
 }
 
 fn invalid_args(message: impl Into<String>) -> VerifyCliError {
@@ -421,9 +626,25 @@ mod tests {
     use runx_runtime::{
         Ed25519ReceiptSigner, InvocationStatus, LocalReceiptStore, RuntimeError, SkillOutput,
     };
+    use serde::Deserialize;
 
+    const CORPUS_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/receipt-verify");
     const FIXTURE_KID: &str = "runx-cli-verify-fixture-key";
     const FIXTURE_SEED: [u8; 32] = [0x47; 32];
+
+    #[derive(Debug, Deserialize)]
+    struct CorpusVerifier {
+        kid: String,
+        public_key_base64: String,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct CorpusCase {
+        name: String,
+        receipt: String,
+        expected: String,
+        signature_mode: String,
+    }
 
     #[test]
     fn verifies_production_signed_receipt_store() -> Result<(), io::Error> {
@@ -525,6 +746,219 @@ mod tests {
         .expect_err("unknown receipt id must error");
         assert!(matches!(error, VerifyCliError::InvalidArgs(_)));
         Ok(())
+    }
+
+    #[test]
+    fn verifies_single_receipt_file_as_machine_verdict() -> Result<(), io::Error> {
+        let temp = tempfile_dir()?;
+        let signer = fixture_signer().map_err(io::Error::other)?;
+        let receipt = production_signed_receipt(&signer)
+            .map_err(|error| io::Error::other(error.to_string()))?;
+        let receipt_file = temp.join("receipt.json");
+        fs::write(
+            &receipt_file,
+            serde_json::to_vec_pretty(&receipt).map_err(io::Error::other)?,
+        )?;
+
+        let result = run_verify_command(
+            &[
+                "verify".into(),
+                "--receipt".into(),
+                receipt_file.into_os_string(),
+                "--json".into(),
+            ],
+            &verifier_env(&signer),
+            &temp,
+        )
+        .map_err(|error| io::Error::other(error.to_string()))?;
+
+        assert!(
+            !result.failed,
+            "expected clean single receipt verdict: {}",
+            result.output
+        );
+        let verdict: serde_json::Value =
+            serde_json::from_str(&result.output).map_err(io::Error::other)?;
+        assert_eq!(verdict["schema"], "runx.verify_verdict.v1");
+        assert_eq!(verdict["valid"], serde_json::Value::Bool(true));
+        assert_eq!(
+            verdict["receipt_id"],
+            serde_json::Value::String(receipt.id.to_string())
+        );
+        assert_eq!(verdict["signature"]["mode"], "production");
+        assert_eq!(verdict["signature"]["status"], "valid");
+        assert_eq!(verdict["digest"]["status"], "valid");
+        assert_eq!(verdict["content_address"]["status"], "valid");
+        assert_eq!(verdict["lineage"]["status"], "unverified");
+        assert!(verdict["findings"].as_array().is_some_and(Vec::is_empty));
+        Ok(())
+    }
+
+    #[test]
+    fn verifies_single_receipt_from_stdin() -> Result<(), io::Error> {
+        let temp = tempfile_dir()?;
+        let signer = fixture_signer().map_err(io::Error::other)?;
+        let receipt = production_signed_receipt(&signer)
+            .map_err(|error| io::Error::other(error.to_string()))?;
+        let input = serde_json::to_vec(&receipt).map_err(io::Error::other)?;
+
+        let result = run_verify_command_with_stdin(
+            &[
+                "verify".into(),
+                "--receipt".into(),
+                "-".into(),
+                "--json".into(),
+            ],
+            &verifier_env(&signer),
+            &temp,
+            io::Cursor::new(input),
+        )
+        .map_err(|error| io::Error::other(error.to_string()))?;
+
+        assert!(!result.failed, "stdin verdict failed: {}", result.output);
+        let verdict: serde_json::Value =
+            serde_json::from_str(&result.output).map_err(io::Error::other)?;
+        assert_eq!(
+            verdict["receipt_id"],
+            serde_json::Value::String(receipt.id.to_string())
+        );
+        assert_eq!(verdict["valid"], serde_json::Value::Bool(true));
+        Ok(())
+    }
+
+    #[test]
+    fn malformed_single_receipt_returns_invalid_verdict() -> Result<(), io::Error> {
+        let temp = tempfile_dir()?;
+
+        let result = run_verify_command_with_stdin(
+            &[
+                "verify".into(),
+                "--receipt".into(),
+                "-".into(),
+                "--json".into(),
+            ],
+            &BTreeMap::new(),
+            &temp,
+            io::Cursor::new(br#"{"schema":"runx.receipt.v1","#.to_vec()),
+        )
+        .map_err(|error| io::Error::other(error.to_string()))?;
+
+        assert!(result.failed, "malformed receipt must fail");
+        let verdict: serde_json::Value =
+            serde_json::from_str(&result.output).map_err(io::Error::other)?;
+        assert_eq!(verdict["schema"], "runx.verify_verdict.v1");
+        assert_eq!(verdict["valid"], serde_json::Value::Bool(false));
+        assert_eq!(verdict["receipt_id"], serde_json::Value::Null);
+        assert_eq!(verdict["findings"][0]["code"], "receipt_parse_error");
+        Ok(())
+    }
+
+    #[test]
+    fn single_receipt_rejects_store_selection_flags() -> Result<(), io::Error> {
+        let temp = tempfile_dir()?;
+        let error = run_verify_command(
+            &[
+                "verify".into(),
+                "receipt_1".into(),
+                "--receipt".into(),
+                "receipt.json".into(),
+            ],
+            &BTreeMap::new(),
+            &temp,
+        )
+        .expect_err("--receipt must be mutually exclusive with receipt ids");
+        assert!(matches!(error, VerifyCliError::InvalidArgs(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn single_receipt_stdin_is_size_capped() -> Result<(), io::Error> {
+        let temp = tempfile_dir()?;
+        let error = run_verify_command_with_stdin(
+            &["verify".into(), "--receipt".into(), "-".into()],
+            &BTreeMap::new(),
+            &temp,
+            io::Cursor::new(vec![b' '; SINGLE_RECEIPT_MAX_BYTES + 1]),
+        )
+        .expect_err("oversized stdin must be a usage error");
+        assert!(matches!(error, VerifyCliError::InvalidArgs(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn receipt_verify_corpus_replays_through_cli_surface() -> Result<(), io::Error> {
+        let root = PathBuf::from(CORPUS_ROOT);
+        let production_env = corpus_production_env(&root)?;
+        for (case_dir, case) in corpus_cases(&root)? {
+            let env = if case.signature_mode == "production" {
+                production_env.clone()
+            } else {
+                BTreeMap::new()
+            };
+            let result = run_verify_command(
+                &[
+                    "verify".into(),
+                    "--receipt".into(),
+                    case_dir.join(&case.receipt).into_os_string(),
+                    "--json".into(),
+                ],
+                &env,
+                &root,
+            )
+            .map_err(|error| io::Error::other(error.to_string()))?;
+            let actual: serde_json::Value =
+                serde_json::from_str(&result.output).map_err(io::Error::other)?;
+            let expected = expected_verdict(&case_dir, &case)?;
+
+            assert_eq!(actual, expected, "corpus case {} drifted", case.name);
+            assert_eq!(
+                result.failed,
+                !expected["valid"].as_bool().unwrap_or(false),
+                "corpus case {} had inconsistent exit status",
+                case.name
+            );
+        }
+        Ok(())
+    }
+
+    fn corpus_production_env(root: &Path) -> Result<BTreeMap<String, String>, io::Error> {
+        let verifier: CorpusVerifier =
+            serde_json::from_str(&fs::read_to_string(root.join("verifier.json"))?)
+                .map_err(io::Error::other)?;
+        Ok(BTreeMap::from([
+            (RUNX_RECEIPT_VERIFY_KID_ENV.to_owned(), verifier.kid),
+            (
+                RUNX_RECEIPT_VERIFY_ED25519_PUBLIC_KEY_BASE64_ENV.to_owned(),
+                verifier.public_key_base64,
+            ),
+        ]))
+    }
+
+    fn corpus_cases(root: &Path) -> Result<Vec<(PathBuf, CorpusCase)>, io::Error> {
+        let mut cases = Vec::new();
+        for entry in fs::read_dir(root)? {
+            let path = entry?.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let case_path = path.join("case.json");
+            if !case_path.exists() {
+                continue;
+            }
+            let case: CorpusCase =
+                serde_json::from_str(&fs::read_to_string(case_path)?).map_err(io::Error::other)?;
+            cases.push((path, case));
+        }
+        cases.sort_by(|left, right| left.1.name.cmp(&right.1.name));
+        Ok(cases)
+    }
+
+    fn expected_verdict(
+        case_dir: &Path,
+        case: &CorpusCase,
+    ) -> Result<serde_json::Value, io::Error> {
+        serde_json::from_str(&fs::read_to_string(case_dir.join(&case.expected))?)
+            .map_err(io::Error::other)
     }
 
     fn verifier_env(signer: &Ed25519ReceiptSigner) -> BTreeMap<String, String> {

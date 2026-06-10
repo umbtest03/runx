@@ -1,0 +1,31 @@
+{
+  "schema": "runx.verify_verdict.v1",
+  "receipt_id": null,
+  "valid": false,
+  "digest": {
+    "status": "not_evaluated",
+    "expected": null,
+    "actual": null
+  },
+  "content_address": {
+    "status": "not_evaluated",
+    "expected": null,
+    "actual": null
+  },
+  "signature": {
+    "mode": "local-development",
+    "status": "not_evaluated",
+    "kid": null
+  },
+  "lineage": {
+    "status": "unverified",
+    "message": "single receipt verification cannot prove receipt-tree lineage"
+  },
+  "findings": [
+    {
+      "code": "receipt_parse_error",
+      "path": "$",
+      "message": "EOF while parsing a value at line 1 column 28"
+    }
+  ]
+}

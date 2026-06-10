@@ -69,7 +69,12 @@ fn run_native_verify(args: Vec<OsString>) -> ExitCode {
             return ExitCode::from(1);
         }
     };
-    match runx_cli::verify::run_verify_command(&args, &runx_cli::history::env_map(), &cwd) {
+    match runx_cli::verify::run_verify_command_with_stdin(
+        &args,
+        &runx_cli::history::env_map(),
+        &cwd,
+        io::stdin(),
+    ) {
         Ok(result) => {
             let exit = write_stdout(&result.output);
             if result.failed {

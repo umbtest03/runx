@@ -1,0 +1,6 @@
+{
+  "expected": "expected.json",
+  "name": "tampered-signature",
+  "receipt": "receipt.json",
+  "signature_mode": "production"
+}

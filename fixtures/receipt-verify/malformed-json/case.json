@@ -1,0 +1,6 @@
+{
+  "expected": "expected.json",
+  "name": "malformed-json",
+  "receipt": "receipt.json",
+  "signature_mode": "local-development"
+}

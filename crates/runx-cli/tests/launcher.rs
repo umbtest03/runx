@@ -27,6 +27,10 @@ fn top_level_help_and_version_are_native() {
     let help = help_text();
     assert_help_line(
         &help,
+        "runx verify [receipt-id] [--receipt-dir dir] [--receipt <path|->] [--json]",
+    );
+    assert_help_line(
+        &help,
         "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [--registry url|path] [--digest sha256] [--runner name] [--input key=value] [--flag value] [--receipt-dir dir] [--run-id id --answers file] [--json]",
     );
     assert_help_line(&help, "runx parser eval --input <file|-> --json");

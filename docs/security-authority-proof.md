@@ -113,15 +113,25 @@ evidence altered after issuance is rejected instead of silently re-blessed.
 
 ## Offline Receipt Verification
 
-`runx verify [receipt-id] [--receipt-dir dir] [--json]` re-checks sealed
-receipts from disk with no runtime or network dependency: canonical body
-digests, content-addressed ids, linked-tree parent/child integrity, scope
-adherence for privileged effects, and — when `RUNX_RECEIPT_VERIFY_KID` and
+`runx verify [receipt-id] [--receipt-dir dir] [--receipt <path|->] [--json]`
+re-checks sealed receipts from disk with no runtime or network dependency:
+canonical body digests, content-addressed ids, linked-tree parent/child
+integrity, scope adherence for privileged effects, and — when
+`RUNX_RECEIPT_VERIFY_KID` and
 `RUNX_RECEIPT_VERIFY_ED25519_PUBLIC_KEY_BASE64` are set — production Ed25519
-signatures against the operator-trusted key. Receipts are grouped into trees
-by lineage; a chain that points at a receipt missing from the store is
-reported as incomplete and fails verification. The command exits non-zero on
-any finding, so it can gate automation.
+signatures against the operator-trusted key. Store mode groups receipts into
+trees by lineage; a chain that points at a receipt missing from the store is
+reported as incomplete and fails verification. Single-receipt mode emits one
+`runx.verify_verdict.v1` JSON verdict suitable for hosted notaries and other
+embedding surfaces. Because a single document cannot prove tree membership,
+lineage is reported as `unverified` without failing an otherwise valid
+receipt. The command exits non-zero on invalid receipts, so it can gate
+automation.
+
+`fixtures/receipt-verify/` is the conformance corpus for machine consumers.
+Every embedding surface that claims to verify a runx receipt must replay those
+fixtures through the pinned `runx` binary and match the expected verdicts
+instead of carrying a second verifier implementation in another language.
 
 Scope adherence is intentionally pure and offline. Any act carrying typed
 `EffectEvidence` without corresponding `receipt.authority.grant_refs` produces

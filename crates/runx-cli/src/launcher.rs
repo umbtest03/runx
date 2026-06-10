@@ -275,7 +275,7 @@ Usage:
 Commands:
   runx new <name> [--directory dir] [--json]
   runx init [-g|--global] [--prefetch official] [--json]
-  runx verify [receipt-id] [--receipt-dir dir] [--json]
+  runx verify [receipt-id] [--receipt-dir dir] [--receipt <path|->] [--json]
   runx history [query] [--skill s] [--status s] [--source s] [--actor a] [--artifact-type t] [--since iso] [--until iso] [--receipt-dir dir] [--json]
   runx list [tools|skills|graphs|packets|overlays] [--ok-only|--invalid-only] [--json]
   runx config set|get|list [agent.provider|agent.model|agent.api_key] [value] [--json]

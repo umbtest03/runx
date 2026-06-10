@@ -8,3 +8,4 @@
 mod conformance;
 mod receipt_contracts;
 mod receipt_tree_fixtures;
+mod receipt_verify_corpus;

@@ -1,0 +1,31 @@
+{
+  "schema": "runx.verify_verdict.v1",
+  "receipt_id": "sha256:fc1bb8c2027c1b0a76d8095a1d6c112e37a4f4d144991be4d505ec21314ccd39",
+  "valid": false,
+  "digest": {
+    "status": "valid",
+    "expected": "sha256:e843a3e47631146b1dac7abae3c40adffc32b1ef3c167ed317b1d163afdb41a4",
+    "actual": "sha256:e843a3e47631146b1dac7abae3c40adffc32b1ef3c167ed317b1d163afdb41a4"
+  },
+  "content_address": {
+    "status": "valid",
+    "expected": "sha256:fc1bb8c2027c1b0a76d8095a1d6c112e37a4f4d144991be4d505ec21314ccd39",
+    "actual": "sha256:fc1bb8c2027c1b0a76d8095a1d6c112e37a4f4d144991be4d505ec21314ccd39"
+  },
+  "signature": {
+    "mode": "production",
+    "status": "invalid",
+    "kid": "runx-cli-verify-fixture-key"
+  },
+  "lineage": {
+    "status": "unverified",
+    "message": "single receipt verification cannot prove receipt-tree lineage"
+  },
+  "findings": [
+    {
+      "code": "signature_invalid",
+      "path": "signature.value",
+      "message": "signature does not verify against the receipt body commitment"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "expected": "expected.json",
+  "name": "broken-lineage-reference",
+  "receipt": "receipt.json",
+  "signature_mode": "local-development"
+}
