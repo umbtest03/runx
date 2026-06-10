@@ -776,14 +776,23 @@ fn run_spend_reservation(
     inputs: &JsonObject,
     env: &BTreeMap<String, String>,
 ) -> Result<Option<EffectRunSpendReservation>, RuntimeEffectError> {
-    let Some(max_per_run_units) =
-        payment_effect_limit(&input.child_authority).and_then(|payment| payment.max_per_run_units)
-    else {
+    let payment = payment_effect_limit(&input.child_authority);
+    let max_per_run_units = payment.and_then(|payment| payment.max_per_run_units);
+    let max_per_period_units = payment.and_then(|payment| payment.max_per_period_units);
+    // A run never spans more than one period, so the period cap also bounds
+    // each run. Until a durable cross-run period ledger lands, the period cap
+    // is enforced as a run-level clamp instead of being parsed and ignored.
+    let Some(max_per_run_units) = (match (max_per_run_units, max_per_period_units) {
+        (Some(run_cap), Some(period_cap)) => Some(run_cap.min(period_cap)),
+        (Some(run_cap), None) => Some(run_cap),
+        (None, Some(period_cap)) => Some(period_cap),
+        (None, None) => None,
+    }) else {
         return Ok(None);
     };
     let Some(run_id) = payment_run_id(inputs, env)? else {
         return Err(denied(
-            "payment authority with max_per_run_units requires a run_id before rail execution"
+            "payment authority with an aggregate spend cap requires a run_id before rail execution"
                 .to_owned(),
         ));
     };

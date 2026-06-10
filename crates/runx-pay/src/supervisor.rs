@@ -267,11 +267,6 @@ pub fn verify_payment_rail_supervisor_proof(
         .as_ref()
         .ok_or(PaymentSupervisorError::MissingRailProofClaim)?;
     expect_field(
-        "rail_proof.proof_ref",
-        claim.proof_ref.as_str(),
-        claim.proof_ref.as_str(),
-    )?;
-    expect_field(
         "rail_proof.idempotency_key",
         input.idempotency_key,
         &claim.idempotency_key,
@@ -448,6 +443,30 @@ pub fn rebind_supervisor_proof_to_receipt(
     let Some(evidence) = payment_supervisor_evidence_from_metadata(metadata)? else {
         return Ok(());
     };
+    // The stored evidence must still hash to the digest sealed in the existing
+    // proof; rebinding may only change the receipt binding, never re-bless
+    // evidence that was altered after issuance.
+    let issued_digest = supervisor_evidence_digest(
+        &evidence,
+        PaymentSupervisorProofMatch {
+            proof_ref: &proof.proof_ref,
+            rail: &proof.rail,
+            counterparty: &proof.counterparty,
+            amount_minor: proof.amount_minor,
+            currency: &proof.currency,
+            idempotency_key: &proof.idempotency_key,
+            spend_capability_ref: &proof.spend_capability_ref,
+            act_id: &proof.act_id,
+            receipt_ref: &proof.receipt_ref,
+            receipt_digest: &proof.receipt_digest,
+        },
+    )?;
+    if issued_digest != proof.evidence_digest {
+        return Err(PaymentSupervisorError::InvalidSupervisorProof {
+            message: "stored supervisor evidence does not match the sealed evidence_digest"
+                .to_owned(),
+        });
+    }
     let rebound = build_payment_supervisor_proof(
         &evidence,
         PaymentSupervisorProofMatch {

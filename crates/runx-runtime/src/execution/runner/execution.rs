@@ -748,14 +748,20 @@ impl GraphExecution {
             self.fail_step(runtime, plan.step_id, &run);
             host.log(format!("step {} failed", plan.step_id))?;
             self.record_lifecycle(host, LifecycleEvent::step_failed(plan.step_id))?;
-            if plan.failure_mode == StepFailureMode::RecordAndContinue || retry_remaining {
-                self.push_run(run);
-                Ok(())
-            } else {
+            let terminal =
+                plan.failure_mode != StepFailureMode::RecordAndContinue && !retry_remaining;
+            let message = run.output.stderr.clone();
+            // The failed run is recorded even on terminal failure so the run
+            // list agrees with the journal's StepFailed event; a failed attempt
+            // must never be silently absent from the execution record.
+            self.push_run(run);
+            if terminal {
                 Err(RuntimeError::SkillFailed {
                     skill_name: plan.step_id.to_owned(),
-                    message: run.output.stderr.clone(),
+                    message,
                 })
+            } else {
+                Ok(())
             }
         }
     }

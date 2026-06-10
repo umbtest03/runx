@@ -64,3 +64,18 @@ Provider-permission steps fail closed unless the operator supplies both:
 This is intentional. Older local runs that relied on an implicit grant id must
 set `RUNX_PROVIDER_PERMISSION_GRANT_ID` explicitly before executing
 provider-permission steps.
+
+## Payment Aggregate Spend Caps
+
+Spend-class payment authority must carry an aggregate cap (`max_per_run_units`
+or `max_per_period_units`) in addition to any per-call cap. Both aggregate caps
+are enforced by the runtime spend ledger: each run's reserved spend is bounded
+by the smaller of the two declared caps, because a run never spans more than
+one period. A durable cross-run period ledger is planned follow-up work; until
+it lands, `max_per_period_units` bounds every individual run rather than being
+parsed and ignored.
+
+Payment supervisor proofs bind the original settlement evidence through
+`evidence_digest`. Rebinding a stored proof to a re-sealed receipt first
+re-verifies that the stored evidence still hashes to the sealed digest, so
+evidence altered after issuance is rejected instead of silently re-blessed.

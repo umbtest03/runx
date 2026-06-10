@@ -102,6 +102,9 @@ fn minor_unit_caps_subset(
     )
 }
 
+// Period caps count as aggregate bounds because the runtime clamps each run's
+// spend ledger to min(max_per_run_units, max_per_period_units); a period cap
+// declared without a run cap is still enforced, not advisory.
 fn has_aggregate_minor_cap(payment: &AuthorityEffectLimit) -> bool {
     payment.max_per_run_units.is_some() || payment.max_per_period_units.is_some()
 }
