@@ -195,6 +195,34 @@ cleaner:
 
 These should be separate specs. Do not fold them into Tier 0.
 
+UPDATE 2026-06-10 (post-Tier-0 hardening pass, commits `635930ba` in oss and
+`cac7e0b` in cloud): several items below were audited and partially resolved.
+
+- Tier 3 "SPT integrity check compares issuance to itself": FIXED. The
+  tautological `rail_proof.proof_ref` self-compare in
+  `crates/runx-pay/src/supervisor.rs` was removed, and
+  `rebind_supervisor_proof_to_receipt` now re-verifies the sealed
+  `evidence_digest` against stored evidence before rebinding.
+- Tier 3 "per-period spend cap": PARTIALLY FIXED. `max_per_period_units` is now
+  enforced at runtime as a run-level clamp on the spend ledger (min of run and
+  period caps). A durable cross-run period ledger keyed by time window remains
+  open work.
+- Tier 3 "refund bounded by captured amount / settlement idempotency": AUDITED
+  CORRECT (`refunds.rs:102`, `state.rs:732`); no change needed.
+- Tier 1 "failed retry child sealing": FIXED at the run-record level —
+  terminally failed step runs are now pushed into the execution run list so
+  the record agrees with the journal. Receipt-tree-level proof work remains.
+- Tier 4 "grant expiry enforcement": FIXED in cloud (`grantLifetimeAllows`
+  enforced in `grantMatchesQuery` and credential resolution).
+- Tier 4 "secret separation": FIXED in cloud. Production requires explicit
+  `RUNX_HOSTED_SERVICE_ACCESS_TOKEN_SECRET` and
+  `RUNX_HOSTED_AGENT_KEY_MASTER_KEYS`; dev derives purpose-bound secrets.
+  Deploy plumbing updated. NOTE: `cloud/deploy/render-env.mjs` still allows
+  gateway/webhook secrets as ticket-secret fallbacks at render time; that
+  deploy-layer reuse is a remaining follow-up.
+- Tier 4 revocation and billing authz: AUDITED CORRECT (status checks and
+  authenticated principal usage verified); re-audit only after refactors.
+
 ### Tier 1: Receipts Prove Scope Adherence
 
 Current receipts are signed and useful, but the next product jump is making the
