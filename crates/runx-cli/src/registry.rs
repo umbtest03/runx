@@ -83,6 +83,7 @@ fn run_search(
         RegistryTarget::Local {
             registry_path,
             registry_url,
+            ..
         } => search_registry_with_options(
             &FileRegistryStore::new(registry_path),
             &query,
@@ -118,6 +119,7 @@ fn run_read(
         RegistryTarget::Local {
             registry_path,
             registry_url,
+            ..
         } => read_registry_skill(
             &FileRegistryStore::new(registry_path),
             &plan.subject,
@@ -155,6 +157,7 @@ fn run_resolve(
         RegistryTarget::Local {
             registry_path,
             registry_url,
+            ..
         } => RemoteOrLocalResolution::Local(Box::new(
             resolve_registry_skill(
                 &FileRegistryStore::new(registry_path),
@@ -228,6 +231,7 @@ fn run_publish(
     let RegistryTarget::Local {
         registry_path,
         registry_url,
+        ..
     } = target
     else {
         return Err(usage_error(
@@ -261,7 +265,7 @@ fn run_publish(
     )
 }
 
-fn install_candidate(
+pub(crate) fn install_candidate(
     plan: &RegistryPlan,
     target: RegistryTarget,
     env: &BTreeMap<String, String>,
@@ -295,6 +299,7 @@ fn install_candidate(
         RegistryTarget::Local {
             registry_path,
             registry_url,
+            ..
         } => {
             let resolution = resolve_registry_skill(
                 &FileRegistryStore::new(registry_path),
@@ -349,26 +354,53 @@ fn candidate_from_acquired(
 }
 
 #[derive(Clone, Debug)]
-enum RegistryTarget {
+pub(crate) enum RegistryTarget {
     Remote {
         registry_url: String,
     },
     Local {
         registry_path: PathBuf,
         registry_url: Option<String>,
+        source_kind: LocalRegistrySourceKind,
     },
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum LocalRegistrySourceKind {
+    Local,
+    File,
+}
+
 impl RegistryTarget {
-    fn label(&self) -> &'static str {
+    pub(crate) fn label(&self) -> &'static str {
         match self {
             Self::Remote { .. } => "remote",
             Self::Local { .. } => "local",
         }
     }
+
+    pub(crate) fn fingerprint_source(&self) -> String {
+        match self {
+            Self::Remote { registry_url } => {
+                format!("remote:{}", canonical_remote_registry_url(registry_url))
+            }
+            Self::Local {
+                registry_path,
+                source_kind,
+                ..
+            } => {
+                let absolute =
+                    fs::canonicalize(registry_path).unwrap_or_else(|_| registry_path.to_path_buf());
+                match source_kind {
+                    LocalRegistrySourceKind::Local => format!("local:{}", absolute.display()),
+                    LocalRegistrySourceKind::File => format!("file:{}", absolute.display()),
+                }
+            }
+        }
+    }
 }
 
-fn resolve_registry_target(
+pub(crate) fn resolve_registry_target(
     plan: &RegistryPlan,
     env: &BTreeMap<String, String>,
     cwd: &Path,
@@ -389,6 +421,11 @@ fn resolve_registry_target(
                 .get("RUNX_REGISTRY_URL")
                 .filter(|value| is_remote_registry_url(value))
                 .cloned(),
+            source_kind: if registry.starts_with("file://") {
+                LocalRegistrySourceKind::File
+            } else {
+                LocalRegistrySourceKind::Local
+            },
         };
     }
     if let Some(registry_dir) = &plan.registry_dir {
@@ -397,6 +434,7 @@ fn resolve_registry_target(
             registry_url: configured_registry
                 .filter(|value| is_remote_registry_url(value))
                 .map(ToOwned::to_owned),
+            source_kind: LocalRegistrySourceKind::Local,
         };
     }
     if let Some(registry_dir) = env.get("RUNX_REGISTRY_DIR") {
@@ -410,6 +448,7 @@ fn resolve_registry_target(
             registry_url: configured_registry
                 .filter(|value| is_remote_registry_url(value))
                 .map(ToOwned::to_owned),
+            source_kind: LocalRegistrySourceKind::Local,
         };
     }
     if let Some(registry) = configured_registry.filter(|value| is_remote_registry_url(value)) {
@@ -420,6 +459,7 @@ fn resolve_registry_target(
     RegistryTarget::Local {
         registry_path: runx_runtime::resolve_runx_global_home_dir(env, cwd).join("registry"),
         registry_url: configured_registry.map(ToOwned::to_owned),
+        source_kind: LocalRegistrySourceKind::Local,
     }
 }
 
@@ -568,7 +608,7 @@ fn resolve_path(
     )
 }
 
-fn workspace_base(env: &BTreeMap<String, String>, cwd: &Path) -> PathBuf {
+pub(crate) fn workspace_base(env: &BTreeMap<String, String>, cwd: &Path) -> PathBuf {
     env.get("RUNX_CWD")
         .map(PathBuf::from)
         .or_else(|| find_workspace_root(cwd))
@@ -576,7 +616,7 @@ fn workspace_base(env: &BTreeMap<String, String>, cwd: &Path) -> PathBuf {
         .unwrap_or_else(|| cwd.to_path_buf())
 }
 
-fn trusted_manifest_keys_from_env(
+pub(crate) fn trusted_manifest_keys_from_env(
     env: &BTreeMap<String, String>,
 ) -> Result<Vec<TrustedRegistryManifestKey>, RegistryCliError> {
     let mut trusted_keys = default_trusted_registry_manifest_keys()
@@ -608,11 +648,32 @@ fn find_workspace_root(start: &Path) -> Option<PathBuf> {
     }
 }
 
+fn canonical_remote_registry_url(value: &str) -> String {
+    let without_fragment = value.split_once('#').map_or(value, |(prefix, _)| prefix);
+    let without_query = without_fragment
+        .split_once('?')
+        .map_or(without_fragment, |(prefix, _)| prefix);
+    let Some((scheme, rest)) = without_query.split_once("://") else {
+        return without_query.trim_end_matches('/').to_owned();
+    };
+    let (authority, path) = rest
+        .split_once('/')
+        .map_or((rest, ""), |(authority, path)| (authority, path));
+    let authority = authority
+        .rsplit_once('@')
+        .map_or(authority, |(_, host)| host);
+    if path.is_empty() {
+        format!("{scheme}://{authority}")
+    } else {
+        format!("{scheme}://{authority}/{}", path.trim_end_matches('/'))
+    }
+}
+
 fn is_remote_registry_url(value: &str) -> bool {
     value.starts_with("https://") || value.starts_with("http://")
 }
 
-fn env_map() -> BTreeMap<String, String> {
+pub(crate) fn env_map() -> BTreeMap<String, String> {
     env::vars().collect()
 }
 
@@ -627,9 +688,15 @@ fn write_stderr(value: &str) -> io::Result<()> {
     io::stderr().write_all(value.as_bytes())
 }
 
-struct RegistryCliError {
+pub(crate) struct RegistryCliError {
     message: String,
     exit_code: u8,
+}
+
+impl RegistryCliError {
+    pub(crate) fn into_message(self) -> String {
+        self.message
+    }
 }
 
 fn usage_error(message: impl Into<String>) -> RegistryCliError {

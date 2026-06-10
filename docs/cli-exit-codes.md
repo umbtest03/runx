@@ -24,6 +24,8 @@ Common fixes:
 - Read the stderr message first; it should name the failing command or policy.
 - Re-run with `--json` when the command supports it.
 - For harness failures, inspect `assertionErrors` in the JSON output.
+- For `runx skill owner/name@version`, unsigned manifests, unknown trust keys,
+  digest mismatches, and profile digest mismatches fail here before execution.
 
 ## Exit Code 2: Needs Agent
 
@@ -35,8 +37,7 @@ can distinguish it from ordinary command failure.
 Common fixes:
 
 ```bash
-runx skill <skill-path> --run-id <run-id> --answers answers.json
-runx skill <skill-dir> --answers answers.json
+runx skill <skill-ref> --run-id <run-id> --answers answers.json
 ```
 
 For required input, pass the missing `--input` value or the corresponding

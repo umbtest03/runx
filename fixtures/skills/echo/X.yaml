@@ -1,6 +1,25 @@
 skill: echo
 version: "0.1.0"
 
+catalog:
+  kind: skill
+  audience: public
+  visibility: public
+  role: canonical
+
+harness:
+  cases:
+    - name: echo-alpha
+      inputs:
+        message: alpha
+      expect:
+        status: sealed
+    - name: echo-beta
+      inputs:
+        message: beta
+      expect:
+        status: sealed
+
 runners:
   default:
     default: true

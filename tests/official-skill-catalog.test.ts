@@ -29,6 +29,7 @@ const publicCatalogPackages = [
   "receipt-auditor",
   "refund",
   "send-as",
+  "sourcey",
   "spend",
   "stripe-pay",
   "taste-profile",

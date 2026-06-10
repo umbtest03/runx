@@ -1087,7 +1087,7 @@ fn resolve_skill_dir(path: &Path) -> Result<PathBuf, SkillRunError> {
             .ok_or_else(|| invalid(format!("skill path has no parent: {}", path.display())));
     }
     Err(invalid(format!(
-        "runx skill requires a skill package directory or SKILL.md: {}",
+        "Skill references must point to a skill package directory or SKILL.md. Flat markdown files are not supported: {}",
         path.display()
     )))
 }

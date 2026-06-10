@@ -106,7 +106,7 @@ fn file_registry_store_covers_profiled_skill_surface() -> Result<(), Box<dyn std
 
     assert_eq!(version.skill_id, "acme/sourcey");
     assert_eq!(version.source_type, "agent");
-    assert_eq!(version.runner_names, vec!["agent", "sourcey"]);
+    assert_eq!(version.runner_names, vec!["sourcey"]);
     assert_eq!(
         version.profile_document.as_deref(),
         Some(profile_document.as_str())
@@ -176,7 +176,7 @@ fn file_registry_store_covers_profiled_skill_surface() -> Result<(), Box<dyn std
         resolved.profile_document.as_deref(),
         Some(profile_document.as_str())
     );
-    assert_eq!(resolved.runner_names, vec!["agent", "sourcey"]);
+    assert_eq!(resolved.runner_names, vec!["sourcey"]);
 
     Ok(())
 }
@@ -288,7 +288,10 @@ fn local_registry_publish_rejects_changed_duplicate() -> Result<(), Box<dyn std:
         first.link.install_command,
         "runx skill add acme/echo@1.0.0 --registry https://runx.example.test"
     );
-    assert_eq!(first.link.run_command, "runx skill echo");
+    assert_eq!(
+        first.link.run_command,
+        "runx skill acme/echo@1.0.0 --registry https://runx.example.test"
+    );
     assert_eq!(second.status, PublishStatus::Unchanged);
     assert_eq!(second.digest, first.digest);
     assert!(second.runner_names.is_empty());

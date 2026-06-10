@@ -20,9 +20,11 @@ pub fn parse_skill_plan(args: &[OsString]) -> Result<SkillPlan, String> {
 
     let local_credential = finalize_local_credential(&state)?;
 
-    let Some(skill_path) = state.skill_path else {
+    let Some(skill_path) = state.skill_path.as_ref() else {
         return Err("runx skill requires a skill package path".to_owned());
     };
+    reject_resolver_flags_for_skill_management_action(skill_path, &state)?;
+    let skill_path = skill_path.clone();
     if state.answers.is_some() && state.run_id.is_none() {
         return Err("runx skill --answers requires --run-id".to_owned());
     }
@@ -36,6 +38,8 @@ pub fn parse_skill_plan(args: &[OsString]) -> Result<SkillPlan, String> {
         receipt_dir: state.receipt_dir,
         run_id: state.run_id,
         answers: state.answers,
+        registry: state.registry,
+        expected_digest: state.expected_digest,
         json: state.json,
         inputs: state.inputs,
         local_credential,
@@ -49,6 +53,8 @@ struct SkillParseState {
     receipt_dir: Option<PathBuf>,
     run_id: Option<String>,
     answers: Option<PathBuf>,
+    registry: Option<String>,
+    expected_digest: Option<String>,
     json: bool,
     inputs: BTreeMap<String, JsonValue>,
     credential: Option<CredentialBinding>,
@@ -144,6 +150,29 @@ fn finalize_local_credential(
     }
 }
 
+fn reject_resolver_flags_for_skill_management_action(
+    skill_path: &PathBuf,
+    state: &SkillParseState,
+) -> Result<(), String> {
+    if state.registry.is_none() && state.expected_digest.is_none() {
+        return Ok(());
+    }
+    if !is_skill_management_action(skill_path) {
+        return Ok(());
+    }
+    Err("runx skill --registry and --digest are only supported when running a skill ref".to_owned())
+}
+
+fn is_skill_management_action(skill_path: &PathBuf) -> bool {
+    if skill_path.components().count() != 1 {
+        return false;
+    }
+    matches!(
+        skill_path.to_str(),
+        Some("add" | "inspect" | "publish" | "search" | "validate")
+    )
+}
+
 // rust-style-allow: long-function because this is the single skill-flag dispatch
 // match (--receipt-dir/--run-id/--answers/--json/--credential and positionals);
 // splitting the arms would scatter the CLI parse contract.
@@ -189,6 +218,30 @@ fn parse_skill_arg(
         "--runner" => {
             index += 1;
             state.runner = Some(non_empty_flag_value("--runner", &string_arg(args, index)?)?);
+        }
+        value if value.starts_with("--registry=") => {
+            state.registry = Some(non_empty_flag_value(
+                "--registry",
+                value.trim_start_matches("--registry="),
+            )?);
+        }
+        "--registry" => {
+            index += 1;
+            state.registry = Some(non_empty_flag_value(
+                "--registry",
+                &string_arg(args, index)?,
+            )?);
+        }
+        value if value.starts_with("--digest=") => {
+            state.expected_digest = Some(non_empty_flag_value(
+                "--digest",
+                value.trim_start_matches("--digest="),
+            )?);
+        }
+        "--digest" => {
+            index += 1;
+            state.expected_digest =
+                Some(non_empty_flag_value("--digest", &string_arg(args, index)?)?);
         }
         value if value.starts_with("--input=") => {
             index = parse_input_arg(

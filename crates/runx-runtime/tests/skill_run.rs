@@ -1452,6 +1452,101 @@ fn native_graph_skill_run_executes_nested_cli_tool_skill() -> Result<(), Box<dyn
 
 #[cfg(feature = "cli-tool")]
 #[test]
+fn native_graph_skill_run_executes_nested_registry_skill() -> Result<(), Box<dyn std::error::Error>>
+{
+    let temp = tempdir()?;
+    let registry_dir = temp.path().join("registry");
+    let store = create_file_registry_store(&registry_dir);
+    ingest_skill_markdown(
+        &store,
+        "---\nname: registry-child\ndescription: Registry-backed nested child.\n---\n# Registry Child\n",
+        IngestSkillOptions {
+            owner: Some("runx".to_owned()),
+            version: Some("1.0.0".to_owned()),
+            created_at: Some(FIXTURE_CREATED_AT.to_owned()),
+            profile_document: Some(
+                r#"
+skill: registry-child
+runners:
+  child-cli:
+    default: true
+    type: cli-tool
+    command: sh
+    args:
+      - -c
+      - |
+        cat >/dev/null
+        printf '%s\n' '{"nested":{"message":"registry child"}}'
+    input_mode: stdin
+"#
+                .to_owned(),
+            ),
+            ..IngestSkillOptions::default()
+        },
+    )?;
+    let skill_dir = write_graph_nested_registry_skill(temp.path())?;
+    let receipt_dir = temp.path().join("receipts");
+    let env = [(
+        "RUNX_REGISTRY_DIR".to_owned(),
+        registry_dir.to_string_lossy().into_owned(),
+    )]
+    .into_iter()
+    .collect::<BTreeMap<_, _>>();
+
+    let result = run_skill(SkillRunRequest {
+        skill_path: skill_dir,
+        receipt_dir: Some(receipt_dir),
+        run_id: None,
+        answers_path: None,
+        inputs: BTreeMap::new(),
+        env,
+        cwd: temp.path().to_path_buf(),
+        local_credential: None,
+    })?;
+
+    let output = object(&result.output, "nested registry skill result")?;
+    assert_eq!(string_field(output, "status"), Some("sealed"));
+    let payload = object_field(output, "payload").ok_or("missing payload")?;
+    let nested_claim = step_claim(payload, "nested").ok_or("missing nested registry claim")?;
+    let nested = object_field(nested_claim, "nested").ok_or("missing nested output")?;
+    assert_eq!(string_field(nested, "message"), Some("registry child"));
+
+    Ok(())
+}
+
+#[cfg(feature = "cli-tool")]
+#[test]
+fn native_graph_skill_run_rejects_nested_registry_skill_without_registry_dir()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let skill_dir = write_graph_nested_registry_skill(temp.path())?;
+    let receipt_dir = temp.path().join("receipts");
+
+    let error = match run_skill(SkillRunRequest {
+        skill_path: skill_dir,
+        receipt_dir: Some(receipt_dir),
+        run_id: None,
+        answers_path: None,
+        inputs: BTreeMap::new(),
+        env: BTreeMap::new(),
+        cwd: temp.path().to_path_buf(),
+        local_credential: None,
+    }) {
+        Ok(_) => return Err("nested registry skill unexpectedly succeeded".into()),
+        Err(error) => error,
+    };
+    assert!(
+        error
+            .to_string()
+            .contains("RUNX_REGISTRY_DIR is not configured"),
+        "unexpected error: {error}"
+    );
+
+    Ok(())
+}
+
+#[cfg(feature = "cli-tool")]
+#[test]
 fn native_graph_skill_run_does_not_rerun_final_step() -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
     let skill_dir = write_graph_nested_cli_counter_skill(temp.path())?;
@@ -2109,6 +2204,32 @@ runners:
           skill: ../child-echo
           inputs:
             message: $input.thread_title
+"#,
+    )?;
+    Ok(skill_dir)
+}
+
+#[cfg(feature = "cli-tool")]
+fn write_graph_nested_registry_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let skill_dir = root.join("graph-nested-registry");
+    fs::create_dir_all(&skill_dir)?;
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: graph-nested-registry\n---\n# Graph Nested Registry\n",
+    )?;
+    fs::write(
+        skill_dir.join("X.yaml"),
+        r#"
+skill: graph-nested-registry
+runners:
+  graph:
+    default: true
+    type: graph
+    graph:
+      name: graph-nested-registry
+      steps:
+        - id: nested
+          skill: registry:runx/registry-child@1.0.0
 "#,
     )?;
     Ok(skill_dir)

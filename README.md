@@ -82,12 +82,15 @@ For a live creator workflow, link the global `runx` binary to this checkout once
 pnpm --dir oss cli:link-global
 ```
 
-Then invoke `runx` from anywhere:
+Then invoke the linked `runx` binary from anywhere. Use explicit paths outside
+a runx workspace; bare skill names resolve from the current workspace's
+`skills/` directory.
 
 ```bash
 runx --help
-runx skill ./oss/fixtures/skills/echo --message hello --json
-runx skill design-skill --objective "build sourcey docs skill" --json
+runx skill /path/to/runx/oss/fixtures/skills/echo --message hello --json
+cd /path/to/runx/oss
+runx skill ./skills/design-skill --objective "build sourcey docs skill" --json
 ```
 
 Recommended flows:
@@ -99,14 +102,14 @@ runx new docs-demo
 npm create @runxhq/skill@latest docs-demo
 runx list skills
 runx registry search sourcey --json
-runx skill sourcey --project . --json
+runx skill sourcey/sourcey@1.0.0 --registry https://runx.example.test --project . --json
 runx skill issue-to-pr --fixture /path/to/repo --task-id task-123
 runx skill /path/to/skill --run-id <run-id> --answers answers.json
 runx history <receipt-id> --json
 runx history
 runx registry install sourcey/sourcey@1.0.0 --to ./skills --json
 runx mcp serve ./fixtures/skills/echo
-runx skill design-skill --objective "build github review skill"
+runx skill ./skills/design-skill --objective "build github review skill"
 runx harness ./fixtures/harness/echo-skill.yaml
 runx config set agent.provider openai
 runx config set agent.model gpt-5.1
@@ -312,9 +315,13 @@ Each ships as a portable `SKILL.md` plus a colocated execution profile at
 `skills/<skill>/X.yaml` when it exposes deterministic runners or inline harness
 coverage. Upstream skills that runx does not own keep their execution profiles
 under `bindings/<owner>/<skill>/X.yaml` with adjacent `binding.json`
-governance metadata. Official skills are registry-backed and cached locally on
-first acquisition. The npm CLI package no longer needs to ship the official
-runtime skill bodies for normal execution.
+governance metadata. Bare skill names resolve only to local workspace skills or
+locked first-party official shorthand. Third-party registry execution uses the
+explicit `owner/name@version` form, optionally with `--registry` and
+`--digest`, and only trusted signed registry packages are materialized into the
+runnable cache. Official skills are registry-backed and cached locally on first
+acquisition. The npm CLI package no longer needs to ship the official runtime
+skill bodies for normal execution.
 
 Agent graphs can also demand-load skills as context instead of executing them.
 Put reusable judgement, operating procedure, or capability skills in the local
@@ -332,6 +339,19 @@ path refs resolve relative to the graph; registry refs require
 `RUNX_REGISTRY_DIR` and are read from the local registry, not fetched remotely at
 execution time. Context skills are bounded, digest-labeled, and presented to
 managed agents as untrusted advisory data.
+
+Graph steps can execute local-registry skills too:
+
+```yaml
+steps:
+  - id: build_docs
+    skill: registry:runx/sourcey
+    runner: sourcey
+```
+
+This uses the same explicit local-registry rule: set `RUNX_REGISTRY_DIR`, sync or
+publish the skill into that registry first, and treat `.runx/registry-step-skills`
+as generated runtime cache rather than source.
 
 Any runnable skill package can also be exposed locally as an MCP tool with:
 

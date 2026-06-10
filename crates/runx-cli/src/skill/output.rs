@@ -70,13 +70,7 @@ fn write_skill_text(writer: &mut dyn Write, value: &JsonValue) -> io::Result<()>
     if let Some(receipt_id) = object_string(object, "receipt_id") {
         writeln!(writer, "receipt_id: {receipt_id}")?;
     }
-    if let Some(summary) = object
-        .get("closure")
-        .and_then(JsonValue::as_object)
-        .and_then(|closure| object_string(closure, "summary"))
-    {
-        writeln!(writer, "summary: {summary}")?;
-    } else if let Some(summary) = summary_from_payload(object) {
+    if let Some(summary) = summary_from_payload(object).or_else(|| closure_summary(object)) {
         writeln!(writer, "summary: {summary}")?;
     }
     if let Some(requests) = object.get("requests").and_then(JsonValue::as_array) {
@@ -113,6 +107,13 @@ fn summary_from_payload(object: &JsonObject) -> Option<&str> {
         })
 }
 
+fn closure_summary(object: &JsonObject) -> Option<&str> {
+    object
+        .get("closure")
+        .and_then(JsonValue::as_object)
+        .and_then(|closure| object_string(closure, "summary"))
+}
+
 fn summary_from_object(object: &JsonObject) -> Option<&str> {
     object_string(object, "summary").or_else(|| {
         object
@@ -124,4 +125,72 @@ fn summary_from_object(object: &JsonObject) -> Option<&str> {
 
 fn object_string<'a>(object: &'a JsonObject, key: &str) -> Option<&'a str> {
     object.get(key).and_then(JsonValue::as_str)
+}
+
+#[cfg(test)]
+mod tests {
+    use runx_contracts::{JsonObject, JsonValue};
+
+    use super::write_skill_text;
+
+    #[test]
+    fn text_output_prefers_operator_payload_summary_over_receipt_closure() {
+        let mut payload = JsonObject::new();
+        payload.insert(
+            "summary".to_owned(),
+            JsonValue::String("Forecast: wet morning, dry commute home.".to_owned()),
+        );
+        let mut closure = JsonObject::new();
+        closure.insert(
+            "summary".to_owned(),
+            JsonValue::String("agent act closed with closed".to_owned()),
+        );
+        let mut value = base_result();
+        value.insert("payload".to_owned(), JsonValue::Object(payload));
+        value.insert("closure".to_owned(), JsonValue::Object(closure));
+
+        let output = render(value);
+
+        assert!(output.contains("summary: Forecast: wet morning, dry commute home."));
+        assert!(!output.contains("summary: agent act closed with closed"));
+    }
+
+    #[test]
+    fn text_output_uses_closure_summary_when_payload_has_no_summary() {
+        let mut closure = JsonObject::new();
+        closure.insert(
+            "summary".to_owned(),
+            JsonValue::String("graph nws-weather-forecast completed".to_owned()),
+        );
+        let mut value = base_result();
+        value.insert("closure".to_owned(), JsonValue::Object(closure));
+
+        let output = render(value);
+
+        assert!(output.contains("summary: graph nws-weather-forecast completed"));
+    }
+
+    fn base_result() -> JsonObject {
+        JsonObject::from([
+            ("status".to_owned(), JsonValue::String("sealed".to_owned())),
+            (
+                "skill_name".to_owned(),
+                JsonValue::String("weather-forecast".to_owned()),
+            ),
+            (
+                "run_id".to_owned(),
+                JsonValue::String("run_weather".to_owned()),
+            ),
+            (
+                "receipt_id".to_owned(),
+                JsonValue::String("sha256:abc".to_owned()),
+            ),
+        ])
+    }
+
+    fn render(value: JsonObject) -> String {
+        let mut output = Vec::new();
+        write_skill_text(&mut output, &JsonValue::Object(value)).expect("text output renders");
+        String::from_utf8(output).expect("text output is utf8")
+    }
 }

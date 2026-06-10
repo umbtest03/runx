@@ -24,13 +24,13 @@ describe("official skill resolution", () => {
     }
   });
 
-  it("keeps unknown bare names failing with search guidance", async () => {
+  it("leaves unknown bare names for the native resolver to diagnose", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-official-missing-"));
 
     try {
       const env = { ...process.env, RUNX_CWD: tempDir, RUNX_HOME: path.join(tempDir, "home") };
-      await expect(resolveRunnableSkillReference("definitely-not-a-real-skill", env)).rejects.toThrow(
-        "Try `runx skill search definitely-not-a-real-skill`",
+      await expect(resolveRunnableSkillReference("definitely-not-a-real-skill", env)).resolves.toBe(
+        "definitely-not-a-real-skill",
       );
     } finally {
       await rm(tempDir, { recursive: true, force: true });

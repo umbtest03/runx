@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use runx_contracts::{JsonObject, JsonValue};
+use runx_contracts::{JsonObject, JsonValue, sha256_prefixed};
 use runx_core::state_machine::{RetryPolicy, SequentialGraphStepDefinition};
 use runx_parser::{
     ExecutionGraph, GraphStep, SkillRunnerDefinition, SkillRunnerManifest, SkillSource,
@@ -10,6 +10,11 @@ use runx_parser::{
     validate_runner_manifest,
 };
 
+use crate::receipts::paths::RUNX_CWD_ENV;
+use crate::registry::{
+    RegistryResolveOptions, create_file_registry_store, materialization_cache_path,
+    materialization_digest_marker, resolve_registry_skill, split_skill_id,
+};
 use crate::{RuntimeError, StepRun};
 
 use super::graph_index::PriorRunIndex;
@@ -31,14 +36,20 @@ impl StepSkillCache {
         &mut self,
         graph_dir: &Path,
         step: &GraphStep,
+        options: StepSkillLoadOptions<'_>,
     ) -> Result<LoadedStepSkill, RuntimeError> {
         if let Some(skill) = self.loaded.get(&step.id) {
             return Ok(skill.clone());
         }
-        let skill = load_step_skill(graph_dir, step)?;
+        let skill = load_step_skill(graph_dir, step, options)?;
         self.loaded.insert(step.id.clone(), skill.clone());
         Ok(skill)
     }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct StepSkillLoadOptions<'a> {
+    pub(crate) env: &'a BTreeMap<String, String>,
 }
 
 pub(crate) fn load_graph(graph_path: &Path) -> Result<ExecutionGraph, RuntimeError> {
@@ -126,8 +137,9 @@ pub(crate) fn load_skill(skill_dir: &Path) -> Result<ValidatedSkill, RuntimeErro
 pub(crate) fn load_step_skill(
     graph_dir: &Path,
     step: &GraphStep,
+    options: StepSkillLoadOptions<'_>,
 ) -> Result<LoadedStepSkill, RuntimeError> {
-    let directory = skill_dir(graph_dir, step)?;
+    let directory = skill_dir(graph_dir, step, options)?;
     if let Some(runner) = load_step_runner(&directory, step.runner.as_deref())? {
         return Ok(LoadedStepSkill {
             name: runner.name,
@@ -226,8 +238,15 @@ pub(crate) fn find_step<'a>(
         })
 }
 
-pub(crate) fn skill_dir(graph_dir: &Path, step: &GraphStep) -> Result<PathBuf, RuntimeError> {
+pub(crate) fn skill_dir(
+    graph_dir: &Path,
+    step: &GraphStep,
+    options: StepSkillLoadOptions<'_>,
+) -> Result<PathBuf, RuntimeError> {
     if let Some(skill) = &step.skill {
+        if is_registry_step_ref(skill) {
+            return materialize_registry_step_skill(graph_dir, step, skill, options);
+        }
         return Ok(graph_dir.join(skill));
     }
     if let Some(stage) = &step.stage {
@@ -236,6 +255,161 @@ pub(crate) fn skill_dir(graph_dir: &Path, step: &GraphStep) -> Result<PathBuf, R
     Err(RuntimeError::StepMissingSkill {
         step_id: step.id.clone(),
     })
+}
+
+fn materialize_registry_step_skill(
+    graph_dir: &Path,
+    step: &GraphStep,
+    reference: &str,
+    options: StepSkillLoadOptions<'_>,
+) -> Result<PathBuf, RuntimeError> {
+    let Some(registry_dir) = options.env.get("RUNX_REGISTRY_DIR") else {
+        return Err(RuntimeError::InvalidRunStep {
+            step_id: step.id.clone(),
+            reason: format!(
+                "nested skill '{reference}' is a registry ref, but RUNX_REGISTRY_DIR is not configured"
+            ),
+        });
+    };
+    let registry_url = options.env.get("RUNX_REGISTRY_URL").cloned();
+    let store = create_file_registry_store(registry_dir);
+    let resolution = resolve_registry_skill(
+        &store,
+        reference,
+        RegistryResolveOptions {
+            version: None,
+            registry_url,
+        },
+    )
+    .map_err(|source| RuntimeError::InvalidRunStep {
+        step_id: step.id.clone(),
+        reason: format!("nested skill registry ref '{reference}' could not be resolved: {source}"),
+    })?
+    .ok_or_else(|| RuntimeError::InvalidRunStep {
+        step_id: step.id.clone(),
+        reason: format!("nested skill registry ref '{reference}' was not found"),
+    })?;
+
+    let (owner, name) = split_skill_id(&resolution.skill_id).map_err(|source| {
+        RuntimeError::InvalidRunStep {
+            step_id: step.id.clone(),
+            reason: format!(
+                "nested skill registry ref '{reference}' resolved to invalid skill id '{}': {source}",
+                resolution.skill_id
+            ),
+        }
+    })?;
+    let profile_digest = resolution
+        .profile_document
+        .as_ref()
+        .map(|document| sha256_prefixed(document.as_bytes()));
+    let identity_digest = sha256_prefixed(
+        materialization_digest_marker(
+            &prefixed_digest(&resolution.digest),
+            profile_digest.as_deref(),
+        )
+        .as_bytes(),
+    );
+    let cache_root = runtime_cwd(options.env, graph_dir)
+        .join(".runx")
+        .join("registry-step-skills")
+        .join(registry_source_fingerprint(registry_dir));
+    let package_dir = materialization_cache_path(
+        &cache_root,
+        &owner,
+        &name,
+        &resolution.version,
+        &identity_digest,
+    );
+    write_registry_step_skill_package(
+        step,
+        reference,
+        &package_dir,
+        &resolution.markdown,
+        resolution.profile_document.as_deref(),
+    )?;
+    Ok(package_dir)
+}
+
+fn write_registry_step_skill_package(
+    step: &GraphStep,
+    reference: &str,
+    package_dir: &Path,
+    markdown: &str,
+    profile_document: Option<&str>,
+) -> Result<(), RuntimeError> {
+    fs::create_dir_all(package_dir).map_err(|source| {
+        RuntimeError::io(format!("creating {}", package_dir.display()), source)
+    })?;
+    write_registry_cache_file(step, reference, &package_dir.join("SKILL.md"), markdown)?;
+    if let Some(profile_document) = profile_document {
+        write_registry_cache_file(
+            step,
+            reference,
+            &package_dir.join("X.yaml"),
+            profile_document,
+        )?;
+    }
+    Ok(())
+}
+
+fn write_registry_cache_file(
+    step: &GraphStep,
+    reference: &str,
+    path: &Path,
+    contents: &str,
+) -> Result<(), RuntimeError> {
+    if let Some(existing) = fs::read_to_string(path).map(Some).or_else(|source| {
+        if source.kind() == std::io::ErrorKind::NotFound {
+            Ok(None)
+        } else {
+            Err(RuntimeError::io(
+                format!("reading {}", path.display()),
+                source,
+            ))
+        }
+    })? {
+        if sha256_prefixed(existing.as_bytes()) == sha256_prefixed(contents.as_bytes()) {
+            return Ok(());
+        }
+        return Err(RuntimeError::InvalidRunStep {
+            step_id: step.id.clone(),
+            reason: format!(
+                "registry cache file {} for nested skill '{reference}' already exists with different content",
+                path.display()
+            ),
+        });
+    }
+    fs::write(path, contents)
+        .map_err(|source| RuntimeError::io(format!("writing {}", path.display()), source))
+}
+
+fn runtime_cwd(env: &BTreeMap<String, String>, graph_dir: &Path) -> PathBuf {
+    env.get(RUNX_CWD_ENV)
+        .map(|value| crate::resolve_path_from_user_input(value, env, graph_dir, false))
+        .unwrap_or_else(|| graph_dir.to_path_buf())
+}
+
+fn registry_source_fingerprint(registry_dir: &str) -> String {
+    sha256_prefixed(registry_dir.as_bytes())
+        .trim_start_matches("sha256:")
+        .chars()
+        .take(16)
+        .collect()
+}
+
+fn prefixed_digest(digest: &str) -> String {
+    if digest.starts_with("sha256:") {
+        digest.to_owned()
+    } else {
+        format!("sha256:{digest}")
+    }
+}
+
+fn is_registry_step_ref(reference: &str) -> bool {
+    reference.starts_with("registry:")
+        || reference.starts_with("runx-registry:")
+        || reference.starts_with("runx://skill/")
 }
 
 fn stage_dir(graph_dir: &Path, step: &GraphStep, stage: &str) -> Result<PathBuf, RuntimeError> {

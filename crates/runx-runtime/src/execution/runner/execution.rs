@@ -14,7 +14,7 @@ use runx_core::state_machine::{
 use runx_parser::{ExecutionGraph, GraphStep};
 
 use super::super::fanout::fanout_policies;
-use super::super::graph::{LoadedStepSkill, StepSkillCache, find_step};
+use super::super::graph::{LoadedStepSkill, StepSkillCache, StepSkillLoadOptions, find_step};
 use super::super::graph_index::{ExecutionGraphIndex, PriorRunIndex};
 use super::scheduler::{
     FanoutSchedule, FanoutScheduler, ParallelFanoutSchedule, ScheduledFanoutStep,
@@ -331,7 +331,7 @@ impl GraphExecution {
         if !parallel_safe_step_shape(step, &runtime.options().effects) {
             return false;
         }
-        let Ok(Some(skill)) = self.cached_step_skill(graph_dir, step) else {
+        let Ok(Some(skill)) = self.cached_step_skill(runtime, graph_dir, step) else {
             return false;
         };
         runtime.adapter.fanout_execution_mode(&skill.source)
@@ -446,7 +446,7 @@ impl GraphExecution {
     where
         A: SkillAdapter,
     {
-        let jobs = self.parallel_fanout_jobs(graph_dir, graph, steps, sequence_base)?;
+        let jobs = self.parallel_fanout_jobs(runtime, graph_dir, graph, steps, sequence_base)?;
         let runs = &self.runs;
         let run_positions = &self.run_positions;
         thread::scope(|scope| {
@@ -485,6 +485,7 @@ impl GraphExecution {
 
     fn parallel_fanout_jobs<'a>(
         &mut self,
+        runtime: &Runtime<impl SkillAdapter>,
         graph_dir: &Path,
         graph: &'a ExecutionGraph,
         steps: &[ScheduledFanoutStep<'_>],
@@ -500,7 +501,7 @@ impl GraphExecution {
                     step_id: scheduled.step_id.to_owned(),
                     attempt: scheduled.attempt,
                     step,
-                    loaded_skill: self.cached_step_skill(graph_dir, step)?,
+                    loaded_skill: self.cached_step_skill(runtime, graph_dir, step)?,
                 })
             })
             .collect()
@@ -685,7 +686,7 @@ impl GraphExecution {
     where
         A: SkillAdapter,
     {
-        let loaded_skill = self.cached_step_skill(graph_dir, step)?;
+        let loaded_skill = self.cached_step_skill(runtime, graph_dir, step)?;
         run_step_with_loaded_skill(
             LoadedStepExecutionRequest {
                 runtime,
@@ -712,7 +713,7 @@ impl GraphExecution {
     where
         A: SkillAdapter,
     {
-        let loaded_skill = self.cached_step_skill(graph_dir, step)?;
+        let loaded_skill = self.cached_step_skill(runtime, graph_dir, step)?;
         let prior_run_index = PriorRunIndex::from_positions(&self.runs, &self.run_positions);
         run_step_with_loaded_skill_index(
             LoadedStepExecutionRequest {
@@ -906,13 +907,22 @@ impl GraphExecution {
 
     fn cached_step_skill(
         &mut self,
+        runtime: &Runtime<impl SkillAdapter>,
         graph_dir: &Path,
         step: &GraphStep,
     ) -> Result<Option<LoadedStepSkill>, RuntimeError> {
         if step.run.is_some() || step.tool.is_some() {
             return Ok(None);
         }
-        self.step_skill_cache.load(graph_dir, step).map(Some)
+        self.step_skill_cache
+            .load(
+                graph_dir,
+                step,
+                StepSkillLoadOptions {
+                    env: &runtime.options().env,
+                },
+            )
+            .map(Some)
     }
 
     fn find_step<'a>(

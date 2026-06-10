@@ -446,7 +446,7 @@ pub fn runx_link_for_version(
         digest: record.digest.clone(),
         registry_url: registry_url.map(ToOwned::to_owned),
         install_command: format!("runx skill add {registry_ref}{registry_flag}"),
-        run_command: format!("runx skill {}", record.name),
+        run_command: format!("runx skill {registry_ref}{registry_flag}"),
     }
 }
 

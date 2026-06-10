@@ -527,12 +527,14 @@
     },
     {
       "id": "skill.run",
-      "usage": "runx skill <skill-ref|skill-dir|SKILL.md>",
+      "usage": "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md>",
       "aliases": [],
       "requiredPositionals": [
-        "<skill-ref|skill-dir|SKILL.md>"
+        "<skill-ref|owner/name@version|skill-dir|SKILL.md>"
       ],
       "flags": [
+        "--registry",
+        "--digest",
         "--runner",
         "--input",
         "--receipt-dir",

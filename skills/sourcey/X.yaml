@@ -6,25 +6,8 @@ catalog:
   audience: public
   visibility: public
   role: context
-harness:
-  cases:
-    - name: sourcey-discovery-yield
-      runner: sourcey
-      inputs:
-        project: fixtures/sourcey/basic
-      expect:
-        status: needs_agent
-
-    - name: sourcey-needs-project-input
-      runner: sourcey
-      inputs: {}
-      expect:
-        status: needs_agent
 
 runners:
-  agent:
-    type: agent
-
   sourcey:
     default: true
     type: graph

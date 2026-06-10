@@ -268,7 +268,7 @@ Commands:
   runx dev [root] [--lane lane] [--json]
   runx export <claude|codex> [skill-ref...] [--project] [--json]
   runx mcp serve <skill-ref...> [--receipt-dir dir] [--http-listen [addr]] [--http-allow-non-loopback]
-  runx skill <skill-ref|skill-dir|SKILL.md> [--runner name] [--input k=v] [--receipt-dir dir] [--run-id id] [--answers file] [--json]
+  runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [--registry url|path] [--digest sha256] [--runner name] [--input key=value] [--flag value] [--receipt-dir dir] [--run-id id --answers file] [--json]
   runx harness <fixture.yaml...|skill-dir|SKILL.md> [--receipt-dir dir] [--json]
   runx tool build <tool-dir>|--all [--json]
   runx tool search <query> [--source source] [--json]

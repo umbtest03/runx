@@ -11,6 +11,8 @@ Generate a documentation site for a project using Sourcey. Sourcey is a static
 documentation generator that produces HTML sites from markdown pages, OpenAPI
 specs, Doxygen XML, and MCP server snapshots.
 
+## What this skill does
+
 By default, runx executes Sourcey as a governed mixed-runner skill:
 
 1. discover the bounded documentation scope, evidence, and plan
@@ -31,6 +33,29 @@ For repository-backed projects, Sourcey owns two separate surfaces: committed
 docs source and generated site output. Keep those separate. Do not mix emitted
 HTML, search indexes, or OG assets back into the authored docs tree.
 
+## When to use this skill
+
+- A project needs a maintainer-grade documentation site generated from real
+  repository evidence, existing docs, API specs, Doxygen XML, or MCP snapshots.
+- A branded package or product needs Sourcey output with governed discovery,
+  approval, authoring, deterministic build, critique, revision, and receipt
+  proof.
+- A workflow needs to separate authored docs source from generated site output
+  while preserving a reviewable receipt trail.
+- A maintainer wants CI or deploy to rebuild docs without inventing scope,
+  prose, or information architecture at deploy time.
+
+## When not to use this skill
+
+- To manufacture documentation when the repository evidence is too thin. Return
+  `needs_more_evidence` or `needs_review` instead of confident filler.
+- To write generated HTML, search indexes, or Open Graph assets back into the
+  source docs tree.
+- To bypass approval for a new docs plan or to run open-ended critique/revision
+  loops.
+- To document APIs by hand when an OpenAPI, Doxygen, or MCP source can be used
+  directly by Sourcey.
+
 ## Quality Bar
 
 Sourcey output should read like native project documentation that a maintainer
@@ -47,7 +72,7 @@ would stand behind:
 - if the repo evidence is too thin for a strong docs page, surface that as an
   evidence gap instead of manufacturing confident filler
 
-## Quality Profile
+## Execution Contract
 
 - Purpose: produce native project documentation, not a generic generated docs
   demo.
@@ -97,7 +122,7 @@ to use the existing config target. Do not overwrite the referenced config or
 invent replacement docs files merely because repository inspection evidence is
 thin. Missing evidence is not the same as missing files.
 
-## Steps
+## Procedure
 
 1. Inspect the project and discover a bounded documentation plan from real project evidence.
 2. Approve the discovered plan before authoring.
@@ -126,11 +151,53 @@ resolved docs inputs must live under:
 
 Downstream deterministic build steps consume that nested `discovered` object.
 
-## Output
+## Output schema
 
 Sourcey build produces: HTML pages, `sourcey.css`, `sourcey.js`,
 `search-index.json`, `sitemap.xml`, `llms.txt`, `llms-full.txt`, and
 `_og/` directory with generated Open Graph images.
+
+The sealed package includes:
+
+```yaml
+discovery_report:
+  discovered:
+    brand_name: string | null
+    homepage_url: string | null
+    docs_inputs: object | null
+doc_bundle:
+  files: array
+  summary: string
+sourcey_build_report:
+  generated_files: array
+  index_title: string
+  index_headings: array
+  index_excerpt: string
+evaluation_report: object
+revision_bundle:
+  files: array
+  summary: string
+sourcey_verification_proof:
+  verified: boolean
+  index_path: string
+receipt_notes:
+  authority: governed docs plan approval
+  mutation: authored docs source writes only
+```
+
+## Worked example
+
+Input: a project contains `README.md`, `package.json`, and a partial `docs/`
+tree, but no Sourcey config.
+
+Output: `decision: ready` after approval; Sourcey discovers the project name,
+homepage, and docs inputs, writes a bounded `docs/sourcey.config.ts` plus only
+the highest-value missing docs pages, builds to `.sourcey/runx-docs`, critiques
+the rendered `index.html`, applies at most one revision bundle, verifies the
+output, and seals a receipt with the build report and verification proof.
+
+If the project evidence does not support a maintainer-grade site, the run stops
+with `needs_more_evidence` or `needs_review` instead of producing filler.
 
 ## Inputs
 
@@ -269,7 +336,7 @@ Invalid card icon names are a blocking quality issue. The build report includes
 `icon_validation`; critique and revision must fix any
 `icon_validation.status: "invalid"` result before the run is accepted.
 
-## Constraints
+## Edge cases and stop conditions
 
 - Only create tabs for content types the project actually has. Do not add an
   OpenAPI tab if there is no spec file. Do not add a Doxygen tab without XML.

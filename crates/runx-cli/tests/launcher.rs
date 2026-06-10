@@ -27,7 +27,7 @@ fn top_level_help_and_version_are_native() {
     let help = help_text();
     assert_help_line(
         &help,
-        "runx skill <skill-ref|skill-dir|SKILL.md> [--runner name] [--input k=v] [--receipt-dir dir] [--run-id id] [--answers file] [--json]",
+        "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [--registry url|path] [--digest sha256] [--runner name] [--input key=value] [--flag value] [--receipt-dir dir] [--run-id id --answers file] [--json]",
     );
     assert_help_line(&help, "runx parser eval --input <file|-> --json");
     assert_help_line(
@@ -188,6 +188,8 @@ fn routes_canonical_skill_run_to_native_plan() {
             receipt_dir: Some(PathBuf::from(".runx/receipts")),
             run_id: Some("run_agent_task.issue-intake.output".to_owned()),
             answers: Some(PathBuf::from("/tmp/answers.json")),
+            registry: None,
+            expected_digest: None,
             json: true,
             inputs: [
                 (
@@ -221,6 +223,28 @@ fn skill_rejects_partial_continuation_shape() {
         ]),
         LauncherAction::Error("runx skill --answers requires --run-id".to_owned())
     );
+}
+
+#[test]
+fn skill_rejects_resolver_flags_for_management_actions() {
+    for action in ["add", "inspect", "publish", "search", "validate"] {
+        assert_eq!(
+            plan(&["skill", action, "--registry", "fixtures/registry"]),
+            LauncherAction::Error(
+                "runx skill --registry and --digest are only supported when running a skill ref"
+                    .to_owned()
+            ),
+            "{action}"
+        );
+        assert_eq!(
+            plan(&["skill", action, "--digest", "sha256:abc"]),
+            LauncherAction::Error(
+                "runx skill --registry and --digest are only supported when running a skill ref"
+                    .to_owned()
+            ),
+            "{action}"
+        );
+    }
 }
 
 #[test]

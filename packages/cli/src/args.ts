@@ -145,6 +145,8 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   const isSkillAdd = command === "skill" && positionals[0] === "add";
   const isSkillPublish = command === "skill" && positionals[0] === "publish";
   const isSkillInspect = command === "skill" && positionals[0] === "inspect";
+  const isSkillRun =
+    command === "skill" && !isSkillSearch && !isSkillAdd && !isSkillPublish && !isSkillInspect;
   const isKnowledgeShow = command === "knowledge" && positionals[0] === "show";
   const isConfig = command === "config";
   const isPolicy = command === "policy";
@@ -170,8 +172,8 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   const installTo = isSkillAdd && typeof inputs.to === "string" ? inputs.to : undefined;
   const publishOwner = isSkillPublish && typeof inputs.owner === "string" ? inputs.owner : undefined;
   const publishVersion = isSkillPublish && typeof inputs.version === "string" ? inputs.version : undefined;
-  const registryUrl = (isSkillSearch || isSkillAdd || isSkillPublish) && typeof inputs.registry === "string" ? inputs.registry : undefined;
-  const expectedDigest = isSkillAdd && typeof inputs.digest === "string" ? normalizeDigest(inputs.digest) : undefined;
+  const registryUrl = (isSkillSearch || isSkillAdd || isSkillPublish || isSkillRun) && typeof inputs.registry === "string" ? inputs.registry : undefined;
+  const expectedDigest = (isSkillAdd || isSkillRun) && typeof inputs.digest === "string" ? normalizeDigest(inputs.digest) : undefined;
   const newDirectory = isNew && typeof inputs.directory === "string"
     ? inputs.directory
     : isNew && typeof inputs.dir === "string"
@@ -189,6 +191,8 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       ? omitInputs(inputs, ["version", "to", "registry", "digest"])
       : isSkillPublish
         ? omitInputs(inputs, ["version", "owner", "registry"])
+        : isSkillRun
+          ? omitInputs(inputs, ["registry", "digest"])
         : isConfig
           ? {}
           : isPolicy

@@ -1689,6 +1689,8 @@ dependencies = [
 name = "runx-cli"
 version = "0.6.0"
 dependencies = [
+ "base64",
+ "ring",
  "runx-contracts",
  "runx-pay",
  "runx-runtime",

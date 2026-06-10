@@ -15,7 +15,9 @@ use runx_contracts::{
 use runx_core::state_machine::{GraphStatus, StepAdmissionWitness};
 use runx_parser::{GraphStep, SkillSource, SourceKind};
 
-use super::super::graph::{LoadedStepSkill, load_step_skill, materialize_graph_inputs};
+use super::super::graph::{
+    LoadedStepSkill, StepSkillLoadOptions, load_step_skill, materialize_graph_inputs,
+};
 use super::super::skill_context::load_context_skills;
 use super::authority::{
     EffectReceiptContext, StepAuthorityContext, enforce_step_authority_admission,
@@ -631,7 +633,7 @@ fn run_replayed_effect_step(
     loaded_skill: Option<LoadedStepSkill>,
     replay: EffectReplay,
 ) -> Result<StepRun, RuntimeError> {
-    let skill = loaded_skill_or_load(loaded_skill, graph_dir, step)?;
+    let skill = loaded_skill_or_load(loaded_skill, &runtime.options.env, graph_dir, step)?;
     let skill_name = skill.name.clone();
     let mut output = replay_skill_output(step, replay.outputs())?;
     if !output.succeeded() {
@@ -704,10 +706,14 @@ fn validate_replayed_receipt_identity(
 
 fn loaded_skill_or_load(
     loaded_skill: Option<LoadedStepSkill>,
+    runtime_env: &std::collections::BTreeMap<String, String>,
     graph_dir: &Path,
     step: &GraphStep,
 ) -> Result<LoadedStepSkill, RuntimeError> {
-    loaded_skill.map_or_else(|| load_step_skill(graph_dir, step), Ok)
+    loaded_skill.map_or_else(
+        || load_step_skill(graph_dir, step, StepSkillLoadOptions { env: runtime_env }),
+        Ok,
+    )
 }
 
 fn replay_skill_output(
@@ -868,7 +874,12 @@ fn run_subskill_step_handler<A>(mut request: StepHandlerCtx<'_, A>) -> Result<St
 where
     A: SkillAdapter,
 {
-    let skill = loaded_skill_or_load(request.loaded_skill.take(), request.graph_dir, request.step)?;
+    let skill = loaded_skill_or_load(
+        request.loaded_skill.take(),
+        &request.runtime.options.env,
+        request.graph_dir,
+        request.step,
+    )?;
     run_loaded_skill_step(skill, request)
 }
 

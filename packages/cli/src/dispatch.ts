@@ -58,7 +58,7 @@ import {
 } from "./commands/tool.js";
 import { ensureRunxInstallState } from "./runx-state.js";
 import { resolveBundledCliToolRoots } from "./runtime-assets.js";
-import { resolveRunnableSkillReference, runSkillSearch } from "./skill-refs.js";
+import { runSkillSearch } from "./skill-refs.js";
 import { streamTrainableReceipts } from "./trainable-receipts.js";
 import { runNativeRunx, streamNativeRunx, type NativeRunxProcessResult } from "./native-runx.js";
 
@@ -319,7 +319,7 @@ export async function dispatchCli(
       evolveInputs.objective = parsed.evolveObjective;
     }
     const result = await executeLocalSkillCommand({
-      skillPath: await resolveRunnableSkillReference("evolve", env),
+      skillPath: "evolve",
       inputs: evolveInputs,
       parsed,
       env,
@@ -328,7 +328,7 @@ export async function dispatchCli(
   }
 
   const result = await executeLocalSkillCommand({
-    skillPath: await resolveRunnableSkillReference(parsed.skillPath ?? "", env),
+    skillPath: parsed.skillPath ?? "",
     inputs: parsed.inputs,
     parsed,
     env,
@@ -351,6 +351,8 @@ async function executeLocalSkillCommand(options: {
   const resolvedReceiptDir = options.parsed.receiptDir ? resolvePathFromUserInput(options.parsed.receiptDir, env) : undefined;
 
   const args = ["skill", options.skillPath, ...inputArgs(options.inputs), "--json"];
+  pushOptionalFlag(args, "--registry", options.parsed.registryUrl);
+  pushOptionalFlag(args, "--digest", options.parsed.expectedDigest);
   pushOptionalFlag(args, "--runner", options.parsed.runner);
   pushOptionalFlag(args, "--receipt-dir", resolvedReceiptDir);
   pushOptionalFlag(args, "--run-id", options.parsed.runId);

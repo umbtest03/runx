@@ -11,11 +11,15 @@ const templates = [
     file: "oss/examples/orchestrator-webhooks/templates/n8n-webhook.manifest.json",
     name: "orchestrators.n8n_webhook_post",
     secret: "RUNX_N8N_WEBHOOK_TOKEN",
+    scope: "orchestrator.n8n.workflow.invoke",
+    audience: "n8n:workflow:runx-governed-effect",
   },
   {
     file: "oss/examples/orchestrator-webhooks/templates/zapier-webhook.manifest.json",
     name: "orchestrators.zapier_webhook_post",
     secret: "RUNX_ZAPIER_WEBHOOK_TOKEN",
+    scope: "orchestrator.zapier.workflow.invoke",
+    audience: "zapier:zap:runx-governed-effect",
   },
 ];
 
@@ -33,20 +37,25 @@ for (const template of templates) {
   const headers = manifest.source.headers ?? {};
   assert(headers.authorization === `Bearer \${secret:${template.secret}}`, `${template.file}: authorization must use ${template.secret}`);
   assert(headers["content-type"] === "application/json", `${template.file}: content-type must be application/json`);
+  assert(headers["x-runx-handoff-scope"] === template.scope, `${template.file}: handoff scope header mismatch`);
+  assert(headers["x-runx-handoff-audience"] === template.audience, `${template.file}: handoff audience header mismatch`);
 
+  assert(manifest.inputs?.handoff_scope?.default === template.scope, `${template.file}: handoff_scope default mismatch`);
+  assert(manifest.inputs?.handoff_audience?.default === template.audience, `${template.file}: handoff_audience default mismatch`);
   assert(manifest.inputs?.event_id?.required === true, `${template.file}: event_id must be required`);
   assert(manifest.inputs?.payload?.required === true, `${template.file}: payload must be required`);
+  assert(manifest.scopes?.includes(template.scope), `${template.file}: scopes must include ${template.scope}`);
   assert(manifest.mutating === true, `${template.file}: webhook POST must be marked mutating`);
   assert(manifest.idempotency?.key === "event_id", `${template.file}: idempotency key must be event_id`);
 }
 
 const doc = readText("oss/docs/orchestrator-integrations.md");
 for (const required of [
-  "No hosted run-skill API exists in this slice.",
-  "Zapier, Make, and n8n Cloud cannot call a local shell or localhost runx process",
-  "runx mcp serve --http-listen 127.0.0.1:8787",
-  "--credential orchestrator:bearer:RUNX_N8N_WEBHOOK_TOKEN:workflow.invoke",
-  "They are not inbound triggers that start a run.",
+  "Cloud orchestrator packages should call the hosted API, not shell out:",
+  "runx is the governed execution orchestrator",
+  "production HTTPS runx API",
+  "self-hosted n8n can consume local MCP HTTP on loopback",
+  "It is not the backlink path.",
 ]) {
   assert(doc.includes(required), `docs missing required boundary: ${required}`);
 }
@@ -54,6 +63,11 @@ for (const required of [
 const readme = readText("oss/examples/orchestrator-webhooks/README.md");
 assert(readme.includes("templates, not live endpoints"), "example README must state templates are not live endpoints");
 assert(readme.includes("Do not paste bearer tokens into the manifest file."), "example README must warn against raw bearer tokens");
+assert(
+  readme.includes("--credential orchestrator:bearer:RUNX_N8N_WEBHOOK_TOKEN:orchestrator.n8n.workflow.invoke"),
+  "example README must request the n8n handoff scope",
+);
+assert(readme.includes("Professional n8n Handoff Contract"), "example README must describe the n8n handoff contract");
 
 console.log("orchestrator webhook templates ok");
 

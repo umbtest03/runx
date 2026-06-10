@@ -1,28 +1,626 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub(super) fn resolve_skill_ref(skill_ref: &Path, cwd: &Path) -> Result<PathBuf, String> {
+use runx_contracts::sha256_prefixed;
+use runx_runtime::registry::{
+    InstallCandidate, InstallLocalSkillOptions, materialization_cache_path,
+    materialization_digest_marker, parse_registry_ref, split_skill_id,
+};
+use runx_runtime::scaffold::{InitGeneratedValues, ensure_runx_install_state};
+
+use crate::official_skills::official_skill_entry_by_name;
+use crate::registry::{self, RegistryAction, RegistryPlan};
+
+pub(super) struct SkillResolverOptions<'a> {
+    pub(super) env: &'a BTreeMap<String, String>,
+    pub(super) registry: Option<&'a str>,
+    pub(super) expected_digest: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum SkillRefKind {
+    ExplicitPath,
+    ExportedShim,
+    WorkspaceLocal,
+    Installed,
+    Official,
+    Registry,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum RegistryTrustState {
+    Trusted,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ResolvedSkillRef {
+    pub(crate) kind: SkillRefKind,
+    pub(crate) skill_id: Option<String>,
+    pub(crate) version: Option<String>,
+    pub(crate) digest: Option<String>,
+    pub(crate) profile_digest: Option<String>,
+    pub(crate) registry_source_fingerprint: Option<String>,
+    pub(crate) trust_state: Option<RegistryTrustState>,
+    pub(crate) runnable_path: PathBuf,
+}
+
+pub(super) fn resolve_skill_ref(
+    skill_ref: &Path,
+    cwd: &Path,
+    options: SkillResolverOptions<'_>,
+) -> Result<PathBuf, String> {
+    resolve_skill_ref_details(skill_ref, cwd, options).map(|resolved| resolved.runnable_path)
+}
+
+fn resolve_skill_ref_details(
+    skill_ref: &Path,
+    cwd: &Path,
+    options: SkillResolverOptions<'_>,
+) -> Result<ResolvedSkillRef, String> {
     if skill_ref.exists() {
-        return resolve_exported_skill_shim(skill_ref);
+        let path = resolve_exported_skill_shim(skill_ref)?;
+        let kind = if path == skill_ref {
+            SkillRefKind::ExplicitPath
+        } else {
+            SkillRefKind::ExportedShim
+        };
+        return Ok(local_resolved(kind, path));
+    }
+
+    let raw_ref = skill_ref.to_string_lossy();
+    let parsed = parse_registry_ref(&raw_ref);
+    if is_registry_prefixed_ref(&raw_ref) {
+        if split_skill_id(&parsed.skill_id).is_err() {
+            return Err(format!(
+                "Registry ref '{}' is ambiguous. Use '<owner>/<name>' instead.",
+                raw_ref
+            ));
+        }
+        return resolve_registry_skill(&parsed.skill_id, parsed.version.as_deref(), cwd, options);
     }
 
     if is_bare_skill_ref(skill_ref) {
-        let local_skill = cwd.join("skills").join(skill_ref);
-        if local_skill.exists() {
-            return resolve_exported_skill_shim(&local_skill);
+        if let Some(path) = resolve_installed_or_workspace_skill(&raw_ref, cwd, &options)? {
+            return Ok(path);
+        }
+        if let Some(entry) = official_skill_entry_by_name(&raw_ref) {
+            return resolve_official_skill(
+                entry.skill_id,
+                entry.version,
+                entry.digest,
+                cwd,
+                options,
+            );
         }
         return Err(format!(
-            "could not resolve skill ref '{}'; tried {}",
+            "could not resolve skill ref '{}'; tried {} and {}",
             skill_ref.display(),
-            local_skill.display()
+            cwd.join("skills").join(skill_ref).display(),
+            registry::workspace_base(options.env, cwd)
+                .join("skills")
+                .join(skill_ref)
+                .display()
         ));
     }
 
-    Ok(skill_ref.to_path_buf())
+    if is_explicit_registry_ref(&raw_ref, &parsed.skill_id) {
+        return resolve_registry_skill(&parsed.skill_id, parsed.version.as_deref(), cwd, options);
+    }
+
+    Ok(local_resolved(
+        SkillRefKind::ExplicitPath,
+        skill_ref.to_path_buf(),
+    ))
+}
+
+fn resolve_installed_or_workspace_skill(
+    name: &str,
+    cwd: &Path,
+    options: &SkillResolverOptions<'_>,
+) -> Result<Option<ResolvedSkillRef>, String> {
+    for root in installed_roots(cwd, options.env) {
+        let candidate = root.join(name);
+        if candidate.exists() {
+            let path = resolve_exported_skill_shim(&candidate)?;
+            let kind = if path == candidate {
+                if root == cwd.join("skills") {
+                    SkillRefKind::WorkspaceLocal
+                } else {
+                    SkillRefKind::Installed
+                }
+            } else {
+                SkillRefKind::ExportedShim
+            };
+            return Ok(Some(local_resolved(kind, path)));
+        }
+    }
+    Ok(None)
+}
+
+fn installed_roots(cwd: &Path, env: &BTreeMap<String, String>) -> Vec<PathBuf> {
+    let mut roots = vec![cwd.join("skills")];
+    let workspace_root = registry::workspace_base(env, cwd).join("skills");
+    if !roots.contains(&workspace_root) {
+        roots.push(workspace_root);
+    }
+    roots
+}
+
+fn resolve_official_skill(
+    skill_id: &str,
+    version: &str,
+    digest: &str,
+    cwd: &Path,
+    options: SkillResolverOptions<'_>,
+) -> Result<ResolvedSkillRef, String> {
+    let registry_override = official_registry_override(options.env, options.registry);
+    let expected_digest = options.expected_digest.unwrap_or(digest);
+    materialize_trusted_registry_skill(
+        skill_id,
+        Some(version),
+        CacheRoot::Official,
+        Some(&registry_override),
+        Some(expected_digest),
+        SkillRefKind::Official,
+        cwd,
+        options,
+    )
+}
+
+fn resolve_registry_skill(
+    skill_id: &str,
+    version: Option<&str>,
+    cwd: &Path,
+    options: SkillResolverOptions<'_>,
+) -> Result<ResolvedSkillRef, String> {
+    materialize_trusted_registry_skill(
+        skill_id,
+        version,
+        CacheRoot::Registry,
+        None,
+        options.expected_digest,
+        SkillRefKind::Registry,
+        cwd,
+        options,
+    )
+}
+
+fn materialize_trusted_registry_skill(
+    skill_id: &str,
+    version: Option<&str>,
+    cache_root: CacheRoot,
+    registry_override: Option<&str>,
+    expected_digest: Option<&str>,
+    kind: SkillRefKind,
+    cwd: &Path,
+    options: SkillResolverOptions<'_>,
+) -> Result<ResolvedSkillRef, String> {
+    let env = options.env;
+    let registry = registry_override.or(options.registry);
+    let mut plan = RegistryPlan {
+        action: RegistryAction::Install,
+        subject: skill_id.to_owned(),
+        registry: registry.map(ToOwned::to_owned),
+        registry_dir: None,
+        version: version.map(ToOwned::to_owned),
+        expected_digest: expected_digest.map(ToOwned::to_owned),
+        destination: None,
+        installation_id: remote_installation_id(registry, env, cwd)?,
+        owner: None,
+        profile: None,
+        limit: None,
+        upsert: false,
+        json: true,
+    };
+    let target = registry::resolve_registry_target(&plan, env, cwd);
+    let source_fingerprint = registry_source_fingerprint(&target);
+    let (mut candidate, _acquisition) =
+        registry::install_candidate(&plan, target, env).map_err(|error| error.into_message())?;
+    canonicalize_candidate_ref(&mut candidate);
+    let identity = registry_cache_identity(&candidate)?;
+    let destination_root =
+        destination_root_for_cache(cache_root, env, cwd, &source_fingerprint, &identity)?;
+    plan.expected_digest = expected_digest.map(ToOwned::to_owned);
+    let install = runx_runtime::registry::install_local_skill(
+        &candidate,
+        &InstallLocalSkillOptions {
+            destination_root: destination_root.to_path_buf(),
+            expected_digest: plan.expected_digest,
+            trusted_manifest_keys: registry::trusted_manifest_keys_from_env(env)
+                .map_err(|error| error.into_message())?,
+        },
+    )
+    .map_err(crate::registry::RegistryCliError::from)
+    .map_err(|error| error.into_message())?;
+    let runnable_path = install
+        .destination
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| {
+            format!(
+                "registry install returned invalid path {}",
+                install.destination.display()
+            )
+        })?;
+    restore_runner_manifest_from_profile_state(&runnable_path)?;
+    if cache_root == CacheRoot::Official {
+        sync_packaged_official_skill_assets(&runnable_path, skill_id, cwd, env)?;
+    }
+    Ok(ResolvedSkillRef {
+        kind,
+        skill_id: identity.skill_id,
+        version: identity.version,
+        digest: Some(install.digest),
+        profile_digest: install.profile_digest,
+        registry_source_fingerprint: Some(source_fingerprint),
+        trust_state: Some(RegistryTrustState::Trusted),
+        runnable_path,
+    })
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CacheRoot {
+    Official,
+    Registry,
+}
+
+fn destination_root_for_cache(
+    cache_root: CacheRoot,
+    env: &BTreeMap<String, String>,
+    cwd: &Path,
+    source_fingerprint: &str,
+    identity: &RegistryCacheIdentity,
+) -> Result<PathBuf, String> {
+    let skill_id = identity
+        .skill_id
+        .as_deref()
+        .ok_or_else(|| "registry skill is missing skill_id".to_owned())?;
+    let (owner, name) = split_skill_id(skill_id).map_err(|error| error.to_string())?;
+    let version = identity
+        .version
+        .as_deref()
+        .ok_or_else(|| "registry skill is missing version".to_owned())?;
+    let digest = identity
+        .digest
+        .as_deref()
+        .ok_or_else(|| "registry skill is missing signed digest".to_owned())?;
+    let root = match cache_root {
+        CacheRoot::Official => official_cache_root(env, cwd),
+        CacheRoot::Registry => runx_runtime::resolve_runx_global_home_dir(env, cwd)
+            .join("registry-skills")
+            .join(source_fingerprint),
+    };
+    Ok(materialization_cache_path(
+        &root,
+        &owner,
+        &name,
+        version,
+        &cache_identity_digest(digest, identity.profile_digest.as_deref()),
+    ))
+}
+
+fn official_cache_root(env: &BTreeMap<String, String>, cwd: &Path) -> PathBuf {
+    env.get("RUNX_OFFICIAL_SKILLS_DIR")
+        .map(|value| runx_runtime::resolve_path_from_user_input(value, env, cwd, false))
+        .unwrap_or_else(|| {
+            runx_runtime::resolve_runx_global_home_dir(env, cwd).join("official-skills")
+        })
+}
+
+fn registry_cache_identity(candidate: &InstallCandidate) -> Result<RegistryCacheIdentity, String> {
+    let manifest = candidate.signed_manifest.as_ref().ok_or_else(|| {
+        format!(
+            "registry signed manifest is required for {}",
+            candidate.r#ref
+        )
+    })?;
+    Ok(RegistryCacheIdentity {
+        skill_id: candidate
+            .skill_id
+            .clone()
+            .or_else(|| Some(manifest.skill_id.clone())),
+        version: candidate
+            .version
+            .clone()
+            .or_else(|| Some(manifest.version.clone())),
+        digest: Some(manifest.digest.clone()),
+        profile_digest: manifest.profile_digest.clone(),
+    })
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RegistryCacheIdentity {
+    skill_id: Option<String>,
+    version: Option<String>,
+    digest: Option<String>,
+    profile_digest: Option<String>,
+}
+
+fn canonicalize_candidate_ref(candidate: &mut InstallCandidate) {
+    if let (Some(skill_id), Some(version)) = (&candidate.skill_id, &candidate.version) {
+        candidate.r#ref = format!("{skill_id}@{version}");
+    }
+}
+
+fn cache_identity_digest(digest: &str, profile_digest: Option<&str>) -> String {
+    sha256_prefixed(materialization_digest_marker(digest, profile_digest).as_bytes())
+}
+
+fn registry_source_fingerprint(target: &registry::RegistryTarget) -> String {
+    let source = target.fingerprint_source();
+    sha256_prefixed(source.as_bytes())
+        .trim_start_matches("sha256:")
+        .chars()
+        .take(16)
+        .collect()
+}
+
+fn remote_installation_id(
+    registry: Option<&str>,
+    env: &BTreeMap<String, String>,
+    cwd: &Path,
+) -> Result<Option<String>, String> {
+    let plan = RegistryPlan {
+        action: RegistryAction::Install,
+        subject: "runx/install-state-probe".to_owned(),
+        registry: registry.map(ToOwned::to_owned),
+        registry_dir: None,
+        version: None,
+        expected_digest: None,
+        destination: None,
+        installation_id: None,
+        owner: None,
+        profile: None,
+        limit: None,
+        upsert: false,
+        json: true,
+    };
+    let target = registry::resolve_registry_target(&plan, env, cwd);
+    if !matches!(target, registry::RegistryTarget::Remote { .. }) {
+        return Ok(None);
+    }
+    if let Some(installation_id) = env.get("RUNX_INSTALLATION_ID") {
+        return Ok(Some(installation_id.clone()));
+    }
+    let generated = InitGeneratedValues::generate();
+    let home = runx_runtime::resolve_runx_global_home_dir(env, cwd);
+    let state = ensure_runx_install_state(&home, &generated.installation_id, &generated.created_at)
+        .map_err(|error| error.to_string())?;
+    Ok(Some(state.state.installation_id))
+}
+
+fn official_registry_override(
+    env: &BTreeMap<String, String>,
+    override_value: Option<&str>,
+) -> String {
+    override_value
+        .or_else(|| env.get("RUNX_REGISTRY_URL").map(String::as_str))
+        .or_else(|| env.get("RUNX_REGISTRY_DIR").map(String::as_str))
+        .unwrap_or("https://runx.ai")
+        .to_owned()
+}
+
+fn restore_runner_manifest_from_profile_state(skill_dir: &Path) -> Result<(), String> {
+    let manifest_path = skill_dir.join("X.yaml");
+    if manifest_path.exists() {
+        return Ok(());
+    }
+    let state_path = skill_dir.join(".runx").join("profile.json");
+    let state_raw = fs::read_to_string(&state_path).map_err(|error| {
+        format!(
+            "failed to read profile state {}: {error}",
+            state_path.display()
+        )
+    })?;
+    let state = serde_json::from_str::<runx_contracts::JsonValue>(&state_raw).map_err(|error| {
+        format!(
+            "failed to parse profile state {}: {error}",
+            state_path.display()
+        )
+    })?;
+    let profile = state
+        .as_object()
+        .and_then(|object| object.get("profile"))
+        .and_then(|value| value.as_object())
+        .ok_or_else(|| {
+            format!(
+                "profile state {} is missing profile data",
+                state_path.display()
+            )
+        })?;
+    let document = profile
+        .get("document")
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            format!(
+                "profile state {} is missing profile document",
+                state_path.display()
+            )
+        })?;
+    let expected_digest = profile.get("digest").and_then(|value| value.as_str());
+    if let Some(expected_digest) = expected_digest {
+        let actual_digest = sha256_prefixed(document.as_bytes());
+        if !digest_matches(expected_digest, &actual_digest) {
+            return Err(format!(
+                "profile state {} digest mismatch: expected {}, received {}",
+                state_path.display(),
+                expected_digest,
+                actual_digest
+            ));
+        }
+    }
+    fs::write(&manifest_path, document).map_err(|error| {
+        format!(
+            "failed to restore runner manifest {}: {error}",
+            manifest_path.display()
+        )
+    })
+}
+
+fn sync_packaged_official_skill_assets(
+    target_skill_dir: &Path,
+    skill_id: &str,
+    cwd: &Path,
+    env: &BTreeMap<String, String>,
+) -> Result<(), String> {
+    let Some(packaged_skill_dir) = packaged_official_skill_dir(skill_id, cwd, env)? else {
+        return Ok(());
+    };
+    for entry in fs::read_dir(&packaged_skill_dir).map_err(|error| {
+        format!(
+            "failed to read packaged official skill {}: {error}",
+            packaged_skill_dir.display()
+        )
+    })? {
+        let entry = entry.map_err(|error| {
+            format!(
+                "failed to read packaged official skill entry {}: {error}",
+                packaged_skill_dir.display()
+            )
+        })?;
+        let entry_name = entry.file_name();
+        if entry_name == "SKILL.md" {
+            continue;
+        }
+        let source_path = entry.path();
+        let target_path = target_skill_dir.join(&entry_name);
+        let file_type = entry.file_type().map_err(|error| {
+            format!(
+                "failed to stat packaged official skill entry {}: {error}",
+                source_path.display()
+            )
+        })?;
+        if file_type.is_dir() {
+            if target_path.exists() {
+                fs::remove_dir_all(&target_path).map_err(|error| {
+                    format!(
+                        "failed to replace official skill asset directory {}: {error}",
+                        target_path.display()
+                    )
+                })?;
+            }
+            copy_dir_all(&source_path, &target_path)?;
+        } else if file_type.is_file() {
+            if let Some(parent) = target_path.parent() {
+                fs::create_dir_all(parent).map_err(|error| {
+                    format!(
+                        "failed to create official skill asset parent {}: {error}",
+                        parent.display()
+                    )
+                })?;
+            }
+            fs::copy(&source_path, &target_path).map_err(|error| {
+                format!(
+                    "failed to copy official skill asset {} to {}: {error}",
+                    source_path.display(),
+                    target_path.display()
+                )
+            })?;
+        }
+    }
+    Ok(())
+}
+
+fn packaged_official_skill_dir(
+    skill_id: &str,
+    cwd: &Path,
+    env: &BTreeMap<String, String>,
+) -> Result<Option<PathBuf>, String> {
+    let (_owner, name) = split_skill_id(skill_id).map_err(|error| error.to_string())?;
+    Ok(packaged_official_skill_roots(cwd, env)
+        .into_iter()
+        .map(|root| root.join(&name))
+        .find(|candidate| candidate.exists()))
+}
+
+fn packaged_official_skill_roots(cwd: &Path, env: &BTreeMap<String, String>) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(root) = env.get("RUNX_PACKAGED_SKILLS_DIR") {
+        roots.push(runx_runtime::resolve_path_from_user_input(
+            root, env, cwd, false,
+        ));
+    }
+    roots.push(registry::workspace_base(env, cwd).join("skills"));
+    roots.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../skills"));
+    roots
+}
+
+fn copy_dir_all(source: &Path, target: &Path) -> Result<(), String> {
+    fs::create_dir_all(target).map_err(|error| {
+        format!(
+            "failed to create official skill asset directory {}: {error}",
+            target.display()
+        )
+    })?;
+    for entry in fs::read_dir(source).map_err(|error| {
+        format!(
+            "failed to read official skill asset directory {}: {error}",
+            source.display()
+        )
+    })? {
+        let entry = entry.map_err(|error| {
+            format!(
+                "failed to read official skill asset entry {}: {error}",
+                source.display()
+            )
+        })?;
+        let source_path = entry.path();
+        let target_path = target.join(entry.file_name());
+        let file_type = entry.file_type().map_err(|error| {
+            format!(
+                "failed to stat official skill asset {}: {error}",
+                source_path.display()
+            )
+        })?;
+        if file_type.is_dir() {
+            copy_dir_all(&source_path, &target_path)?;
+        } else if file_type.is_file() {
+            fs::copy(&source_path, &target_path).map_err(|error| {
+                format!(
+                    "failed to copy official skill asset {} to {}: {error}",
+                    source_path.display(),
+                    target_path.display()
+                )
+            })?;
+        }
+    }
+    Ok(())
+}
+
+fn digest_matches(expected: &str, actual_prefixed: &str) -> bool {
+    expected == actual_prefixed
+        || actual_prefixed
+            .strip_prefix("sha256:")
+            .is_some_and(|actual_hex| expected == actual_hex)
 }
 
 fn is_bare_skill_ref(skill_ref: &Path) -> bool {
     skill_ref.components().count() == 1
+}
+
+fn is_explicit_registry_ref(raw_ref: &str, skill_id: &str) -> bool {
+    is_registry_prefixed_ref(raw_ref) || split_skill_id(skill_id).is_ok()
+}
+
+fn is_registry_prefixed_ref(raw_ref: &str) -> bool {
+    raw_ref.starts_with("registry:")
+        || raw_ref.starts_with("runx-registry:")
+        || raw_ref.starts_with("runx://skill/")
+}
+
+fn local_resolved(kind: SkillRefKind, runnable_path: PathBuf) -> ResolvedSkillRef {
+    ResolvedSkillRef {
+        kind,
+        skill_id: None,
+        version: None,
+        digest: None,
+        profile_digest: None,
+        registry_source_fingerprint: None,
+        trust_state: None,
+        runnable_path,
+    }
 }
 
 fn resolve_exported_skill_shim(skill_ref: &Path) -> Result<PathBuf, String> {
@@ -73,4 +671,26 @@ fn exported_source_path(source: &str) -> Option<PathBuf> {
             PathBuf::from(raw)
         })
         .filter(|path| !path.as_os_str().is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn explicit_registry_ref_requires_owner_and_name() {
+        assert!(is_explicit_registry_ref("acme/echo", "acme/echo"));
+        assert!(is_explicit_registry_ref("registry:acme/echo", "acme/echo"));
+        assert!(!is_explicit_registry_ref("./echo", "./echo"));
+        assert!(!is_explicit_registry_ref("echo", "echo"));
+    }
+
+    #[test]
+    fn cache_identity_includes_profile_digest() {
+        let without_profile = cache_identity_digest("sha256:abc", None);
+        let with_profile = cache_identity_digest("sha256:abc", Some("sha256:def"));
+        assert_ne!(without_profile, with_profile);
+        assert!(without_profile.starts_with("sha256:"));
+        assert!(with_profile.starts_with("sha256:"));
+    }
 }

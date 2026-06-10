@@ -24,6 +24,8 @@ pub struct SkillPlan {
     pub receipt_dir: Option<PathBuf>,
     pub run_id: Option<String>,
     pub answers: Option<PathBuf>,
+    pub registry: Option<String>,
+    pub expected_digest: Option<String>,
     pub json: bool,
     pub inputs: BTreeMap<String, JsonValue>,
     /// One-shot, per-run local credential descriptor supplied via
@@ -36,7 +38,16 @@ pub struct SkillPlan {
 
 pub fn run_native_skill(plan: SkillPlan) -> ExitCode {
     let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let skill_path = match resolve_skill_ref(&plan.skill_path, &cwd) {
+    let env = env::vars().collect();
+    let skill_path = match resolve_skill_ref(
+        &plan.skill_path,
+        &cwd,
+        resolver::SkillResolverOptions {
+            env: &env,
+            registry: plan.registry.as_deref(),
+            expected_digest: plan.expected_digest.as_deref(),
+        },
+    ) {
         Ok(skill_path) => skill_path,
         Err(error) => {
             let _ignored = writeln!(io::stderr(), "runx: {error}");
@@ -49,7 +60,7 @@ pub fn run_native_skill(plan: SkillPlan) -> ExitCode {
         run_id: plan.run_id,
         answers_path: plan.answers,
         inputs: plan.inputs,
-        env: env::vars().collect(),
+        env,
         cwd,
         local_credential: plan.local_credential,
     };

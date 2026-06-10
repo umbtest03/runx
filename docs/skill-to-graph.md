@@ -26,6 +26,25 @@ first step's `stdout` and passes it as the next `message` input. The graph
 receipt links both step receipts, so inspection can show what ran and how the
 steps connected.
 
+Graph steps may also execute a cataloged skill from the local registry:
+
+```yaml
+steps:
+  - id: build_docs
+    skill: registry:runx/sourcey@1.0.0
+    runner: sourcey
+    inputs:
+      objective: refresh the public docs
+```
+
+Executable registry refs are explicit (`registry:...`, `runx-registry:...`, or
+`runx://skill/...`) and resolve only from `RUNX_REGISTRY_DIR`. Graph execution
+does not fetch remote registry content implicitly; the operator must install,
+publish, or sync the skill into the local registry first. At runtime runx
+materializes the resolved `SKILL.md` and optional `X.yaml` into
+`.runx/registry-step-skills/` as a generated cache, then executes the normal
+skill runner path against that materialized package.
+
 ## Skill Context For Agents
 
 Agent steps can also ask for whole skills as context without executing those

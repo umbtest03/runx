@@ -175,6 +175,13 @@
     "catalog_role": "runtime-path"
   },
   {
+    "skill_id": "runx/n8n-handoff",
+    "version": "sha-690c6a426823",
+    "digest": "608d26178d99d8e4fb9933e5c4c63ade7015d59f55bfd342368f481070309bdc",
+    "catalog_visibility": "internal",
+    "catalog_role": "context"
+  },
+  {
     "skill_id": "runx/nitrosend",
     "version": "sha-6cfeaa31ebae",
     "digest": "cc9c36d6da648078c7222e56d91219575a390029e8737bae1cb5f354cb55f603",
@@ -295,9 +302,9 @@
   },
   {
     "skill_id": "runx/sourcey",
-    "version": "sha-bde751a177b1",
-    "digest": "1a13cfbc840bf80aea286069fdfc747fc3e39d62bfa3a82009b718a55efb1ae0",
-    "catalog_visibility": "internal",
+    "version": "sha-47875ce8db08",
+    "digest": "2bdffb5206cbfc2dc619ffead5d26ad192afe0f2836093d782c7901841713006",
+    "catalog_visibility": "public",
     "catalog_role": "context"
   },
   {
@@ -376,5 +383,12 @@
     "digest": "18e4e8c85606f201463d29f4aca8cf910f84293a720a68b2090bd0df1544a62c",
     "catalog_visibility": "public",
     "catalog_role": "branded"
+  },
+  {
+    "skill_id": "runx/zapier-handoff",
+    "version": "sha-ea2a064877b8",
+    "digest": "36d6515bd6f7d5a7ecd658c12abf32391ac2738bcf11544f9a57d3a8a930da8c",
+    "catalog_visibility": "internal",
+    "catalog_role": "context"
   }
 ]

@@ -311,7 +311,7 @@ Return the provided task id.
     expect(exitCode).toBe(64);
     expect(stdout.contents()).toBe("");
     expect(stderr.contents()).toContain("Usage:");
-    expect(stderr.contents()).toContain("runx skill <skill-ref|skill-dir|SKILL.md>");
+    expect(stderr.contents()).toContain("runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md>");
   });
 
   it("routes sourcey through the native graph runner without TS fallback", async () => {
@@ -889,7 +889,7 @@ Answer the prompt directly.
     expect(stdout.contents()).toContain("run  ");
     expect(stdout.contents()).toContain("add  ");
     expect(stdout.contents()).toContain("runx skill add acme/receipt-auditor@1.0.0 --registry https://runx.example.test");
-    expect(stdout.contents()).toContain("runx skill receipt-auditor");
+    expect(stdout.contents()).toContain("runx skill acme/receipt-auditor@1.0.0 --registry https://runx.example.test");
   });
 
   it("routes hosted registry installs to the native subprocess", async () => {
@@ -994,7 +994,7 @@ Answer the prompt directly.
     expect(stderr.contents()).toBe("");
     expect(stdout.contents()).toContain("Commands:");
     expect(stdout.contents()).toContain("runx history [query]");
-    expect(stdout.contents()).toContain("runx skill <skill-ref|skill-dir|SKILL.md>");
+    expect(stdout.contents()).toContain("runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md>");
     expect(stdout.contents()).toContain("runx harness <fixture.yaml>");
     expect(stdout.contents()).toContain("runx tool inspect <ref>");
     expect(stdout.contents()).not.toContain("runx evolve");

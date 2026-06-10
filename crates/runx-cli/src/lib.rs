@@ -8,6 +8,7 @@ pub mod kernel;
 pub mod launcher;
 pub mod list;
 pub mod mcp;
+mod official_skills;
 pub mod parser;
 pub mod payment;
 pub mod policy;

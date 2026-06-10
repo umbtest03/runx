@@ -79,22 +79,7 @@ export async function resolveRunnableSkillReference(ref: string, env: NodeJS.Pro
   if (local) {
     return local;
   }
-  const official = officialSkillEntry(ref, env);
-  if (!official) {
-    throw new Error(`Skill not found: ${ref}. Try \`runx skill search ${ref}\` to discover available skills.`);
-  }
-  const globalHomeDir = resolveRunxGlobalHomeDir(env);
-  const install = await ensureRunxInstallState(globalHomeDir);
-  const registryBaseUrl = env.RUNX_REGISTRY_URL ?? "https://runx.ai";
-  const cache = await ensureOfficialSkillCached({
-    cacheRoot: resolveRunxOfficialSkillsDir(env),
-    registryBaseUrl,
-    installationId: install.state.installation_id,
-    entry: official,
-    env,
-  });
-  await rewriteOfficialSkillSiblingRefs(cache.skillPath, official.skill_id);
-  return cache.skillPath;
+  return ref;
 }
 
 export function createOfficialSkillResolver(env: NodeJS.ProcessEnv): OfficialSkillResolver {

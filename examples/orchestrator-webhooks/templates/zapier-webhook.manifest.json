@@ -9,10 +9,24 @@
     "method": "POST",
     "headers": {
       "authorization": "Bearer ${secret:RUNX_ZAPIER_WEBHOOK_TOKEN}",
-      "content-type": "application/json"
+      "content-type": "application/json",
+      "x-runx-handoff-scope": "orchestrator.zapier.workflow.invoke",
+      "x-runx-handoff-audience": "zapier:zap:runx-governed-effect"
     }
   },
   "inputs": {
+    "handoff_scope": {
+      "type": "string",
+      "required": false,
+      "default": "orchestrator.zapier.workflow.invoke",
+      "description": "Expected runx-to-Zapier handoff scope for receiver-side validation."
+    },
+    "handoff_audience": {
+      "type": "string",
+      "required": false,
+      "default": "zapier:zap:runx-governed-effect",
+      "description": "Expected Zap audience for receiver-side validation."
+    },
     "event_id": {
       "type": "string",
       "required": true,
@@ -31,7 +45,7 @@
     }
   },
   "scopes": [
-    "orchestrator.webhook.post"
+    "orchestrator.zapier.workflow.invoke"
   ],
   "mutating": true,
   "idempotency": {

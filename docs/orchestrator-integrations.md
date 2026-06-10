@@ -1,6 +1,10 @@
 # Orchestrator Directory Listings
 
-The orchestrator integration goal is distribution, not only connectivity:
+The orchestrator integration goal is distribution, not only connectivity. The
+strong story is orchestrator-to-orchestrator handoff: runx is the governed execution orchestrator
+for authority, secrets, policy, runtime, and receipts;
+n8n/Zapier/Make remain workflow surfaces for triggers, canvases, schedules, and
+cross-app branching.
 
 - a runx listing on n8n's public integrations surface
 - a runx app page in Zapier's public App Directory
@@ -43,6 +47,10 @@ Operator rules:
 - Exported Claude/Codex skills are shims. If invoked directly by path, the CLI
   resolves the generated source marker back to the governed runx skill; stale
   shims fail closed with an instruction to rerun `runx export`.
+- Runnable registry skills use explicit `owner/name@version` refs with optional
+  `--registry`; bare names stay local or locked first-party official shorthand.
+  Unsigned or digest-mismatched registry packages are search/read metadata only
+  and fail before execution.
 
 ## Hosted Connector Contract
 
@@ -58,6 +66,27 @@ Cloud orchestrator packages should call the hosted API, not shell out:
   prefers body-level `skill`.
 - `GET /v1/runs/{id}` and receipt lookup are the poll/inspect surfaces returned
   to users and workflow branches.
+- Public connector credentials should be scoped: `runs:write` to submit/rerun
+  and resolve hosted work, `runs:read` to list/inspect/poll runs,
+  `receipts:read` to retrieve receipts, `receipts:write` for trusted receipt
+  ingest, and `signals:write` for trusted signal ingest. A typical n8n/Zapier
+  v1 credential should start with only `runs:write`, `runs:read`, and
+  `receipts:read`.
+- Directory clients should call real runx skills, not privileged special-case
+  routes. The local outbound skills are `n8n-handoff` and `zapier-handoff`; the
+  hosted n8n/Zapier clients should submit the same kind of governed skill run
+  through `POST /v1/skills/{owner}/{name}/run`.
+- Do not add a new durable packet family just for orchestrator handoff. The
+  handoff skills emit a receipt-backed `handoff_context` artifact and the
+  outbound HTTP step supplies effect evidence. Existing `runx.handoff_signal.v1`
+  and `runx.handoff_state.v1` remain the lifecycle packets if receiver replies
+  or post-handoff state need to be modeled later. Do not use those lifecycle
+  packets as the webhook body unless the run also has durable lifecycle state:
+  `handoff_id`, `signal_id`, `recorded_at`, `boundary_kind`, target locator,
+  source/source ref, disposition, actor, and enough receiver status to maintain
+  `signal_count`, `last_signal_id`, and `last_signal_disposition`. Without that
+  state, using `runx.handoff_signal.v1` would hide missing lifecycle semantics
+  inside `metadata` and weaken the packet.
 
 The remaining directory blocker is production posture: deployed HTTPS,
 reviewable credentials/test accounts, docs, support pages, and a conservative
@@ -89,7 +118,8 @@ Proposed package:
 - `@runxhq/n8n-nodes-runx`
 - Node name: `Runx`
 - Credential: `Runx API`
-- Initial operation: `Run Skill`
+- Initial operation: `Run Skill`, with `runx/n8n-handoff` as the canonical
+  self-referential dogfood skill once hosted registry publication is ready.
 - Secondary operation after receipts API exists: `Get Receipt`
 - Backlink target: a stable runx-owned n8n integration page, not a GitHub file
 
@@ -130,7 +160,9 @@ Proposed public Zapier v1:
 
 - App name: `runx`
 - Authentication: API key/OAuth against hosted runx
-- Action: `Run Skill` for non-payment skills only
+- Action: `Run Skill` for non-payment skills only, with `runx/zapier-handoff`
+  as the canonical self-referential dogfood skill once hosted registry
+  publication is ready.
 - Action: `Get Receipt`
 - Search: `Find Run`
 - No trigger in v1 unless a production webhook/resume surface exists and passes
@@ -333,6 +365,27 @@ Before submitting listings, runx needs stable public pages:
 - `https://runx.ai/security`
 - `https://runx.ai/support`
 
+These pages should be seeded alongside the existing provider-catalog integration
+pages, not bolted on as a second website section. The cloud site already has a
+public integrations catalog fed by the generated provider snapshot. Keep that
+snapshot as the long-tail provider list and add runx-owned orchestration pages as
+an explicit custom overlay:
+
+- custom overlay leads the integration wall by `featured_rank`
+- provider-catalog entries remain searchable and listed
+- custom pages upsert by slug when a provider entry already exists, so
+  `/integrations/zapier`, `/integrations/make`, and `/integrations/pipedream`
+  can explain runx handoff rather than generic provider authentication
+- planned directory clients render as `catalog` until the package/app/listing is
+  actually public; only local or CI surfaces that work today can render as
+  `byo-ready`
+- `runx connect` is reserved for provider credentials and grants. It is not the
+  way a workflow orchestrator connects to runx. n8n/Zapier/Make/Pipedream use
+  scoped runx API credentials to call hosted run-skill endpoints; runx then uses
+  provider grants internally. Custom directory slugs are reserved from provider
+  connect routing to avoid turning `runx connect zapier` into a contradictory
+  provider-auth path.
+
 The pages should explain:
 
 - governed skill execution
@@ -342,17 +395,66 @@ The pages should explain:
 - support contact and status page
 - API docs for hosted run-skill and receipt lookup once those APIs exist
 
+## Outstanding External Setup
+
+The repo can seed pages, package code, and tests. These steps still require
+account access, production deployment, or third-party review.
+
+**n8n**
+
+- Own the npm package namespace for `@runxhq/n8n-nodes-runx`.
+- Configure npm Trusted Publisher for the GitHub Actions `publish.yml` workflow.
+- Publish from GitHub Actions with provenance; n8n requires provenance for
+  verification submissions.
+- Keep the package compliant with community-node metadata, no-runtime-dependency
+  verified-node constraints, UX guidelines, and README/support expectations.
+- Submit through n8n Creator Portal only after the production hosted runx API,
+  test credentials, support URL, and integration page exist.
+
+**Zapier**
+
+- Create the Zapier Platform app privately first.
+- Complete ownership, branding, homepage, logo, intended audience, role, and
+  category setup in Zapier.
+- Configure authentication as scoped runx API credentials. Do not ask Zapier
+  users for downstream provider secrets.
+- Ship only review-safe v1 actions: `Run Skill`, `Get Run`, `Get Receipt`.
+  Payment, asset transfer, and pause/resume workflows stay out of public v1.
+- Create test Zaps and a reviewable test account against production HTTPS.
+- Pass Zapier validation and publishing tasks before App Directory submission.
+
+**Make**
+
+- Build the custom app modules and connection on the hosted API.
+- Remove test modules/connections before publishing because public app shape is
+  hard to undo after review.
+- Request review only after support docs, production API, and modules are stable.
+
+**Pipedream**
+
+- Build a component directory with app metadata, actions, README, and registry
+  versioning.
+- Publish or submit via the Pipedream component workflow; actions should wrap
+  the same `Run Skill` and receipt lookup semantics.
+
+**GitHub Actions and MCP**
+
+- Complete GitHub Marketplace publication UI/agreement for `runxhq/runx-action`.
+- Pick the MCP artifact shape before registry submission. The MCP Registry
+  publishes metadata; the package/server artifact must already exist.
+
 ## Listing Copy
 
 n8n short description:
 
-> Run governed runx skills from n8n workflows and return signed receipts for
-> policy, audit, and replay.
+> Hand off n8n workflow steps to runx for governed skill execution and signed
+> receipts.
 
 Zapier app description:
 
-> runx is a governed runtime for agent and automation work. It runs skills under
-> policy and returns signed receipts for audit and replay.
+> runx is a governed execution orchestrator for agent and automation work. It
+> runs skills under policy, keeps sensitive provider credentials out of zaps,
+> and returns signed receipts for audit and replay.
 
 Avoid claims that n8n or Zapier endorse runx before approval. Avoid saying runx
 is listed, verified, public, or available in either directory until the listing
@@ -364,7 +466,8 @@ The existing local n8n guidance remains useful as dogfood:
 
 - self-hosted n8n can call `runx skill ... --json`
 - self-hosted n8n can consume local MCP HTTP on loopback
-- runx can call n8n/Zapier-style webhook URLs as outbound effects
+- runx can call n8n/Zapier-style webhook URLs as outbound effects through the
+  `n8n-handoff` and `zapier-handoff` skills
 
 That work proves workflow value and receipt shape. It is not the backlink path.
 

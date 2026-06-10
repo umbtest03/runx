@@ -31,6 +31,8 @@ serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
+base64 = "0.22.1"
+ring = "0.17.14"
 serde_norway.workspace = true
 
 [[bin]]
