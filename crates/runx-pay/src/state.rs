@@ -1331,9 +1331,21 @@ pub fn consumed_spend_capability_recorded(
         return Ok(false);
     };
     let store = FileBackedEffectStateStore::open(&path)?;
-    Ok(store
+    Ok(consumed_spend_capability_recorded_in_store(
+        &store,
+        family,
+        capability_ref,
+    ))
+}
+
+pub fn consumed_spend_capability_recorded_in_store(
+    store: &impl EffectStateStore,
+    family: &'static str,
+    capability_ref: &str,
+) -> bool {
+    store
         .lookup_consumed_spend_capability(family, capability_ref)
-        .is_some())
+        .is_some()
 }
 
 pub fn lookup_effect_idempotency_entry(
@@ -1346,7 +1358,15 @@ pub fn lookup_effect_idempotency_entry(
         return Ok(None);
     };
     let store = FileBackedEffectStateStore::open(&path)?;
-    Ok(store.lookup_idempotency(family, key).cloned())
+    Ok(lookup_effect_idempotency_entry_in_store(&store, family, key))
+}
+
+pub fn lookup_effect_idempotency_entry_in_store(
+    store: &impl EffectStateStore,
+    family: &'static str,
+    key: &EffectIdempotencyKey,
+) -> Option<EffectIdempotencyEntry> {
+    store.lookup_idempotency(family, key).cloned()
 }
 
 pub fn lookup_effect_mutation(
@@ -1359,7 +1379,15 @@ pub fn lookup_effect_mutation(
         return Ok(None);
     };
     let store = FileBackedEffectStateStore::open(&path)?;
-    Ok(store.lookup_mutation(family, key).cloned())
+    Ok(lookup_effect_mutation_in_store(&store, family, key))
+}
+
+pub fn lookup_effect_mutation_in_store(
+    store: &impl EffectStateStore,
+    family: &'static str,
+    key: &EffectIdempotencyKey,
+) -> Option<EffectMutation> {
+    store.lookup_mutation(family, key).cloned()
 }
 
 pub fn record_effect_finality_intent(
@@ -1371,6 +1399,13 @@ pub fn record_effect_finality_intent(
         return Ok(());
     };
     let mut store = FileBackedEffectStateStore::open(&path)?;
+    record_effect_finality_intent_in_store(&mut store, input)
+}
+
+pub fn record_effect_finality_intent_in_store(
+    store: &mut impl EffectStateStore,
+    input: &EffectStepStateInput,
+) -> Result<(), EffectStateError> {
     store.record_finality_intent(
         input.family,
         EffectFinalityIntent {
@@ -1398,6 +1433,14 @@ pub fn escalate_effect_mutation(
         return Ok(None);
     };
     let mut store = FileBackedEffectStateStore::open(&path)?;
+    escalate_effect_mutation_in_store(&mut store, family, key)
+}
+
+pub fn escalate_effect_mutation_in_store(
+    store: &mut impl EffectStateStore,
+    family: &'static str,
+    key: &EffectIdempotencyKey,
+) -> Result<Option<EffectMutation>, EffectStateError> {
     store.escalate_mutation(family, key)
 }
 
@@ -1423,7 +1466,18 @@ pub fn persist_effect_step_state(
         .is_some();
 
     let mut store = FileBackedEffectStateStore::open(&path)?;
+    persist_effect_step_state_in_store(&mut store, input, outputs, receipt, supervisor_proof)
+}
 
+// rust-style-allow: long-function because effect state persistence binds
+// authority, output, receipt, and recovery-state invariants in one transaction.
+pub fn persist_effect_step_state_in_store(
+    store: &mut impl EffectStateStore,
+    input: &EffectStepStateInput,
+    outputs: &JsonObject,
+    receipt: &runx_contracts::Receipt,
+    supervisor_proof: Option<&PaymentSupervisorProof>,
+) -> Result<(), EffectStateError> {
     if rail_touched
         && store
             .lookup_consumed_spend_capability(input.family, &input.spend_capability_ref)
