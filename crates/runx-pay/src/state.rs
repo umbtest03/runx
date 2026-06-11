@@ -245,11 +245,7 @@ pub trait EffectStateStore {
         consumption: EffectCapabilityConsumption,
     ) -> Result<(), EffectStateError>;
 
-    fn lookup_mutation(
-        &self,
-        family: &str,
-        key: &EffectIdempotencyKey,
-    ) -> Option<&EffectMutation>;
+    fn lookup_mutation(&self, family: &str, key: &EffectIdempotencyKey) -> Option<&EffectMutation>;
 
     fn lookup_finality_intent(
         &self,
@@ -837,11 +833,7 @@ impl EffectStateStore for FileBackedEffectStateStore {
         family: &str,
         capability_ref: &str,
     ) -> Option<&EffectCapabilityConsumption> {
-        FileBackedEffectStateStore::lookup_consumed_spend_capability(
-            self,
-            family,
-            capability_ref,
-        )
+        FileBackedEffectStateStore::lookup_consumed_spend_capability(self, family, capability_ref)
     }
 
     fn consume_spend_capability(
@@ -852,11 +844,7 @@ impl EffectStateStore for FileBackedEffectStateStore {
         FileBackedEffectStateStore::consume_spend_capability(self, family, consumption)
     }
 
-    fn lookup_mutation(
-        &self,
-        family: &str,
-        key: &EffectIdempotencyKey,
-    ) -> Option<&EffectMutation> {
+    fn lookup_mutation(&self, family: &str, key: &EffectIdempotencyKey) -> Option<&EffectMutation> {
         FileBackedEffectStateStore::lookup_mutation(self, family, key)
     }
 
@@ -1358,7 +1346,9 @@ pub fn lookup_effect_idempotency_entry(
         return Ok(None);
     };
     let store = FileBackedEffectStateStore::open(&path)?;
-    Ok(lookup_effect_idempotency_entry_in_store(&store, family, key))
+    Ok(lookup_effect_idempotency_entry_in_store(
+        &store, family, key,
+    ))
 }
 
 pub fn lookup_effect_idempotency_entry_in_store(
@@ -1457,14 +1447,6 @@ pub fn persist_effect_step_state(
     let Some(path) = resolve_effect_state_path(env, cwd) else {
         return Ok(());
     };
-    let rail_packet = read_effect_evidence_packet(outputs)?;
-    let recovery_state = payment_recovery_state(rail_packet.as_ref());
-    let rail_touched = rail_packet
-        .as_ref()
-        .and_then(|packet| packet.result.as_ref())
-        .and_then(|result| result.status.as_deref())
-        .is_some();
-
     let mut store = FileBackedEffectStateStore::open(&path)?;
     persist_effect_step_state_in_store(&mut store, input, outputs, receipt, supervisor_proof)
 }
@@ -1478,6 +1460,14 @@ pub fn persist_effect_step_state_in_store(
     receipt: &runx_contracts::Receipt,
     supervisor_proof: Option<&PaymentSupervisorProof>,
 ) -> Result<(), EffectStateError> {
+    let rail_packet = read_effect_evidence_packet(outputs)?;
+    let recovery_state = payment_recovery_state(rail_packet.as_ref());
+    let rail_touched = rail_packet
+        .as_ref()
+        .and_then(|packet| packet.result.as_ref())
+        .and_then(|result| result.status.as_deref())
+        .is_some();
+
     if rail_touched
         && store
             .lookup_consumed_spend_capability(input.family, &input.spend_capability_ref)
