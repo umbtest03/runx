@@ -14,6 +14,7 @@ use runx_pay::state::{
     RUNX_EFFECT_STATE_PATH_ENV, consumed_spend_capability_recorded, escalate_effect_mutation,
     lookup_effect_idempotency_entry, lookup_effect_mutation, period_window_start,
     persist_effect_step_state, record_effect_finality_intent,
+    record_effect_finality_intent_in_store,
 };
 use runx_pay::supervisor::{PAYMENT_RAIL_SUPERVISOR_VERIFIER_ID, PaymentSupervisorProof};
 use runx_pay::{INFERENCE_EFFECT_FAMILY, PAYMENT_EFFECT_FAMILY};
@@ -57,6 +58,31 @@ fn records_finality_intent_before_rail_mutation() -> Result<(), Box<dyn std::err
             status: EffectFinalityIntentStatus::Open,
         })
     );
+    Ok(())
+}
+
+#[test]
+fn file_store_supports_the_effect_state_store_seam() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let path = temp.path().join("effect-state.json");
+    let idempotency_key = EffectIdempotencyKey::new("mock", "merchant:paid-echo", "seam-001");
+    let input = EffectStepStateInput {
+        idempotency_key: idempotency_key.clone(),
+        act_id: "act_pay".to_owned(),
+        ..payment_step_input()
+    };
+
+    let mut store = FileBackedEffectStateStore::open(&path)?;
+    record_effect_finality_intent_in_store(&mut store, &input)?;
+
+    let reopened = FileBackedEffectStateStore::open(path)?;
+    assert_eq!(
+        reopened
+            .lookup_finality_intent(PAYMENT_EFFECT_FAMILY, &idempotency_key)
+            .map(|intent| intent.act_id.as_str()),
+        Some("act_pay")
+    );
+
     Ok(())
 }
 
