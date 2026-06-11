@@ -62,6 +62,7 @@ struct ParsedVerifyArgs {
     receipt: Option<ReceiptInput>,
     notary: Option<ReceiptInput>,
     notary_keys: Vec<PathBuf>,
+    allow_local_development_signatures: bool,
     json: bool,
 }
 
@@ -138,7 +139,14 @@ pub fn run_verify_command_with_stdin<R: Read>(
         return run_notary_verify(input, &parsed.notary_keys, parsed.json, cwd, stdin);
     }
     if let Some(input) = parsed.receipt.as_ref() {
-        return run_single_receipt_verify(input, parsed.json, env, cwd, stdin);
+        return run_single_receipt_verify(
+            input,
+            parsed.json,
+            parsed.allow_local_development_signatures,
+            env,
+            cwd,
+            stdin,
+        );
     }
     let receipt_config = RuntimeReceiptConfig::default();
     let resolved = resolve_receipt_path(ReceiptPathInputs {
@@ -147,7 +155,7 @@ pub fn run_verify_command_with_stdin<R: Read>(
         env,
         cwd,
     });
-    let verifier = production_verifier(env)?;
+    let verifier = receipt_verifier(env, parsed.allow_local_development_signatures)?;
     let signature_mode = if verifier.is_some() {
         "production"
     } else {
@@ -246,6 +254,9 @@ fn parse_verify_args(args: &[OsString]) -> Result<ParsedVerifyArgs, VerifyCliErr
         };
         match text {
             "--json" => parsed.json = true,
+            "--allow-local-development-signatures" => {
+                parsed.allow_local_development_signatures = true;
+            }
             "--receipt-dir" => {
                 let value = iter
                     .next()
@@ -318,6 +329,11 @@ fn parse_verify_args(args: &[OsString]) -> Result<ParsedVerifyArgs, VerifyCliErr
             "--notary requires at least one external trusted public key via --notary-key",
         ));
     }
+    if parsed.notary.is_some() && parsed.allow_local_development_signatures {
+        return Err(invalid_args(
+            "--allow-local-development-signatures is only valid for receipt verification",
+        ));
+    }
     Ok(parsed)
 }
 
@@ -342,12 +358,13 @@ fn parse_receipt_input_text(value: &str) -> Result<ReceiptInput, VerifyCliError>
 fn run_single_receipt_verify<R: Read>(
     input: &ReceiptInput,
     json: bool,
+    allow_local_development_signatures: bool,
     env: &BTreeMap<String, String>,
     cwd: &Path,
     stdin: R,
 ) -> Result<VerifyCliResult, VerifyCliError> {
     let document = read_single_receipt_input(input, cwd, stdin)?;
-    let verifier = production_verifier(env)?;
+    let verifier = receipt_verifier(env, allow_local_development_signatures)?;
     let local_verifier = LocalDevelopmentReceiptVerifier;
     let (signature_mode, signature_verifier): (ReceiptVerifySignatureMode, &dyn SignatureVerifier) =
         match verifier.as_ref() {
@@ -889,6 +906,19 @@ fn production_verifier(
     }
 }
 
+fn receipt_verifier(
+    env: &BTreeMap<String, String>,
+    allow_local_development_signatures: bool,
+) -> Result<Option<Ed25519ReceiptVerifier>, VerifyCliError> {
+    let verifier = production_verifier(env)?;
+    if verifier.is_none() && !allow_local_development_signatures {
+        return Err(VerifyCliError::InvalidReceiptVerifier(format!(
+            "runx verify requires trusted receipt verification keys. Set both {RUNX_RECEIPT_VERIFY_KID_ENV} and {RUNX_RECEIPT_VERIFY_ED25519_PUBLIC_KEY_BASE64_ENV}, or pass --allow-local-development-signatures for local fixture receipts only."
+        )));
+    }
+    Ok(verifier)
+}
+
 fn load_receipts(root: &Path) -> Result<(Vec<Receipt>, Vec<FileIssue>), VerifyCliError> {
     let mut receipts = Vec::new();
     let mut issues = Vec::new();
@@ -1013,7 +1043,7 @@ fn render_report(report: &VerifyReport) -> String {
     ));
     if report.signature_mode == "local-development" {
         output.push_str(
-            "note: set RUNX_RECEIPT_VERIFY_KID and RUNX_RECEIPT_VERIFY_ED25519_PUBLIC_KEY_BASE64 to verify production signatures\n",
+            "note: local-development signatures were accepted only because --allow-local-development-signatures was set; set RUNX_RECEIPT_VERIFY_KID and RUNX_RECEIPT_VERIFY_ED25519_PUBLIC_KEY_BASE64 to verify production signatures\n",
         );
     }
     if report.trees.is_empty() {
@@ -1251,6 +1281,7 @@ mod tests {
         let error = match run_verify_command(
             &[
                 "verify".into(),
+                "--allow-local-development-signatures".into(),
                 "receipt_missing".into(),
                 "--receipt-dir".into(),
                 receipt_dir.into_os_string(),
@@ -1343,6 +1374,42 @@ mod tests {
             JsonValue::String(receipt.id.to_string())
         );
         assert_eq!(verdict["valid"], JsonValue::Bool(true));
+        Ok(())
+    }
+
+    #[test]
+    fn single_receipt_requires_trusted_keys_by_default() -> Result<(), io::Error> {
+        let temp = tempfile_dir()?;
+        let signer = fixture_signer().map_err(io::Error::other)?;
+        let receipt = production_signed_receipt(&signer)
+            .map_err(|error| io::Error::other(error.to_string()))?;
+        let receipt_file = temp.join("receipt.json");
+        fs::write(
+            &receipt_file,
+            serde_json::to_vec_pretty(&receipt).map_err(io::Error::other)?,
+        )?;
+
+        let error = match run_verify_command(
+            &[
+                "verify".into(),
+                "--receipt".into(),
+                receipt_file.into_os_string(),
+                "--json".into(),
+            ],
+            &BTreeMap::new(),
+            &temp,
+        ) {
+            Ok(result) => {
+                return Err(io::Error::other(format!(
+                    "receipt verification must fail closed without trusted keys: {}",
+                    result.output
+                )));
+            }
+            Err(error) => error,
+        };
+        assert!(
+            matches!(error, VerifyCliError::InvalidReceiptVerifier(message) if message.contains("requires trusted receipt verification keys"))
+        );
         Ok(())
     }
 
@@ -1633,17 +1700,17 @@ mod tests {
             } else {
                 BTreeMap::new()
             };
-            let result = run_verify_command(
-                &[
-                    "verify".into(),
-                    "--receipt".into(),
-                    case_dir.join(&case.receipt).into_os_string(),
-                    "--json".into(),
-                ],
-                &env,
-                &root,
-            )
-            .map_err(|error| io::Error::other(error.to_string()))?;
+            let mut args = vec!["verify".into()];
+            if case.signature_mode == "local-development" {
+                args.push("--allow-local-development-signatures".into());
+            }
+            args.extend([
+                "--receipt".into(),
+                case_dir.join(&case.receipt).into_os_string(),
+                "--json".into(),
+            ]);
+            let result = run_verify_command(&args, &env, &root)
+                .map_err(|error| io::Error::other(error.to_string()))?;
             let actual: JsonValue =
                 serde_json::from_str(&result.output).map_err(io::Error::other)?;
             let expected = expected_verdict(&case_dir, &case)?;
