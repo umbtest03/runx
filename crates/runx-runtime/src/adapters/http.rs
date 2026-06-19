@@ -26,12 +26,18 @@ use crate::adapter::{
 };
 use crate::credentials::SecretEnv;
 use crate::runtime_http::{
-    HttpMethod, ReqwestHttpTransport, RuntimeHttpHeader, RuntimeHttpRequest, RuntimeHttpTransport,
+    DEFAULT_BROWSER_USER_AGENT, HttpMethod, ReqwestHttpTransport, RuntimeHttpHeader,
+    RuntimeHttpRequest, RuntimeHttpTransport,
 };
 use runx_parser::SourceKind;
 
 const HTTP_SKILL: &str = "http";
 const RUNX_HTTP_ALLOW_PRIVATE_NETWORK_ENV: &str = "RUNX_HTTP_ALLOW_PRIVATE_NETWORK";
+// The open-web fetch surface presents a browser profile by default so a Cloudflare-fronted
+// site does not score us as a bot. RUNX_HTTP_BROWSER=0 opts a run out (back to the plain
+// client); RUNX_HTTP_USER_AGENT overrides the UA string.
+const RUNX_HTTP_BROWSER_ENV: &str = "RUNX_HTTP_BROWSER";
+const RUNX_HTTP_USER_AGENT_ENV: &str = "RUNX_HTTP_USER_AGENT";
 
 /// A governed HTTP call: a method, a URL, and the request headers (auth and the
 /// like, already resolved). Inputs are mapped to the query string (GET, DELETE) or
@@ -255,6 +261,25 @@ fn operator_allows_private_network(env: &BTreeMap<String, String>) -> bool {
         .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on"))
 }
 
+/// The browser User-Agent for the open-web fetch surface, or `None` (the plain client)
+/// when the run opts out with `RUNX_HTTP_BROWSER=0`. `RUNX_HTTP_USER_AGENT` overrides the
+/// default Chrome string. Browser-on is the default.
+fn browser_user_agent(env: &BTreeMap<String, String>) -> Option<String> {
+    let opted_out = env
+        .get(RUNX_HTTP_BROWSER_ENV)
+        .map(|value| value.trim().to_ascii_lowercase())
+        .is_some_and(|value| matches!(value.as_str(), "0" | "false" | "no" | "off"));
+    if opted_out {
+        return None;
+    }
+    let user_agent = env
+        .get(RUNX_HTTP_USER_AGENT_ENV)
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .unwrap_or(DEFAULT_BROWSER_USER_AGENT);
+    Some(user_agent.to_owned())
+}
+
 /// The governed HTTP skill adapter: reads `url`/`method`/`headers` from an `http`
 /// source, resolves credential headers, and runs the call through the governed
 /// transport. The default constructs a [`ReqwestHttpTransport`]; the engine itself
@@ -295,11 +320,12 @@ impl SkillAdapter for HttpSkillAdapter {
                 "http source requested private-network access but operator grant {RUNX_HTTP_ALLOW_PRIVATE_NETWORK_ENV}=1 is not set"
             )));
         }
-        let transport = if allow_private_network {
-            ReqwestHttpTransport::with_private_network_access()
-        } else {
-            ReqwestHttpTransport::new()
-        }
+        // The http tool is the open-web fetch surface, so it presents the browser
+        // profile by default; a per-source header still overrides any browser default.
+        let transport = ReqwestHttpTransport::with_options(
+            allow_private_network,
+            browser_user_agent(&request.env),
+        )
         .map_err(|error| failure(format!("http transport unavailable: {error}")))?;
         let mut output = execute_http_call(&transport, &call, &merged_inputs(&request))?;
         add_credential_delivery_metadata(&mut output, &request.credential_delivery)?;

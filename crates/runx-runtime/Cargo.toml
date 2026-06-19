@@ -53,7 +53,11 @@ runx-contracts.workspace = true
 runx-core.workspace = true
 runx-parser.workspace = true
 runx-receipts.workspace = true
-reqwest = { version = "=0.13.3", default-features = false, features = ["rustls-no-provider", "json"], optional = true }
+# gzip/brotli/deflate/zstd + http2 so the governed fetch transport negotiates and
+# decodes like a real browser; a no-compression, http1-only client is a bot tell to
+# Cloudflare and friends. The response cap measures DECODED bytes (streaming guard in
+# read_limited_response_body), so a decompression bomb stays bounded.
+reqwest = { version = "=0.13.3", default-features = false, features = ["rustls-no-provider", "json", "gzip", "brotli", "deflate", "zstd", "http2"], optional = true }
 ring = "0.17.14"
 # Drive rustls with the ring provider (already linked via `ring`) instead of
 # reqwest's default aws-lc-rs, so the vendored aws-lc-sys C crypto blob is not

@@ -121,6 +121,52 @@ pub struct ReqwestHttpTransport {
 #[cfg(feature = "async-http")]
 const MAX_HTTP_RESPONSE_BYTES: usize = 1024 * 1024;
 
+/// The default browser User-Agent the governed fetch transport presents (current
+/// stable Chrome). Overridable per run with `RUNX_HTTP_USER_AGENT`, opt-out with
+/// `RUNX_HTTP_BROWSER=0`. This is header/UA-level emulation only: it clears basic bot
+/// scoring (a missing UA, no browser headers), NOT TLS (JA3/JA4) or HTTP/2
+/// fingerprinting, which would need a Chrome-impersonating TLS stack and is
+/// deliberately out of scope. Sites on a JS/managed challenge, or that fingerprint the
+/// rustls handshake, are expected to still block us; we surface that as a non-2xx
+/// rather than escalate.
+#[allow(dead_code)] // consumed by the feature-gated http adapter and the transport tests
+pub const DEFAULT_BROWSER_USER_AGENT: &str =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36";
+
+/// The Chrome navigation header set, applied as client default headers so a per-request
+/// (manifest/caller) header of the same name still overrides it. The User-Agent is set
+/// via the builder's `.user_agent()` and Accept-Encoding is owned by the gzip/brotli/...
+/// decoders, so neither is here. reqwest's HeaderMap is hash-ordered and will not
+/// reproduce Chrome's header order on the wire: values match Chrome, order does not,
+/// which is the honest ceiling for header-level emulation.
+#[cfg(feature = "async-http")]
+fn chrome_default_headers() -> reqwest::header::HeaderMap {
+    use reqwest::header::{HeaderMap, HeaderValue};
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        "sec-ch-ua",
+        HeaderValue::from_static(
+            "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not/A)Brand\";v=\"24\"",
+        ),
+    );
+    headers.insert("sec-ch-ua-mobile", HeaderValue::from_static("?0"));
+    headers.insert("sec-ch-ua-platform", HeaderValue::from_static("\"Windows\""));
+    headers.insert("upgrade-insecure-requests", HeaderValue::from_static("1"));
+    headers.insert(
+        "accept",
+        HeaderValue::from_static(
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        ),
+    );
+    headers.insert("sec-fetch-site", HeaderValue::from_static("none"));
+    headers.insert("sec-fetch-mode", HeaderValue::from_static("navigate"));
+    headers.insert("sec-fetch-user", HeaderValue::from_static("?1"));
+    headers.insert("sec-fetch-dest", HeaderValue::from_static("document"));
+    headers.insert("accept-language", HeaderValue::from_static("en-US,en;q=0.9"));
+    headers.insert("priority", HeaderValue::from_static("u=0, i"));
+    headers
+}
+
 #[cfg(feature = "async-http")]
 impl ReqwestHttpTransport {
     pub fn new() -> Result<Self, RuntimeHttpError> {
@@ -128,6 +174,7 @@ impl ReqwestHttpTransport {
             Duration::from_secs(30),
             Duration::from_secs(10),
             false,
+            None,
         )
     }
 
@@ -135,15 +182,33 @@ impl ReqwestHttpTransport {
         request_timeout: Duration,
         connect_timeout: Duration,
         allow_private_networks: bool,
+        browser_user_agent: Option<String>,
     ) -> Result<Self, RuntimeHttpError> {
         // reqwest is built with `rustls-no-provider`, so the process needs a
         // default crypto provider before a TLS client can be constructed.
         // Install ring once; an Err means another transport already set it.
         let _ = rustls::crypto::ring::default_provider().install_default();
+        // Decode like a browser (the decoders also advertise the matching
+        // Accept-Encoding) and let ALPN negotiate HTTP/2; a no-compression,
+        // http1-only client is a bot tell. The response cap measures DECODED
+        // bytes (read_limited_response_body), so a decompression bomb stays bounded.
         let mut builder = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(request_timeout)
-            .connect_timeout(connect_timeout);
+            .connect_timeout(connect_timeout)
+            .gzip(true)
+            .brotli(true)
+            .deflate(true)
+            .zstd(true);
+        // The browser profile is a default-header layer: a per-request
+        // (manifest/caller) header of the same name still overrides it. The UA goes
+        // through the dedicated builder method so a caller UA header overrides it
+        // without duplicating. None = the plain client (internal/API callers).
+        if let Some(user_agent) = browser_user_agent {
+            builder = builder
+                .user_agent(user_agent)
+                .default_headers(chrome_default_headers());
+        }
         if !allow_private_networks {
             builder = builder.dns_resolver(GuardedDnsResolver::new(TokioDnsResolver));
         }
@@ -167,6 +232,24 @@ impl ReqwestHttpTransport {
             Duration::from_secs(30),
             Duration::from_secs(10),
             true,
+            None,
+        )
+    }
+
+    /// Build the open-web fetch transport: the optional browser profile (a
+    /// `Some(user_agent)` enables it; `None` is the plain client) plus the
+    /// private-network flag. The `http` skill adapter uses this; `new()` and
+    /// `with_private_network_access()` stay plain for internal/API callers (the
+    /// agent transport, the registry) where a browser profile does not belong.
+    pub fn with_options(
+        allow_private_networks: bool,
+        browser_user_agent: Option<String>,
+    ) -> Result<Self, RuntimeHttpError> {
+        Self::with_timeouts_and_private_networks(
+            Duration::from_secs(30),
+            Duration::from_secs(10),
+            allow_private_networks,
+            browser_user_agent,
         )
     }
 
@@ -180,7 +263,7 @@ impl ReqwestHttpTransport {
         request_timeout: Duration,
         connect_timeout: Duration,
     ) -> Result<Self, RuntimeHttpError> {
-        Self::with_timeouts_and_private_networks(request_timeout, connect_timeout, true)
+        Self::with_timeouts_and_private_networks(request_timeout, connect_timeout, true, None)
     }
 }
 
@@ -1009,6 +1092,83 @@ mod tests {
             .map_err(|_| RuntimeHttpTestError::ServerThread)??;
 
         assert!(matches!(error, Some(RuntimeHttpError::Transport { .. })));
+        Ok(())
+    }
+
+    #[cfg(feature = "async-http")]
+    #[test]
+    fn browser_profile_sends_chrome_ua_and_client_hints() -> Result<(), RuntimeHttpTestError> {
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        let address = listener.local_addr()?;
+        let server = std::thread::spawn(move || -> Result<String, std::io::Error> {
+            let (mut stream, _) = listener.accept()?;
+            let mut buffer = [0_u8; 4096];
+            let bytes_read = stream.read(&mut buffer)?;
+            stream.write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n")?;
+            Ok(String::from_utf8_lossy(&buffer[..bytes_read]).into_owned())
+        });
+
+        // with_options(private = true) so the loopback test server is reachable.
+        let transport = ReqwestHttpTransport::with_options(
+            true,
+            Some(super::DEFAULT_BROWSER_USER_AGENT.to_owned()),
+        )?;
+        transport.send(RuntimeHttpRequest {
+            method: HttpMethod::Get,
+            url: format!("http://{address}/probe"),
+            headers: Vec::new(),
+            body: None,
+        })?;
+        let request = server
+            .join()
+            .map_err(|_| RuntimeHttpTestError::ServerThread)??;
+
+        let lower = request.to_ascii_lowercase();
+        assert!(lower.contains("chrome/143"), "browser UA should be sent: {request}");
+        assert!(lower.contains("sec-ch-ua"), "client-hint headers should be sent: {request}");
+        assert!(
+            lower.contains("sec-fetch-mode"),
+            "fetch-metadata headers should be sent: {request}"
+        );
+        Ok(())
+    }
+
+    #[cfg(feature = "async-http")]
+    #[test]
+    fn caller_header_overrides_browser_default() -> Result<(), RuntimeHttpTestError> {
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        let address = listener.local_addr()?;
+        let server = std::thread::spawn(move || -> Result<String, std::io::Error> {
+            let (mut stream, _) = listener.accept()?;
+            let mut buffer = [0_u8; 4096];
+            let bytes_read = stream.read(&mut buffer)?;
+            stream.write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n")?;
+            Ok(String::from_utf8_lossy(&buffer[..bytes_read]).into_owned())
+        });
+
+        let transport = ReqwestHttpTransport::with_options(
+            true,
+            Some(super::DEFAULT_BROWSER_USER_AGENT.to_owned()),
+        )?;
+        transport.send(RuntimeHttpRequest {
+            method: HttpMethod::Get,
+            url: format!("http://{address}/probe"),
+            headers: vec![RuntimeHttpHeader::new("accept", "application/json")],
+            body: None,
+        })?;
+        let request = server
+            .join()
+            .map_err(|_| RuntimeHttpTestError::ServerThread)??;
+
+        let lower = request.to_ascii_lowercase();
+        assert!(
+            lower.contains("accept: application/json"),
+            "caller Accept should be present: {request}"
+        );
+        assert!(
+            !lower.contains("text/html"),
+            "browser default Accept should be overridden, not duplicated: {request}"
+        );
         Ok(())
     }
 }
