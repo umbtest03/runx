@@ -160,7 +160,10 @@ pub(crate) fn resolve_and_invoke_local_tool(
         current_context: Vec::new(),
         skill_directory: tool_directory,
         env: request.env.clone(),
-        credential_delivery: request.credential_delivery.clone(),
+        credential_delivery: credential_delivery_for_local_tool(
+            source_type,
+            request.credential_delivery,
+        ),
     };
     let mut output = match source_type {
         runx_parser::SourceKind::CliTool => CliToolAdapter.invoke(invocation)?,
@@ -180,6 +183,16 @@ pub(crate) fn resolve_and_invoke_local_tool(
     };
     apply_local_tool_artifact_wrappers(&mut output, artifacts.as_ref())?;
     Ok(Some(output))
+}
+
+fn credential_delivery_for_local_tool(
+    source_type: runx_parser::SourceKind,
+    credential_delivery: &CredentialDelivery,
+) -> CredentialDelivery {
+    if source_type == runx_parser::SourceKind::CliTool {
+        return CredentialDelivery::none();
+    }
+    credential_delivery.clone()
 }
 
 fn declared_tool_inputs(

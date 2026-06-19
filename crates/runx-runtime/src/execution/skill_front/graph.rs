@@ -390,7 +390,8 @@ impl crate::adapter::SkillAdapter for SkillRunGraphAdapter {
 }
 
 #[cfg(feature = "cli-tool")]
-fn invoke_graph_cli_tool(request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
+fn invoke_graph_cli_tool(mut request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
+    request.credential_delivery = CredentialDelivery::none();
     CliToolAdapter.invoke(request)
 }
 

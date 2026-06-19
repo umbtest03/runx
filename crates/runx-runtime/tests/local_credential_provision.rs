@@ -159,6 +159,53 @@ fn graph_http_step_uses_local_credential_without_exposing_secret()
     Ok(())
 }
 
+#[cfg(feature = "http")]
+#[test]
+fn graph_http_credential_does_not_break_local_cli_tool_steps()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let (base_url, server) = start_one_shot_http_server(format!("Bearer {SECRET}"))?;
+    let skill_dir = write_mixed_http_and_cli_graph(temp.path(), &base_url)?;
+
+    let request = SkillRunRequest {
+        skill_path: skill_dir,
+        receipt_dir: Some(temp.path().join("receipts")),
+        run_id: None,
+        answers_path: None,
+        inputs: [(
+            "account_id".to_owned(),
+            JsonValue::String("acct-42".to_owned()),
+        )]
+        .into_iter()
+        .collect(),
+        env: http_private_network_grant_env(),
+        cwd: temp.path().to_path_buf(),
+        local_credential: Some(LocalCredentialDescriptor {
+            provider: "example-crm".to_owned(),
+            auth_mode: "api_key".to_owned(),
+            env_var: "RUNX_EXAMPLE_CRM_TOKEN".to_owned(),
+            material_ref: "local-demo".to_owned(),
+            scopes: vec!["crm.account.read".to_owned()],
+            secret: SECRET.to_owned(),
+        }),
+    };
+
+    let result = run_skill(request)?;
+    let observed_auth = server
+        .join()
+        .map_err(|_| std::io::Error::other("HTTP fixture server panicked"))??;
+    let serialized = serde_json::to_string(&result.output)?;
+
+    assert_eq!(result.status, RunStatus::Sealed);
+    assert_eq!(observed_auth, format!("Bearer {SECRET}"));
+    assert!(serialized.contains("cli-tool-completed"));
+    assert!(
+        !serialized.contains(SECRET),
+        "graph-local cli-tool steps must not receive the graph HTTP credential"
+    );
+    Ok(())
+}
+
 fn run_skill(mut request: SkillRunRequest) -> Result<RunResult, Box<dyn std::error::Error>> {
     crate::support::insert_test_signing_env(&mut request.env);
     LocalOrchestrator::default()
@@ -260,6 +307,90 @@ inputs:
 # HTTP Read
 "#,
         ),
+    )?;
+    Ok(skill_dir)
+}
+
+#[cfg(feature = "http")]
+fn write_mixed_http_and_cli_graph(
+    root: &Path,
+    base_url: &str,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let skill_dir = root.join("mixed-http-cli-graph");
+    let http_tool_dir = skill_dir.join("http-read");
+    let cli_tool_dir = skill_dir.join("cli-format");
+    fs::create_dir_all(&http_tool_dir)?;
+    fs::create_dir_all(&cli_tool_dir)?;
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: mixed-http-cli-graph\n---\n# Mixed HTTP CLI Graph\n",
+    )?;
+    fs::write(
+        skill_dir.join("X.yaml"),
+        r#"
+skill: mixed-http-cli-graph
+runners:
+  main:
+    default: true
+    type: graph
+    inputs:
+      account_id:
+        type: string
+        required: true
+    graph:
+      name: mixed-http-cli-graph
+      steps:
+        - id: read_account
+          skill: ./http-read
+          inputs:
+            account_id: "$input.account_id"
+        - id: format_account
+          skill: ./cli-format
+          inputs:
+            message: "$input.account_id"
+"#,
+    )?;
+    fs::write(
+        http_tool_dir.join("SKILL.md"),
+        format!(
+            r#"---
+name: http-read
+source:
+  type: http
+  url: {base_url}/v1/accounts/{{account_id}}
+  method: GET
+  allow_private_network: true
+  headers:
+    authorization: "Bearer ${{secret:RUNX_EXAMPLE_CRM_TOKEN}}"
+inputs:
+  account_id:
+    type: string
+    required: true
+---
+# HTTP Read
+"#,
+        ),
+    )?;
+    fs::write(
+        cli_tool_dir.join("SKILL.md"),
+        r#"---
+name: cli-format
+source:
+  type: cli-tool
+  command: sh
+  args:
+    - "-c"
+    - "printf '{\"status\":\"cli-tool-completed\",\"message\":\"%s\",\"credential\":\"%s\"}' \"$RUNX_INPUT_MESSAGE\" \"$RUNX_EXAMPLE_CRM_TOKEN\""
+  sandbox:
+    profile: readonly
+    cwd_policy: skill-directory
+inputs:
+  message:
+    type: string
+    required: true
+---
+# CLI Format
+"#,
     )?;
     Ok(skill_dir)
 }
