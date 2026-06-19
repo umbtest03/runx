@@ -78,7 +78,9 @@ crates/target/debug/runx history <receipt-id> --json
 ## Next
 
 - Use `crates/target/debug/runx new docs-demo` to scaffold a native cli-tool
-  skill (SKILL.md + X.yaml + run.mjs, zero npm deps).
+  skill (SKILL.md + X.yaml + run.mjs, zero npm deps). To cold-start without
+  installing runx first, run `npx @runxhq/cli new docs-demo`; it downloads the
+  launcher and runs the same native scaffold.
 - Compose the example into a graph with [Skill To Graph](./skill-to-graph.md).
 - Publish a ready skill from a public repo at https://runx.ai/x/publish, or run
   `crates/target/debug/runx login` followed by `crates/target/debug/runx registry publish ... --registry https://runx.ai`.
