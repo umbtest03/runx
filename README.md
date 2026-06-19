@@ -101,6 +101,7 @@ cd oss && cargo build --manifest-path crates/Cargo.toml -p runx-cli
 ## author and publish
 
 ```bash
+npx @runxhq/cli new my-skill              # cold-start with no install: downloads the launcher, runs the same native scaffold
 runx new my-skill                         # scaffold a native cli-tool skill (SKILL.md + X.yaml + run.mjs, zero deps)
 ```
 

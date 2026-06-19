@@ -226,6 +226,9 @@ run.mjs, zero npm deps, no build step):
 runx new docs-demo
 ```
 
+To cold-start without installing runx first, run `npx @runxhq/cli new docs-demo`;
+it downloads the launcher and runs the same native scaffold.
+
 Community skills should be authored and published as standalone packages created
 this way. The main `runx` repo is the first-party lane for official skills and
 runtime code, not the community package catalog.

@@ -50,12 +50,6 @@ importers:
         specifier: ^8.20.0
         version: 8.20.0
 
-  packages/create-skill:
-    dependencies:
-      '@runxhq/cli':
-        specifier: workspace:^0.5.22
-        version: link:../cli
-
   packages/host-adapters:
     dependencies:
       '@runxhq/contracts':
