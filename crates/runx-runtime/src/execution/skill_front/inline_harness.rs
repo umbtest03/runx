@@ -23,6 +23,7 @@ use super::runner_manifest::{load_runner_manifest, resolve_skill_dir, selected_r
 pub(crate) fn run_inline_harness_with_effects(
     skill_path: &Path,
     receipt_dir: Option<&Path>,
+    env: Option<&BTreeMap<String, String>>,
     effects: &RuntimeEffectRegistry,
 ) -> Result<InlineHarnessReport, SkillRunError> {
     let skill_dir = resolve_skill_dir(skill_path)?;
@@ -45,7 +46,7 @@ pub(crate) fn run_inline_harness_with_effects(
     for case in &harness.cases {
         case_names.push(case.name.clone());
         let outcome =
-            run_inline_harness_case(&skill_dir, receipt_dir, &manifest, case, &cwd, effects);
+            run_inline_harness_case(&skill_dir, receipt_dir, env, &manifest, case, &cwd, effects);
         if outcome.is_graph {
             graph_case_count += 1;
         }
@@ -82,6 +83,7 @@ struct InlineHarnessCaseOutcome {
 fn run_inline_harness_case(
     skill_dir: &Path,
     receipt_dir: Option<&Path>,
+    env: Option<&BTreeMap<String, String>>,
     manifest: &SkillRunnerManifest,
     case: &RunnerHarnessCase,
     cwd: &Path,
@@ -91,7 +93,7 @@ fn run_inline_harness_case(
         Ok(runner) => runner.source.source_type == runx_parser::SourceKind::Graph,
         Err(error) => return inline_harness_case_error(&case.name, error),
     };
-    let request = inline_harness_case_request(skill_dir, receipt_dir, case, cwd);
+    let request = inline_harness_case_request(skill_dir, receipt_dir, env, case, cwd);
     let overrides = SkillRunOverrides {
         runner: case.runner.clone(),
         seeded_answers: seeded_answers_from_caller(&case.caller),
@@ -113,10 +115,12 @@ fn run_inline_harness_case(
 fn inline_harness_case_request(
     skill_dir: &Path,
     receipt_dir: Option<&Path>,
+    env: Option<&BTreeMap<String, String>>,
     case: &RunnerHarnessCase,
     cwd: &Path,
 ) -> SkillRunRequest {
-    let mut env: BTreeMap<String, String> = std::env::vars().collect();
+    let mut env: BTreeMap<String, String> =
+        env.cloned().unwrap_or_else(|| std::env::vars().collect());
     env.extend(case.env.clone());
     SkillRunRequest {
         skill_path: skill_dir.to_path_buf(),

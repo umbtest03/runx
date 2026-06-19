@@ -90,6 +90,7 @@ pub struct HarnessRunRequest {
 pub struct InlineHarnessRequest {
     pub skill_path: PathBuf,
     pub receipt_dir: Option<PathBuf>,
+    pub env: Option<BTreeMap<String, String>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -205,6 +206,7 @@ impl LocalOrchestrator {
         Ok(super::skill_front::run_inline_harness_with_effects(
             &request.skill_path,
             request.receipt_dir.as_deref(),
+            request.env.as_ref(),
             &self.effects,
         )?)
     }

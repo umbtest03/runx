@@ -9,7 +9,10 @@ use std::process;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use runx_contracts::{JsonObject, JsonValue};
-use runx_runtime::registry::RegistryPublishHarnessReport;
+use runx_runtime::{
+    RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV,
+    RUNX_RECEIPT_SIGN_KID_ENV, registry::RegistryPublishHarnessReport,
+};
 use serde::Serialize;
 
 use super::{RegistryCliError, internal_error};
@@ -89,6 +92,7 @@ pub(super) fn run_publish_harness(
     let request = runx_runtime::InlineHarnessRequest {
         skill_path: harness_path.to_path_buf(),
         receipt_dir: Some(receipt_dir.clone()),
+        env: Some(publish_harness_env()),
     };
     let report = crate::runtime::local_orchestrator().run_inline_harness(&request);
     let _ignored = fs::remove_dir_all(&receipt_dir);
@@ -132,6 +136,43 @@ struct PublishHarnessPackage {
 const MAX_REMOTE_PUBLISH_FILE_BYTES: u64 = 512 * 1024;
 const MAX_REMOTE_PUBLISH_TOTAL_BYTES: u64 = 2 * 1024 * 1024;
 const MAX_REMOTE_PUBLISH_FILE_COUNT: usize = 128;
+const PUBLISH_HARNESS_SIGNING_KID: &str = "runx-publish-harness-local";
+const PUBLISH_HARNESS_SIGNING_SEED_BASE64: &str = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=";
+const PUBLISH_HARNESS_SIGNING_ISSUER_TYPE: &str = "ci";
+
+fn publish_harness_env() -> BTreeMap<String, String> {
+    let mut env = env::vars().collect();
+    ensure_publish_harness_signing_env(&mut env);
+    env
+}
+
+fn ensure_publish_harness_signing_env(env: &mut BTreeMap<String, String>) {
+    if [
+        RUNX_RECEIPT_SIGN_KID_ENV,
+        RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV,
+        RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV,
+    ]
+    .iter()
+    .all(|name| env_value_is_blank(env, name))
+    {
+        env.insert(
+            RUNX_RECEIPT_SIGN_KID_ENV.to_owned(),
+            PUBLISH_HARNESS_SIGNING_KID.to_owned(),
+        );
+        env.insert(
+            RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV.to_owned(),
+            PUBLISH_HARNESS_SIGNING_SEED_BASE64.to_owned(),
+        );
+        env.insert(
+            RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV.to_owned(),
+            PUBLISH_HARNESS_SIGNING_ISSUER_TYPE.to_owned(),
+        );
+    }
+}
+
+fn env_value_is_blank(env: &BTreeMap<String, String>, name: &str) -> bool {
+    env.get(name).is_none_or(|value| value.trim().is_empty())
+}
 
 fn publish_harness_package(
     markdown: &str,
@@ -562,9 +603,54 @@ fn publish_harness_report(
 #[cfg(test)]
 mod tests {
     use super::{
-        collect_publish_package_files, should_reject_remote_publish_file, unique_temp_dir,
+        PUBLISH_HARNESS_SIGNING_ISSUER_TYPE, PUBLISH_HARNESS_SIGNING_KID,
+        collect_publish_package_files, ensure_publish_harness_signing_env,
+        should_reject_remote_publish_file, unique_temp_dir,
     };
     use std::fs;
+
+    use runx_runtime::{
+        RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV, RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV,
+        RUNX_RECEIPT_SIGN_KID_ENV,
+    };
+
+    #[test]
+    fn publish_harness_supplies_local_signing_env_for_fresh_users() {
+        let mut env = std::collections::BTreeMap::new();
+
+        ensure_publish_harness_signing_env(&mut env);
+
+        assert_eq!(
+            env.get(RUNX_RECEIPT_SIGN_KID_ENV).map(String::as_str),
+            Some(PUBLISH_HARNESS_SIGNING_KID)
+        );
+        assert_eq!(
+            env.get(RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV)
+                .map(String::as_str),
+            Some(PUBLISH_HARNESS_SIGNING_ISSUER_TYPE)
+        );
+        assert!(
+            env.get(RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV)
+                .is_some_and(|value| !value.trim().is_empty())
+        );
+    }
+
+    #[test]
+    fn publish_harness_does_not_mask_partial_signing_env() {
+        let mut env = std::collections::BTreeMap::from([(
+            RUNX_RECEIPT_SIGN_KID_ENV.to_owned(),
+            "explicit-kid".to_owned(),
+        )]);
+
+        ensure_publish_harness_signing_env(&mut env);
+
+        assert_eq!(
+            env.get(RUNX_RECEIPT_SIGN_KID_ENV).map(String::as_str),
+            Some("explicit-kid")
+        );
+        assert!(!env.contains_key(RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV));
+        assert!(!env.contains_key(RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV));
+    }
 
     #[test]
     fn remote_publish_rejects_common_secret_file_names() {
