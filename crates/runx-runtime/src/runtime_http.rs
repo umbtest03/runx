@@ -248,7 +248,7 @@ impl ReqwestHttpTransport {
     }
 
     /// Build the model-provider transport for managed-agent calls. These calls can
-    /// legitimately spend more than the generic governed HTTP timeout while the
+    /// legitimately take longer than the generic governed HTTP timeout while the
     /// provider thinks and emits tool use, but they still keep the same public-DNS
     /// guard and short connect timeout.
     pub fn for_managed_agent() -> Result<Self, RuntimeHttpError> {

@@ -101,6 +101,8 @@ fn run_doctor_command(
     Ok(DoctorCliOutput { stdout, exit_code })
 }
 
+// rust-style-allow: long-function - this builds one structured diagnostic packet
+// from env, config, and credential state so the evidence and repair stay together.
 fn managed_agent_config_diagnostic(env: &BTreeMap<String, String>, cwd: &Path) -> DoctorDiagnostic {
     let config_dir = resolve_runx_home_dir(env, cwd);
     let config_path = config_dir.join("config.json");

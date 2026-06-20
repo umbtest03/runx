@@ -544,12 +544,12 @@ mod tests {
     #[test]
     fn post_substitutes_secret_references_in_json_body() -> Result<(), RuntimeError> {
         let delivery = crate::credentials::CredentialDelivery::from_local_descriptor(
-            "github",
+            "api",
             "bearer",
-            "GITHUB_TOKEN",
+            "API_TOKEN",
             "credential:test",
-            vec!["github.issue-create".to_owned()],
-            "ghp_secret",
+            vec!["api.call".to_owned()],
+            "api_secret",
         )
         .map_err(|error| failure(format!("building test credential: {error}")))?;
         let transport = stub(201, "");
@@ -561,7 +561,7 @@ mod tests {
         execute_http_call(
             &transport,
             &call,
-            &inputs(&[("token", "${secret:GITHUB_TOKEN}")]),
+            &inputs(&[("token", "${secret:API_TOKEN}")]),
             delivery.secret_env(),
         )?;
         let sent = transport.requests.borrow();
@@ -569,7 +569,7 @@ mod tests {
             sent[0]
                 .body
                 .as_deref()
-                .is_some_and(|body| body.contains(r#""token":"ghp_secret""#)),
+                .is_some_and(|body| body.contains(r#""token":"api_secret""#)),
             "POST body should substitute delivered secret refs; got: {:?}",
             sent[0].body
         );

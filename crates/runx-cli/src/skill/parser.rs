@@ -1,3 +1,5 @@
+// rust-style-allow: large-file - skill CLI parsing keeps shared state and
+// option finalization in one module until the native parser surface stabilizes.
 use std::collections::BTreeMap;
 use std::env;
 use std::ffi::OsString;

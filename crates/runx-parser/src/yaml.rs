@@ -362,9 +362,12 @@ fn reject_duplicate_mapping_key(
             keys: HashSet::new(),
         });
     }
-    let frame = stack
-        .last_mut()
-        .expect("mapping frame is created before key insertion");
+    let Some(frame) = stack.last_mut() else {
+        return Err(ParseError::InvalidYaml {
+            field: field.to_owned(),
+            message: format!("could not track mapping key {key:?} in X.yaml at line {line_number}"),
+        });
+    };
     if !frame.keys.insert(key.to_owned()) {
         return Err(ParseError::InvalidYaml {
             field: field.to_owned(),

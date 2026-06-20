@@ -1,3 +1,5 @@
+// rust-style-allow: large-file - graph step validation is kept together so
+// field-level diagnostics stay consistent across graph target variants.
 use std::collections::{BTreeMap, BTreeSet};
 
 use runx_contracts::{JsonObject, JsonValue};

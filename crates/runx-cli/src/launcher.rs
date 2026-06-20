@@ -490,6 +490,8 @@ fn mcp_runner_before_serve(args: &[OsString]) -> bool {
         })
 }
 
+// rust-style-allow: long-function - harness flag parsing stays local to the
+// launcher boundary so native dispatch does not grow a second parser surface.
 fn native_harness_plan(args: &[OsString]) -> LauncherAction {
     let mut fixture_paths = Vec::new();
     let mut receipt_dir = None;

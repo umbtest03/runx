@@ -117,7 +117,7 @@ pub(crate) const OFFICIAL_SKILLS: &[OfficialSkillLockEntry] = &[
     },
     OfficialSkillLockEntry {
         skill_id: "runx/least-privilege-auditor",
-        version: "sha-b2913b95c069",
+        version: "sha-e5c3622556d9",
         digest: "244df5dd8eed7900d1987c76060893d3c9cd65f420c5b8c177b19fa4e0b81ac2",
     },
     OfficialSkillLockEntry {

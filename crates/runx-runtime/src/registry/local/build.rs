@@ -188,6 +188,8 @@ pub(super) fn registry_tags(
     )
 }
 
+// rust-style-allow: long-function - normalization validates the package digest,
+// manifest, and registry row in one pass over the submitted version payload.
 pub fn normalize_registry_skill_version(
     payload: RegistrySkillVersionPayload,
 ) -> Result<RegistrySkillVersion, LocalRegistryError> {
