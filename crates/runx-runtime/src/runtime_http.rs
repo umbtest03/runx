@@ -220,7 +220,7 @@ impl ReqwestHttpTransport {
         let client = builder
             .build()
             .map_err(|error| RuntimeHttpError::Transport {
-                message: error.to_string(),
+                message: transport_error_message(&error),
             })?;
         Ok(Self {
             client,
@@ -303,13 +303,25 @@ impl RuntimeHttpTransport for ReqwestHttpTransport {
                 .send()
                 .await
                 .map_err(|error| RuntimeHttpError::Transport {
-                    message: error.to_string(),
+                    message: transport_error_message(&error),
                 })?;
             let status = response.status().as_u16();
             let body = read_limited_response_body(response, MAX_HTTP_RESPONSE_BYTES).await?;
             Ok(RuntimeHttpResponse { status, body })
         })
     }
+}
+
+#[cfg(feature = "async-http")]
+fn transport_error_message(error: &(dyn StdError + 'static)) -> String {
+    let mut parts = vec![error.to_string()];
+    let mut source = error.source();
+    while let Some(error) = source {
+        parts.push(error.to_string());
+        source = error.source();
+    }
+    parts.dedup();
+    parts.join(": ")
 }
 
 #[cfg(feature = "async-http")]
