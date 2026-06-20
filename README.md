@@ -41,31 +41,34 @@ npm i -g @runxhq/cli
 # or: cargo install runx-cli
 ```
 
-Path 1 is the agent skill path. Ask an agent to drive the work through runx:
+Path 1 is the agent skill path. Ask an agent to use runx as the operating
+layer:
 
 ```text
-Use runx skills to plan and implement end-to-end business ops for my company.
-Fan out the work into docs, release, customer comms, issue-to-PR, spend review,
+Use runx skills to plan and execute end-to-end business ops for my company.
+Start from this goal: prepare API v2 for launch.
+Fan out into docs, release readiness, customer comms, issue-to-PR, spend review,
 and audit lanes. Stop at approval before sending, spending, merging, deploying,
-or publishing.
+or publishing. Return receipts for what ran.
 ```
 
-The public version of that shape is `business-ops`:
+The public version of that operator shape is `business-ops`:
 
 ```bash
 runx skill business-ops \
-  -i signal="launch readiness for API v2: docs, release, customer comms, and spend checks" \
+  -i signal="prepare API v2 for launch: docs, release, customer comms, issue-to-PR, spend review, and audit" \
   --json
 ```
 
-One business signal enters an ops graph, fans out into governed lanes, and stops
-at approval for sends, spend, deploys, merges, and other consequential acts.
-Real teams replace the fixture lanes with their own context, policies,
-providers, approval gates, verification checks, and private skills.
+That is the shape: a business goal enters runx, becomes an operator graph, fans
+out into lanes, and stops at approval before consequential acts. The public
+skill is deliberately basic. Real teams replace the fixture lanes with company
+context, policies, providers, approval gates, verification checks, and private
+skills.
 
 ![Basic runx business ops graph](docs/assets/ops-fanout.svg)
 
-Path 2 is a manual skill chain. Run the pieces yourself:
+Path 2 is a manual skill chain. Drive the lanes yourself:
 
 ```bash
 # Docs/product engineering: plan, author, build, critique, and verify docs.

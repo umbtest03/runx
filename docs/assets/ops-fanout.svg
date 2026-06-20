@@ -1,113 +1,91 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="420" viewBox="0 0 1120 420" role="img" aria-labelledby="title desc">
-  <title id="title">Basic runx business ops graph</title>
-  <desc id="desc">A product-style diagram showing one business signal entering the runx business-ops skill, fanning out to docs, release, issue-to-PR, send draft, spend quote, and audit lanes, then producing receipts or stopping at approval gates.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="360" viewBox="0 0 1120 360" role="img" aria-labelledby="title desc">
+  <title id="title">runx business operator graph</title>
+  <desc id="desc">A clean graph showing a business goal entering the runx business-ops skill, fanning into governed lanes, and resolving into receipt or approval outcomes.</desc>
   <defs>
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-      <path class="arrow" d="M1 1 L9 5 L1 9 Z"/>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M1 1 L8 4.5 L1 8 Z" fill="#87818d"/>
     </marker>
     <style>
-      .bg { fill: #fbfcff; }
-      .panel { fill: #ffffff; stroke: #d9dee8; stroke-width: 1.5; }
-      .card { fill: #ffffff; stroke: #d9dee8; stroke-width: 1.5; }
-      .skill { fill: #fff5fa; stroke: #ff2e88; stroke-width: 1.7; }
-      .lane { fill: #f8fafc; stroke: #d9dee8; stroke-width: 1.2; }
-      .gate { fill: #fff5fa; stroke: #ff98c4; stroke-width: 1.4; }
-      .receipt { fill: #f4fbff; stroke: #9bd7ff; stroke-width: 1.4; }
-      .rail { fill: none; stroke: #c4cad6; stroke-width: 2; }
-      .line { fill: none; stroke: #8a93a3; stroke-width: 1.6; marker-end: url(#arrow); }
-      .line-soft { fill: none; stroke: #a8afbd; stroke-width: 1.3; marker-end: url(#arrow); }
-      .arrow { fill: #8a93a3; }
+      .bg { fill: #fbfaf7; }
+      .node { fill: #fffdf9; stroke: #d8d2c8; stroke-width: 1.25; }
+      .operator { fill: #fff2f8; stroke: #ff2e88; stroke-width: 1.6; }
+      .lane { fill: #fffdf9; stroke: #d8d2c8; stroke-width: 1.15; }
+      .receipt { fill: #f8fbff; stroke: #a7cce8; stroke-width: 1.25; }
+      .approval { fill: #fff3f8; stroke: #ff9bc7; stroke-width: 1.25; }
+      .line { fill: none; stroke: #87818d; stroke-width: 1.45; marker-end: url(#arrow); }
+      .rail { fill: none; stroke: #c8c1cb; stroke-width: 1.45; }
       .accent { fill: #ff2e88; }
-      .dot { fill: #ff2e88; }
-      .title { fill: #111827; font: 750 18px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .text { fill: #111827; font: 700 15px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .small { fill: #4b5563; font: 500 12px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .label { fill: #6b7280; font: 650 11px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-transform: uppercase; letter-spacing: 0.04em; }
-      .chip-text { fill: #6b7280; font: 650 10px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-transform: uppercase; letter-spacing: 0.03em; }
+      .ink { fill: #17151c; }
+      .muted { fill: #746d7a; }
+      .faint { fill: #9b95a0; }
+      .h { font: 740 16px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .body { font: 520 12.5px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .label { font: 680 10px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0.055em; text-transform: uppercase; }
       @media (prefers-color-scheme: dark) {
-        .bg { fill: #080b12; }
-        .panel { fill: #0d111a; stroke: #2b3343; }
-        .card { fill: #111827; stroke: #30384a; }
-        .skill { fill: #1a101c; stroke: #ff2e88; }
-        .lane { fill: #101723; stroke: #30384a; }
-        .gate { fill: #1a101c; stroke: #7a395b; }
-        .receipt { fill: #0e1721; stroke: #315b78; }
-        .rail { stroke: #3a4354; }
-        .line { stroke: #9aa3b5; }
-        .line-soft { stroke: #6f7889; }
-        .arrow { fill: #9aa3b5; }
-        .title, .text { fill: #f9fafb; }
-        .small { fill: #c6ceda; }
-        .label, .chip-text { fill: #9ca3af; }
+        .bg { fill: #09090e; }
+        .node, .lane { fill: #111119; stroke: #34303b; }
+        .operator { fill: #1c1119; stroke: #ff2e88; }
+        .receipt { fill: #0f151d; stroke: #315b78; }
+        .approval { fill: #1c1119; stroke: #743956; }
+        .line { stroke: #aaa4b1; }
+        .rail { stroke: #4a4350; }
+        .ink { fill: #f5f1ea; }
+        .muted { fill: #bbb3bf; }
+        .faint { fill: #89828f; }
       }
     </style>
   </defs>
 
-  <rect class="bg" width="1120" height="420" rx="16"/>
-  <rect class="panel" x="24" y="24" width="1072" height="372" rx="14"/>
+  <rect class="bg" width="1120" height="360" rx="18"/>
 
-  <text class="label" x="56" y="62">business-ops quickstart</text>
-  <text class="title" x="56" y="90">One prompt becomes a governed operator graph.</text>
-  <text class="small" x="56" y="114">The public skill is a fixture. Teams swap in private context, policies, tools, approval gates, and readbacks.</text>
+  <rect class="node" x="72" y="140" width="180" height="80" rx="14"/>
+  <text class="label faint" x="100" y="172">goal</text>
+  <text class="h ink" x="100" y="198">prepare API v2</text>
 
-  <rect class="card" x="56" y="178" width="172" height="86" rx="8"/>
-  <circle class="dot" cx="84" cy="206" r="5"/>
-  <text class="label" x="102" y="210">input</text>
-  <text class="text" x="84" y="235">signal</text>
-  <text class="small" x="84" y="255">launch readiness</text>
+  <path class="line" d="M252 180 H328"/>
 
-  <path class="line" d="M228 221 H302"/>
+  <rect class="operator" x="328" y="120" width="196" height="120" rx="16"/>
+  <circle class="accent" cx="360" cy="154" r="5"/>
+  <text class="label faint" x="378" y="158">runx skill</text>
+  <text class="h ink" x="360" y="188">business-ops</text>
+  <text class="body muted" x="360" y="212">intake, plan, route, gate</text>
 
-  <rect class="skill" x="302" y="158" width="192" height="126" rx="10"/>
-  <text class="label" x="332" y="192">runx skill</text>
-  <text class="title" x="332" y="220">business-ops</text>
-  <text class="small" x="332" y="244">classify</text>
-  <text class="small" x="402" y="244">route</text>
-  <text class="small" x="452" y="244">gate</text>
-  <path class="accent" d="M332 262 H464 V265 H332 Z"/>
+  <path class="line" d="M524 180 H578"/>
+  <path class="rail" d="M578 75 V285"/>
 
-  <path class="line" d="M494 221 H548"/>
-  <path class="rail" d="M548 156 V320"/>
-  <circle class="dot" cx="548" cy="156" r="4"/>
-  <circle class="dot" cx="548" cy="320" r="4"/>
+  <path class="line" d="M578 75 H620"/>
+  <path class="line" d="M578 117 H620"/>
+  <path class="line" d="M578 159 H620"/>
+  <path class="line" d="M578 201 H620"/>
+  <path class="line" d="M578 243 H620"/>
+  <path class="line" d="M578 285 H620"/>
 
-  <path class="line-soft" d="M548 156 H606"/>
-  <path class="line-soft" d="M548 190 H606"/>
-  <path class="line-soft" d="M548 224 H606"/>
-  <path class="line-soft" d="M548 258 H606"/>
-  <path class="line-soft" d="M548 292 H606"/>
-  <path class="line-soft" d="M548 320 H606"/>
+  <rect class="lane" x="620" y="58" width="236" height="34" rx="17"/>
+  <text class="body ink" x="646" y="80">docs from evidence</text>
 
-  <rect class="lane" x="606" y="140" width="178" height="32" rx="6"/>
-  <text class="small" x="626" y="161">docs from evidence</text>
+  <rect class="lane" x="620" y="100" width="236" height="34" rx="17"/>
+  <text class="body ink" x="646" y="122">release readiness</text>
 
-  <rect class="lane" x="606" y="174" width="178" height="32" rx="6"/>
-  <text class="small" x="626" y="195">release checks</text>
+  <rect class="lane" x="620" y="142" width="236" height="34" rx="17"/>
+  <text class="body ink" x="646" y="164">receipt audit</text>
 
-  <rect class="lane" x="606" y="208" width="178" height="32" rx="6"/>
-  <text class="small" x="626" y="229">issue to PR</text>
+  <rect class="lane" x="620" y="184" width="236" height="34" rx="17"/>
+  <text class="body ink" x="646" y="206">issue-to-PR</text>
 
-  <rect class="gate" x="606" y="242" width="178" height="32" rx="6"/>
-  <text class="small" x="626" y="263">send draft</text>
+  <rect class="lane" x="620" y="226" width="236" height="34" rx="17"/>
+  <text class="body ink" x="646" y="248">customer comms</text>
 
-  <rect class="gate" x="606" y="276" width="178" height="32" rx="6"/>
-  <text class="small" x="626" y="297">spend quote</text>
+  <rect class="lane" x="620" y="268" width="236" height="34" rx="17"/>
+  <text class="body ink" x="646" y="290">spend review</text>
 
-  <rect class="receipt" x="606" y="310" width="178" height="32" rx="6"/>
-  <text class="small" x="626" y="331">receipt audit</text>
+  <path class="line" d="M856 117 H922"/>
+  <path class="line" d="M856 243 H922"/>
 
-  <path class="line-soft" d="M784 156 H850"/>
-  <path class="line-soft" d="M784 190 H850"/>
-  <path class="line-soft" d="M784 224 H850"/>
-  <path class="line-soft" d="M784 258 H850"/>
-  <path class="line-soft" d="M784 292 H850"/>
-  <path class="line-soft" d="M784 320 H850"/>
+  <rect class="receipt" x="922" y="78" width="136" height="78" rx="14"/>
+  <text class="label faint" x="950" y="110">receipt</text>
+  <text class="body ink" x="950" y="134">prove the run</text>
 
-  <rect class="receipt" x="850" y="162" width="202" height="70" rx="9"/>
-  <text class="label" x="878" y="193">sealed receipt</text>
-  <text class="small" x="878" y="214">what ran, under authority</text>
-
-  <rect class="gate" x="850" y="252" width="202" height="70" rx="9"/>
-  <text class="label" x="878" y="283">approval gate</text>
-  <text class="small" x="878" y="304">send, spend, merge, deploy</text>
+  <rect class="approval" x="922" y="204" width="136" height="78" rx="14"/>
+  <text class="label faint" x="950" y="236">approval</text>
+  <text class="body ink" x="950" y="260">approve first</text>
 </svg>
