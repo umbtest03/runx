@@ -99,13 +99,14 @@ fn reject_step_output_refs_in_input_value(
     field: &str,
 ) -> Result<(), ValidationError> {
     match value {
-        JsonValue::String(value) => {
-            if looks_like_previous_step_output_ref(value, previous_step_ids) {
-                return Err(validation_error(format!(
-                    "{field} looks like step output reference {value:?}; move it to context if you meant to read a previous step output."
-                )));
-            }
+        JsonValue::String(value)
+            if looks_like_previous_step_output_ref(value, previous_step_ids) =>
+        {
+            return Err(validation_error(format!(
+                "{field} looks like step output reference {value:?}; move it to context if you meant to read a previous step output."
+            )));
         }
+        JsonValue::String(_) => {}
         JsonValue::Object(object) => {
             for (key, value) in object {
                 reject_step_output_refs_in_input_value(

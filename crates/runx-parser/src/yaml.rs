@@ -600,7 +600,7 @@ mod tests {
             "expected duplicate key rejection, got {result:?}"
         );
 
-        assert_execution_profile_yaml_subset(
+        let sequence_result = assert_execution_profile_yaml_subset(
             "runner_manifest",
             r#"
 runners:
@@ -614,8 +614,11 @@ runners:
         - id: second
           tool: two.tool
 "#,
-        )
-        .expect("sequence item maps may reuse keys in separate items");
+        );
+        assert!(
+            sequence_result.is_ok(),
+            "sequence item maps may reuse keys in separate items: {sequence_result:?}"
+        );
     }
 
     // Regression cases for the single-quote `''` escape. The earlier toggle
