@@ -1,0 +1,89 @@
+{
+  "schema": "runx.support_triage_reply.evidence.v1",
+  "skill": {
+    "name": "support-triage-reply",
+    "published_ref": "godfood/support-triage-reply@sha-7fee56e60e96",
+    "owner": "godfood",
+    "publisher_principal": "user_godfood_2190fb7211ca",
+    "registry": "https://api.runx.ai",
+    "public_url": "https://runx.ai/x/godfood/support-triage-reply",
+    "source_url": "https://github.com/runxhq/runx/tree/main/oss/skills/support-triage-reply",
+    "digest": "544b57d054d74832815c67fc244407a36c308b05041e0d85007587e3ac78178b",
+    "profile_digest": "362867317f6299483d754cef105e73057d1fe83ad7f60bd9c3086a844641765e",
+    "trust_tier": "community"
+  },
+  "boundary": {
+    "nitrosend_private_skill_reused": false,
+    "source_shape": "A generic public Runx skill inspired by the same support-ops category as Nitrosend private triage/intake skills.",
+    "private_semantics_included": false,
+    "sends_or_mutates": false,
+    "send_gate": "requires_human_approval"
+  },
+  "checks": {
+    "local_harness": {
+      "status": "passed",
+      "case_count": 3,
+      "case_names": [
+        "safe-how-to-reply-draft",
+        "account-access-escalates-without-draft",
+        "missing-request-fails"
+      ],
+      "receipt_ids": [
+        "sha256:d864febac35254bcf49995b68e3c71a77444f5ad73c0ac7d05150fa3df72d4e4",
+        "sha256:29ed6188a804af189b6772855305f5da08ed399127ebae1120491d69c3e8f6af",
+        "sha256:69d5d7d9ae0330c9b40c5739d874e54add6cd94c81da693188d237af996d6dec"
+      ]
+    },
+    "registry_readback": {
+      "status": "passed",
+      "publisher_handle": "godfood",
+      "markdown_contract_checked": true,
+      "runner_names": [
+        "triage"
+      ]
+    },
+    "clean_install": {
+      "status": "installed",
+      "command": "runx add godfood/support-triage-reply@sha-7fee56e60e96 --registry https://api.runx.ai --installation-id godfood-support-triage-final --json"
+    },
+    "dogfood_run": {
+      "status": "passed",
+      "command": "runx skill godfood/support-triage-reply@sha-7fee56e60e96 --registry https://api.runx.ai --input support_request=<json> --input policy=<json> --receipts <dir> --json",
+      "receipt_id": "sha256:0cae135b62adf38fb8512096b85c0111f4b76b980e4401ab793c44b2f8a8d279",
+      "receipt_file": "dogfood-receipt.json",
+      "verify_command": "runx verify --receipt dogfood-receipt.json --json",
+      "verify_note": "Verified with the public Ed25519 verification key for the demo signing key used by the local runtime.",
+      "verify_valid": true,
+      "classification": "how_to",
+      "severity": "low",
+      "confidence": 0.88,
+      "recommended_path": "reply_draft",
+      "send_gate_status": "requires_human_approval"
+    },
+    "hosted_run_admission": {
+      "status": "accepted_pending_worker",
+      "run_id": "hr_7f1f591110f9458295eefe13f1d25e8b",
+      "app_url": "https://runx.ai/r/hr_7f1f591110f9458295eefe13f1d25e8b",
+      "inspect_url": "https://api.runx.ai/v1/runs/hr_7f1f591110f9458295eefe13f1d25e8b",
+      "observed_status": "pending",
+      "note": "Hosted control accepted the run under the godfood principal, but the worker did not drain it during the verification window. The execution proof for this delivery is the registry-resolved local run receipt."
+    }
+  },
+  "credential_hygiene": {
+    "temporary_godfood_publish_credentials_revoked": true,
+    "temporary_godfood_run_credentials_revoked": true,
+    "live_godfood_self_serve_credentials_remaining": 0,
+    "tokens_in_artifacts": false
+  },
+  "value_assessment": {
+    "real_operator_value": true,
+    "summary": "The skill handles a repeatable day-to-day support operation: classify one support request, select the safe lane, and draft a sendable reply only behind a human approval gate.",
+    "why_not_throwaway": "It is a reusable public Runx skill with a registry owner, source path, harness cases, typed outputs, safety gates, and receipt proof. It is not a one-off hosted webpage or private product-only wrapper.",
+    "review_bar": [
+      "No automatic customer sends.",
+      "No private account or billing lookup is claimed.",
+      "Account, billing, abuse, bug, and unknown cases route away from unsafe customer replies.",
+      "The caller receives enough structured evidence to decide whether a human should send, escalate, or request more information."
+    ]
+  }
+}

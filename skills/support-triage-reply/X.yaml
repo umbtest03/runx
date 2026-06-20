@@ -1,0 +1,90 @@
+skill: support-triage-reply
+version: "0.1.0"
+
+catalog:
+  kind: skill
+  audience: operator
+  visibility: public
+  role: canonical
+
+harness:
+  cases:
+    - name: safe-how-to-reply-draft
+      runner: triage
+      inputs:
+        support_request:
+          customer_name: Mira
+          customer_email: mira@example.test
+          subject: How do I verify my sending domain?
+          body: I added the DNS records for my domain. What should I check next so emails can send safely?
+          source: fixture:safe-how-to
+        policy:
+          product_name: Nitrosend
+          support_signature: Nitrosend Support
+      expect:
+        status: sealed
+        receipt:
+          schema: runx.receipt.v1
+          state: sealed
+          disposition: closed
+          reason_code: process_closed
+
+    - name: account-access-escalates-without-draft
+      runner: triage
+      inputs:
+        support_request:
+          customer_name: Theo
+          customer_email: theo@example.test
+          subject: I cannot access my account
+          body: My login is blocked and I need someone to reset access for the team owner.
+          source: fixture:account-access
+        policy:
+          product_name: Nitrosend
+          support_signature: Nitrosend Support
+      expect:
+        status: sealed
+        receipt:
+          schema: runx.receipt.v1
+          state: sealed
+          disposition: closed
+          reason_code: process_closed
+
+    - name: missing-request-fails
+      runner: triage
+      inputs:
+        support_request: {}
+      expect:
+        status: failure
+        receipt:
+          schema: runx.receipt.v1
+          state: sealed
+          disposition: closed
+          reason_code: process_failed
+
+runners:
+  triage:
+    default: true
+    type: cli-tool
+    command: node
+    args:
+      - run.mjs
+    outputs:
+      classification: string
+      severity: string
+      confidence: number
+      recommended_path: string
+      evidence: object
+      draft_email: object
+      send_gate: object
+    artifacts:
+      wrap_as: support_triage_packet
+      packet: runx.support.triage_reply.v1
+    inputs:
+      support_request:
+        type: json
+        required: true
+        description: Bounded support request packet.
+      policy:
+        type: json
+        required: false
+        description: Product-safe support policy and signature hints.
