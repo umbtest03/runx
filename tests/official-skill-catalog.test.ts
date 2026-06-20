@@ -17,6 +17,7 @@ import { resolveRunxBinary } from "./runx-binary.js";
 
 const publicCatalogPackages = [
   "brand-voice",
+  "business-ops",
   "charge",
   "content-pipeline",
   "deep-research-brief",

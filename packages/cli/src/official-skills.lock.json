@@ -7,6 +7,13 @@
     "catalog_role": "context"
   },
   {
+    "skill_id": "runx/business-ops",
+    "version": "sha-ca97efa3deb0",
+    "digest": "27c05e8e30d8e925c93ecd51e535add38a4ceeabbfc76acf73bb0a578fee3e11",
+    "catalog_visibility": "public",
+    "catalog_role": "canonical"
+  },
+  {
     "skill_id": "runx/charge",
     "version": "sha-0e2f6aef60db",
     "digest": "c151b98be3a2a7ccd306d7395d906ffd1fc22e45a7d94ffe34c294e9db1c47ce",
@@ -437,6 +444,13 @@
     "skill_id": "runx/structured-extraction",
     "version": "sha-f14902374e11",
     "digest": "ebe37921d3b9cb63aa1ca5232a8075607d3b4ad541af4c1bc901ace749ea404f",
+    "catalog_visibility": "public",
+    "catalog_role": "canonical"
+  },
+  {
+    "skill_id": "runx/support-triage-reply",
+    "version": "sha-fce24eb780f9",
+    "digest": "94beeed742142c6a236eb0ae1db5644d3f868362030089332c6ce3b40b1f86bb",
     "catalog_visibility": "public",
     "catalog_role": "canonical"
   },

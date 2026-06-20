@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="500" viewBox="0 0 1280 500" role="img" aria-labelledby="title desc">
+  <title id="title">Basic runx business ops graph</title>
+  <desc id="desc">A basic business operations signal routes through runx into governed lanes for sourcey, release prepare, issue-to-PR, send draft, spend quote, and receipt audit. Risky actions stop at approval before receipts are sealed.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#070915"/>
+      <stop offset="0.55" stop-color="#0d1020"/>
+      <stop offset="1" stop-color="#06070d"/>
+    </linearGradient>
+    <linearGradient id="pink" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff6ab0"/>
+      <stop offset="1" stop-color="#ff2e88"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#62d9ff"/>
+      <stop offset="1" stop-color="#3f7cff"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7df8cc"/>
+      <stop offset="1" stop-color="#36c98b"/>
+    </linearGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0.35 0 1 0 0 0.06 0 0 1 0 0.45 0 0 0 0.42 0" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2 2 L10 6 L2 10 Z" fill="#8c94b8"/>
+    </marker>
+    <style>
+      .label { font: 700 21px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; fill: #f6f7ff; }
+      .small { font: 500 14px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; fill: #aeb6d7; }
+      .tiny { font: 600 12px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0.03em; text-transform: uppercase; fill: #7f88ad; }
+      .node { fill: #0d1020; fill-opacity: 0.94; stroke: #2b3358; stroke-width: 1.5; }
+      .lane { fill: #11152a; fill-opacity: 0.94; stroke: #333d67; stroke-width: 1.25; }
+      .line { fill: none; stroke: #687299; stroke-width: 2; marker-end: url(#arrow); }
+      .softline { fill: none; stroke: #3f4669; stroke-width: 1.4; marker-end: url(#arrow); }
+      .dash { fill: none; stroke: #586080; stroke-width: 1.5; stroke-dasharray: 6 7; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1280" height="500" rx="28" fill="url(#bg)"/>
+  <path d="M1060 -70 C1195 55 1235 183 1178 313 C1120 443 938 520 742 481" fill="none" stroke="#192044" stroke-width="44" opacity="0.5"/>
+  <path d="M118 -30 C230 34 273 108 247 191 C219 278 106 325 -35 322" fill="none" stroke="#241836" stroke-width="34" opacity="0.45"/>
+
+  <text x="64" y="62" class="tiny">basic business ops graph</text>
+  <text x="64" y="94" class="label">One signal routes into governed lanes.</text>
+  <text x="64" y="119" class="small">Project context and policy decide which lanes run, which gates stop, and what receipts prove.</text>
+
+  <rect x="64" y="195" width="210" height="92" rx="16" class="node"/>
+  <circle cx="101" cy="241" r="19" fill="url(#blue)" filter="url(#softGlow)"/>
+  <text x="134" y="234" class="label">signal</text>
+  <text x="134" y="258" class="small">launch, incident, release</text>
+
+  <line x1="274" y1="241" x2="354" y2="241" class="line"/>
+
+  <rect x="354" y="169" width="226" height="144" rx="20" class="node"/>
+  <path d="M397 209 L431 190 L465 209 L465 248 L431 267 L397 248 Z" fill="none" stroke="url(#pink)" stroke-width="4" filter="url(#softGlow)"/>
+  <text x="498" y="220" text-anchor="end" class="tiny">runx</text>
+  <text x="393" y="253" class="label">ops graph</text>
+  <text x="393" y="278" class="small">classify, route, gate</text>
+
+  <path d="M580 207 C633 158 671 129 731 111" class="line"/>
+  <path d="M580 228 C641 211 683 199 731 193" class="line"/>
+  <path d="M580 249 C641 258 682 272 731 287" class="line"/>
+  <path d="M580 271 C639 332 680 366 731 388" class="line"/>
+
+  <rect x="731" y="70" width="174" height="68" rx="14" class="lane"/>
+  <text x="760" y="100" class="label">sourcey</text>
+  <text x="760" y="122" class="small">docs from evidence</text>
+
+  <rect x="731" y="157" width="174" height="68" rx="14" class="lane"/>
+  <text x="760" y="187" class="label">release</text>
+  <text x="760" y="209" class="small">prepare and verify</text>
+
+  <rect x="731" y="244" width="174" height="68" rx="14" class="lane"/>
+  <text x="760" y="274" class="label">issue to PR</text>
+  <text x="760" y="296" class="small">bounded change lane</text>
+
+  <rect x="731" y="331" width="174" height="68" rx="14" class="lane"/>
+  <text x="760" y="361" class="label">send draft</text>
+  <text x="760" y="383" class="small">approval before send</text>
+
+  <rect x="731" y="418" width="174" height="52" rx="14" class="lane"/>
+  <text x="760" y="450" class="label">spend quote</text>
+
+  <path d="M905 104 C956 131 984 168 1012 219" class="softline"/>
+  <path d="M905 191 C952 204 978 220 1012 239" class="softline"/>
+  <path d="M905 278 C962 282 987 266 1012 254" class="softline"/>
+  <path d="M905 365 C964 345 994 300 1012 270" class="dash"/>
+  <path d="M905 444 C968 399 996 317 1012 275" class="dash"/>
+
+  <rect x="1012" y="207" width="204" height="92" rx="16" class="node"/>
+  <circle cx="1050" cy="253" r="19" fill="url(#green)" filter="url(#softGlow)"/>
+  <text x="1084" y="246" class="label">receipt</text>
+  <text x="1084" y="270" class="small">what ran, under what authority</text>
+
+  <rect x="990" y="327" width="186" height="56" rx="14" fill="#ff2e88" fill-opacity="0.08" stroke="#67405b" stroke-width="1.25"/>
+  <text x="1022" y="351" class="tiny">approval gate</text>
+  <text x="1022" y="371" class="small">sends, spend, deploys</text>
+</svg>

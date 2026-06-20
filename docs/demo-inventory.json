@@ -7,6 +7,11 @@
       "command": "runx harness examples/hello-world"
     },
     {
+      "path": "skills/business-ops",
+      "proof": "One business signal fans out through governed ops lanes and seals a graph receipt.",
+      "command": "runx harness skills/business-ops"
+    },
+    {
       "path": "examples/github-mcp-hero",
       "proof": "Governed GitHub MCP read succeeds, out-of-scope write is refused, denial receipt verifies offline.",
       "command": "sh examples/github-mcp-hero/run.sh"

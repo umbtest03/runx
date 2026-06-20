@@ -14,118 +14,70 @@
 
 ---
 
-Agents are getting capable faster than we can answer for their work. They write
-code, touch providers, move money, and reach into production. The missing layer
-is not more intelligence. It is accountable agency: a way to hand an agent a
-capability, bind what it may do, and preserve enough evidence that someone who
-was not there can still trust the result.
+runx turns expertise into portable agent infrastructure. A skill is a
+`SKILL.md` published at a URL; agents can pull it into their own environment,
+compose it with other skills, and build chains of useful work without bespoke
+glue code.
 
-runx is that layer. A skill is a `SKILL.md` published at a URL. The runtime
-admits it under the authority you grant, delivers credentials without turning
-them into prompt material, runs the declared profile, and seals the act into a
-receipt.
+That power needs a boundary. runx admits each act under explicit authority,
+delivers credentials without turning them into prompt material, runs the
+declared profile, and seals the result into a receipt. Authority narrows through
+the chain, so agent work can compound without becoming ambient trust.
 
 ```text
 a skill is a URL.
-a run is a governed act.
-a graph is the receipt-backed path between acts.
+a graph is what unfolds.
 authority narrows. it does not pass through.
+every act produces a receipt.
 ```
-
-## the invariant
-
-Every governed execution passes through the same four stages:
-
-```text
-admit -> deliver credentials -> sandbox -> seal
-```
-
-| Stage | What runx protects |
-| --- | --- |
-| `admit` | Policy checks the requested act before any step handler runs. An unadmitted act never reaches execution. |
-| `deliver credentials` | Secret material crosses only a structured delivery boundary. Receipts carry grant refs, public observations, and hashes, not tokens. |
-| `sandbox` | The declared cwd, env, filesystem, network, and enforcement posture are resolved and recorded. Runs can fail closed when OS-level enforcement is required. |
-| `seal` | The runtime writes a signed `runx.receipt.v1` record with subject, authority witness, outputs, lineage, and closure. |
-
-The receipt is not the product by itself. It is where authority, action,
-evidence, and future learning meet in one verifiable object.
 
 ## quickstart
 
-Install the CLI wrapper, clone the examples, run one skill, then inspect what
-was sealed. The demo signing key is public and exists only for local smoke
-tests:
+Install the CLI:
 
 ```bash
 npm i -g @runxhq/cli
-
-git clone https://github.com/runxhq/runx && cd runx/oss
-
-export RUNX_RECEIPT_SIGN_KID=runx-demo-key
-export RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64=QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=
-export RUNX_RECEIPT_SIGN_ISSUER_TYPE=hosted
-export RUNX_RECEIPT_DIR="$(mktemp -d)"
-
-runx skill examples/hello-world --message "hello from runx" --json
-runx history --receipt-dir "$RUNX_RECEIPT_DIR"
+# or: curl -fsSL https://runx.ai/install | sh
+# or: cargo install runx-cli
 ```
 
-The first command should report `status: "sealed"` and include a receipt id.
-Inspect that receipt directly when you want the proof object:
+Path 1 is the agent skill path. Ask an agent to drive the work through runx:
+
+```text
+Use runx skills to plan and implement end-to-end business ops for my company.
+Fan out the work into docs, release, customer comms, issue-to-PR, spend review,
+and audit lanes. Stop at approval before sending, spending, merging, deploying,
+or publishing.
+```
+
+The public version of that shape is `business-ops`:
 
 ```bash
-runx history <receipt-id> --receipt-dir "$RUNX_RECEIPT_DIR" --json
+runx skill business-ops \
+  -i signal="launch readiness for API v2: docs, release, customer comms, and spend checks" \
+  --json
 ```
 
-For production-trusted verification, configure
-`RUNX_RECEIPT_VERIFY_KID` and `RUNX_RECEIPT_VERIFY_ED25519_PUBLIC_KEY_BASE64`,
-then use:
+One business signal enters an ops graph, fans out into governed lanes, and stops
+at approval for sends, spend, deploys, merges, and other consequential acts.
+Real teams replace the fixture lanes with their own context, policies,
+providers, approval gates, verification checks, and private skills.
+
+![Basic runx business ops graph](docs/assets/ops-fanout.svg)
+
+Path 2 is a manual skill chain. Run the pieces yourself:
 
 ```bash
-runx verify <receipt-id> --receipt-dir "$RUNX_RECEIPT_DIR" --json
+# Docs/product engineering: plan, author, build, critique, and verify docs.
+runx skill sourcey -i project=. --json
+
+# Research/ops: fetch one allowed source with digest-backed provenance.
+runx skill web-fetch -i url=https://runx.ai -i allowlist='["runx.ai"]' --json
+
+# Spend lanes are explicit. Inspect payment skills before granting authority.
+runx registry search payments
+runx registry read runx/x402-pay@sha-008aef3f3b2e
 ```
-
-The full walkthrough, including production signing keys, is in
-[docs/getting-started.md](docs/getting-started.md).
-
-## what a receipt proves
-
-A runx receipt is designed to answer the questions that matter after the agent
-has moved on:
-
-| Question | Receipt surface |
-| --- | --- |
-| What ran? | `subject`, skill ref, source type, runner metadata |
-| Who or what admitted it? | `authority.actor_ref`, grant refs, authority proof refs |
-| What was allowed? | requested scopes, granted scopes, sandbox policy, approval metadata |
-| What happened? | act entries, output artifacts, exit status, closure summary |
-| Can it be checked later? | content-addressed id, canonical digest, signature, lineage |
-| Did secrets leak into proof? | redacted metadata, hashed material refs, banned raw credential bodies |
-
-Shape, abbreviated:
-
-```json
-{
-  "schema": "runx.receipt.v1",
-  "subject": { "kind": "skill" },
-  "authority": {
-    "actor_ref": { "type": "principal", "uri": "runx:principal:local_runtime" },
-    "grant_refs": []
-  },
-  "seal": {
-    "disposition": "closed",
-    "reason_code": "process_closed"
-  },
-  "lineage": {
-    "parent": null,
-    "children": []
-  }
-}
-```
-
-Offline verification recomputes the canonical body digest, checks the
-content-addressed id, verifies signatures when trusted keys are configured, and
-can walk receipt ancestry from a receipt store.
 
 ## skills and execution profiles
 
@@ -225,6 +177,7 @@ These demos are runnable from this repo and produce receipts:
 | Demo | What it proves | Run |
 | --- | --- | --- |
 | `examples/hello-world` | Native CLI skill path, sealed receipt baseline | `runx harness examples/hello-world` |
+| `skills/business-ops` | One business signal fans out through governed ops lanes and seals a graph receipt | `runx harness skills/business-ops` |
 | `examples/github-mcp-hero` | Governed GitHub read succeeds, out-of-scope write is refused, denial receipt verifies | `sh examples/github-mcp-hero/run.sh` |
 | `examples/http-graph` | Governed HTTP front call against a local fixture seals a receipt tree | `sh examples/http-graph/run.sh` |
 | `examples/openapi-graph` | OpenAPI operation runs through the external-adapter lane and seals | `sh examples/openapi-graph/run.sh` |
@@ -238,6 +191,63 @@ pnpm demos:check
 ```
 
 See [docs/demos.md](docs/demos.md).
+
+## what a receipt proves
+
+A runx receipt is designed to answer the questions that matter after the agent
+has moved on:
+
+| Question | Receipt surface |
+| --- | --- |
+| What ran? | `subject`, skill ref, source type, runner metadata |
+| Who or what admitted it? | `authority.actor_ref`, grant refs, authority proof refs |
+| What was allowed? | requested scopes, granted scopes, sandbox policy, approval metadata |
+| What happened? | act entries, output artifacts, exit status, closure summary |
+| Can it be checked later? | content-addressed id, canonical digest, signature, lineage |
+| Did secrets leak into proof? | redacted metadata, hashed material refs, banned raw credential bodies |
+
+Shape, abbreviated:
+
+```json
+{
+  "schema": "runx.receipt.v1",
+  "subject": { "kind": "skill" },
+  "authority": {
+    "actor_ref": { "type": "principal", "uri": "runx:principal:local_runtime" },
+    "grant_refs": []
+  },
+  "seal": {
+    "disposition": "closed",
+    "reason_code": "process_closed"
+  },
+  "lineage": {
+    "parent": null,
+    "children": []
+  }
+}
+```
+
+Offline verification recomputes the canonical body digest, checks the
+content-addressed id, verifies signatures when trusted keys are configured, and
+can walk receipt ancestry from a receipt store.
+
+The receipt is not the product by itself. It is where authority, action,
+evidence, and future learning meet in one verifiable object.
+
+## governed execution invariant
+
+Every governed execution passes through the same four stages:
+
+```text
+admit -> deliver credentials -> sandbox -> seal
+```
+
+| Stage | What runx protects |
+| --- | --- |
+| `admit` | Policy checks the requested act before any step handler runs. An unadmitted act never reaches execution. |
+| `deliver credentials` | Secret material crosses only a structured delivery boundary. Receipts carry grant refs, public observations, and hashes, not tokens. |
+| `sandbox` | The declared cwd, env, filesystem, network, and enforcement posture are resolved and recorded. Runs can fail closed when OS-level enforcement is required. |
+| `seal` | The runtime writes a signed `runx.receipt.v1` record with subject, authority witness, outputs, lineage, and closure. |
 
 ## publish and trust
 
@@ -303,4 +313,4 @@ Setup, test selection, and sign-off rules are in
 
 ---
 
-<p align="center"><sub>MIT &middot; <a href="https://runx.ai">runx.ai</a></sub></p>
+<p align="center"><sub>built in Rust &middot; MIT &middot; <a href="https://runx.ai">runx.ai</a></sub></p>

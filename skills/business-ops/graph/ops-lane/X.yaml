@@ -1,0 +1,27 @@
+skill: ops-lane
+version: "0.1.0"
+
+catalog:
+  kind: skill
+  audience: public
+  visibility: internal
+  role: graph-stage
+  part_of:
+    - runx/business-ops
+
+runners:
+  default:
+    default: true
+    type: cli-tool
+    command: node
+    args:
+      - run.mjs
+    inputs:
+      lane:
+        type: string
+        required: true
+        description: Lane name to project.
+      signal:
+        type: string
+        required: true
+        description: Business signal being routed.

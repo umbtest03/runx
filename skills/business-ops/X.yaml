@@ -1,0 +1,56 @@
+skill: business-ops
+version: "0.1.0"
+
+catalog:
+  kind: graph
+  audience: public
+  visibility: public
+  role: canonical
+
+runners:
+  main:
+    default: true
+    type: graph
+    inputs:
+      signal:
+        type: string
+        required: true
+        description: Business signal to triage.
+    graph:
+      name: business-ops
+      steps:
+        - id: classify
+          skill: ./graph/ops-lane
+          inputs:
+            lane: classify
+            signal: "$input.signal"
+        - id: docs
+          skill: ./graph/ops-lane
+          inputs:
+            lane: sourcey
+            signal: "$input.signal"
+        - id: release
+          skill: ./graph/ops-lane
+          inputs:
+            lane: release.prepare
+            signal: "$input.signal"
+        - id: issue
+          skill: ./graph/ops-lane
+          inputs:
+            lane: issue-to-pr
+            signal: "$input.signal"
+        - id: send
+          skill: ./graph/ops-lane
+          inputs:
+            lane: send-as.draft
+            signal: "$input.signal"
+        - id: spend
+          skill: ./graph/ops-lane
+          inputs:
+            lane: spend.quote
+            signal: "$input.signal"
+        - id: audit
+          skill: ./graph/ops-lane
+          inputs:
+            lane: receipt-audit
+            signal: "$input.signal"

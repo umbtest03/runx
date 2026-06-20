@@ -4,9 +4,8 @@ These demos are runnable from this repository and produce signed receipts. Use t
 standalone verifier at `tools/verify/verify.mjs` with the demo issuer key in
 `tools/verify/runx-demo-jwks.json`.
 
-`docs/demo-inventory.json` is the machine-checked source of truth for which
-`examples/*` directories are featured demos, runnable previews, or fixture
-support.
+`docs/demo-inventory.json` is the machine-checked source of truth for featured
+demos, runnable previews, and fixture support.
 
 ```sh
 export RUNX_RECEIPT_SIGN_KID=runx-demo-key
@@ -19,6 +18,7 @@ export RUNX_RECEIPT_SIGN_ISSUER_TYPE=hosted
 | Demo | Proof | Run | Gate |
 | --- | --- | --- | --- |
 | `examples/hello-world` | Native CLI top-level skill and harness baseline. | `runx harness examples/hello-world` | harness |
+| `skills/business-ops` | One business signal fans out through governed ops lanes and seals a graph receipt. | `runx harness skills/business-ops` | harness |
 | `examples/github-mcp-hero` | GitHub MCP repo read succeeds, out-of-scope write is refused, and the denial receipt verifies offline. | `sh examples/github-mcp-hero/run.sh` | harness |
 | `examples/http-graph` | A graph step uses the governed HTTP front against a local fixture and seals a receipt tree. | `sh examples/http-graph/run.sh` | harness |
 | `examples/openapi-graph` | An OpenAPI-described operation is executed through the governed external-adapter lane and sealed. | `sh examples/openapi-graph/run.sh` | harness |

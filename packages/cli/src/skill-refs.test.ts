@@ -11,6 +11,7 @@ import { officialSkillVisibleForCatalog } from "./skill-refs.js";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const publicOfficialCatalogSkills = [
   "brand-voice",
+  "business-ops",
   "charge",
   "content-pipeline",
   "deep-research-brief",
