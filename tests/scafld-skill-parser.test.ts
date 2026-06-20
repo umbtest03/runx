@@ -36,6 +36,8 @@ describe("scafld graph stage contract", () => {
     expect(wrapper).toContain('"build"');
     expect(wrapper).toContain('"build_to_review"');
     expect(wrapper).toContain('"handoff"');
+    expect(wrapper).toContain("scafld_min_version");
+    expect(wrapper).toContain("ensureScafldVersion");
     expect(wrapper).toContain("function runBuildToReview");
     expect(wrapper).not.toContain('"new"');
     expect(wrapper).not.toContain('"branch"');
@@ -72,6 +74,10 @@ describe("scafld graph stage contract", () => {
         `#!/usr/bin/env node
 const argv = process.argv.slice(2);
 const command = argv[0] || "";
+if (command === "--version") {
+  process.stdout.write("2.4.0\\n");
+  process.exit(0);
+}
 if (command === "review") {
   process.stderr.write("scafld review[command] started node reviewer.mjs\\n");
   process.stderr.write("scafld review[command] completed exit=0 elapsed=4ms last_output=0s\\n");
@@ -125,6 +131,54 @@ process.exit(1);
           },
           recovered_from_status: true,
         },
+      });
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed when the resolved scafld is older than 2.4.0", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-scafld-old-version-"));
+    const fakeScafld = path.join(tempDir, "fake-scafld.mjs");
+    const wrapperPath = path.join(scafldStageDir, "run.mjs");
+
+    try {
+      await writeFile(
+        fakeScafld,
+        `#!/usr/bin/env node
+const argv = process.argv.slice(2);
+const command = argv[0] || "";
+if (command === "--version") {
+  process.stdout.write("2.3.12\\n");
+  process.exit(0);
+}
+if (command === "validate") {
+  process.stdout.write(JSON.stringify({
+    ok: true,
+    command: "validate",
+    result: { task_id: argv[1], valid: true, errors: null },
+  }) + "\\n");
+  process.exit(0);
+}
+process.stderr.write(\`unsupported command: \${command}\\n\`);
+process.exit(1);
+`,
+        { mode: 0o755 },
+      );
+
+      await expect(execFile("node", [wrapperPath], {
+        cwd: tempDir,
+        env: {
+          ...process.env,
+          RUNX_INPUTS_JSON: JSON.stringify({
+            command: "validate",
+            task_id: "fixture-task",
+            fixture: tempDir,
+            scafld_bin: fakeScafld,
+          }),
+        },
+      })).rejects.toMatchObject({
+        stderr: expect.stringContaining("scafld 2.4.0 or newer is required"),
       });
     } finally {
       await rm(tempDir, { recursive: true, force: true });
