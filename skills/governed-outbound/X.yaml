@@ -174,6 +174,7 @@ runners:
             content_ref: scrub-content.redaction_report_packet.data
           artifacts:
             wrap_as: send_plan
+            packet: runx.send_as.plan.v1
         - id: seal-run
           label: seal the run to the ledger
           skill: ../sign-receipt

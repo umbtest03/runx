@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.runx.dev/runx/send-as/plan/v1.json",
+  "x-runx-packet-id": "runx.send_as.plan.v1",
+  "$defs": {
+    "sendPlan": {
+      "type": "object",
+      "properties": {
+        "decision": { "type": "string" },
+        "audience": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "content": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "principal": { "type": "string" },
+        "send_class": { "type": "string" },
+        "gates": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "blockers": { "type": "array" },
+        "runtime_path": { "type": "string" },
+        "provider_actions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    { "$ref": "#/$defs/sendPlan" }
+  ],
+  "properties": {
+    "data": { "$ref": "#/$defs/sendPlan" }
+  },
+  "additionalProperties": true
+}

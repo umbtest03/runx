@@ -77,7 +77,7 @@ pub(crate) const OFFICIAL_SKILLS: &[OfficialSkillLockEntry] = &[
     },
     OfficialSkillLockEntry {
         skill_id: "runx/governed-outbound",
-        version: "sha-c93e1c732950",
+        version: "sha-07106d71a184",
         digest: "e177cd002efb896e0bba7a6352f19f4d1ec575db1ef548849244ea42725356a6",
     },
     OfficialSkillLockEntry {
