@@ -1,19 +1,19 @@
-name: runx-operator-payment-status
+name: ops-desk-payment-status
 kind: skill
 target: ..
 runner: operate
 inputs:
   objective: Check payment readiness and tell me what to do next.
-  tenant_ref: tenant:example
+  scope_ref: workspace:example
   dashboard_snapshot:
     health:
       api: ok
     money:
-      x402_targets:
-        - network: base
+      rail_targets:
+        - network: primary-net
           recommended: true
-        - network: arbitrum
-        - network: polygon
+        - network: secondary-net-a
+        - network: secondary-net-b
       unfunded_approved_items: 0
       funded_open_items: 3
     communications:
@@ -24,22 +24,22 @@ inputs:
     receipts:
       - id: hfr_example_funding
         status: verified
-        rail: x402
-        network: base
+        rail: primary-rail
+        network: primary-net
   provider_status:
     runx_api: ok
-    card_webhook: needs_review
+    secondary_rail_webhook: needs_review
   approval_context:
     approvals: []
   operator_policy: >
-    x402 is primary. Card payments are secondary until webhook readiness is
-    re-verified.
+    The primary rail is preferred. Secondary rails stay disabled until webhook
+    readiness is re-verified.
 caller:
   answers:
-    agent_task.runx-operator.output:
-      operator_packet:
+    agent_task.ops-desk.output:
+      ops_desk_packet:
         decision: ready
-        tenant_ref: tenant:example
+        scope_ref: workspace:example
         objective: Check payment readiness and tell me what to do next.
         mode: read_only
         dashboard:
@@ -51,15 +51,15 @@ caller:
         findings:
           - severity: warning
             area: providers
-            summary: Card webhook readiness needs review, but x402 funding is healthy.
+            summary: Secondary rail webhook readiness needs review, but primary rail funding is healthy.
             evidence_refs:
-              - provider_status.card_webhook
+              - provider_status.secondary_rail_webhook
         proposals:
-          - action_id: card_webhook_check
+          - action_id: secondary_rail_webhook_check
             lane: provider.webhook_check
-            reason: The secondary card rail should not be trusted until webhook readiness is checked.
+            reason: The secondary rail should not be trusted until webhook readiness is checked.
             inputs_summary:
-              provider: card
+              provider: secondary_rail
             consequence: read_only
             approval_required: false
             approval_prompt: null
@@ -70,21 +70,21 @@ caller:
               readback: webhook delivery endpoint health and latest event status
             execution:
               interface: skill
-              lane_ref: runx-operator
+              lane_ref: ops-desk
               profile_ref: null
               command_ref: null
               workflow_ref: null
               approval_gate: null
               verifier_ref: provider.webhook_check
         ordered_next_steps:
-          - step: Run a card webhook health check before relying on card payouts.
+          - step: Run a secondary rail webhook health check before relying on secondary payouts.
             lane: provider.webhook_check
             requires_confirmation: false
         refused_reasons: []
         needs_input: []
         success_checkpoint:
-          milestone: x402 funding ready
-          description: x402 funding has a verified receipt and no approved item is waiting on funding.
+          milestone: primary rail funding ready
+          description: Primary rail funding has a verified receipt and no approved item is waiting on funding.
 expect:
   status: sealed
   receipt:

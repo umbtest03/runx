@@ -9,11 +9,11 @@ use runx_contracts::{
 };
 
 const FIXTURE_JSON: &str =
-    include_str!("../../../fixtures/external/nitrosend/issue-intake/api-source-thread.json");
-const POLICY_JSON: &str = include_str!("../../../fixtures/operational-policy/nitrosend-like.json");
+    include_str!("../../../fixtures/external/example/issue-intake/api-source-thread.json");
+const POLICY_JSON: &str = include_str!("../../../fixtures/operational-policy/provider-like.json");
 
 #[derive(Debug, Deserialize)]
-struct ExternalNitrosendFixture {
+struct ExternalExampleFixture {
     schema: String,
     fixture_id: String,
     source: ExternalSource,
@@ -45,18 +45,18 @@ struct ExternalTarget {
 }
 
 #[test]
-fn nitrosend_external_fixture_is_admitted_by_operational_policy()
+fn example_external_fixture_is_admitted_by_operational_policy()
 -> Result<(), Box<dyn std::error::Error>> {
-    let fixture: ExternalNitrosendFixture = serde_json::from_str(FIXTURE_JSON)?;
+    let fixture: ExternalExampleFixture = serde_json::from_str(FIXTURE_JSON)?;
     let policy: OperationalPolicy = serde_json::from_str(POLICY_JSON)?;
 
     assert_eq!(fixture.schema, "runx.external_dogfood_fixture.v1");
-    assert_eq!(fixture.fixture_id, "nitrosend-api-source-thread");
+    assert_eq!(fixture.fixture_id, "example-api-source-thread");
     assert_eq!(fixture.source.provider.as_str(), "slack");
-    assert_eq!(fixture.source.locator, "slack://nitrosend/C0APFMY0V8Q");
+    assert_eq!(fixture.source.locator, "slack://example/C0APFMY0V8Q");
     assert_eq!(fixture.source.thread_ts, "1778834840.485629");
     assert!(fixture.source.issue_url.contains("/issues/"));
-    assert_eq!(fixture.signal.fingerprint, "sha256:nitrosend-source-482");
+    assert_eq!(fixture.signal.fingerprint, "sha256:example-source-482");
     assert_eq!(fixture.target.action, "issue-to-pr");
 
     let admission = admit_operational_policy_request(
@@ -89,9 +89,9 @@ fn nitrosend_external_fixture_is_admitted_by_operational_policy()
 }
 
 #[test]
-fn nitrosend_external_fixture_cites_existing_runtime_fixtures()
+fn example_external_fixture_cites_existing_runtime_fixtures()
 -> Result<(), Box<dyn std::error::Error>> {
-    let fixture: ExternalNitrosendFixture = serde_json::from_str(FIXTURE_JSON)?;
+    let fixture: ExternalExampleFixture = serde_json::from_str(FIXTURE_JSON)?;
     let root = repo_root()?;
 
     for runtime_fixture in &fixture.runtime_fixtures {

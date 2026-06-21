@@ -295,7 +295,7 @@ The official catalog is explicit about why each package is public:
 
 - canonical governed skills: `charge`, `dispute-respond`, `evolve`,
   `improve-skill`, `least-privilege-auditor`, `overlay-generator`,
-  `policy-author`, `receipt-auditor`, `refund`, `runx-operator`, `send-as`, `spend`,
+  `policy-author`, `receipt-auditor`, `refund`, `ops-desk`, `send-as`, `spend`,
   `weather-forecast`
 - branded provider skills: `nitrosend`, `nws-weather-forecast`, `stripe-pay`,
   `x402-pay`
@@ -313,7 +313,8 @@ the current runx catalog, surface maintainer decisions cleanly, and avoid
 builder residue or placeholder targets.
 
 See `docs/operator-console.md` for the manager-dashboard model that lets agents
-operate tenants through the same governed lanes as the UI.
+operate projects, workspaces, products, or accounts through the same governed
+lanes as the UI.
 
 Each ships as a portable `SKILL.md` plus a colocated execution profile at
 `skills/<skill>/X.yaml` when it exposes deterministic runners or inline harness

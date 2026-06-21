@@ -1462,7 +1462,7 @@ pub(super) fn operational_policy_corpus() -> Vec<(&'static str, Value)> {
     let valid = json!({
         "schema": "runx.operational_policy.v1",
         "schema_version": "runx.operational_policy.v1",
-        "policy_id": "nitrosend.intake",
+        "policy_id": "provider.intake",
         "sources": [{
             "source_id": "slack.intake",
             "provider": "slack",

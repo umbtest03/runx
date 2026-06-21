@@ -11,9 +11,9 @@
   `runx registry read godfood/support-triage-reply@<version> --registry https://api.runx.ai --json`
 - Trust tier: `community`
 
-The skill is intentionally generic. Nitrosend has private support-ops skills
-for triage/intake, but this public artifact does not include Nitrosend-private
-policy, credentials, customer data, or mutation paths.
+The skill is intentionally generic. Product-specific support-ops skills can
+compose it, but this public artifact does not include private product policy,
+credentials, customer data, or mutation paths.
 
 ## What It Does
 
@@ -83,12 +83,12 @@ Hi Mira,
 
 Thanks for the note. You asked about How do I verify my sending domain?.
 
-For Nitrosend domain verification, check that the DNS records shown in the sending-domain setup are published exactly, then run the domain verification check again after DNS propagation. If a record still fails, compare the host/name and value fields character for character, including whether your DNS provider automatically appends the root domain.
+For sending-domain verification, check that the DNS records shown in the setup are published exactly, then run the domain verification check again after DNS propagation. If a record still fails, compare the host/name and value fields character for character, including whether your DNS provider automatically appends the root domain.
 
 Before sending, an operator should confirm the product state and any account-specific details. This draft has not been sent.
 
 Thanks,
-Nitrosend Support
+ExampleDesk Support
 ```
 
 Receipt verification:

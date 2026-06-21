@@ -9,7 +9,7 @@
     {
       "path": "skills/business-ops",
       "proof": "One business signal fans out through governed ops lanes and seals a graph receipt.",
-      "command": "runx harness skills/business-ops"
+      "command": "runx harness skills/business-ops/fixtures/business-ops-smoke.yaml"
     },
     {
       "path": "examples/github-mcp-hero",

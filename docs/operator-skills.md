@@ -1,9 +1,10 @@
 # Operator Skills
 
 Operator skills are the agent-facing control layer for running a project,
-tenant, or product through runx. They are not a second CLI and not a second
-backend. They turn evidence into a bounded plan, name the existing governed lane
-that should execute, require the right approval, and verify the result.
+workspace, product, or account through runx. They are not a second CLI and not a
+second backend. They turn evidence into a bounded plan, name the existing
+governed lane that should execute, require the right approval, and verify the
+result.
 
 ## Boundary
 
@@ -36,8 +37,8 @@ A project operator skill uses runx the right way:
 - The receipt seals the domain act: target, authority, decision, reason, and
   effect.
 
-Project-owned operator skills should copy that shape. Keep tenant vocabulary and
-policy in the tenant skill or project profile. Keep OSS skills generic and
+Project-owned operator skills should copy that shape. Keep product vocabulary
+and policy in the project skill or project profile. Keep OSS skills generic and
 consume them from the project skill.
 
 ## Project Profiles

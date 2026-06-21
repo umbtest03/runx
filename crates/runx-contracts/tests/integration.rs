@@ -8,11 +8,11 @@
 mod act_assignment_fixtures;
 mod credential_delivery_fixtures;
 mod doctor_fixtures;
+mod example_external_fixture;
 mod execution_fixtures;
 mod external_adapter_fixtures;
 mod harness_spine_fixtures;
 mod host_protocol_fixtures;
-mod nitrosend_external_fixture;
 mod operational_policy;
 mod operational_proposal_fixtures;
 mod reference;

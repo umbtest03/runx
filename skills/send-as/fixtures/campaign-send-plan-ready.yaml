@@ -4,11 +4,11 @@ target: ..
 runner: plan
 inputs:
   objective: Schedule the June newsletter to the subscribers list.
-  principal: account:nitrosend-demo
+  principal: account:growth-demo
   provider_context:
-    provider: nitrosend
+    provider: provider-send-demo
     account_ref: acct_demo
-    runtime_path: mcp
+    runtime_path: provider.send
     domain_verified: true
   audience:
     type: list
@@ -27,11 +27,11 @@ caller:
         action_family: send-as
         principal:
           type: account
-          ref: account:nitrosend-demo
+          ref: account:growth-demo
         provider:
-          name: nitrosend
+          name: provider-send-demo
           account_ref: acct_demo
-          runtime_path: mcp
+          runtime_path: provider.send
         send_class: campaign
         channel: email
         audience:
@@ -48,11 +48,11 @@ caller:
           approval_ref: approval:pending
         blockers: []
         provider_actions:
-          - nitro_review_delivery
-          - nitro_send_test_message
-          - nitro_control_delivery
+          - provider.review_delivery
+          - provider.send_test
+          - provider.schedule_or_send
         evidence_refs:
-          - provider_context:nitrosend
+          - provider_context:provider-send-demo
         success_checkpoint:
           milestone: send_ready_for_approval
           description: A digest-bound campaign send is ready for preflight and explicit approval.

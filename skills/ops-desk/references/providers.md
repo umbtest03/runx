@@ -6,7 +6,7 @@ and incident triage.
 ## Rule
 
 Provider state is observed through governed checks and redacted refs. Secrets
-are never copied into operator packets.
+are never copied into ops desk packets.
 
 ## Common Lanes
 
@@ -21,7 +21,7 @@ are never copied into operator packets.
 
 ## Required Evidence
 
-- provider name and account/tenant ref;
+- provider name and account/workspace/product ref;
 - status timestamp;
 - credential ref, never raw credential;
 - webhook endpoint and latest delivery status when relevant;

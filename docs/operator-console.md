@@ -1,8 +1,8 @@
 # Operator Console
 
-The operator console is the manager surface for a runx tenant. It is not a
-second control plane. It is a projection plus an action catalog over the same
-governed lanes an agent can use.
+The operator console is the manager surface for a project, workspace, product,
+or account. It is not a second control plane. It is a projection plus an action
+catalog over the same governed lanes an agent can use.
 
 See [Operator Skills](./operator-skills.md) for the reusable skill boundary:
 operator skills reason, gate, route, and verify; the CLI, hosted API, workflow,
@@ -11,7 +11,7 @@ or provider tool remains the execution interface.
 ## Shape
 
 ```text
-tenant projections -> runx-operator -> governed action lane -> receipt -> projection
+state projections -> ops-desk -> governed action lane -> receipt -> projection
 ```
 
 The dashboard shows state. The agent explains and routes action. The runtime
@@ -30,15 +30,16 @@ The console may show:
 
 The console must not add bespoke mutation routes for convenience. A dashboard
 button maps to a governed lane such as `send-as`, `ledger`, `refund`,
-`messageboard`, `nitrosend`, `least-privilege-auditor`, or a tenant skill.
-If the lane ultimately runs a CLI command or GitHub workflow, the dashboard and
-agent both reference that existing interface. They do not duplicate its logic in
-the UI or in skill prose.
+`messageboard`, `provider.send`, `least-privilege-auditor`, or a product skill.
+If the lane ultimately runs a CLI command, provider adapter, or repository
+workflow, the dashboard and agent both reference that existing interface. They
+do not duplicate its logic in the UI or in skill prose.
 
 ## Agent Contract
 
-Use `runx-operator` when an agent is asked to manage a tenant. It reads the same
-projection the UI shows and emits `runx.operator_packet.v1`:
+Use `ops-desk` when an agent is asked to manage a project, workspace, product,
+or account. It reads the same projection the UI shows and emits
+`runx.ops_desk.packet.v1`:
 
 - findings grounded in evidence;
 - proposed governed lanes;
@@ -47,7 +48,7 @@ projection the UI shows and emits `runx.operator_packet.v1`:
 - receipt/effect/readback expectations.
 
 The packet is a plan/proposal surface. Consequential work still executes through
-the named lane and seals its own receipt. `runx-operator` may name the command,
+the named lane and seals its own receipt. `ops-desk` may name the command,
 workflow, hosted endpoint, or skill runner to use, but it does not implement
 those operations itself.
 
@@ -60,9 +61,9 @@ those operations itself.
   credential changes, deploys, and destructive actions: explicit approval.
 - Post-action success: receipt/effect/readback required.
 
-## Tenant Policy
+## Product Policy
 
-Product-specific operator skills should provide tenant policy and vocabulary.
+Product-specific operator skills should provide product policy and vocabulary.
 They should not fork the dashboard model or copy private product behavior into
 OSS skills. The core loop stays:
 
@@ -70,7 +71,7 @@ OSS skills. The core loop stays:
 snapshot -> findings -> proposals -> approval -> governed lane -> receipt
 ```
 
-Project profiles may describe tenant topology, existing workflows, and
+Project profiles may describe product topology, existing workflows, and
 verification URLs. They are not alternate execution engines. If a profile needs
 a behavior the CLI or hosted API cannot perform cleanly, fix that underlying
 interface instead of teaching an operator skill a private workaround.

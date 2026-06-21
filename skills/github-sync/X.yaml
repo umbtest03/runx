@@ -1,11 +1,14 @@
 skill: github-sync
-version: "0.1.0"
+version: "0.1.1"
 
 catalog:
   kind: skill
   audience: public
   visibility: public
-  role: canonical
+  role: branded
+  canonical_skill: runx/messageboard
+  provider: github
+  runtime_path: github
 
 runners:
   github-sync:

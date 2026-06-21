@@ -166,4 +166,5 @@ reviewer-safe while preserving artifact refs for reconstruction.
 - This contract does not decide whether an issue deserves a PR.
 - This contract does not merge PRs.
 - This contract does not replace receipts, ledgers, or scafld status.
-- This contract does not encode Nitrosend, Aster, or runx.ai hosted policy.
+- This contract does not encode consuming-product, runner-provider, or hosted
+  deployment policy.

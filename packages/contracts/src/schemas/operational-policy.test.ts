@@ -19,7 +19,7 @@ const fixtureRoot = new URL("../../../../fixtures/operational-policy/", import.m
 const validPolicy: OperationalPolicyContract = {
   schema: "runx.operational_policy.v1",
   schema_version: operationalPolicySchemaVersion,
-  policy_id: "nitrosend-dev-flow",
+  policy_id: "provider-dev-flow",
   created_at: "2026-05-19T02:00:00Z",
   sources: [
     {
@@ -37,7 +37,7 @@ const validPolicy: OperationalPolicyContract = {
     {
       source_id: "sentry-production",
       provider: "sentry",
-      allowed_locators: ["sentry://nitrosend/production"],
+      allowed_locators: ["sentry://example/production"],
       allowed_actions: ["issue-intake", "issue-to-pr", "manual-review"],
       source_thread: {
         required: true,
@@ -55,41 +55,41 @@ const validPolicy: OperationalPolicyContract = {
   ],
   runners: [
     {
-      runner_id: "aster-primary",
-      kind: "aster",
+      runner_id: "local-review",
+      kind: "local",
       state: "available",
       allowed_actions: ["issue-to-pr", "pr-review", "pr-fix-up", "merge-assist"],
-      target_repos: ["nitrosend/api", "nitrosend/app"],
+      target_repos: ["example/api", "example/app"],
       scafld_required: true,
     },
   ],
   owner_routes: [
     {
       route_id: "api-kam",
-      owners: ["Kam"],
-      target_repos: ["nitrosend/api"],
+      owners: ["Ops"],
+      target_repos: ["example/api"],
       labels: ["runx", "api"],
-      project: "Nitrosend Engineering",
+      project: "Example Engineering",
     },
     {
       route_id: "app-chong",
-      owners: ["Chong"],
-      target_repos: ["nitrosend/app"],
+      owners: ["Design"],
+      target_repos: ["example/app"],
       labels: ["runx", "app"],
     },
   ],
   targets: [
     {
-      repo: "nitrosend/api",
-      runner_ids: ["aster-primary"],
+      repo: "example/api",
+      runner_ids: ["local-review"],
       allowed_actions: ["issue-to-pr", "pr-review", "pr-fix-up", "merge-assist"],
       default_owner_route: "api-kam",
       scafld_required: true,
       base_branch: "main",
     },
     {
-      repo: "nitrosend/app",
-      runner_ids: ["aster-primary"],
+      repo: "example/app",
+      runner_ids: ["local-review"],
       allowed_actions: ["issue-to-pr", "pr-review", "pr-fix-up", "merge-assist"],
       default_owner_route: "app-chong",
       scafld_required: true,
@@ -118,7 +118,7 @@ describe("operational-policy schema", () => {
   it("accepts a valid multi-source, multi-target policy", () => {
     expect(contractSchemaMatches(operationalPolicySchema, validPolicy)).toBe(true);
     expect(validateOperationalPolicyContract(validPolicy)).toMatchObject({
-      policy_id: "nitrosend-dev-flow",
+      policy_id: "provider-dev-flow",
       permissions: {
         auto_merge: false,
         require_human_merge_gate: true,
@@ -126,12 +126,12 @@ describe("operational-policy schema", () => {
     });
     expect(lintOperationalPolicyContract(validPolicy)).toEqual([]);
     expect(validateOperationalPolicySemantics(validPolicy)).toMatchObject({
-      policy_id: "nitrosend-dev-flow",
+      policy_id: "provider-dev-flow",
     });
   });
 
   it.each([
-    "nitrosend-like.json",
+    "provider-like.json",
     "minimal-single-repo.json",
   ])("accepts positive fixture %s", (fixtureName) => {
     const policy = readPolicyFixture(fixtureName);
@@ -200,7 +200,7 @@ describe("operational-policy schema", () => {
       ...validPolicy,
       targets: [{
         ...validPolicy.targets[0],
-        repo: "nitrosend",
+        repo: "example",
       }],
     })).toBe(false);
   });
@@ -281,7 +281,7 @@ describe("operational-policy schema", () => {
 
   it("projects an admin-safe readback without raw source locators", () => {
     expect(projectOperationalPolicyReadback(validPolicy)).toMatchObject({
-      policy_id: "nitrosend-dev-flow",
+      policy_id: "provider-dev-flow",
       valid: true,
       findings: [],
       sources: [
@@ -302,13 +302,13 @@ describe("operational-policy schema", () => {
       ],
       targets: [
         {
-          repo: "nitrosend/api",
+          repo: "example/api",
           default_owner_route: "api-kam",
           owner_count: 1,
           available_runner_count: 1,
         },
         {
-          repo: "nitrosend/app",
+          repo: "example/app",
           default_owner_route: "app-chong",
           owner_count: 1,
           available_runner_count: 1,
@@ -322,19 +322,19 @@ describe("operational-policy schema", () => {
   it("admits a concrete request against target, source, runner, dedupe, and outcome policy", () => {
     expect(admitOperationalPolicyRequest(validPolicy, {
       source_id: "slack-bugs",
-      target_repo: "nitrosend/api",
+      target_repo: "example/api",
       action: "issue-to-pr",
-      runner_id: "aster-primary",
+      runner_id: "local-review",
       source_thread_locator: "slack://team/T123/channel/CBUGS/thread/168",
     })).toMatchObject({
       status: "allow",
       findings: [],
-      policy_id: "nitrosend-dev-flow",
+      policy_id: "provider-dev-flow",
       source_id: "slack-bugs",
-      target_repo: "nitrosend/api",
-      runner_id: "aster-primary",
+      target_repo: "example/api",
+      runner_id: "local-review",
       owner_route_id: "api-kam",
-      owners: ["Kam"],
+      owners: ["Ops"],
       dedupe_strategy: "source_fingerprint",
       outcome_close_mode: "when_verified",
       source_thread_required: true,
@@ -346,7 +346,7 @@ describe("operational-policy schema", () => {
   it("denies request-time admission before unknown target or runner mutation boundaries", () => {
     const admission = admitOperationalPolicyRequest(validPolicy, {
       source_id: "slack-bugs",
-      target_repo: "nitrosend/unknown",
+      target_repo: "example/unknown",
       action: "issue-to-pr",
       runner_id: "missing-runner",
       source_thread_locator: "slack://team/T123/channel/CBUGS/thread/168",
@@ -364,9 +364,9 @@ describe("operational-policy schema", () => {
   it("denies PR-producing admission without recoverable source-thread routing", () => {
     const admission = admitOperationalPolicyRequest(validPolicy, {
       source_id: "slack-bugs",
-      target_repo: "nitrosend/api",
+      target_repo: "example/api",
       action: "issue-to-pr",
-      runner_id: "aster-primary",
+      runner_id: "local-review",
     });
 
     expect(admission).toMatchObject({
@@ -386,9 +386,9 @@ describe("operational-policy schema", () => {
       }],
     }, {
       source_id: "slack-bugs",
-      target_repo: "nitrosend/api",
+      target_repo: "example/api",
       action: "issue-to-pr",
-      runner_id: "aster-primary",
+      runner_id: "local-review",
       source_thread_locator: "slack://team/T123/channel/CBUGS/thread/168",
     });
 

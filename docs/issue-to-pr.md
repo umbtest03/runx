@@ -47,10 +47,10 @@ Consuming repos own product policy:
 - whether GitHub Projects, labels, or milestones are used
 - deployment and live bot credentials
 
-That split keeps `issue-to-pr` reusable. A service repo can normalize Slack or
-Sentry into a `runx.thread.v1` source and a redacted
-artifact refs and verification evidence, but runx core should not know that Nitrosend uses a
-particular channel, label, Sentry project, or owner map.
+That split keeps `issue-to-pr` reusable. A service repo can normalize Slack,
+Sentry, GitHub, support, or local sources into a `runx.thread.v1` source and a
+redacted artifact bundle with verification evidence, but runx core should not
+know the consuming product's channel, label, project, or owner map.
 
 For Slack/Sentry/GitHub command entrypoints, adapters should normalize source
 commands locally into the shared source-event and operational-policy packets.

@@ -6,8 +6,7 @@ use runx_contracts::{
     validate_operational_policy_contract, validate_operational_policy_semantics,
 };
 
-const NITROSEND_LIKE: &str =
-    include_str!("../../../fixtures/operational-policy/nitrosend-like.json");
+const PROVIDER_LIKE: &str = include_str!("../../../fixtures/operational-policy/provider-like.json");
 const MINIMAL_SINGLE_REPO: &str =
     include_str!("../../../fixtures/operational-policy/minimal-single-repo.json");
 const INVALID_UNKNOWN_RUNNER: &str =
@@ -25,7 +24,7 @@ const INVALID_SECRET_FIELD: &str =
 
 #[test]
 fn positive_operational_policy_fixtures_are_valid() -> Result<(), Box<dyn std::error::Error>> {
-    for fixture in [NITROSEND_LIKE, MINIMAL_SINGLE_REPO] {
+    for fixture in [PROVIDER_LIKE, MINIMAL_SINGLE_REPO] {
         let policy: OperationalPolicy = serde_json::from_str(fixture)?;
 
         validate_operational_policy_contract(&policy)?;
@@ -66,7 +65,7 @@ fn schema_invalid_fixtures_are_rejected() {
 #[test]
 fn invalid_created_at_is_rejected_like_typescript_schema() -> Result<(), Box<dyn std::error::Error>>
 {
-    let mut policy: OperationalPolicy = serde_json::from_str(NITROSEND_LIKE)?;
+    let mut policy: OperationalPolicy = serde_json::from_str(PROVIDER_LIKE)?;
 
     policy.created_at = Some("2026-05-19 00:00:00".into());
     let missing_t = validate_operational_policy_contract(&policy);
@@ -81,22 +80,22 @@ fn invalid_created_at_is_rejected_like_typescript_schema() -> Result<(), Box<dyn
 
 #[test]
 fn readback_redacts_source_locators() -> Result<(), Box<dyn std::error::Error>> {
-    let policy: OperationalPolicy = serde_json::from_str(NITROSEND_LIKE)?;
+    let policy: OperationalPolicy = serde_json::from_str(PROVIDER_LIKE)?;
     let readback = project_operational_policy_readback(&policy)?;
     let json = serde_json::to_string(&readback)?;
 
     assert!(readback.valid);
     assert_eq!(readback.sources[0].locator_count, 1);
     assert!(json.contains(r#""locator_count":1"#));
-    assert!(!json.contains("slack://nitrosend"));
+    assert!(!json.contains("slack://example"));
     Ok(())
 }
 
 #[test]
-fn nitrosend_policy_admits_each_target_repo_route() -> Result<(), Box<dyn std::error::Error>> {
-    let policy: OperationalPolicy = serde_json::from_str(NITROSEND_LIKE)?;
+fn provider_policy_admits_each_target_repo_route() -> Result<(), Box<dyn std::error::Error>> {
+    let policy: OperationalPolicy = serde_json::from_str(PROVIDER_LIKE)?;
 
-    for repo in ["nitrosend/nitrosend", "nitrosend/api", "nitrosend/app"] {
+    for repo in ["example/project", "example/api", "example/app"] {
         let admission = admit_operational_policy_request(
             &policy,
             &OperationalPolicyAdmissionRequest {
@@ -105,19 +104,19 @@ fn nitrosend_policy_admits_each_target_repo_route() -> Result<(), Box<dyn std::e
                 action: OperationalPolicyAction::IssueToPr,
                 runner_id: None,
                 source_thread_locator: Some(
-                    "slack://nitrosend/C0APFMY0V8Q/1778834840.485629".to_owned(),
+                    "slack://example/C0APFMY0V8Q/1778834840.485629".to_owned(),
                 ),
             },
         )?;
 
         assert_eq!(admission.status, OperationalPolicyAdmissionStatus::Allow);
         assert!(admission.findings.is_empty());
-        assert_eq!(admission.policy_id, "nitrosend-issue-flow");
+        assert_eq!(admission.policy_id, "provider-issue-flow");
         assert_eq!(admission.source_id.as_deref(), Some("bugs-fixes"));
         assert_eq!(admission.target_repo.as_deref(), Some(repo));
-        assert_eq!(admission.runner_id.as_deref(), Some("aster-production"));
+        assert_eq!(admission.runner_id.as_deref(), Some("local-review"));
         assert_eq!(admission.owner_route_id.as_deref(), Some("product-surface"));
-        assert_eq!(admission.owners.as_deref(), Some(&["Kam".to_owned()][..]));
+        assert_eq!(admission.owners.as_deref(), Some(&["Ops".to_owned()][..]));
         assert_eq!(
             admission.dedupe_strategy,
             OperationalPolicyDedupeStrategy::SourceFingerprint
@@ -135,19 +134,17 @@ fn nitrosend_policy_admits_each_target_repo_route() -> Result<(), Box<dyn std::e
 }
 
 #[test]
-fn nitrosend_policy_denies_unknown_target_before_runner_selection()
+fn provider_policy_denies_unknown_target_before_runner_selection()
 -> Result<(), Box<dyn std::error::Error>> {
-    let policy: OperationalPolicy = serde_json::from_str(NITROSEND_LIKE)?;
+    let policy: OperationalPolicy = serde_json::from_str(PROVIDER_LIKE)?;
     let admission = admit_operational_policy_request(
         &policy,
         &OperationalPolicyAdmissionRequest {
             source_id: Some("bugs-fixes".to_owned()),
-            target_repo: Some("nitrosend/unknown".to_owned()),
+            target_repo: Some("example/unknown".to_owned()),
             action: OperationalPolicyAction::IssueToPr,
             runner_id: None,
-            source_thread_locator: Some(
-                "slack://nitrosend/C0APFMY0V8Q/1778834840.485629".to_owned(),
-            ),
+            source_thread_locator: Some("slack://example/C0APFMY0V8Q/1778834840.485629".to_owned()),
         },
     )?;
 
@@ -164,23 +161,23 @@ fn nitrosend_policy_denies_unknown_target_before_runner_selection()
 }
 
 #[test]
-fn nitrosend_policy_denies_pr_admission_without_source_thread()
+fn provider_policy_denies_pr_admission_without_source_thread()
 -> Result<(), Box<dyn std::error::Error>> {
-    let policy: OperationalPolicy = serde_json::from_str(NITROSEND_LIKE)?;
+    let policy: OperationalPolicy = serde_json::from_str(PROVIDER_LIKE)?;
     let admission = admit_operational_policy_request(
         &policy,
         &OperationalPolicyAdmissionRequest {
             source_id: Some("bugs-fixes".to_owned()),
-            target_repo: Some("nitrosend/api".to_owned()),
+            target_repo: Some("example/api".to_owned()),
             action: OperationalPolicyAction::IssueToPr,
-            runner_id: Some("aster-production".to_owned()),
+            runner_id: Some("local-review".to_owned()),
             source_thread_locator: None,
         },
     )?;
 
     assert_eq!(admission.status, OperationalPolicyAdmissionStatus::Deny);
-    assert_eq!(admission.target_repo.as_deref(), Some("nitrosend/api"));
-    assert_eq!(admission.runner_id.as_deref(), Some("aster-production"));
+    assert_eq!(admission.target_repo.as_deref(), Some("example/api"));
+    assert_eq!(admission.runner_id.as_deref(), Some("local-review"));
     assert!(
         admission
             .findings

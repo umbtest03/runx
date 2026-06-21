@@ -19,6 +19,13 @@ inputs:
     type: string
     required: true
     description: Business signal being routed.
+  operator_context:
+    type: string
+    required: false
+    description: Optional product policy, topology, audience constraints, or provider state. Context only, not authority.
 ---
 
 Project one business-ops lane as a deterministic fixture packet.
+
+The output names the real downstream skill or provider lane that would replace
+this fixture in production. It never performs the handoff itself.

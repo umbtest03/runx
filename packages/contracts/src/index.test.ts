@@ -468,8 +468,8 @@ describe("@runxhq/contracts", () => {
         },
       }],
       runners: [{
-        runner_id: "aster-primary",
-        kind: "aster",
+        runner_id: "local-review",
+        kind: "local",
         state: "available",
         allowed_actions: ["issue-to-pr", "merge-assist"],
         target_repos: ["example/api"],
@@ -477,12 +477,12 @@ describe("@runxhq/contracts", () => {
       }],
       owner_routes: [{
         route_id: "api-owner",
-        owners: ["Kam"],
+        owners: ["Ops"],
         target_repos: ["example/api"],
       }],
       targets: [{
         repo: "example/api",
-        runner_ids: ["aster-primary"],
+        runner_ids: ["local-review"],
         allowed_actions: ["issue-to-pr", "merge-assist"],
         default_owner_route: "api-owner",
         scafld_required: true,

@@ -121,6 +121,13 @@ pub(super) fn execute_graph_skill_run(
             }
         })
         .unwrap_or_else(|| request_graph_inputs.clone());
+    if let Some(missing_request) = missing_required_graph_input_request(runner, &graph_inputs) {
+        return Ok(JsonValue::Object(needs_agent_output(
+            &run_id,
+            "graph.required-inputs",
+            missing_request,
+        )));
+    }
     let graph = materialize_graph_inputs(graph, &graph_inputs);
     let mut host = SkillRunGraphHost::with_inline(answers, inline_resolver);
     let mut checkpoint = if let Some(state) = resumed_state.take() {
@@ -246,6 +253,49 @@ pub(super) fn execute_graph_skill_run(
             Err(error) => return Err(error.into()),
         }
     }
+}
+
+fn missing_required_graph_input_request(
+    runner: &SkillRunnerDefinition,
+    graph_inputs: &JsonObject,
+) -> Option<JsonValue> {
+    let missing = runner
+        .inputs
+        .iter()
+        .filter(|(_, input)| input.required)
+        .filter(|(name, _)| match graph_inputs.get(name.as_str()) {
+            Some(JsonValue::Null) => true,
+            Some(_) => false,
+            None => true,
+        })
+        .map(|(name, input)| {
+            let mut entry = JsonObject::new();
+            entry.insert("name".to_owned(), JsonValue::String(name.clone()));
+            entry.insert(
+                "type".to_owned(),
+                JsonValue::String(input.input_type.clone()),
+            );
+            if let Some(description) = &input.description {
+                entry.insert(
+                    "description".to_owned(),
+                    JsonValue::String(description.clone()),
+                );
+            }
+            JsonValue::Object(entry)
+        })
+        .collect::<Vec<_>>();
+    if missing.is_empty() {
+        return None;
+    }
+
+    let mut request = JsonObject::new();
+    request.insert(
+        "kind".to_owned(),
+        JsonValue::String("graph.required_inputs".to_owned()),
+    );
+    request.insert("runner".to_owned(), JsonValue::String(runner.name.clone()));
+    request.insert("missing_inputs".to_owned(), JsonValue::Array(missing));
+    Some(JsonValue::Object(request))
 }
 
 struct BlockedGraphSkillRun<'a> {

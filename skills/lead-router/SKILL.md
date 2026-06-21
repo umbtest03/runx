@@ -29,8 +29,8 @@ decision:
    `reach_out`, `nurture`, or `hold`, with a rationale.
 2. `when route == reach_out`, the `send-as` skill plans a direct, approval-gated
    outreach message.
-3. `when route == nurture`, the `nitrosend` skill enrolls the lead in a governed
-   nurture campaign.
+3. `when route == nurture`, the `send-as` skill plans a governed nurture
+   campaign handoff for whichever provider adapter the operator has configured.
 4. `when route == hold`, a hold is recorded with the reason, and nothing is sent.
 
 Exactly one branch runs. The unselected branches are skipped, not blocked, and
@@ -49,8 +49,8 @@ the hold branch sends nothing at all.
 
 ## When not to use this skill
 
-- To send the same message to everyone. That is a campaign; call `nitrosend`
-  directly.
+- To send the same message to everyone. That is a campaign; route through
+  `send-as` and then a provider adapter.
 - To draft copy only. Use a drafting skill; this skill decides and routes.
 - To contact a lead with no consent basis or against a suppression list. The
   `hold` route exists for exactly that case.
@@ -78,9 +78,9 @@ the hold branch sends nothing at all.
 ## Output
 
 The run seals to `runx.receipt.v1`. The receipt links `qualify` (the route and
-rationale) and the single branch that executed (`send_plan`, `campaign_plan`, or
-`hold_record`). The branches that did not match are recorded as skipped, so the
-receipt proves both the decision and the one action taken.
+rationale) and the single branch that executed (`send_plan` or `hold_record`).
+The branches that did not match are recorded as skipped, so the receipt proves
+both the decision and the one action taken.
 
 ## Inputs
 

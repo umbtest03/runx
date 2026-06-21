@@ -19,8 +19,8 @@ It composes four catalog skills into one governed run:
    of it can leave the boundary.
 3. an approval gate holds the send for a human, who sees the redaction verdict
    and the residual risk, not the raw content.
-4. `slack-notify` plans the delivery of the scrubbed content to the channel; a
-   connector lane runs the actual post.
+4. `send-as` plans delivery of the scrubbed content to the configured provider
+   adapter; the adapter lane runs the actual post.
 5. `sign-receipt` seals the run so the gather, the scrub, the approval, and the
    send link into one auditable receipt.
 
@@ -51,7 +51,7 @@ and span offsets, never the values it found.
 ## When not to use this skill
 
 - To post content that was authored in-house and carries no external data. Call
-  `slack-notify` directly.
+  `send-as` directly with the configured provider adapter.
 - To gather a source with no intent to send it onward. Call `web-fetch`.
 - To deliver without a human in the loop. The approval gate is the point; a
   send that needs no review does not need this chain.
@@ -91,7 +91,7 @@ and span offsets, never the values it found.
 
 The run seals to `runx.receipt.v1`, linking each step's packet:
 `fetch_result` (source + digest), `redaction_report` (verdict + spans + redacted
-digest), `approval_decision` (the gate), `notify_plan` (the delivery), and the
+digest), `approval_decision` (the gate), `send_plan` (the delivery), and the
 `attestation` (the seal). The receipt proves the path without reconstructing the
 personal data that was removed along the way.
 

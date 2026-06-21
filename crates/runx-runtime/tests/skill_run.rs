@@ -1660,6 +1660,38 @@ fn native_graph_skill_run_omits_missing_optional_graph_input_references()
     Ok(())
 }
 
+#[test]
+fn native_graph_skill_run_requires_declared_graph_inputs() -> Result<(), Box<dyn std::error::Error>>
+{
+    let temp = tempdir()?;
+    let skill_dir = write_graph_required_input_skill(temp.path())?;
+    let receipt_dir = temp.path().join("receipts");
+
+    let result = run_skill(SkillRunRequest {
+        skill_path: skill_dir,
+        receipt_dir: Some(receipt_dir),
+        run_id: None,
+        answers_path: None,
+        inputs: BTreeMap::new(),
+        env: BTreeMap::new(),
+        cwd: temp.path().to_path_buf(),
+        local_credential: None,
+    })?;
+
+    let output = object(&result.output, "graph required input result")?;
+    assert_eq!(string_field(output, "status"), Some("needs_agent"));
+    let requests = array_field(output, "requests").ok_or("missing requests")?;
+    let request = object(&requests[0], "missing input request")?;
+    assert_eq!(string_field(request, "id"), Some("graph.required-inputs"));
+    assert_eq!(string_field(request, "kind"), Some("graph.required_inputs"));
+    let missing = array_field(request, "missing_inputs").ok_or("missing input list")?;
+    let lead = object(&missing[0], "lead missing input")?;
+    assert_eq!(string_field(lead, "name"), Some("lead"));
+    assert_eq!(string_field(lead, "type"), Some("json"));
+
+    Ok(())
+}
+
 #[cfg(feature = "catalog")]
 #[test]
 fn native_graph_skill_run_uses_canonical_tool_root() -> Result<(), Box<dyn std::error::Error>> {
@@ -2573,6 +2605,40 @@ runners:
           inputs:
             message: $input.thread_title
             harness: $input.harness
+"#,
+    )?;
+    Ok(skill_dir)
+}
+
+fn write_graph_required_input_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let skill_dir = root.join("graph-required-input");
+    fs::create_dir_all(&skill_dir)?;
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: graph-required-input\n---\n# Graph Required Input\n",
+    )?;
+    fs::write(
+        skill_dir.join("X.yaml"),
+        r#"
+skill: graph-required-input
+runners:
+  graph:
+    default: true
+    type: graph
+    inputs:
+      lead:
+        type: json
+        required: true
+        description: Lead packet to route.
+    graph:
+      name: graph-required-input
+      steps:
+        - id: approve
+          run:
+            type: approval
+          inputs:
+            gate_id: graph-required-input.approve
+            reason: approve the graph
 "#,
     )?;
     Ok(skill_dir)

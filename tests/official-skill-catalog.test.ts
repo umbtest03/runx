@@ -57,7 +57,7 @@ const publicCatalogPackages = [
   "review-receipt",
   "review-skill",
   "run-history-analyst",
-  "runx-operator",
+  "ops-desk",
   "sandbox-harden",
   "send-as",
   "settle-invoice",

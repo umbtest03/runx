@@ -5,7 +5,7 @@ deploy, hosted operations, project profiles, CLI handoff, or dogfooding runx.
 
 ## Rule
 
-`runx-operator` reasons and routes. It does not implement the operation.
+`ops-desk` reasons and routes. It does not implement the operation.
 
 The execution surface is one of:
 
@@ -17,7 +17,7 @@ The execution surface is one of:
 - a manual human gate.
 
 If a command, workflow, or API already exists, reference it. Do not restate its
-logic in the operator packet.
+logic in the ops desk packet.
 
 ## Project Profiles
 

@@ -1,5 +1,5 @@
 skill: ops-lane
-version: "0.1.0"
+version: "0.1.1"
 
 catalog:
   kind: skill
@@ -25,3 +25,7 @@ runners:
         type: string
         required: true
         description: Business signal being routed.
+      operator_context:
+        type: string
+        required: false
+        description: Optional product policy, topology, audience constraints, or provider state. Context only, not authority.

@@ -1,14 +1,14 @@
 {
   "schema": "runx.operational_policy.v1",
   "schema_version": "runx.operational_policy.v1",
-  "policy_id": "nitrosend-issue-flow",
+  "policy_id": "provider-issue-flow",
   "created_at": "2026-05-19T00:00:00.000Z",
   "sources": [
     {
       "source_id": "bugs-fixes",
       "provider": "slack",
       "allowed_locators": [
-        "slack://nitrosend/C0APFMY0V8Q"
+        "slack://example/C0APFMY0V8Q"
       ],
       "allowed_actions": [
         "issue-intake",
@@ -26,7 +26,7 @@
       "source_id": "sentry-alerts",
       "provider": "sentry",
       "allowed_locators": [
-        "sentry://nitrosend/production"
+        "sentry://example/production"
       ],
       "allowed_actions": [
         "issue-intake",
@@ -49,8 +49,8 @@
   ],
   "runners": [
     {
-      "runner_id": "aster-production",
-      "kind": "aster",
+      "runner_id": "local-review",
+      "kind": "local",
       "state": "available",
       "allowed_actions": [
         "issue-intake",
@@ -60,9 +60,9 @@
         "pr-fix-up"
       ],
       "target_repos": [
-        "nitrosend/nitrosend",
-        "nitrosend/api",
-        "nitrosend/app"
+        "example/project",
+        "example/api",
+        "example/app"
       ],
       "scafld_required": true
     }
@@ -71,25 +71,25 @@
     {
       "route_id": "product-surface",
       "owners": [
-        "Kam"
+        "Ops"
       ],
       "target_repos": [
-        "nitrosend/nitrosend",
-        "nitrosend/api",
-        "nitrosend/app"
+        "example/project",
+        "example/api",
+        "example/app"
       ],
       "labels": [
         "runx",
         "bug"
       ],
-      "project": "Nitrosend Engineering"
+      "project": "Example Engineering"
     }
   ],
   "targets": [
     {
-      "repo": "nitrosend/nitrosend",
+      "repo": "example/project",
       "runner_ids": [
-        "aster-production"
+        "local-review"
       ],
       "allowed_actions": [
         "issue-intake",
@@ -101,9 +101,9 @@
       "base_branch": "main"
     },
     {
-      "repo": "nitrosend/api",
+      "repo": "example/api",
       "runner_ids": [
-        "aster-production"
+        "local-review"
       ],
       "allowed_actions": [
         "issue-intake",
@@ -115,9 +115,9 @@
       "base_branch": "main"
     },
     {
-      "repo": "nitrosend/app",
+      "repo": "example/app",
       "runner_ids": [
-        "aster-production"
+        "local-review"
       ],
       "allowed_actions": [
         "issue-intake",

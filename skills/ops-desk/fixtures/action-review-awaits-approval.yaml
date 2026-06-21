@@ -1,4 +1,4 @@
-name: runx-operator-action-review-awaits-approval
+name: ops-desk-action-review-awaits-approval
 kind: skill
 target: ..
 runner: review-action
@@ -8,7 +8,7 @@ inputs:
     lane: payment.refund
     consequence: money_movement
     amount_cents: 2500
-    rail: x402
+    rail: rail-demo
     settlement_ref: hfr_a1a4b34d30076835ce88807d391951ac
     approval_required: true
     execution:
@@ -27,7 +27,7 @@ inputs:
     approvals: []
 caller:
   answers:
-    agent_task.runx-operator-action-review.output:
+    agent_task.ops-desk-action-review.output:
       action_review:
         decision: awaiting_approval
         consequence: money_movement

@@ -1,29 +1,30 @@
 ---
-name: runx-operator
-description: "Operate a runx-managed tenant from an agent or manager dashboard: inspect state, triage risks, prepare governed actions, route to the right skill lane, require approvals for consequential acts, and verify receipts after execution."
+name: ops-desk
+description: "Operate a project, workspace, or account from an agent or manager dashboard: inspect state, triage risks, prepare governed actions, route to the right skill lane, require approvals for consequential acts, and verify receipts after execution."
 runx:
   category: ops
 ---
 
-# Runx Operator
+# Ops Desk
 
-Operate a runx-managed project or tenant from an agent-controlled desk.
+Operate a project, workspace, or account from an agent-controlled desk.
 
-This skill is the umbrella operations layer. It turns a tenant snapshot, an
-operator objective, and receipt-backed evidence into one safe operator packet:
+This skill is the generic operations desk layer. It turns a state snapshot, an
+operator objective, and receipt-backed evidence into one safe ops desk packet:
 what is happening, what needs attention, what can be checked read-only, what
 requires approval, which governed lane should execute, and how success will be
 verified.
 
 It is not the authority and it is not a second CLI. It does not replace
-`release`, `send-as`, `ledger`, `refund`, `spend`, `messageboard`, `nitrosend`,
-provider-specific skills, hosted API routes, GitHub workflows, or deploy
-commands. It routes to the existing interface with the smallest sufficient
-context and stops before any consequential act that lacks the right gate.
+`release`, `send-as`, `ledger`, `refund`, `spend`, `messageboard`,
+provider-specific adapter skills, hosted API routes, repository workflows, or
+deploy commands. It routes to the existing interface with the smallest
+sufficient context and stops before any consequential act that lacks the right
+gate.
 
 ## What this skill does
 
-`runx-operator` produces an operator packet for a manager dashboard, agent
+`ops-desk` produces an ops desk packet for a manager dashboard, agent
 session, or self-operation run. It reads projected state, classifies findings,
 ranks the next action, selects the governed lane, names blockers, writes the
 approval prompt when a human decision is required, and states the
@@ -40,11 +41,12 @@ API route, workflow, or provider tool.
 
 ## When to use this skill
 
-- An operator asks an agent to manage a runx tenant or product.
+- An operator asks an agent to manage a project, workspace, product, account,
+  or other bounded operating surface.
 - A dashboard needs an agent-readable plan from the current projected state.
 - A runbook needs to decide between read-only checks, proposals, approval-gated
   actions, and post-action verification.
-- A tenant-specific operator skill needs a generic cockpit spine instead of
+- A product-specific operator skill needs a generic cockpit spine instead of
   inventing its own action model.
 - Runx needs to dogfood its own release, registry, hosted, receipt, or provider
   operations through the same governed lanes it exposes to users.
@@ -55,11 +57,12 @@ API route, workflow, or provider tool.
 - To duplicate a CLI command, release script, GitHub workflow, hosted endpoint,
   registry client, or provider SDK.
 - To bypass a human gate because the agent or UI believes the action is obvious.
-- To replace a domain skill such as `send-as`, `nitrosend`, `messageboard`,
-  `release`, `ledger`, `refund`, `spend`, or `least-privilege-auditor`.
+- To replace a domain skill such as `send-as`, `messageboard`, `release`,
+  `ledger`, `refund`, `spend`, `least-privilege-auditor`, or a provider
+  adapter.
 - To operate from stale, missing, or unverifiable state while claiming readiness.
 - To put secrets, private keys, raw customer lists, or provider dumps into the
-  operator packet.
+  ops desk packet.
 
 ## Operating Model
 
@@ -75,13 +78,13 @@ the same governed lane, not separate backdoors.
 
 ## Delegation Model
 
-Operator packets name existing execution surfaces; they do not implement them.
+Ops desk packets name existing execution surfaces; they do not implement them.
 
 - `release` owns release preparation, approval, publish handoff, and
   post-release verification.
 - `ledger`, `receipt-auditor`, and `run-history-analyst` own proof questions.
-- `send-as` owns authority for live communications; provider skills such as
-  `nitrosend` own provider details.
+- `send-as` owns authority for live communications; provider adapter skills own
+  provider-specific execution details.
 - `spend`, `charge`, `refund`, and branded payment skills own money movement.
 - Project skills own product vocabulary and product-specific actions.
 - CLI commands, hosted API routes, and GitHub workflows remain deterministic
@@ -94,10 +97,10 @@ product gap. Do not invent a private workaround.
 ## Procedure
 
 1. Scope the objective.
-   - Identify the tenant, surface, time window, and whether the ask is
+   - Identify the workspace, project, account, surface, time window, and whether the ask is
      read-only, proposal-only, or execution-prep.
    - Read `project_profile` or `operator_policy` as context, not authority.
-   - If the tenant or objective is ambiguous, return `needs_input`.
+   - If the operating scope or objective is ambiguous, return `needs_input`.
 
 2. Classify state from evidence.
    - Use `dashboard_snapshot`, `receipt_summary`, `effect_summary`, and
@@ -115,12 +118,11 @@ product gap. Do not invent a private workaround.
      existing release workflow/commands.
    - Audit questions route to `ledger`, `receipt-auditor`, `run-history-analyst`,
      or `least-privilege-auditor`.
-   - Live communication routes through `send-as` and then a provider skill such
-     as `nitrosend`.
+   - Live communication routes through `send-as` and then a provider adapter.
    - Payment collection, payout, refund, chargeback, or target changes route to
      the matching payment lane.
-   - Board/thread/provider actions route to `messageboard`, `github-sync`,
-     `issue-intake`, `issue-to-pr`, or the product's tenant skill.
+   - Board, thread, and provider actions route to `messageboard`, a provider
+     adapter, `issue-intake`, `issue-to-pr`, or the product's own skill.
    - Deploy and config changes route to the product-owned deploy lane.
 
 4. Decide gates.
@@ -135,7 +137,7 @@ product gap. Do not invent a private workaround.
      rail, target class, and verification receipt expected after settlement.
    - Missing approval means `awaiting_approval`, not "ready".
 
-5. Produce the operator packet.
+5. Produce the ops desk packet.
    - Lead with the few issues an operator should act on now.
    - Name the exact lane for each proposed action.
    - Include the existing execution interface as a handoff, not as a duplicated
@@ -144,7 +146,7 @@ product gap. Do not invent a private workaround.
    - Include verification steps that will prove the action happened.
 
 6. Stop cleanly.
-   - Return `needs_input` for missing tenant, objective, identity, authority,
+   - Return `needs_input` for missing scope, objective, identity, authority,
      evidence, approval, or target.
    - Return `refused` for requests to bypass gates, hide material facts, leak
      secrets, spoof receipts, mark unsettled money as settled, or send without a
@@ -152,8 +154,8 @@ product gap. Do not invent a private workaround.
 
 ## Edge cases and stop conditions
 
-- **No tenant or objective:** return `needs_input`; there is no safe operating
-  frame.
+- **No project/workspace/account or objective:** return `needs_input`; there is
+  no safe operating frame.
 - **No projection or receipt evidence:** return `needs_input` or `unknown`
   status; do not convert silence into `ok`.
 - **Requested action has unknown consequence:** stop at `needs_input` with the
@@ -169,7 +171,7 @@ product gap. Do not invent a private workaround.
 
 Load only the reference needed for the objective:
 
-- Payments, payouts, refunds, x402, Stripe, reconciliation:
+- Payments, payouts, refunds, payment rail adapters, reconciliation:
   `references/payments.md`
 - Email, campaigns, notifications, customer/public communication:
   `references/communications.md`
@@ -184,12 +186,12 @@ Load only the reference needed for the objective:
 
 ## Output schema
 
-Return one `operator_packet`:
+Return one `ops_desk_packet`:
 
 ```yaml
-operator_packet:
+ops_desk_packet:
   decision: ready | awaiting_approval | needs_input | no_action | refused
-  tenant_ref: string
+  scope_ref: string
   objective: string
   mode: read_only | proposal | execution_prep | post_action_review
   dashboard:
@@ -248,19 +250,20 @@ operator_packet:
 - Never widen authority because a dashboard widget would be convenient.
 - Never duplicate an existing CLI command, workflow, hosted endpoint, or domain
   skill in operator prose. Route to it.
-- Keep tenant-specific policy in tenant context. Keep this skill generic.
+- Keep product-specific policy in product context. Keep this skill generic.
 
 ## Inputs
 
 - `objective` (required): operator request, e.g. "check payments and unblock
   funding", "prepare a campaign send", or "review stuck receipts".
-- `tenant_ref` (required): the tenant or product being operated.
+- `scope_ref` (required): the project, workspace, account, product, or bounded
+  surface being operated.
 - `dashboard_snapshot` (optional): JSON summary of current projected state.
 - `receipt_summary` (optional): JSON or prose receipt/effect summary.
 - `provider_status` (optional): JSON or prose provider health/account state.
 - `approval_context` (optional): existing operator approvals, denials, or
   policy gates.
-- `operator_policy` (optional): tenant-specific constraints and lane names.
+- `operator_policy` (optional): project-specific constraints and lane names.
 - `project_profile` (optional): project topology, existing interfaces, and
   verification expectations. It is context, not authority.
 - `requested_action` (optional): preselected action lane or dashboard action id.
@@ -268,11 +271,11 @@ operator_packet:
 ## Worked example
 
 Input: "Check payment readiness and tell me what to do next" with a dashboard
-snapshot showing runx healthy, Base/Arbitrum/Polygon x402 targets, three funded
-items, no unfunded approved items, and card webhook status `needs_review`.
+snapshot showing healthy quote/readback state, three funded items, no unfunded
+approved items, and one rail adapter webhook status `needs_review`.
 
 Output: `decision: ready`, money status `ok`, providers status
-`needs_attention`, one warning finding for Stripe webhook readiness, and one
+`needs_attention`, one warning finding for rail webhook readiness, and one
 proposal routing to `provider.webhook_check` with no money movement. It does
-not propose marking anything funded, because no unfunded approved posting is
-present and the latest x402 funding receipt is already verified.
+not propose marking anything funded, because no unfunded approved item is
+present and the latest funding receipt is already verified.

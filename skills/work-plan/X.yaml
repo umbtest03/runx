@@ -1,5 +1,5 @@
 skill: work-plan
-version: "0.1.1"
+version: "0.1.2"
 
 catalog:
   kind: skill
@@ -121,7 +121,7 @@ harness:
     - name: work-plan-phased-workspace-plan
       inputs:
         objective: Roll out abandoned cart recovery across api, app, and mcp
-        project_context: Nitrosend workspace with repo-local worker lanes
+        project_context: Example workspace with repo-local worker lanes
         change_set:
           change_set_id: change_set_abandoned_cart_982
           thread_locator: support://request/982
@@ -199,7 +199,7 @@ harness:
                   parallelizable: false
                   repo_change_requests:
                     - id: api-abandoned-cart
-                      repo: nitrosend/api
+                      repo: acme/api
                       task_id: issue-982-api
                       objective: Implement backend abandoned cart flow rules and emit the contract surface.
                       depends_on: []
@@ -215,7 +215,7 @@ harness:
                   parallelizable: true
                   repo_change_requests:
                     - id: app-abandoned-cart
-                      repo: nitrosend/app
+                      repo: acme/app
                       task_id: issue-982-app
                       objective: Update operator and user-facing app surfaces to match the backend flow contract.
                       depends_on:
@@ -226,7 +226,7 @@ harness:
                         - pnpm test
                       mutating: true
                     - id: mcp-abandoned-cart
-                      repo: nitrosend/mcp
+                      repo: acme/mcp
                       task_id: issue-982-mcp
                       objective: Align MCP capabilities and exposed operations with the frozen backend contract.
                       depends_on:
@@ -248,7 +248,7 @@ harness:
                   - git.write
                 mutating: true
                 inputs:
-                  target_repo: nitrosend/api
+                  target_repo: acme/api
                 context_from:
                   - change_set
                 description: Implement the backend contract first and freeze the shared interface.
@@ -258,7 +258,7 @@ harness:
                   - git.write
                 mutating: true
                 inputs:
-                  target_repo: nitrosend/app
+                  target_repo: acme/app
                 context_from:
                   - freeze-contract
                 description: Update the app against the frozen backend contract.
@@ -268,7 +268,7 @@ harness:
                   - git.write
                 mutating: true
                 inputs:
-                  target_repo: nitrosend/mcp
+                  target_repo: acme/mcp
                 context_from:
                   - freeze-contract
                 description: Update the MCP layer against the frozen backend contract.

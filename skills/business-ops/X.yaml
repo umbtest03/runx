@@ -1,5 +1,5 @@
 skill: business-ops
-version: "0.1.0"
+version: "0.1.1"
 
 catalog:
   kind: graph
@@ -16,6 +16,10 @@ runners:
         type: string
         required: true
         description: Business signal to triage.
+      operator_context:
+        type: string
+        required: false
+        description: Optional product policy, topology, audience constraints, or provider state. Context only, not authority.
     graph:
       name: business-ops
       steps:
@@ -24,33 +28,40 @@ runners:
           inputs:
             lane: classify
             signal: "$input.signal"
+            operator_context: "$input.operator_context"
         - id: docs
           skill: ./graph/ops-lane
           inputs:
             lane: sourcey
             signal: "$input.signal"
+            operator_context: "$input.operator_context"
         - id: release
           skill: ./graph/ops-lane
           inputs:
             lane: release.prepare
             signal: "$input.signal"
+            operator_context: "$input.operator_context"
         - id: issue
           skill: ./graph/ops-lane
           inputs:
             lane: issue-to-pr
             signal: "$input.signal"
+            operator_context: "$input.operator_context"
         - id: send
           skill: ./graph/ops-lane
           inputs:
-            lane: send-as.draft
+            lane: outreach.plan
             signal: "$input.signal"
+            operator_context: "$input.operator_context"
         - id: spend
           skill: ./graph/ops-lane
           inputs:
             lane: spend.quote
             signal: "$input.signal"
+            operator_context: "$input.operator_context"
         - id: audit
           skill: ./graph/ops-lane
           inputs:
             lane: receipt-audit
             signal: "$input.signal"
+            operator_context: "$input.operator_context"

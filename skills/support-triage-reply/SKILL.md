@@ -1,6 +1,6 @@
 ---
 name: support-triage-reply
-version: 0.1.0
+version: 0.1.1
 description: Classify a bounded support request, choose the safe next path, and draft a customer-ready reply only when a human-gated send is appropriate.
 source:
   type: cli-tool

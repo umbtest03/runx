@@ -1,5 +1,5 @@
 skill: lead-router
-version: "0.1.0"
+version: "0.1.1"
 
 catalog:
   kind: graph
@@ -104,10 +104,12 @@ runners:
           when:
             field: qualify.route
             equals: nurture
-          skill: ../nitrosend
-          runner: send-campaign
+          skill: ../send-as
+          runner: plan
           scopes:
             - runx:net:allowlist
+          context:
+            audience: qualify.segment
         - id: hold
           label: record a do-not-contact hold
           when:

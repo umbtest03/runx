@@ -1,10 +1,10 @@
 skill: support-triage-reply
-version: "0.1.0"
+version: "0.1.1"
 
 catalog:
   kind: skill
   audience: operator
-  visibility: public
+  visibility: internal
   role: canonical
 
 harness:
@@ -19,8 +19,8 @@ harness:
           body: I added the DNS records for my domain. What should I check next so emails can send safely?
           source: fixture:safe-how-to
         policy:
-          product_name: Nitrosend
-          support_signature: Nitrosend Support
+          product_name: ExampleDesk
+          support_signature: ExampleDesk Support
       expect:
         status: sealed
         receipt:
@@ -39,8 +39,8 @@ harness:
           body: My login is blocked and I need someone to reset access for the team owner.
           source: fixture:account-access
         policy:
-          product_name: Nitrosend
-          support_signature: Nitrosend Support
+          product_name: ExampleDesk
+          support_signature: ExampleDesk Support
       expect:
         status: sealed
         receipt:

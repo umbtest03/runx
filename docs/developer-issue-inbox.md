@@ -51,7 +51,7 @@ locators.
 Use the CLI gate before wiring a policy into a live runner:
 
 ```bash
-runx policy lint fixtures/operational-policy/nitrosend-like.json --json
+runx policy lint fixtures/operational-policy/provider-like.json --json
 ```
 
 `runx policy inspect` returns the same redacted readback shape for admin

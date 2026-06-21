@@ -9,11 +9,10 @@ runx:
 
 Govern a message, campaign, or notification sent on behalf of a principal.
 
-`send-as` is the canonical communication-action family. Provider skills such as
-`nitrosend` select a concrete sending surface, but this skill owns
-the common authority model: who is allowed to speak, to whom, through which
-channel, with what content, under which proof, and where the send must stop for
-human approval.
+`send-as` is the canonical communication-action family. Provider adapter skills
+select concrete sending surfaces, but this skill owns the common authority
+model: who is allowed to speak, to whom, through which channel, with what
+content, under which proof, and where the send must stop for human approval.
 
 ## What this skill does
 
@@ -25,7 +24,7 @@ after the provider-specific lane records delivery evidence and the runx receipt
 seals.
 
 This skill may be used directly for provider-neutral planning, or as the
-canonical family beneath branded provider skills.
+canonical family beneath branded provider adapters.
 
 ## When to use this skill
 
@@ -125,7 +124,7 @@ send_plan:
 ## Worked example
 
 Input: "Schedule the June newsletter to the subscribers list" with a campaign
-draft digest, verified sender, named list, and Nitrosend account snapshot.
+draft digest, verified sender, named list, and provider account snapshot.
 
 Output: `decision: ready`; `send_class: campaign`; audience is the named
 subscribers list; content is digest-bound; preflight and human approval are

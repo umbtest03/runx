@@ -4,7 +4,7 @@ target: ..
 runner: plan
 inputs:
   objective: Send the launch update today.
-  principal: account:nitrosend-demo
+  principal: account:growth-demo
   content_ref:
     draft_ref: campaign:launch
     digest: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
@@ -17,7 +17,7 @@ caller:
         action_family: send-as
         principal:
           type: account
-          ref: account:nitrosend-demo
+          ref: account:growth-demo
         provider:
           name: unknown
           account_ref: ""

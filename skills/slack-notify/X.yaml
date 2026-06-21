@@ -1,11 +1,14 @@
 skill: slack-notify
-version: "0.1.0"
+version: "0.1.1"
 
 catalog:
   kind: skill
   audience: public
   visibility: public
-  role: canonical
+  role: branded
+  canonical_skill: runx/send-as
+  provider: slack
+  runtime_path: slack
 
 runners:
   plan:

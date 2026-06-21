@@ -80,7 +80,7 @@ Actions should be small named lanes:
 - `deploy.smoke`
 - `access.audit`
 
-Tenant products may alias these for UX, but the operator packet should still
+Products may alias these for UX, but the ops desk packet should still
 include the canonical lane.
 
 ## Stop Conditions

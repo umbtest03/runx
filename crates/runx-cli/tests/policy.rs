@@ -9,7 +9,7 @@ fn policy_inspect_json_redacts_raw_locators() -> Result<(), Box<dyn std::error::
         .args([
             "policy",
             "inspect",
-            "fixtures/operational-policy/nitrosend-like.json",
+            "fixtures/operational-policy/provider-like.json",
             "--json",
         ])
         .output()?;
@@ -18,9 +18,9 @@ fn policy_inspect_json_redacts_raw_locators() -> Result<(), Box<dyn std::error::
     let stdout = String::from_utf8(output.stdout)?;
     assert!(stdout.contains(r#""action": "inspect""#));
     assert!(stdout.contains(r#""status": "success""#));
-    assert!(stdout.contains(r#""policy_id": "nitrosend-issue-flow""#));
+    assert!(stdout.contains(r#""policy_id": "provider-issue-flow""#));
     assert!(stdout.contains(r#""locator_count": 1"#));
-    assert!(!stdout.contains("slack://nitrosend"));
+    assert!(!stdout.contains("slack://example"));
     assert_eq!(String::from_utf8(output.stderr)?, "");
     Ok(())
 }
@@ -87,7 +87,7 @@ fn policy_json_exposes_redacted_readback_surface() -> Result<(), Box<dyn std::er
         .args([
             "policy",
             "inspect",
-            "fixtures/operational-policy/nitrosend-like.json",
+            "fixtures/operational-policy/provider-like.json",
             "--json",
         ])
         .output()?;
@@ -95,7 +95,7 @@ fn policy_json_exposes_redacted_readback_surface() -> Result<(), Box<dyn std::er
     let actual = String::from_utf8(output.stdout)?;
     assert_json_subset(
         &actual,
-        repo_root()?.join("fixtures/operational-policy/nitrosend-like.json"),
+        repo_root()?.join("fixtures/operational-policy/provider-like.json"),
     )?;
     Ok(())
 }
@@ -157,7 +157,7 @@ fn write_invalid_created_at_policy() -> Result<PathBuf, Box<dyn std::error::Erro
     fs::create_dir_all(&temp_dir)?;
     let path = temp_dir.join("invalid-created-at.json");
     let raw =
-        fs::read_to_string(repo_root()?.join("fixtures/operational-policy/nitrosend-like.json"))?;
+        fs::read_to_string(repo_root()?.join("fixtures/operational-policy/provider-like.json"))?;
     fs::write(
         &path,
         raw.replace(
