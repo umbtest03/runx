@@ -38,7 +38,6 @@ Install the CLI:
 ```bash
 npm i -g @runxhq/cli
 # or: curl -fsSL https://runx.ai/install | sh
-# or: cargo install runx-cli
 ```
 
 Then choose how you want to run skills.

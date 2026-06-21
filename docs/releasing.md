@@ -8,12 +8,16 @@ The CLI ships from `github.com/runxhq/runx`. Release tags are `cli-vX.Y.Z`
 (prefixed so they do not collide with the repo's other release trains). The
 git tag is the single source of truth for the version.
 
-The same product version is used on every channel:
+The same product version is used on every active channel. The release workflow
+is secret-gated, so package-manager channels that are not configured are skipped
+with a warning instead of blocking the npm/GitHub release.
 
 - GitHub Release: `cli-vX.Y.Z` (the hub; serves the raw per-target archives)
 - npm: `@runxhq/cli@X.Y.Z` (+ `@runxhq/cli-<platform>@X.Y.Z`)
-- crates.io: `runx-cli X.Y.Z` (`cargo install runx-cli`)
-- Homebrew, Scoop, winget, AUR, Docker (GHCR): `X.Y.Z`
+- Homebrew, Scoop, winget, AUR, Docker (GHCR): `X.Y.Z` when their channel
+  credentials are configured
+- crates.io: `runx-cli X.Y.Z` (`cargo install runx-cli`) when the crate channel
+  is configured
 
 `runx --version` reports `CARGO_PKG_VERSION`, so the crate and npm versions are
 stamped from the tag at build time and the number is truthful regardless of how
