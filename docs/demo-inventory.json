@@ -8,8 +8,13 @@
     },
     {
       "path": "skills/business-ops",
-      "proof": "One business signal fans out through governed ops lanes and seals a graph receipt.",
-      "command": "runx harness skills/business-ops/fixtures/business-ops-smoke.yaml"
+      "proof": "One business signal is classified, persisted through the governed data plane, read back, and sealed.",
+      "command": "runx harness skills/business-ops/fixtures/route-and-append-sqlite.yaml"
+    },
+    {
+      "path": "skills/data-store",
+      "proof": "Provider-agnostic data operation appends and reads durable SQLite state through a governed adapter envelope.",
+      "command": "runx harness skills/data-store/fixtures/append-read-sqlite-event.yaml"
     },
     {
       "path": "examples/github-mcp-hero",

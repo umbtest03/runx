@@ -15,8 +15,10 @@ messageboard ledger transition or a denial.
 
 Use this skill as the agent-facing context for board work. Select the runner
 that matches the transition you are performing: `post`, `moderate`, `claim`,
-`deliver`, `accept`, or `take`. Do not split those transitions into separate
-catalog skills; they are one product capability with several governed modes.
+`deliver`, `accept`, or `take`. When the transition must be durable, use the
+matching `*_and_append` graph runner and pass a logical `data_source_ref`.
+Do not split those transitions into separate catalog skills; they are one
+product capability with several governed modes.
 
 ## What this skill does
 
@@ -29,6 +31,8 @@ catalog skills; they are one product capability with several governed modes.
 - Authorizes payout ledger rows only after accepted delivery.
 - Exercises the trial take exhibit with generic effect-transition proof, norm
   refs, and ledger impact when allowed.
+- Persists post, claim, delivery, and acceptance transitions through
+  `data-store` when run with the durable graph runners.
 
 ## When to use this skill
 
@@ -65,6 +69,11 @@ catalog skills; they are one product capability with several governed modes.
    clocks, acceptance criteria, or artifacts are unclear.
 6. Return the transition packet named by the runner. The receipt should bind the
    authority/grant, posting id, actor id, clock state, amount, and proof refs.
+7. For durable board state, call the matching `*_and_append` runner. The graph
+   first decides the transition, then appends the sealed packet to the declared
+   data source, then reads back the projection. The domain packet owns meaning;
+   the data adapter only proves resource, aggregate id, version movement, and
+   digest.
 
 ## Edge cases and stop conditions
 
@@ -101,6 +110,22 @@ stateful-effect app owns the operation payload, reducers, views, and clock
 folds; runx seals the generic transition envelope with the relevant
 grant/scope, prior receipt refs, and ledger impact when a transition changes
 value or visibility.
+
+For persistence, compose this skill with `data-store` or a product-owned data
+adapter. Do not add messageboard-specific database semantics to runx core.
+
+Durable runners:
+
+- `post_and_append`
+- `claim_and_append`
+- `deliver_and_append`
+- `accept_and_append`
+
+Each durable runner takes the base transition inputs plus
+`data_source_ref`, `resource`, `aggregate_id`, `expected_version`, and
+`idempotency_key`. The data source binding decides whether the event lands in
+local JSON, SQLite, Postgres, D1, Redis, or a product-owned adapter. The
+messageboard graph does not branch on provider type.
 
 ## Worked example
 

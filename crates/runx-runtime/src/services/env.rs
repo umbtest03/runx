@@ -38,12 +38,40 @@ impl WorkspaceEnv {
         env.entry(RUNX_CWD_ENV.to_owned())
             .or_insert_with(|| cwd.clone());
         env.entry(RUNX_PROJECT_DIR_ENV.to_owned()).or_insert(cwd);
-        if let Some(joined) = inferred_tool_roots(skill_dir) {
-            env.entry(crate::services::tool_roots::RUNX_TOOL_ROOTS_ENV.to_owned())
-                .or_insert(joined);
-        }
+        merge_inferred_tool_roots(&mut env, skill_dir);
         env
     }
+}
+
+pub(crate) fn merge_inferred_tool_roots(env: &mut BTreeMap<String, String>, skill_dir: &Path) {
+    if let Some(joined) = inferred_tool_roots(skill_dir) {
+        let key = crate::services::tool_roots::RUNX_TOOL_ROOTS_ENV.to_owned();
+        env.entry(key)
+            .and_modify(|existing| *existing = merge_path_env(existing, &joined))
+            .or_insert(joined);
+    }
+}
+
+fn merge_path_env(existing: &str, addition: &str) -> String {
+    let mut paths: Vec<PathBuf> = std::env::split_paths(existing).collect();
+    for path in std::env::split_paths(addition) {
+        if !paths.iter().any(|existing_path| existing_path == &path) {
+            paths.push(path);
+        }
+    }
+    std::env::join_paths(paths)
+        .ok()
+        .map(|value| value.to_string_lossy().into_owned())
+        .unwrap_or_else(|| {
+            if existing.is_empty() {
+                addition.to_owned()
+            } else if addition.is_empty() {
+                existing.to_owned()
+            } else {
+                let separator = if cfg!(windows) { ';' } else { ':' };
+                format!("{existing}{separator}{addition}")
+            }
+        })
 }
 
 pub(crate) fn process_env_value(key: &str) -> Option<String> {
@@ -53,4 +81,30 @@ pub(crate) fn process_env_value(key: &str) -> Option<String> {
 #[cfg(any(feature = "mcp", feature = "agent"))]
 pub(crate) fn process_env_snapshot() -> BTreeMap<String, String> {
     std::env::vars().collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::merge_path_env;
+
+    #[test]
+    fn merge_path_env_appends_new_paths_and_deduplicates_existing_paths() {
+        let first = PathBuf::from("/runx/tools");
+        let second = PathBuf::from("/runx/skills/data-store/tools");
+        let existing = std::env::join_paths([first.as_path()])
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        let addition = std::env::join_paths([second.as_path(), first.as_path()])
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+
+        let merged = merge_path_env(&existing, &addition);
+        let paths = std::env::split_paths(&merged).collect::<Vec<_>>();
+
+        assert_eq!(paths, vec![first, second]);
+    }
 }

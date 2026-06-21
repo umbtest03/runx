@@ -71,10 +71,7 @@ If they are absent, runx fails closed instead of creating an unverifiable receip
     output.push_str("\n```\n\n");
     output.push_str(&render_inputs(&skill.inputs));
     output.push('\n');
-    output.push_str(&render_continuation(
-        command_target,
-        &display_path(runx_bin),
-    ));
+    output.push_str(&render_continuation(&display_path(runx_bin)));
     output.push_str(&format!(
         "<!-- {} source={} - generated, do not edit -->\n",
         target.marker(),
@@ -120,7 +117,7 @@ fn render_inputs(inputs: &BTreeMap<String, RunxExportSkillInput>) -> String {
     format!("{}\n", lines.join("\n"))
 }
 
-fn render_continuation(command_target: &str, runx_bin: &str) -> String {
+fn render_continuation(runx_bin: &str) -> String {
     format!(
         "\
 Interpret the runx JSON result exactly:
@@ -146,17 +143,14 @@ Interpret the runx JSON result exactly:
 Then resume the same run with the `run_id` printed by runx:
 
 ```bash
-{} skill {} \\
-  --run-id \"<run_id>\" \\
-  --answers \"<answers.json>\" \\
+{} resume \"<run_id>\" \"<answers.json>\" \\
   --json
 ```
 
 Repeat this loop until the result is sealed or runx asks for operator approval/input. If approval or human input is required, relay the exact runx request instead of fabricating an answer. Never place signing seeds, provider tokens, or raw credentials in the answers file or response.
 
 ",
-        shell_quote(runx_bin),
-        shell_quote(command_target)
+        shell_quote(runx_bin)
     )
 }
 

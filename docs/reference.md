@@ -104,7 +104,7 @@ runx registry search sourcey --json
 runx skill sourcey/sourcey@1.0.0 --registry https://runx.example.test --project . --json
 runx add sourcey/sourcey@1.0.0 --registry https://runx.example.test --to ./skills --json
 runx skill issue-to-pr --fixture /path/to/repo --task-id task-123
-runx skill /path/to/skill --run-id <run-id> --answers answers.json
+runx resume <run-id> answers.json
 runx history <receipt-id> --json
 runx history
 runx mcp serve ./fixtures/skills/echo
@@ -174,9 +174,22 @@ Command-surface ownership:
 | `runx harness <fixture.yaml>` | Rust harness replay | tests and wrapper views |
 | receipts and history | Rust receipt store and journal | display/client views |
 | policy, authority, payment, x402 | Rust core/runtime policy | published type mirrors and product UX |
+| governed data operations | skill graphs plus provider adapters | generated types, helper SDKs, provider glue |
 | external execution-adapter protocol | `runx-runtime` supervisor | generated types, helper SDKs, host/client wrappers |
 | non-execution extension protocols | lane-specific Rust/cloud owners | generated types, helper SDKs, provider glue |
 | marketplace and docs tooling | TypeScript/scafld until separately cut over | canonical for authoring UX |
+
+Stateful product work should use the governed data-plane shape in
+[docs/governed-data-plane.md](docs/governed-data-plane.md): domain skills own
+meaning, while provider adapters execute bounded reads, append-only event
+writes, and projection reads.
+
+The generic graph tool ref for provider choice is `data.source`. It reads the
+step's `data_source_ref`, resolves it through `RUNX_DATA_SOURCES` or
+`.runx/data-sources.json`, injects the non-secret binding metadata into the
+adapter input, and invokes the configured adapter. Unbound `local://...` refs
+default to bundled durable SQLite; `store_id` opts into the bundled JSON fixture
+adapter for deterministic harnesses.
 
 ### Local Sandbox Posture
 
@@ -209,7 +222,7 @@ The intended extension model is:
   execution envelope, while the thread stays the review/control object
 
 Sourcey is the reference shape for this model: from inside the Sourcey repo,
-`runx skill ./skills/outreach --runner status --issue ...` resolves the local
+`runx skill ./skills/outreach status --issue ...` resolves the local
 `skills/outreach` capability pack. `outreach` is not a privileged engine
 command, and there is no privileged `runx docs ...` path inside the engine.
 
@@ -258,6 +271,14 @@ Execution profiles use a strict YAML subset: no anchors, aliases, merge keys,
 custom tags, multi-document markers, duplicate mapping keys, or unknown profile
 fields. Keep capability and receipt mappings explicit in the runner that uses
 them.
+
+Public catalog packages must keep examples in standalone fixtures, not inline
+manifest harness blocks. The package should contain only the files the skill
+uses at execution time: `SKILL.md`, `X.yaml`, deterministic runner files,
+schemas, fixtures, and narrowly scoped `context/` or `references/`. Do not add
+README/changelog/setup docs, generated state, logs, screenshots, private
+provider config, or broad project plans inside a public skill. The public docs
+for the package belong in `SKILL.md`; external guides belong under `docs/`.
 
 See `../docs/skill-profile-model.md` for resolution rules, publication modes, trust tiers, MCP export, and composite skill behavior.
 

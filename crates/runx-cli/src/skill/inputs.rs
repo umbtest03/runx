@@ -44,6 +44,28 @@ pub(super) fn parse_input_arg(
     Ok(index)
 }
 
+pub(super) fn parse_json_input_arg(
+    args: &[OsString],
+    mut index: usize,
+    inline_value: Option<&str>,
+    inputs: &mut BTreeMap<String, JsonValue>,
+) -> Result<usize, String> {
+    if let Some(value) = inline_value {
+        parse_json_input_assignment(value, None, inputs)?;
+        return Ok(index);
+    }
+
+    index += 1;
+    let key_or_assignment = string_arg(args, index)?;
+    if key_or_assignment.contains('=') {
+        parse_json_input_assignment(&key_or_assignment, None, inputs)?;
+    } else {
+        index += 1;
+        parse_json_input_assignment(&key_or_assignment, Some(string_arg(args, index)?), inputs)?;
+    }
+    Ok(index)
+}
+
 fn parse_input_assignment(
     key_or_assignment: &str,
     explicit_value: Option<String>,
@@ -60,6 +82,22 @@ fn parse_input_assignment(
     }
 }
 
+fn parse_json_input_assignment(
+    key_or_assignment: &str,
+    explicit_value: Option<String>,
+    inputs: &mut BTreeMap<String, JsonValue>,
+) -> Result<(), String> {
+    match explicit_value {
+        Some(value) => insert_json_input(inputs, key_or_assignment, &value),
+        None => {
+            let (key, value) = key_or_assignment.split_once('=').ok_or_else(|| {
+                "runx skill --input-json requires key=<json> or key <json>".to_owned()
+            })?;
+            insert_json_input(inputs, key, value)
+        }
+    }
+}
+
 fn insert_input(
     inputs: &mut BTreeMap<String, JsonValue>,
     raw_key: &str,
@@ -70,6 +108,21 @@ fn insert_input(
         return Err("runx skill input key must be non-empty".to_owned());
     }
     inputs.insert(key, parse_cli_value(&raw_value));
+    Ok(())
+}
+
+fn insert_json_input(
+    inputs: &mut BTreeMap<String, JsonValue>,
+    raw_key: &str,
+    raw_value: &str,
+) -> Result<(), String> {
+    let key = normalize_input_key(raw_key);
+    if key.is_empty() {
+        return Err("runx skill input key must be non-empty".to_owned());
+    }
+    let value = serde_json::from_str(raw_value)
+        .map_err(|error| format!("runx skill --input-json {key} is invalid JSON: {error}"))?;
+    inputs.insert(key, value);
     Ok(())
 }
 

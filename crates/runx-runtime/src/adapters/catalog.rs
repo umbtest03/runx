@@ -3,6 +3,7 @@
 // cohesive unit; splitting them would fracture how a skill is resolved and run.
 
 use std::collections::BTreeMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -21,6 +22,15 @@ use crate::tool_catalogs::search::{FixtureTool, fixture_tool};
 use crate::tool_catalogs::{ToolCatalogError, ToolInspectOptions, resolve_local_tool};
 
 const MISSING_CATALOG_REF: &str = "Catalog source requires source.catalog_ref metadata.";
+const DATA_SOURCE_ROUTER_TOOL_REF: &str = "data.source";
+const RUNX_DATA_SOURCES_ENV: &str = "RUNX_DATA_SOURCES";
+const PROJECT_DATA_SOURCES_PATH: &str = ".runx/data-sources.json";
+
+#[derive(Clone, Debug)]
+struct DataSourceConfigSource {
+    value: String,
+    required: bool,
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct CatalogAdapter {
@@ -48,22 +58,28 @@ impl SkillAdapter for CatalogAdapter {
                 adapter_type: request.source.source_type.as_str().to_owned(),
             });
         }
-        let Some(catalog_ref) = request.source.catalog_ref.as_deref() else {
+        let Some(catalog_ref) = request.source.catalog_ref.clone() else {
             return Ok(failure(MISSING_CATALOG_REF, started));
         };
-        let catalog_ref = catalog_ref.trim();
+        let catalog_ref = catalog_ref.trim().to_owned();
         if catalog_ref.is_empty() {
             return Ok(failure(MISSING_CATALOG_REF, started));
         }
 
-        if let Some(output) = invoke_local_tool(catalog_ref, &request, started)? {
+        let mut request = request;
+        let catalog_ref = match resolve_data_source_router(&catalog_ref, &mut request) {
+            Ok(resolved) => resolved.unwrap_or_else(|| catalog_ref.to_owned()),
+            Err(message) => return Ok(failure(message, started)),
+        };
+
+        if let Some(output) = invoke_local_tool(&catalog_ref, &request, started)? {
             return Ok(output);
         }
         if !self.fixture_catalog_enabled {
-            return Ok(missing_imported_tool(catalog_ref, started));
+            return Ok(missing_imported_tool(&catalog_ref, started));
         }
-        let Some(tool) = fixture_tool(catalog_ref) else {
-            return Ok(missing_imported_tool(catalog_ref, started));
+        let Some(tool) = fixture_tool(&catalog_ref) else {
+            return Ok(missing_imported_tool(&catalog_ref, started));
         };
 
         Ok(invoke_fixture_tool(
@@ -85,6 +101,234 @@ impl SkillAdapter for CatalogAdapter {
     fn clone_for_fanout(&self) -> Option<Box<dyn SkillAdapter + Send + Sync>> {
         Some(Box::new(self.clone()))
     }
+}
+
+fn resolve_data_source_router(
+    catalog_ref: &str,
+    request: &mut SkillInvocation,
+) -> Result<Option<String>, String> {
+    if catalog_ref != DATA_SOURCE_ROUTER_TOOL_REF {
+        return Ok(None);
+    }
+
+    let data_source_ref = string_input(&request.inputs, "data_source_ref")
+        .ok_or_else(|| "data.source requires input data_source_ref.".to_owned())?
+        .to_owned();
+    let binding = match data_source_binding(
+        &data_source_ref,
+        &request.env,
+        &request.skill_directory,
+    )? {
+        Some(binding) => binding,
+        None if data_source_ref.starts_with("local://") => {
+            default_local_data_source_binding(&data_source_ref, &request.inputs)
+        }
+        None => {
+            return Err(format!(
+                "Data source '{data_source_ref}' is not bound to a data adapter. Add it to {PROJECT_DATA_SOURCES_PATH} or set {RUNX_DATA_SOURCES_ENV}."
+            ));
+        }
+    };
+
+    let adapter = string_input(&binding, "adapter")
+        .ok_or_else(|| format!("Data source '{data_source_ref}' binding is missing adapter."))?;
+    if adapter == DATA_SOURCE_ROUTER_TOOL_REF {
+        return Err(format!(
+            "Data source '{data_source_ref}' cannot bind to {DATA_SOURCE_ROUTER_TOOL_REF}; choose a concrete adapter."
+        ));
+    }
+    if !adapter.contains('.') {
+        return Err(format!(
+            "Data source '{data_source_ref}' adapter '{adapter}' must be a namespaced tool ref such as data.local."
+        ));
+    }
+    let adapter = adapter.to_owned();
+
+    request.inputs.insert(
+        "data_source_binding".to_owned(),
+        JsonValue::Object(binding.clone()),
+    );
+    request
+        .resolved_inputs
+        .insert("data_source_binding".to_owned(), JsonValue::Object(binding));
+    Ok(Some(adapter))
+}
+
+fn default_local_data_source_binding(data_source_ref: &str, inputs: &JsonObject) -> JsonObject {
+    let mut object = JsonObject::new();
+    object.insert(
+        "data_source_ref".to_owned(),
+        JsonValue::String(data_source_ref.to_owned()),
+    );
+    if string_input(inputs, "store_id").is_some() {
+        object.insert(
+            "adapter".to_owned(),
+            JsonValue::String("data.local".to_owned()),
+        );
+        object.insert(
+            "profile".to_owned(),
+            JsonValue::String("local-fixture".to_owned()),
+        );
+        object.insert(
+            "storage_class".to_owned(),
+            JsonValue::String("local-json-fixture".to_owned()),
+        );
+    } else {
+        let source_digest = sha256_hex(data_source_ref.as_bytes());
+        let source_id = &source_digest[..16];
+        object.insert(
+            "adapter".to_owned(),
+            JsonValue::String("data.sqlite".to_owned()),
+        );
+        object.insert(
+            "profile".to_owned(),
+            JsonValue::String("local-durable".to_owned()),
+        );
+        object.insert(
+            "database_path".to_owned(),
+            JsonValue::String(format!(
+                ".runx/data/local-sources/source-{source_id}.sqlite"
+            )),
+        );
+        object.insert(
+            "storage_class".to_owned(),
+            JsonValue::String("sqlite".to_owned()),
+        );
+    }
+    object.insert("resources".to_owned(), JsonValue::Object(JsonObject::new()));
+    object
+}
+
+fn data_source_binding(
+    data_source_ref: &str,
+    env: &BTreeMap<String, String>,
+    skill_directory: &Path,
+) -> Result<Option<JsonObject>, String> {
+    for source in data_source_config_sources(env, skill_directory) {
+        let Some(document) = read_data_source_config_source(&source)? else {
+            continue;
+        };
+        let parsed: JsonValue = serde_json::from_str(&document).map_err(|error| {
+            format!(
+                "Data source config {} is not valid JSON: {error}",
+                source.value
+            )
+        })?;
+        let Some(binding) = binding_from_config(&parsed, data_source_ref) else {
+            continue;
+        };
+        reject_secret_material(&binding, data_source_ref)?;
+        return Ok(Some(binding));
+    }
+    Ok(None)
+}
+
+fn data_source_config_sources(
+    env: &BTreeMap<String, String>,
+    skill_directory: &Path,
+) -> Vec<DataSourceConfigSource> {
+    let mut sources = Vec::new();
+    let root = workspace_root(env, skill_directory);
+    if let Some(config) = env.get(RUNX_DATA_SOURCES_ENV) {
+        let trimmed = config.trim();
+        if !trimmed.is_empty() {
+            let value = if trimmed.starts_with('{') || Path::new(trimmed).is_absolute() {
+                trimmed.to_owned()
+            } else {
+                root.join(trimmed).to_string_lossy().into_owned()
+            };
+            sources.push(DataSourceConfigSource {
+                value,
+                required: true,
+            });
+        }
+    }
+    sources.push(DataSourceConfigSource {
+        value: root
+            .join(PROJECT_DATA_SOURCES_PATH)
+            .to_string_lossy()
+            .into_owned(),
+        required: false,
+    });
+    sources
+}
+
+fn read_data_source_config_source(
+    source: &DataSourceConfigSource,
+) -> Result<Option<String>, String> {
+    let trimmed = source.value.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    if trimmed.starts_with('{') {
+        return Ok(Some(trimmed.to_owned()));
+    }
+    match fs::read_to_string(trimmed) {
+        Ok(document) => Ok(Some(document)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound && !source.required => Ok(None),
+        Err(error) => Err(format!(
+            "Failed to read data source config {trimmed}: {error}"
+        )),
+    }
+}
+
+fn binding_from_config(config: &JsonValue, data_source_ref: &str) -> Option<JsonObject> {
+    let JsonValue::Object(root) = config else {
+        return None;
+    };
+    let JsonValue::Object(sources) = root.get("data_sources")? else {
+        return None;
+    };
+    let JsonValue::Object(binding) = sources.get(data_source_ref)? else {
+        return None;
+    };
+    let mut normalized = binding.clone();
+    normalized.insert(
+        "data_source_ref".to_owned(),
+        JsonValue::String(data_source_ref.to_owned()),
+    );
+    Some(normalized)
+}
+
+fn reject_secret_material(binding: &JsonObject, data_source_ref: &str) -> Result<(), String> {
+    let Some(key) = first_secret_material_key(&JsonValue::Object(binding.clone())) else {
+        return Ok(());
+    };
+    Err(format!(
+        "Data source '{data_source_ref}' binding contains secret-like field '{key}'. Put provider credentials behind a runx credential profile or hosted grant instead."
+    ))
+}
+
+fn first_secret_material_key(value: &JsonValue) -> Option<String> {
+    match value {
+        JsonValue::Object(object) => object.iter().find_map(|(key, value)| {
+            if secret_material_key(key) {
+                return Some(key.clone());
+            }
+            first_secret_material_key(value)
+        }),
+        JsonValue::Array(values) => values.iter().find_map(first_secret_material_key),
+        JsonValue::Null | JsonValue::Bool(_) | JsonValue::Number(_) | JsonValue::String(_) => None,
+    }
+}
+
+fn secret_material_key(key: &str) -> bool {
+    let normalized = key
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect::<String>();
+    matches!(
+        normalized.as_str(),
+        "apikey"
+            | "accesstoken"
+            | "refreshtoken"
+            | "clientsecret"
+            | "secretkey"
+            | "privatekey"
+            | "password"
+            | "bearertoken"
+    )
 }
 
 /// The context needed to resolve a local tool by reference and invoke it. Borrowed
@@ -350,6 +594,13 @@ fn missing_imported_tool(catalog_ref: &str, started: Instant) -> SkillOutput {
         format!("Imported tool '{catalog_ref}' was not found in configured tool catalogs."),
         started,
     )
+}
+
+fn string_input<'a>(object: &'a JsonObject, key: &str) -> Option<&'a str> {
+    match object.get(key) {
+        Some(JsonValue::String(value)) if !value.trim().is_empty() => Some(value.trim()),
+        _ => None,
+    }
 }
 
 fn json_string(value: Option<&JsonValue>) -> Option<String> {

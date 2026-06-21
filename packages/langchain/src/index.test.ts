@@ -52,11 +52,6 @@ describe("@runxhq/langchain", () => {
       receiptDir: "/tmp/receipts",
       runId: "run_123",
       answersPath: "/tmp/answers.json",
-      inputs: {
-        repo_url: "acme/docs",
-        count: 3,
-        nested: { ok: true },
-      },
     });
 
     expect(result).toEqual({
@@ -71,21 +66,12 @@ describe("@runxhq/langchain", () => {
     expect(calls[0]?.command).toBe("fake-runx");
     expect(calls[0]?.env.RUNX_LANGCHAIN_CAPTURE_PATH).toBe("/tmp/runx-langchain-argv.txt");
     expect(calls[0]?.args).toEqual([
-      "skill",
-      "/tmp/skills/docs-pr",
+      "resume",
+      "run_123",
+      "/tmp/answers.json",
       "--json",
       "--receipt-dir",
       "/tmp/receipts",
-      "--run-id",
-      "run_123",
-      "--answers",
-      "/tmp/answers.json",
-      "--repo-url",
-      "acme/docs",
-      "--count",
-      "3",
-      "--nested",
-      "{\"ok\":true}",
     ]);
   });
 

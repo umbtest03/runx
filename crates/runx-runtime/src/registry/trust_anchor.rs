@@ -177,6 +177,15 @@ pub fn trusted_registry_manifest_keys_from_env_with_source(
         .get(RUNX_REGISTRY_MANIFEST_TRUST_KEY_ID_ENV)
         .cloned()
         .ok_or(RegistryManifestTrustEnvError::MissingKeyId)?;
+    if matches!(
+        source_authority,
+        Some(RegistryManifestSourceAuthority::OfficialRunx)
+    ) {
+        let key = TrustedRegistryManifestKey::official_from_base64(key_id, public_key)
+            .map_err(|_| RegistryManifestTrustEnvError::InvalidKey)?;
+        trusted_keys.push(key);
+        return Ok(trusted_keys);
+    }
     let allowed_owner = env
         .get(RUNX_REGISTRY_MANIFEST_TRUST_OWNER_ENV)
         .cloned()
@@ -329,4 +338,49 @@ fn decode_base64(value: &str) -> Result<Vec<u8>, base64::DecodeError> {
     URL_SAFE_NO_PAD
         .decode(value)
         .or_else(|_| STANDARD.decode(value))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn trust_env() -> BTreeMap<String, String> {
+        BTreeMap::from([
+            (
+                RUNX_REGISTRY_MANIFEST_TRUST_KEY_ID_ENV.to_owned(),
+                "test-key".to_owned(),
+            ),
+            (
+                RUNX_REGISTRY_MANIFEST_TRUST_KEY_ENV.to_owned(),
+                "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=".to_owned(),
+            ),
+        ])
+    }
+
+    #[test]
+    fn official_source_trust_key_is_official_scoped_without_owner() {
+        let keys = trusted_registry_manifest_keys_from_env_with_source(
+            &trust_env(),
+            Some(RegistryManifestSourceAuthority::OfficialRunx),
+        )
+        .expect("official source trust key should be accepted");
+
+        assert_eq!(
+            keys.last().map(|key| &key.scope),
+            Some(&RegistryManifestTrustScope::OfficialRunx)
+        );
+    }
+
+    #[test]
+    fn third_party_source_trust_key_still_requires_owner() {
+        let error = trusted_registry_manifest_keys_from_env_with_source(
+            &trust_env(),
+            Some(RegistryManifestSourceAuthority::RegistrySource(
+                "local:/tmp/runx-registry".to_owned(),
+            )),
+        )
+        .expect_err("third-party trust key must be owner-scoped");
+
+        assert_eq!(error, RegistryManifestTrustEnvError::MissingOwner);
+    }
 }

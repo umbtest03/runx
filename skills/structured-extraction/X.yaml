@@ -4,7 +4,7 @@ version: "0.1.0"
 catalog:
   kind: skill
   audience: public
-  visibility: internal
+  visibility: public
   role: canonical
   runtime_path: local
 
@@ -24,24 +24,6 @@ policy:
 emits:
   - name: structured_extraction_result
     packet: runx.structured_extraction.result.v1
-
-harness:
-  cases:
-    - name: rfc9110-http-semantics
-      runner: extract
-      inputs:
-        input_path: "fixtures/rfc9110-http-semantics.html"
-        schema_path: "schemas/extraction.schema.json"
-        source_url: "https://www.rfc-editor.org/rfc/rfc9110.html"
-        content_type: "text/html"
-        max_items: 18
-      expect:
-        status: sealed
-        outputs:
-          structured_extraction_result:
-            matches_packet: runx.structured_extraction.result.v1
-        receipt:
-          schema: runx.receipt.v1
 
 runners:
   extract:

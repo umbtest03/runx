@@ -187,15 +187,22 @@ export function createRunxLangChainTool(
 }
 
 function runxSkillArgs(options: RunxSkillCliRunOptions): readonly string[] {
+  if (options.runId || options.answersPath) {
+    if (!options.runId || !options.answersPath) {
+      throw new Error("runx resume requires both runId and answersPath.");
+    }
+    if (Object.keys(options.inputs ?? {}).length > 0) {
+      throw new Error("runx resume reads answers from the answers file; pass fresh inputs only on a new skill run.");
+    }
+    const args = ["resume", options.runId, options.answersPath, "--json"];
+    if (options.receiptDir) {
+      args.push("--receipt-dir", options.receiptDir);
+    }
+    return args;
+  }
   const args = ["skill", options.skillPath, "--json"];
   if (options.receiptDir) {
     args.push("--receipt-dir", options.receiptDir);
-  }
-  if (options.runId) {
-    args.push("--run-id", options.runId);
-  }
-  if (options.answersPath) {
-    args.push("--answers", options.answersPath);
   }
   for (const [name, value] of Object.entries(options.inputs ?? {})) {
     args.push(inputFlag(name), cliInputValue(value));

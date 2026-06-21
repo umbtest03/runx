@@ -145,7 +145,7 @@ Return the provided task id.
     const firstExitCode = await runCli(
       ["skill", skillDir, "--task-id", "abc-123", "--receipt-dir", receiptDir, "--non-interactive", "--json"],
       { stdin: process.stdin, stdout: firstStdout, stderr: firstStderr },
-      { ...process.env, RUNX_CWD: process.cwd() },
+      hostDrivenAgentEnv(tempDir),
     );
 
     expect(firstExitCode).toBe(2);
@@ -172,7 +172,7 @@ Return the provided task id.
     const secondExitCode = await runCli(
       ["skill", skillDir, "--task-id", "abc-123", "--run-id", firstJson.run_id, "--answers", answersPath, "--receipt-dir", receiptDir, "--non-interactive", "--json"],
       { stdin: process.stdin, stdout: secondStdout, stderr: secondStderr },
-      { ...process.env, RUNX_CWD: process.cwd() },
+      hostDrivenAgentEnv(tempDir),
     );
 
     expect(secondExitCode).toBe(0);
@@ -340,7 +340,7 @@ Return the provided task id.
     const exitCode = await runCli(
       ["skill", skillDir, "--prompt", "review this", "--non-interactive"],
       { stdin: process.stdin, stdout, stderr },
-      { ...process.env, RUNX_CWD: process.cwd(), PATH: fakeBinDir },
+      hostDrivenAgentEnv(tempDir, { PATH: fakeBinDir }),
     );
 
     expect(exitCode).toBe(2);
@@ -348,7 +348,7 @@ Return the provided task id.
     expect(stdout.contents()).toContain("waiting for verdict");
     expect(stdout.contents()).toContain("task      review");
     expect(stdout.contents()).toContain("Detected here: Claude Code, Codex");
-    expect(stdout.contents()).toContain(`runx skill ${skillDir} --run-id run_agent_task-review-output --answers answers.json`);
+    expect(stdout.contents()).toContain("runx resume run_agent_task-review-output answers.json");
     expect(stdout.contents()).not.toContain("Resolution requested");
     expect(stdout.contents()).not.toContain("request   agent_task");
   });
@@ -378,7 +378,7 @@ Return the provided task id.
     const stderr = createMemoryStream();
 
     const exitCode = await runCli(
-      ["skill", "skills/sourcey", "--json"],
+      ["skill", "skills/sourcey", "--run", "--json"],
       { stdin: process.stdin, stdout, stderr },
       { ...process.env, RUNX_CWD: process.cwd(), RUNX_RECEIPT_DIR: tempDir },
     );
@@ -419,7 +419,7 @@ Return the provided task id.
     const exitCode = await runCli(
       ["skill", skillDir, "--prompt", "review this", "--non-interactive", "--json"],
       { stdin: process.stdin, stdout, stderr },
-      { ...process.env, RUNX_CWD: process.cwd() },
+      hostDrivenAgentEnv(tempDir),
     );
 
     expect(exitCode).toBe(2);
@@ -1299,7 +1299,7 @@ Answer the prompt directly.
     const stderr = createMemoryStream();
 
     const firstExit = await runCli(
-      ["skill", "sourcey", "--json"],
+      ["skill", "sourcey", "--run", "--json"],
       { stdin: process.stdin, stdout, stderr },
       { ...process.env, RUNX_CWD: process.cwd(), RUNX_RECEIPT_DIR: tempDir },
     );
@@ -2424,6 +2424,21 @@ async function createFakeAgentBin(commands: readonly string[]): Promise<string> 
     }),
   );
   return directory;
+}
+
+function hostDrivenAgentEnv(tempDir: string, overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    RUNX_HOME: path.join(tempDir, ".runx"),
+    RUNX_CWD: process.cwd(),
+    ...overrides,
+  };
+  delete env.RUNX_AGENT_PROVIDER;
+  delete env.RUNX_AGENT_MODEL;
+  delete env.RUNX_AGENT_API_KEY;
+  delete env.ANTHROPIC_API_KEY;
+  delete env.OPENAI_API_KEY;
+  return env;
 }
 
 async function configureOpenAiAgent(env: NodeJS.ProcessEnv, model: string): Promise<void> {

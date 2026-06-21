@@ -8,7 +8,8 @@ use std::process::ExitCode;
 
 use runx_cli::launcher::{
     HarnessPlan, LauncherAction, add_help_text, help_text, history_help_text, list_help_text,
-    login_help_text, publish_help_text, registry_help_text, skill_help_text, verify_help_text,
+    login_help_text, publish_help_text, registry_help_text, resume_help_text, skill_help_text,
+    verify_help_text,
 };
 
 const INLINE_HARNESS_SIGNING_HINT: &str = "runx: hint: inline harnesses seal signed receipts; set RUNX_RECEIPT_SIGN_KID, RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64, and RUNX_RECEIPT_SIGN_ISSUER_TYPE, or run the example's run.sh when one is provided.";
@@ -36,6 +37,7 @@ fn main() -> ExitCode {
             let _ignored = write_stderr_line(&registry_help_text());
             ExitCode::from(64)
         }
+        LauncherAction::PrintResumeHelp => write_stdout(&resume_help_text()),
         LauncherAction::PrintSkillHelp => write_stdout(&skill_help_text()),
         LauncherAction::PrintVerifyHelp => write_stdout(&verify_help_text()),
         LauncherAction::PrintVersion => {
@@ -56,6 +58,7 @@ fn main() -> ExitCode {
         LauncherAction::RunPolicy(plan) => runx_cli::policy::run_native_policy(plan),
         LauncherAction::RunPublish(plan) => runx_cli::publish::run_native_publish(plan),
         LauncherAction::RunRegistry(plan) => runx_cli::registry::run_native_registry(plan),
+        LauncherAction::RunResume(plan) => runx_cli::resume::run_native_resume(plan),
         LauncherAction::RunSkill(plan) => runx_cli::skill::run_native_skill(plan),
         LauncherAction::RunDoctor(plan) => runx_cli::doctor::run_native_doctor(plan),
         LauncherAction::RunDev(plan) => runx_cli::dev::run_native_dev(plan),

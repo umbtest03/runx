@@ -114,10 +114,10 @@ class RunxClient:
         inputs: Mapping[str, Any] | None = None,
         non_interactive: bool = True,
     ) -> dict[str, Any]:
-        args = ["skill", skill_path]
-        for key, value in (inputs or {}).items():
-            args.extend([f"--{key}", str(value)])
-        args.extend(["--run-id", run_id, "--answers", answers_file])
+        del skill_path
+        if inputs:
+            raise ValueError("runx resume reads answers from the answers file; pass fresh inputs only on a new skill run.")
+        args = ["resume", run_id, answers_file]
         if non_interactive:
             args.append("--non-interactive")
         return self.run_json(args)

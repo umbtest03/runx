@@ -9,70 +9,6 @@ import { parseRunnerManifestYaml, validateRunnerManifest } from "./cli-parser/in
 import { officialSkillVisibleForCatalog } from "./skill-refs.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-const publicOfficialCatalogSkills = [
-  "brand-voice",
-  "business-ops",
-  "charge",
-  "content-pipeline",
-  "deep-research-brief",
-  "design-skill",
-  "dispute-respond",
-  "draft-content",
-  "ecosystem-brief",
-  "ecosystem-vuln-scan",
-  "evolve",
-  "github-sync",
-  "governed-outbound",
-  "improve-skill",
-  "inbox-and-calendar-exec",
-  "issue-intake",
-  "issue-to-pr",
-  "issue-triage",
-  "knowledge-router",
-  "lead-enrichment",
-  "lead-router",
-  "ledger",
-  "least-privilege-auditor",
-  "messageboard",
-  "moltbook",
-  "n8n-handoff",
-  "nitrosend",
-  "nws-weather-forecast",
-  "overlay-generator",
-  "policy-author",
-  "pr-review-note",
-  "prior-art",
-  "receipt-auditor",
-  "redact-pii",
-  "reflect-digest",
-  "refund",
-  "release",
-  "research",
-  "review-receipt",
-  "review-skill",
-  "run-history-analyst",
-  "ops-desk",
-  "sandbox-harden",
-  "send-as",
-  "settle-invoice",
-  "sign-receipt",
-  "skill-lab",
-  "skill-testing",
-  "slack-notify",
-  "sourcey",
-  "spend",
-  "sql-analyst",
-  "stripe-pay",
-  "taste-profile",
-  "vault-unseal",
-  "vuln-scan",
-  "weather-forecast",
-  "web-fetch",
-  "work-plan",
-  "write-harness",
-  "x402-pay",
-  "zapier-handoff",
-];
 const paymentGraphStageOwners: Readonly<Record<string, string>> = {
   "charge-challenge": "charge",
   "charge-price": "charge",
@@ -117,7 +53,7 @@ describe("official skill catalog exposure", () => {
   });
 
   it("keeps implemented catalog skills visible", () => {
-    for (const skill of publicOfficialCatalogSkills) {
+    for (const skill of publicOfficialCatalogSkills()) {
       expect(officialSkillVisibleForCatalog(`runx/${skill}`, {}), skill).toBe(true);
     }
   });
@@ -125,16 +61,17 @@ describe("official skill catalog exposure", () => {
   it("keeps catalog visibility explicit in first-party runner manifests", () => {
     const allSkills = readdirSync(path.join(repoRoot, "skills"), { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
+      .filter((entry) => !entry.name.startsWith("."))
       .filter((entry) => {
         const skillDir = path.join(repoRoot, "skills", entry.name);
         return existsSync(path.join(skillDir, "SKILL.md")) && existsSync(path.join(skillDir, "X.yaml"));
       })
       .map((entry) => entry.name)
       .sort();
-    const expectedPublic = new Set(publicOfficialCatalogSkills);
+    const expectedPublic = new Set(publicOfficialCatalogSkills());
     const actualPublic = allSkills.filter((skill) => catalogVisibility(skill) === "public");
 
-    expect(actualPublic).toEqual([...publicOfficialCatalogSkills].sort());
+    expect(actualPublic).toEqual([...expectedPublic].sort());
     for (const skill of allSkills) {
       expect(catalogVisibility(skill), skill).toBe(expectedPublic.has(skill) ? "public" : "internal");
       expect(catalogRole(skill), skill).toBeTruthy();
@@ -160,6 +97,19 @@ describe("official skill catalog exposure", () => {
     }
   });
 });
+
+function publicOfficialCatalogSkills(): readonly string[] {
+  return readdirSync(path.join(repoRoot, "skills"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .filter((entry) => !entry.name.startsWith("."))
+    .filter((entry) => {
+      const skillDir = path.join(repoRoot, "skills", entry.name);
+      return existsSync(path.join(skillDir, "SKILL.md")) && existsSync(path.join(skillDir, "X.yaml"));
+    })
+    .map((entry) => entry.name)
+    .filter((skill) => catalogVisibility(skill) === "public")
+    .sort();
+}
 
 function catalogVisibility(skill: string): string | undefined {
   const manifestPath = path.join(repoRoot, "skills", skill, "X.yaml");

@@ -313,7 +313,7 @@ fn push_pending_run_lines(
         lines.push(format!("     next  {resume_command}"));
     } else {
         lines.push(format!(
-            "     next  write answers.json, then rerun the original skill with --run-id {} --answers answers.json",
+            "     next  write answers.json, then resume the pending run with runx resume {} answers.json",
             pending.id
         ));
     }
@@ -477,17 +477,12 @@ mod tests {
         assert!(
             result
                 .output
-                .contains("next  runx skill ../skills/sourcey --runner agent-task")
+                .contains("next  runx resume gx_needs_agent_oracle answers.json")
         );
         assert!(
             result
                 .output
                 .contains(&format!("--receipt-dir {}", receipt_dir_arg))
-        );
-        assert!(
-            result
-                .output
-                .contains("--run-id gx_needs_agent_oracle --answers answers.json")
         );
         assert!(
             result
@@ -512,17 +507,12 @@ mod tests {
         assert!(
             result
                 .output
-                .contains("next  runx skill ../skills/sourcey --runner agent-task")
+                .contains("next  runx resume gx_needs_agent_oracle answers.json")
         );
         assert!(
             !result.output.contains("--receipt-dir"),
             "default receipt dir must not be echoed into resume commands:\n{}",
             result.output
-        );
-        assert!(
-            result
-                .output
-                .contains("--run-id gx_needs_agent_oracle --answers answers.json")
         );
         Ok(())
     }
@@ -550,7 +540,7 @@ mod tests {
         assert!(
             result
                 .output
-                .contains("with --run-id gx_needs_agent_oracle"),
+                .contains("runx resume gx_needs_agent_oracle answers.json"),
             "history output should give non-fabricated continuation guidance:\n{}",
             result.output
         );

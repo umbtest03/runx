@@ -15,6 +15,7 @@ import {
   credentialDeliveryObservationV1Schema,
   credentialDeliveryProfileV1Schema,
   credentialDeliveryRequestV1Schema,
+  dataOperationResultV1Schema,
   devV1Schema,
   doctorV1Schema,
   effectFinalityReceiptV1Schema,
@@ -57,6 +58,7 @@ import {
   validateOutputContract,
   validateResolutionRequestContract,
   validateCredentialEnvelopeContract,
+  validateDataOperationResultContract,
   validateActAssignmentContract,
   validateDevReportContract,
   validateDoctorReportContract,
@@ -84,6 +86,7 @@ describe("@runxhq/contracts", () => {
     expect(RUNX_LOGICAL_SCHEMAS.receipt).toBe("runx.receipt.v1");
     expect(RUNX_LOGICAL_SCHEMAS.effectFinalityReceipt).toBe("runx.effect_finality_receipt.v1");
     expect(RUNX_LOGICAL_SCHEMAS.operationalProposal).toBe("runx.operational_proposal.v1");
+    expect(RUNX_LOGICAL_SCHEMAS.dataOperationResult).toBe("runx.data.operation_result.v1");
   });
 
   it("uses durable schema URI ids", () => {
@@ -93,6 +96,9 @@ describe("@runxhq/contracts", () => {
     expect(RUNX_CONTRACT_IDS.effectFinalityReceipt)
       .toBe("https://schemas.runx.dev/runx/effect-finality-receipt/v1.json");
     expect(runxContractSchemas.effectFinalityReceipt.$id).toBe(RUNX_CONTRACT_IDS.effectFinalityReceipt);
+    expect(RUNX_CONTRACT_IDS.dataOperationResult)
+      .toBe("https://schemas.runx.dev/runx/data/operation-result/v1.json");
+    expect(runxContractSchemas.dataOperationResult.$id).toBe(RUNX_CONTRACT_IDS.dataOperationResult);
     expect((toolManifestV1Schema.properties as Record<string, unknown>).source).toBeDefined();
     expect((toolManifestV1Schema.required as readonly string[])).not.toContain("version");
     const devProperties = runxContractSchemas.dev.properties as Record<string, unknown> | undefined;
@@ -119,6 +125,7 @@ describe("@runxhq/contracts", () => {
     expect(threadOutboxProviderPushV1Schema).toBe(runxContractSchemas.threadOutboxProviderPush);
     expect(threadOutboxProviderFetchV1Schema).toBe(runxContractSchemas.threadOutboxProviderFetch);
     expect(threadOutboxProviderObservationV1Schema).toBe(runxContractSchemas.threadOutboxProviderObservation);
+    expect(dataOperationResultV1Schema).toBe(runxContractSchemas.dataOperationResult);
     expect(externalAdapterManifestV1Schema).toBe(runxContractSchemas.externalAdapterManifest);
     expect(externalAdapterCredentialRequestV1Schema).toBe(runxContractSchemas.externalAdapterCredentialRequest);
     expect(externalAdapterInvocationV1Schema).toBe(runxContractSchemas.externalAdapterInvocation);
@@ -148,6 +155,64 @@ describe("@runxhq/contracts", () => {
       "agent",
       "repo-integration",
     ]);
+  });
+
+  it("validates governed data operation result packets", () => {
+    const committed = validateDataOperationResultContract({
+      schema: RUNX_LOGICAL_SCHEMAS.dataOperationResult,
+      data_source_ref: "tenant://acme/board",
+      provider: "postgres",
+      operation: "append_event",
+      resource: "board_events",
+      aggregate_id: "posting-123",
+      status: "committed",
+      before_version: 2,
+      after_version: 3,
+      idempotency_key: "posting-123:claim:agent-9",
+      event_ref: "board_events:posting-123:3",
+      event_digest: "sha256:event",
+      result_digest: "sha256:result",
+      projection_digest: "sha256:projection",
+      events: [],
+      rows: [],
+      redactions: [],
+      stop_conditions: [],
+      provider_evidence: {
+        adapter: "data.postgres",
+        profile: "prod-board",
+      },
+    });
+
+    expect(committed.status).toBe("committed");
+    expect(committed.provider_evidence?.adapter).toBe("data.postgres");
+
+    const conflict = validateDataOperationResultContract({
+      schema: RUNX_LOGICAL_SCHEMAS.dataOperationResult,
+      data_source_ref: "tenant://acme/board",
+      provider: "postgres",
+      operation: "append_event",
+      resource: "board_events",
+      aggregate_id: "posting-123",
+      status: "conflict",
+      before_version: 4,
+      after_version: 4,
+      idempotency_key: "posting-123:claim:agent-9",
+      event_ref: null,
+      event_digest: "sha256:event",
+      result_digest: "sha256:conflict",
+      projection_digest: "sha256:projection",
+      events: [],
+      rows: [],
+      redactions: [],
+      stop_conditions: [
+        {
+          code: "conflict",
+          message: "expected version 2, got 4",
+        },
+      ],
+    });
+
+    expect(conflict.stop_conditions[0]?.code).toBe("conflict");
   });
 
   it("accepts typed proof kinds on references", () => {

@@ -19,6 +19,7 @@ const CODEX_MARKER: &str = "runx-export:codex";
 const CODEX_RULE_START: &str = "# >>> runx-export start (managed) >>>";
 const CODEX_RULE_END: &str = "# <<< runx-export end <<<";
 const CODEX_RULE_RUNX_ON_PATH: &str = "prefix_rule(pattern = [\"runx\", \"skill\"], decision = \"allow\", justification = \"runx skill invocations are trusted\")";
+const CODEX_RULE_RUNX_RESUME_ON_PATH: &str = "prefix_rule(pattern = [\"runx\", \"resume\"], decision = \"allow\", justification = \"runx resume invocations are trusted\")";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExportPlan {

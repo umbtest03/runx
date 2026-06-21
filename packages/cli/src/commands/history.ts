@@ -198,7 +198,7 @@ export function renderHistory(
   }
   lines.push("");
   if (pendingRuns.length > 0) {
-    lines.push(`  ${t.dim}next${t.reset}  runx skill <same-skill-ref> --run-id <run-id> --answers answers.json  ${t.dim}or${t.reset}  runx history --json`);
+    lines.push(`  ${t.dim}next${t.reset}  runx resume <run-id> answers.json  ${t.dim}or${t.reset}  runx history --json`);
   } else {
     lines.push(`  ${t.dim}next${t.reset}  runx history --json`);
   }

@@ -133,8 +133,7 @@ fn codex_global_writes_shim_and_idempotent_permission_block()
     assert!(shim.contains("request.invocation.envelope"));
     assert!(shim.contains("allowed_tools"));
     assert!(shim.contains("\"answers\""));
-    assert!(shim.contains("--run-id \"<run_id>\""));
-    assert!(shim.contains("--answers \"<answers.json>\""));
+    assert!(shim.contains("resume \"<run_id>\" \"<answers.json>\""));
     assert!(shim.contains("runx-export:codex"));
     let rules = fixture.read_home_file(".codex/rules/default.rules")?;
     assert!(rules.contains("# existing approval"));
@@ -147,7 +146,19 @@ fn codex_global_writes_shim_and_idempotent_permission_block()
     );
     assert_eq!(
         rules
+            .matches("prefix_rule(pattern = [\"runx\", \"resume\"]")
+            .count(),
+        1
+    );
+    assert_eq!(
+        rules
             .matches("prefix_rule(pattern = [\"/opt/runx/bin/runx\", \"skill\"]")
+            .count(),
+        1
+    );
+    assert_eq!(
+        rules
+            .matches("prefix_rule(pattern = [\"/opt/runx/bin/runx\", \"resume\"]")
             .count(),
         1
     );
@@ -176,7 +187,9 @@ fn codex_global_initializes_missing_codex_home() -> Result<(), Box<dyn std::erro
     assert!(fixture.home.join(".codex/rules/default.rules").exists());
     let rules = fixture.read_home_file(".codex/rules/default.rules")?;
     assert!(rules.contains("prefix_rule(pattern = [\"runx\", \"skill\"]"));
+    assert!(rules.contains("prefix_rule(pattern = [\"runx\", \"resume\"]"));
     assert!(rules.contains("prefix_rule(pattern = [\"/opt/runx/bin/runx\", \"skill\"]"));
+    assert!(rules.contains("prefix_rule(pattern = [\"/opt/runx/bin/runx\", \"resume\"]"));
     Ok(())
 }
 

@@ -297,6 +297,499 @@ fn catalog_adapter_routes_http_tools_to_the_governed_http_adapter()
     Ok(())
 }
 
+#[test]
+fn catalog_adapter_resolves_unbound_local_data_source_to_durable_sqlite_adapter()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    write_catalog_tool(
+        &temp.path().join("tools/data/sqlite"),
+        r#"{
+  "schema": "runx.tool.manifest.v1",
+  "name": "data.sqlite",
+  "source": {
+    "type": "cli-tool",
+    "command": "/bin/sh",
+    "args": ["./run.sh"],
+    "input_mode": "stdin"
+  },
+  "inputs": {
+    "data_source_ref": { "type": "string", "required": true },
+    "data_source_binding": { "type": "json", "required": true }
+  },
+  "scopes": ["runx:data:read"]
+}
+"#,
+        r#"raw="$(cat)"
+case "$raw" in
+  *'"adapter":"data.sqlite"'*|*'"adapter": "data.sqlite"'*)
+    case "$raw" in
+      *'"database_path":".runx/data/local-sources/source-'*|*'"database_path": ".runx/data/local-sources/source-'*) printf '%s\n' '{"adapter":"data.sqlite"}' ;;
+      *) printf 'missing sqlite database path: %s\n' "$raw" >&2; exit 9 ;;
+    esac
+    ;;
+  *) printf 'missing sqlite binding: %s\n' "$raw" >&2; exit 8 ;;
+esac
+"#,
+    )?;
+    let mut inputs = JsonObject::new();
+    inputs.insert(
+        "data_source_ref".to_owned(),
+        JsonValue::String("local://runx-data-store/test".to_owned()),
+    );
+
+    let output = CatalogAdapter::default().invoke(invocation_in_directory(
+        Some("data.source"),
+        inputs,
+        temp.path().to_path_buf(),
+        tool_root_env(temp.path()),
+    ))?;
+
+    assert_eq!(output.status, InvocationStatus::Success);
+    assert_eq!(output.stdout.trim(), r#"{"adapter":"data.sqlite"}"#);
+    Ok(())
+}
+
+#[test]
+fn catalog_adapter_preserves_store_id_local_data_source_fixture_mode()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    write_catalog_tool(
+        &temp.path().join("tools/data/local"),
+        r#"{
+  "schema": "runx.tool.manifest.v1",
+  "name": "data.local",
+  "source": {
+    "type": "cli-tool",
+    "command": "/bin/sh",
+    "args": ["./run.sh"],
+    "input_mode": "stdin"
+  },
+  "inputs": {
+    "data_source_ref": { "type": "string", "required": true },
+    "data_source_binding": { "type": "json", "required": true }
+  },
+  "scopes": ["runx:data:read"]
+}
+"#,
+        r#"raw="$(cat)"
+case "$raw" in
+  *'"adapter":"data.local"'*|*'"adapter": "data.local"'*) printf '%s\n' '{"adapter":"data.local"}' ;;
+  *) printf 'missing local fixture binding: %s\n' "$raw" >&2; exit 9 ;;
+esac
+"#,
+    )?;
+    let mut inputs = JsonObject::new();
+    inputs.insert(
+        "data_source_ref".to_owned(),
+        JsonValue::String("local://runx-data-store/test".to_owned()),
+    );
+    inputs.insert(
+        "store_id".to_owned(),
+        JsonValue::String("catalog-fixture-store".to_owned()),
+    );
+
+    let output = CatalogAdapter::default().invoke(invocation_in_directory(
+        Some("data.source"),
+        inputs,
+        temp.path().to_path_buf(),
+        tool_root_env(temp.path()),
+    ))?;
+
+    assert_eq!(output.status, InvocationStatus::Success);
+    assert_eq!(output.stdout.trim(), r#"{"adapter":"data.local"}"#);
+    Ok(())
+}
+
+#[test]
+fn catalog_adapter_resolves_configured_data_source_binding()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    fs::create_dir_all(temp.path().join(".runx"))?;
+    fs::write(
+        temp.path().join(".runx/data-sources.json"),
+        r#"{
+  "data_sources": {
+    "tenant://acme/board": {
+      "adapter": "test.bound",
+      "profile": "prod-board",
+      "resources": {
+        "board_events": { "kind": "event_stream" }
+      }
+    }
+  }
+}
+"#,
+    )?;
+    write_catalog_tool(
+        &temp.path().join("tools/test/bound"),
+        r#"{
+  "schema": "runx.tool.manifest.v1",
+  "name": "test.bound",
+  "source": {
+    "type": "cli-tool",
+    "command": "/bin/sh",
+    "args": ["./run.sh"],
+    "input_mode": "stdin"
+  },
+  "inputs": {
+    "data_source_ref": { "type": "string", "required": true },
+    "data_source_binding": { "type": "json", "required": true }
+  },
+  "scopes": ["runx:data:read"]
+}
+"#,
+        r#"raw="$(cat)"
+case "$raw" in
+  *'"adapter":"test.bound"'*|*'"adapter": "test.bound"'*)
+    case "$raw" in
+      *'"profile":"prod-board"'*|*'"profile": "prod-board"'*) printf '%s\n' '{"adapter":"test.bound","profile":"prod-board"}' ;;
+      *) printf 'missing profile: %s\n' "$raw" >&2; exit 9 ;;
+    esac
+    ;;
+  *) printf 'missing configured binding: %s\n' "$raw" >&2; exit 8 ;;
+esac
+"#,
+    )?;
+    let mut inputs = JsonObject::new();
+    inputs.insert(
+        "data_source_ref".to_owned(),
+        JsonValue::String("tenant://acme/board".to_owned()),
+    );
+    let mut env = tool_root_env(temp.path());
+    env.insert(
+        "RUNX_CWD".to_owned(),
+        temp.path().to_string_lossy().into_owned(),
+    );
+
+    let output = CatalogAdapter::default().invoke(invocation_in_directory(
+        Some("data.source"),
+        inputs,
+        temp.path().to_path_buf(),
+        env,
+    ))?;
+
+    assert_eq!(output.status, InvocationStatus::Success);
+    assert_eq!(
+        output.stdout.trim(),
+        r#"{"adapter":"test.bound","profile":"prod-board"}"#
+    );
+    Ok(())
+}
+
+#[test]
+fn catalog_adapter_prefers_configured_local_data_source_over_default()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    fs::create_dir_all(temp.path().join(".runx"))?;
+    fs::write(
+        temp.path().join(".runx/data-sources.json"),
+        r#"{
+  "data_sources": {
+    "local://runx-data-store/configured": {
+      "adapter": "test.local-bound",
+      "profile": "configured-local"
+    }
+  }
+}
+"#,
+    )?;
+    write_catalog_tool(
+        &temp.path().join("tools/test/local-bound"),
+        r#"{
+  "schema": "runx.tool.manifest.v1",
+  "name": "test.local-bound",
+  "source": {
+    "type": "cli-tool",
+    "command": "/bin/sh",
+    "args": ["./run.sh"],
+    "input_mode": "stdin"
+  },
+  "inputs": {
+    "data_source_ref": { "type": "string", "required": true },
+    "data_source_binding": { "type": "json", "required": true }
+  },
+  "scopes": ["runx:data:read"]
+}
+"#,
+        r#"raw="$(cat)"
+case "$raw" in
+  *'"adapter":"test.local-bound"'*|*'"adapter": "test.local-bound"'*) printf '%s\n' '{"adapter":"test.local-bound"}' ;;
+  *) printf 'missing configured local binding: %s\n' "$raw" >&2; exit 8 ;;
+esac
+"#,
+    )?;
+    let mut inputs = JsonObject::new();
+    inputs.insert(
+        "data_source_ref".to_owned(),
+        JsonValue::String("local://runx-data-store/configured".to_owned()),
+    );
+    let mut env = tool_root_env(temp.path());
+    env.insert(
+        "RUNX_CWD".to_owned(),
+        temp.path().to_string_lossy().into_owned(),
+    );
+
+    let output = CatalogAdapter::default().invoke(invocation_in_directory(
+        Some("data.source"),
+        inputs,
+        temp.path().to_path_buf(),
+        env,
+    ))?;
+
+    assert_eq!(output.status, InvocationStatus::Success);
+    assert_eq!(output.stdout.trim(), r#"{"adapter":"test.local-bound"}"#);
+    Ok(())
+}
+
+#[test]
+fn catalog_adapter_resolves_relative_data_sources_env_from_workspace_root()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    fs::create_dir_all(temp.path().join("config"))?;
+    fs::write(
+        temp.path().join("config/data-sources.json"),
+        r#"{
+  "data_sources": {
+    "tenant://acme/ledger": {
+      "adapter": "test.env-bound",
+      "profile": "ledger-prod"
+    }
+  }
+}
+"#,
+    )?;
+    write_catalog_tool(
+        &temp.path().join("tools/test/env-bound"),
+        r#"{
+  "schema": "runx.tool.manifest.v1",
+  "name": "test.env-bound",
+  "source": {
+    "type": "cli-tool",
+    "command": "/bin/sh",
+    "args": ["./run.sh"],
+    "input_mode": "stdin"
+  },
+  "inputs": {
+    "data_source_ref": { "type": "string", "required": true },
+    "data_source_binding": { "type": "json", "required": true }
+  },
+  "scopes": ["runx:data:read"]
+}
+"#,
+        r#"raw="$(cat)"
+case "$raw" in
+  *'"adapter":"test.env-bound"'*|*'"adapter": "test.env-bound"'*) printf '%s\n' '{"adapter":"test.env-bound"}' ;;
+  *) printf 'missing env binding: %s\n' "$raw" >&2; exit 8 ;;
+esac
+"#,
+    )?;
+    let mut inputs = JsonObject::new();
+    inputs.insert(
+        "data_source_ref".to_owned(),
+        JsonValue::String("tenant://acme/ledger".to_owned()),
+    );
+    let mut env = tool_root_env(temp.path());
+    env.insert(
+        "RUNX_CWD".to_owned(),
+        temp.path().to_string_lossy().into_owned(),
+    );
+    env.insert(
+        "RUNX_DATA_SOURCES".to_owned(),
+        "config/data-sources.json".to_owned(),
+    );
+
+    let output = CatalogAdapter::default().invoke(invocation_in_directory(
+        Some("data.source"),
+        inputs,
+        temp.path().to_path_buf(),
+        env,
+    ))?;
+
+    assert_eq!(output.status, InvocationStatus::Success);
+    assert_eq!(output.stdout.trim(), r#"{"adapter":"test.env-bound"}"#);
+    Ok(())
+}
+
+#[test]
+fn catalog_adapter_fails_closed_for_invalid_data_sources_env_json()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let mut inputs = JsonObject::new();
+    inputs.insert(
+        "data_source_ref".to_owned(),
+        JsonValue::String("tenant://acme/board".to_owned()),
+    );
+    let mut env = tool_root_env(temp.path());
+    env.insert("RUNX_DATA_SOURCES".to_owned(), "{not-json".to_owned());
+
+    let output = CatalogAdapter::default().invoke(invocation_in_directory(
+        Some("data.source"),
+        inputs,
+        temp.path().to_path_buf(),
+        env,
+    ))?;
+
+    assert_eq!(output.status, InvocationStatus::Failure);
+    assert!(output.stderr.contains("not valid JSON"));
+    Ok(())
+}
+
+#[test]
+fn catalog_adapter_fails_closed_for_missing_required_data_sources_file()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let mut inputs = JsonObject::new();
+    inputs.insert(
+        "data_source_ref".to_owned(),
+        JsonValue::String("tenant://acme/board".to_owned()),
+    );
+    let mut env = tool_root_env(temp.path());
+    env.insert(
+        "RUNX_CWD".to_owned(),
+        temp.path().to_string_lossy().into_owned(),
+    );
+    env.insert(
+        "RUNX_DATA_SOURCES".to_owned(),
+        "missing/data-sources.json".to_owned(),
+    );
+
+    let output = CatalogAdapter::default().invoke(invocation_in_directory(
+        Some("data.source"),
+        inputs,
+        temp.path().to_path_buf(),
+        env,
+    ))?;
+
+    assert_eq!(output.status, InvocationStatus::Failure);
+    assert!(output.stderr.contains("Failed to read data source config"));
+    assert!(output.stderr.contains("missing/data-sources.json"));
+    Ok(())
+}
+
+#[test]
+fn catalog_adapter_fails_closed_for_unbound_non_local_data_source()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let mut inputs = JsonObject::new();
+    inputs.insert(
+        "data_source_ref".to_owned(),
+        JsonValue::String("tenant://missing/board".to_owned()),
+    );
+
+    let output = CatalogAdapter::default().invoke(invocation_in_directory(
+        Some("data.source"),
+        inputs,
+        temp.path().to_path_buf(),
+        tool_root_env(temp.path()),
+    ))?;
+
+    assert_eq!(output.status, InvocationStatus::Failure);
+    assert!(output.stderr.contains("tenant://missing/board"));
+    assert!(output.stderr.contains(".runx/data-sources.json"));
+    Ok(())
+}
+
+#[test]
+fn catalog_adapter_fails_closed_for_data_source_binding_without_adapter()
+-> Result<(), Box<dyn std::error::Error>> {
+    let output = invoke_data_source_with_inline_binding(
+        "tenant://acme/board",
+        r#"{"data_sources":{"tenant://acme/board":{"profile":"missing-adapter"}}}"#,
+    )?;
+
+    assert_eq!(output.status, InvocationStatus::Failure);
+    assert!(output.stderr.contains("missing adapter"));
+    Ok(())
+}
+
+#[test]
+fn catalog_adapter_fails_closed_for_recursive_data_source_adapter()
+-> Result<(), Box<dyn std::error::Error>> {
+    let output = invoke_data_source_with_inline_binding(
+        "tenant://acme/board",
+        r#"{"data_sources":{"tenant://acme/board":{"adapter":"data.source"}}}"#,
+    )?;
+
+    assert_eq!(output.status, InvocationStatus::Failure);
+    assert!(output.stderr.contains("cannot bind to data.source"));
+    Ok(())
+}
+
+#[test]
+fn catalog_adapter_fails_closed_for_non_namespaced_data_source_adapter()
+-> Result<(), Box<dyn std::error::Error>> {
+    let output = invoke_data_source_with_inline_binding(
+        "tenant://acme/board",
+        r#"{"data_sources":{"tenant://acme/board":{"adapter":"postgres"}}}"#,
+    )?;
+
+    assert_eq!(output.status, InvocationStatus::Failure);
+    assert!(output.stderr.contains("must be a namespaced tool ref"));
+    Ok(())
+}
+
+#[test]
+fn catalog_adapter_rejects_secret_material_in_data_source_binding()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    fs::create_dir_all(temp.path().join(".runx"))?;
+    fs::write(
+        temp.path().join(".runx/data-sources.json"),
+        r#"{
+  "data_sources": {
+    "tenant://acme/board": {
+      "adapter": "test.bound",
+      "api_key": "raw-secret-value"
+    }
+  }
+}
+"#,
+    )?;
+    let mut inputs = JsonObject::new();
+    inputs.insert(
+        "data_source_ref".to_owned(),
+        JsonValue::String("tenant://acme/board".to_owned()),
+    );
+    let mut env = tool_root_env(temp.path());
+    env.insert(
+        "RUNX_CWD".to_owned(),
+        temp.path().to_string_lossy().into_owned(),
+    );
+
+    let output = CatalogAdapter::default().invoke(invocation_in_directory(
+        Some("data.source"),
+        inputs,
+        temp.path().to_path_buf(),
+        env,
+    ))?;
+
+    assert_eq!(output.status, InvocationStatus::Failure);
+    assert!(output.stderr.contains("api_key"));
+    assert!(output.stderr.contains("credential profile"));
+    Ok(())
+}
+
+fn invoke_data_source_with_inline_binding(
+    data_source_ref: &str,
+    config: &str,
+) -> Result<runx_runtime::SkillOutput, Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let mut inputs = JsonObject::new();
+    inputs.insert(
+        "data_source_ref".to_owned(),
+        JsonValue::String(data_source_ref.to_owned()),
+    );
+    let mut env = tool_root_env(temp.path());
+    env.insert("RUNX_DATA_SOURCES".to_owned(), config.to_owned());
+
+    Ok(CatalogAdapter::default().invoke(invocation_in_directory(
+        Some("data.source"),
+        inputs,
+        temp.path().to_path_buf(),
+        env,
+    ))?)
+}
+
 fn invocation(catalog_ref: Option<&str>, inputs: JsonObject) -> SkillInvocation {
     invocation_in_directory(catalog_ref, inputs, PathBuf::from("."), BTreeMap::new())
 }

@@ -111,6 +111,10 @@ fn write_skill_text(
                 writeln!(writer, "- {kind}: {id}")?;
             }
         }
+        if let Some(template) = answers_template(requests) {
+            writeln!(writer, "answers_template:")?;
+            write_indented_json(writer, &template)?;
+        }
         if let Some(run_id) = object_string(object, "run_id") {
             let command =
                 crate::resume::render_skill_resume_command(crate::resume::SkillResumeCommand {
@@ -124,6 +128,34 @@ fn write_skill_text(
                 });
             writeln!(writer, "next: resolve the request, then rerun: {command}")?;
         }
+    }
+    Ok(())
+}
+
+fn answers_template(requests: &[JsonValue]) -> Option<JsonValue> {
+    let mut answers = JsonObject::new();
+    for request in requests {
+        let Some(request) = request.as_object() else {
+            continue;
+        };
+        let Some(id) = object_string(request, "id") else {
+            continue;
+        };
+        answers.insert(id.to_owned(), JsonValue::Object(JsonObject::new()));
+    }
+    if answers.is_empty() {
+        return None;
+    }
+    Some(JsonValue::Object(JsonObject::from([(
+        "answers".to_owned(),
+        JsonValue::Object(answers),
+    )])))
+}
+
+fn write_indented_json(writer: &mut dyn Write, value: &JsonValue) -> io::Result<()> {
+    let json = serde_json::to_string_pretty(value).unwrap_or_else(|_| "{}".to_owned());
+    for line in json.lines() {
+        writeln!(writer, "  {line}")?;
     }
     Ok(())
 }
@@ -253,8 +285,10 @@ mod tests {
         );
 
         assert!(output.contains(
-            "runx skill registry/weather --runner 'operator runner' --receipt-dir 'custom receipts' --run-id run_weather --answers 'operator answers.json'"
+            "runx resume run_weather 'operator answers.json' --receipt-dir 'custom receipts'"
         ));
+        assert!(output.contains("answers_template:"));
+        assert!(output.contains(r#""request_1": {}"#));
     }
 
     fn base_result() -> JsonObject {

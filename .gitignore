@@ -3,9 +3,7 @@
 **/.DS_Store
 
 # scafld
-.ai/logs/
-.ai/reviews/
-.ai/runs/
+.ai/
 
 # dependencies
 node_modules/

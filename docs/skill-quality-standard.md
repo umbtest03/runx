@@ -71,6 +71,19 @@ The public catalog test enforces the required sections for every skill with
 stages at `skills/<name>/graph/<stage>/X.yaml`; they are not hidden catalog
 skills and should not carry public-skill documentation requirements.
 
+Public skills must also keep their executable proof outside the manifest. A
+public `X.yaml` describes runners and authority. Concrete scenarios live in
+standalone `fixtures/*.yaml` files with `kind: skill`, `target: ..`, and one
+fixture covering every public runner. Inline `harness.cases` are reserved for
+internal evaluator/showcase packages, not public catalog packages.
+
+Public skill packages are not dumping grounds. Keep only files the skill
+actually consumes or emits: `SKILL.md`, `X.yaml`, small deterministic runners,
+schemas, fixtures, and narrowly scoped `context/` or `references/` files.
+Avoid `README.md`, changelogs, generated state, screenshots, logs, hidden
+provider config, private examples, and broad strategy docs. If a user-facing
+guide is needed, publish it as docs outside the skill package.
+
 ## Execution Profile Discipline
 
 Use the term **execution profile** for `X.yaml`. The filename stays `X.yaml` for
@@ -85,7 +98,7 @@ the letter as the concept.
 - tool, adapter, context-skill, and graph wiring;
 - authority, approval, and receipt-act mappings;
 - side-effect posture: read, draft, plan, mutate, send, pay, or manual-gated;
-- inline `harness.cases`.
+- inline `harness.cases` only for internal evaluator packages.
 
 Author `X.yaml` in the strict profile YAML subset: no anchors, aliases, merge
 keys, custom tags, multi-document markers, duplicate mapping keys, or unknown

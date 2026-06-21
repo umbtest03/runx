@@ -67,6 +67,43 @@ pub trait SkillAdapter {
     }
 }
 
+pub(crate) struct BorrowedSkillAdapter<'a, A>
+where
+    A: SkillAdapter + ?Sized,
+{
+    adapter: &'a A,
+}
+
+impl<'a, A> BorrowedSkillAdapter<'a, A>
+where
+    A: SkillAdapter + ?Sized,
+{
+    pub(crate) fn new(adapter: &'a A) -> Self {
+        Self { adapter }
+    }
+}
+
+impl<A> SkillAdapter for BorrowedSkillAdapter<'_, A>
+where
+    A: SkillAdapter + ?Sized,
+{
+    fn adapter_type(&self) -> &'static str {
+        self.adapter.adapter_type()
+    }
+
+    fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
+        self.adapter.invoke(request)
+    }
+
+    fn fanout_execution_mode(&self, source: &SkillSource) -> FanoutExecutionMode {
+        self.adapter.fanout_execution_mode(source)
+    }
+
+    fn clone_for_fanout(&self) -> Option<Box<dyn SkillAdapter + Send + Sync>> {
+        self.adapter.clone_for_fanout()
+    }
+}
+
 impl<A> SkillAdapter for Box<A>
 where
     A: SkillAdapter + ?Sized,

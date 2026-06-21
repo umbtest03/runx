@@ -13,6 +13,7 @@ use crate::payment::{PaymentAction, PaymentAdmissionPlan, PaymentInputSource, Pa
 use crate::policy::{PolicyAction, PolicyPlan};
 use crate::publish::PublishPlan;
 use crate::registry::{RegistryAction, RegistryPlan};
+use crate::resume::ResumePlan;
 use crate::skill::SkillPlan;
 
 #[derive(Debug, PartialEq)]
@@ -37,6 +38,7 @@ pub enum LauncherAction {
     RunPolicy(PolicyPlan),
     RunPublish(PublishPlan),
     RunRegistry(RegistryPlan),
+    RunResume(ResumePlan),
     RunSkill(SkillPlan),
     RunTool(ToolPlan),
     RunUrlAdd(UrlAddPlan),
@@ -48,6 +50,7 @@ pub enum LauncherAction {
     PrintPublishHelp,
     PrintRegistryHelp,
     PrintRegistryUsageError,
+    PrintResumeHelp,
     PrintSkillHelp,
     PrintVerifyHelp,
     PrintVersion,
@@ -265,6 +268,16 @@ pub fn plan_launcher(args: Vec<OsString>) -> LauncherAction {
         return LauncherAction::RunHistory(HistoryPlan { args });
     }
 
+    if first_arg_is(&args, "resume") {
+        if nested_help_requested(&args) {
+            return LauncherAction::PrintResumeHelp;
+        }
+        return crate::resume::parse_resume_plan(&args).map_or_else(
+            |message| json_or_human_error(&args, message),
+            LauncherAction::RunResume,
+        );
+    }
+
     if first_arg_is(&args, "verify") {
         if nested_help_requested(&args) {
             return LauncherAction::PrintVerifyHelp;
@@ -344,6 +357,7 @@ Commands:
   runx init [-g|--global] [--prefetch official] [--json]
   runx verify [receipt-id] [--receipt-dir dir] [--receipt <path|->] [--notary <path|-> --notary-key trusted.pem] [-j|--json]
   runx history [query] [--skill s] [--status s] [--source s] [--actor a] [--artifact-type t] [--since iso] [--until iso] [--receipt-dir dir] [--json]
+  runx resume <run-id> <answers.json> [-R dir] [-j|--json]
   runx list [tools|skills|graphs|packets|overlays] [--ok-only|--invalid-only] [-j|--json]
   runx login [--provider github|google|gitlab] [--for default|publish] [--api-url url] [--local-api] [-j|--json]
   runx config set|get|list [provider|model|api-key|public-token] [value] [-j|--json]
@@ -356,7 +370,7 @@ Commands:
   runx dev [root] [--lane lane] [--json]
   runx export <claude|codex> [skill-ref...] [--project] [--json]
   runx mcp serve <skill-ref...> [--receipt-dir dir] [--http-listen [addr]] [--http-allow-non-loopback]
-  runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [-p profile] [-i key=value] [-j] [--runner name] [--registry url|path] [--digest sha256] [--flag value] [--credential descriptor --secret-env NAME] [-R dir] [--run-id id --answers file]
+  runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [--run] [-j] [--registry url|path] [--digest sha256] [--flag value] [--credential descriptor --secret-env NAME] [-R dir]
   runx add <skill-ref|github-url> [--registry url|path] [--version version] [--ref git-ref] [--digest sha256] [--to dir] [--api-base-url url] [--json]
   runx harness <fixture.yaml...|skill-dir|SKILL.md> [-R dir] [-j|--json]
   runx tool build <tool-dir>|--all [--json]
@@ -384,6 +398,21 @@ Options:
   --until iso
   --receipt-dir dir
   --json
+"
+    .to_owned()
+}
+
+pub fn resume_help_text() -> String {
+    "\
+runx resume
+
+Usage:
+  runx resume <run-id> <answers.json> [-R dir] [-j|--json]
+
+Options:
+  -R, --receipts dir
+  --receipt-dir dir
+  -j, --json
 "
     .to_owned()
 }
@@ -507,22 +536,21 @@ pub fn skill_help_text() -> String {
 runx skill
 
 Usage:
-  runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [-p profile] [-i key=value] [-j] [--runner name] [--registry url|path] [--digest sha256] [--flag value] [--credential descriptor --secret-env NAME] [-R dir] [--run-id id --answers file]
+  runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [--run] [-j] [--registry url|path] [--digest sha256] [--flag value] [--credential descriptor --secret-env NAME] [-R dir]
 
 Options:
   -p, --profile name       Use a local credential profile from .runx/credentials.json
   -i, --input key=value    Set a structured input; repeat for multiple inputs
+  --input-json key=json    Set an input that must parse as JSON
+  --run                    Execute a zero-input runner instead of inspecting it
   -R, --receipts dir       Write receipts under dir
   --receipt-dir dir        Alias for --receipts
   -j, --json               Print machine-readable output
-  --runner name            Select a named runner from X.yaml
   --registry url|path
   --digest sha256
   --flag value
   --credential descriptor  One-shot local credential descriptor
   --secret-env NAME        Env var holding the one-shot credential secret
-  --run-id id
-  --answers file
 "
     .to_owned()
 }

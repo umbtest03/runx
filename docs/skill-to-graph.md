@@ -234,6 +234,51 @@ Then run with `-p operator` (or `--profile operator`). If
 it checks the project `.runx/credentials.json` and then the global runx home.
 The profile file never contains the secret value.
 
+## Governed Data Steps
+
+Use the data plane when a graph needs durable state, not when it needs a model
+to invent database commands. The canonical shape is a domain skill followed by
+a declared data operation:
+
+```yaml
+steps:
+  - id: decide
+    skill: ./messageboard
+    runner: claim
+  - id: append
+    skill: ./data-store
+    runner: append_event
+    inputs:
+      data_source_ref: "$input.data_source_ref"
+      resource: board_events
+      aggregate_id: "$input.posting_id"
+      expected_version: "$input.expected_version"
+      idempotency_key: "$input.idempotency_key"
+    context:
+      event: decide.messageboard_claim_packet.data
+```
+
+The storage provider can be SQL, Redis, D1, DynamoDB, object storage, or a
+product API. Provider details live behind an adapter. The graph sees a declared
+operation and receives `runx.data.operation_result.v1` with version movement,
+digests, redaction notes, and provider evidence.
+
+Adapter choice is not product logic. A graph passes `data_source_ref` such as
+`local://runx-data-store/dev-board` or `tenant://acme/board`; project or hosted
+configuration binds that source to `data.sqlite`, `data.postgres`, `data.d1`,
+`data.redis`, or another provider adapter. For the bundled OSS proof, the
+`data-store` runners call the generic `data.source` resolver. Unbound
+`local://...` refs default to the durable `data.sqlite` adapter at
+`.runx/data/local-sources/source-<digest>.sqlite`; passing `store_id` opts into
+the `data.local` fixture adapter for deterministic harnesses. Production
+capability packs should keep the same operation inputs and move provider choice
+into the data-source binding rather than forking the domain skill.
+
+Do not put messageboard, CRM, billing, or support-specific state machines into
+the data adapter. Domain skills own meaning; data adapters own bounded reads,
+idempotent writes, and projection evidence. See
+[the governed data plane](./governed-data-plane.md).
+
 Use `inputs` for literals, `$input.*` values, and static configuration. Use
 `context` when a step needs an earlier step's output:
 

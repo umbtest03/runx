@@ -29,7 +29,9 @@ use super::host_resolution::resolve_step_approval;
 use super::inputs::{optional_input_string, required_input_string, string_value, string_value_ref};
 use super::{GraphRun, Runtime, StepRun};
 use crate::RuntimeError;
-use crate::adapter::{InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput};
+use crate::adapter::{
+    BorrowedSkillAdapter, InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput,
+};
 #[cfg(feature = "catalog")]
 use crate::adapters::catalog::CatalogAdapter;
 use crate::agent_invocation::{
@@ -41,6 +43,7 @@ use crate::execution::disposition::agent_answer_disposition_or_closed;
 use crate::execution::output_projection::{StepOutputProjection, project_step_output};
 use crate::host::Host;
 use crate::receipts::{StepSeal, StepSealClosure, seal_step};
+use crate::services::merge_inferred_tool_roots;
 
 const EXTERNAL_ADAPTER_HOST_RESOLUTION_REQUEST_METADATA: &str =
     "external_adapter_host_resolution_request";
@@ -334,10 +337,14 @@ where
             source_kind: "graph runner without source.graph".to_owned(),
         })?;
     let graph = materialize_graph_inputs(graph, &invocation.inputs);
+    let mut child_options = request.runtime.options.clone();
+    child_options.env = invocation.env.clone();
+    child_options.credential_delivery = invocation.credential_delivery.clone();
+    let child_adapter: Box<dyn SkillAdapter + '_> =
+        Box::new(BorrowedSkillAdapter::new(&request.runtime.adapter));
+    let child_runtime = Runtime::new(child_adapter, child_options);
     let run =
-        request
-            .runtime
-            .run_graph_with_host(&invocation.skill_directory, graph, request.host)?;
+        child_runtime.run_graph_with_host(&invocation.skill_directory, graph, request.host)?;
     let payload = nested_graph_payload(&run)?;
     let mut output = nested_graph_skill_output(&payload, &run)?;
     let projection = step_output_projection(request.step, &output)?;
@@ -440,6 +447,8 @@ fn loaded_skill_invocation(
     credential_delivery: &crate::credentials::CredentialDelivery,
 ) -> Result<(String, SkillInvocation), RuntimeError> {
     let skill_name = skill.name.clone();
+    let mut invocation_env = env.clone();
+    merge_inferred_tool_roots(&mut invocation_env, &skill.directory);
     let invocation = SkillInvocation {
         skill_name: skill.name,
         source: skill.source,
@@ -453,7 +462,7 @@ fn loaded_skill_invocation(
             created_at,
         )?,
         skill_directory: skill.directory,
-        env: env.clone(),
+        env: invocation_env,
         credential_delivery: credential_delivery.clone(),
     };
     Ok((skill_name, invocation))

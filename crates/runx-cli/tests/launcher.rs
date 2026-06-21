@@ -12,7 +12,8 @@ use runx_cli::mcp::McpPlan;
 use runx_cli::parser::{ParserInputSource, ParserPlan};
 use runx_cli::policy::{PolicyAction, PolicyPlan};
 use runx_cli::registry::{RegistryAction, RegistryPlan};
-use runx_cli::skill::SkillPlan;
+use runx_cli::resume::ResumePlan;
+use runx_cli::skill::{SkillAction, SkillPlan};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -34,7 +35,11 @@ fn top_level_help_and_version_are_native() {
     );
     assert_help_line(
         &help,
-        "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [-p profile] [-i key=value] [-j] [--runner name] [--registry url|path] [--digest sha256] [--flag value] [--credential descriptor --secret-env NAME] [-R dir] [--run-id id --answers file]",
+        "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [--run] [-j] [--registry url|path] [--digest sha256] [--flag value] [--credential descriptor --secret-env NAME] [-R dir]",
+    );
+    assert_help_line(
+        &help,
+        "runx resume <run-id> <answers.json> [-R dir] [-j|--json]",
     );
     assert_help_line(
         &help,
@@ -99,7 +104,7 @@ fn nested_skill_history_verify_and_publish_help_are_native() {
 
     assert_help_line(
         &skill_help_text(),
-        "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [-p profile] [-i key=value] [-j] [--runner name] [--registry url|path] [--digest sha256] [--flag value] [--credential descriptor --secret-env NAME] [-R dir] [--run-id id --answers file]",
+        "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [--run] [-j] [--registry url|path] [--digest sha256] [--flag value] [--credential descriptor --secret-env NAME] [-R dir]",
     );
     assert_help_line(
         &skill_help_text(),
@@ -335,6 +340,7 @@ fn routes_canonical_skill_run_to_native_plan() {
             "Docs bug",
         ]),
         LauncherAction::RunSkill(SkillPlan {
+            action: SkillAction::Run,
             skill_path: PathBuf::from("skills/issue-intake"),
             runner: Some("intake".to_owned()),
             receipt_dir: Some(PathBuf::from(".runx/receipts")),
@@ -551,6 +557,15 @@ fn routes_doctor_history_list_new_and_init_to_native_plans() {
         plan(&["history", "sourcey", "--json"]),
         LauncherAction::RunHistory(HistoryPlan {
             args: vec!["history".into(), "sourcey".into(), "--json".into()],
+        })
+    );
+    assert_eq!(
+        plan(&["resume", "run_123", "answers.json", "-R", "receipts", "-j",]),
+        LauncherAction::RunResume(ResumePlan {
+            run_id: "run_123".to_owned(),
+            answers_path: PathBuf::from("answers.json"),
+            receipt_dir: Some(PathBuf::from("receipts")),
+            json: true,
         })
     );
     assert_eq!(

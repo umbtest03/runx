@@ -37,7 +37,7 @@ can distinguish it from ordinary command failure.
 Common fixes:
 
 ```bash
-runx skill <skill-ref> --run-id <run-id> --answers answers.json
+runx resume <run-id> answers.json
 ```
 
 For required input, pass the missing `--input` value or the corresponding

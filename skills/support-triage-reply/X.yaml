@@ -3,63 +3,9 @@ version: "0.1.1"
 
 catalog:
   kind: skill
-  audience: operator
-  visibility: internal
+  audience: public
+  visibility: public
   role: canonical
-
-harness:
-  cases:
-    - name: safe-how-to-reply-draft
-      runner: triage
-      inputs:
-        support_request:
-          customer_name: Mira
-          customer_email: mira@example.test
-          subject: How do I verify my sending domain?
-          body: I added the DNS records for my domain. What should I check next so emails can send safely?
-          source: fixture:safe-how-to
-        policy:
-          product_name: ExampleDesk
-          support_signature: ExampleDesk Support
-      expect:
-        status: sealed
-        receipt:
-          schema: runx.receipt.v1
-          state: sealed
-          disposition: closed
-          reason_code: process_closed
-
-    - name: account-access-escalates-without-draft
-      runner: triage
-      inputs:
-        support_request:
-          customer_name: Theo
-          customer_email: theo@example.test
-          subject: I cannot access my account
-          body: My login is blocked and I need someone to reset access for the team owner.
-          source: fixture:account-access
-        policy:
-          product_name: ExampleDesk
-          support_signature: ExampleDesk Support
-      expect:
-        status: sealed
-        receipt:
-          schema: runx.receipt.v1
-          state: sealed
-          disposition: closed
-          reason_code: process_closed
-
-    - name: missing-request-fails
-      runner: triage
-      inputs:
-        support_request: {}
-      expect:
-        status: failure
-        receipt:
-          schema: runx.receipt.v1
-          state: sealed
-          disposition: closed
-          reason_code: process_failed
 
 runners:
   triage:

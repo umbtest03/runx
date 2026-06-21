@@ -110,6 +110,16 @@ export {
 } from "./schemas/thread-outbox-provider.js";
 
 export {
+  dataOperationResultStatuses,
+  dataOperationResultStatusSchema,
+  dataOperationStopConditionSchema,
+  dataOperationResultV1Schema,
+  validateDataOperationResultContract,
+  type DataOperationStopConditionContract,
+  type DataOperationResultContract,
+} from "./schemas/data-operation.js";
+
+export {
   outputScalarSchema,
   outputObjectEntrySchema,
   outputEntrySchema,
@@ -564,6 +574,7 @@ import { ledgerRecordSchema } from "./schemas/ledger.js";
 import { handoffSignalV1Schema, handoffStateV1Schema, suppressionRecordV1Schema } from "./schemas/handoff.js";
 import { operationalPolicySchema } from "./schemas/operational-policy.js";
 import { operationalProposalSchema } from "./schemas/operational-proposal.js";
+import { dataOperationResultV1Schema } from "./schemas/data-operation.js";
 import { runxSchemaArtifacts } from "./schema-artifacts.js";
 
 export const runxContractSchemas = {
@@ -586,6 +597,7 @@ export const runxContractSchemas = {
   threadOutboxProviderPush: runxSchemaArtifacts["thread-outbox-provider-push.schema.json"],
   threadOutboxProviderFetch: runxSchemaArtifacts["thread-outbox-provider-fetch.schema.json"],
   threadOutboxProviderObservation: runxSchemaArtifacts["thread-outbox-provider-observation.schema.json"],
+  dataOperationResult: dataOperationResultV1Schema,
   doctor: runxSchemaArtifacts["doctor.schema.json"],
   dev: runxSchemaArtifacts["dev.schema.json"],
   list: runxSchemaArtifacts["list.schema.json"],

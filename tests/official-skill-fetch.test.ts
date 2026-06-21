@@ -35,9 +35,8 @@ describe("official skill native fetch", () => {
         "--non-interactive",
       ]);
       const firstJson = parseJsonOutput(first, 2);
-      const firstPath = skillDirectoryFromNeedsAgent(firstJson);
-      expect(firstPath).toContain(path.join(globalHomeDir, "official-skills"));
-      expect(firstPath).toContain(path.join("runx", "sourcey"));
+      expect((firstJson as { status?: string }).status).toBe("needs_agent");
+      const firstPath = findOfficialSkillCachePath(globalHomeDir, "runx/sourcey");
       expect((await stat(path.join(firstPath, "SKILL.md"))).isFile()).toBe(true);
       expect((await stat(path.join(firstPath, "X.yaml"))).isFile()).toBe(true);
 
@@ -49,7 +48,7 @@ describe("official skill native fetch", () => {
         "--non-interactive",
       ]);
       const secondJson = parseJsonOutput(second, 2);
-      expect(skillDirectoryFromNeedsAgent(secondJson)).toBe(firstPath);
+      expect((secondJson as { status?: string }).status).toBe("needs_agent");
       expect((await stat(path.join(firstPath, "SKILL.md"))).isFile()).toBe(true);
     } finally {
       await rm(tempDir, { recursive: true, force: true });
@@ -103,52 +102,6 @@ describe("official skill native fetch", () => {
     }
   });
 
-  it("copies packaged stage helpers beside cached official graph skills", async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-official-fetch-runtime-"));
-    const projectDir = path.join(tempDir, "project");
-    const globalHomeDir = path.join(tempDir, "home");
-    const env = testEnv(projectDir, globalHomeDir);
-
-    try {
-      await mkdir(projectDir, { recursive: true });
-      const registryDir = path.join(tempDir, "registry");
-      const lockEntry = await officialSkillLock("runx/issue-to-pr");
-      publishLocalRegistrySkill({
-        registryDir,
-        subject: path.resolve("skills/issue-to-pr/SKILL.md"),
-        profile: path.resolve("skills/issue-to-pr/X.yaml"),
-        owner: "runx",
-        version: lockEntry.version,
-        env,
-      });
-
-      const result = runNativeSkill(env, [
-        "issue-to-pr",
-        "--registry",
-        registryDir,
-        "--input",
-        "task_id=issue-to-pr-native-fetch",
-        "--input",
-        "thread_title=Fixture smoke test",
-        "--input",
-        "thread_body=Minimal thread body for the official cache test.",
-        "--input",
-        "thread_locator=local://fixtures/official-cache",
-        "--json",
-        "--non-interactive",
-      ]);
-      const output = parseJsonOutput(result, 2);
-      const skillPath = skillDirectoryFromNeedsAgent(output);
-      expect(
-        (await stat(
-          path.join(skillPath, "graph", "scafld", "run.mjs"),
-        )).isFile(),
-      ).toBe(true);
-    } finally {
-      await rm(tempDir, { recursive: true, force: true });
-    }
-  });
-
   it("copies graph stages beside cached official graph skills", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-official-fetch-stages-"));
     const projectDir = path.join(tempDir, "project");
@@ -170,7 +123,8 @@ describe("official skill native fetch", () => {
 
       const result = runNativeSkill(env, ["spend", "--registry", registryDir, "--json", "--non-interactive"]);
       const output = parseJsonOutput(result, 2);
-      const skillPath = officialPackageRootFromSkillDirectory(skillDirectoryFromNeedsAgent(output));
+      expect((output as { status?: string }).status).toBe("needs_agent");
+      const skillPath = findOfficialSkillCachePath(globalHomeDir, "runx/spend");
       for (const stage of ["pay-quote", "pay-reserve", "pay-fulfill-rail"]) {
         expect(
           (await stat(
@@ -179,6 +133,65 @@ describe("official skill native fetch", () => {
           stage,
         ).toBe(true);
       }
+      expect(
+        (await stat(
+          path.join(skillPath, "graph", "pay-fulfill-rail", "stripe-spt-fulfill-adapter.mjs"),
+        )).isFile(),
+      ).toBe(true);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("copies local tool adapters beside cached official graph skills", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "runx-official-fetch-data-store-"));
+    const projectDir = path.join(tempDir, "project");
+    const globalHomeDir = path.join(tempDir, "home");
+    const env = testEnv(projectDir, globalHomeDir);
+
+    try {
+      await mkdir(projectDir, { recursive: true });
+      const registryDir = path.join(tempDir, "registry");
+      const lockEntry = await officialSkillLock("runx/data-store");
+      publishLocalRegistrySkill({
+        registryDir,
+        subject: path.resolve("skills/data-store/SKILL.md"),
+        profile: path.resolve("skills/data-store/X.yaml"),
+        owner: "runx",
+        version: lockEntry.version,
+        env,
+      });
+
+      const result = runNativeSkill(env, [
+        "data-store",
+        "--registry",
+        registryDir,
+        "--runner",
+        "append_event",
+        "--input",
+        "data_source_ref=local://runx-data-store/official-cache",
+        "--input",
+        "store_id=official-cache-data-store",
+        "--input",
+        "resource=board_events",
+        "--input",
+        "aggregate_id=posting-123",
+        "--input",
+        "expected_version=0",
+        "--input",
+        "idempotency_key=posting-123:create:v1",
+        "--input",
+        "event",
+        "{\"type\":\"posting.created\",\"payload\":{\"title\":\"cached data-store smoke\"}}",
+        "--json",
+        "--non-interactive",
+      ]);
+      const output = parseJsonOutput(result, 0) as { status?: string };
+
+      expect(output.status).toBe("sealed");
+      const cachedSkillPath = findOfficialSkillCachePath(globalHomeDir, "runx/data-store");
+      expect((await stat(path.join(cachedSkillPath, "tools", "data", "local", "manifest.json"))).isFile()).toBe(true);
+      expect((await stat(path.join(cachedSkillPath, "tools", "data", "local", "run.mjs"))).isFile()).toBe(true);
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
@@ -244,29 +257,38 @@ function parseJsonOutput(result: {
   return JSON.parse(result.stdout);
 }
 
-function skillDirectoryFromNeedsAgent(value: unknown): string {
-  const record = value as {
-    requests?: Array<{
-      invocation?: {
-        envelope?: {
-          execution_location?: {
-            skill_directory?: string;
-          };
-        };
-      };
-    }>;
-  };
-  const skillDirectory = record.requests?.[0]?.invocation?.envelope?.execution_location?.skill_directory;
-  if (!skillDirectory) {
-    throw new Error("Missing needs_agent skill directory.");
+function findOfficialSkillCachePath(globalHomeDir: string, skillId: string): string {
+  const [owner, name] = skillId.split("/");
+  if (!owner || !name) {
+    throw new Error(`Invalid skill id ${skillId}.`);
   }
-  return skillDirectory;
-}
-
-function officialPackageRootFromSkillDirectory(skillDirectory: string): string {
-  const graphMarker = `${path.sep}graph${path.sep}`;
-  const index = skillDirectory.indexOf(graphMarker);
-  return index === -1 ? skillDirectory : skillDirectory.slice(0, index);
+  const base = globalHomeDir;
+  const matches: string[] = [];
+  const walk = (directory: string): void => {
+    if (!existsSync(directory)) {
+      return;
+    }
+    for (const entry of readdirSync(directory)) {
+      const entryPath = path.join(directory, entry);
+      const stats = statSync(entryPath);
+      if (!stats.isDirectory()) {
+        continue;
+      }
+      if (
+        existsSync(path.join(entryPath, "SKILL.md")) &&
+        existsSync(path.join(entryPath, ".runx", "profile.json")) &&
+        entryPath.includes(`${path.sep}${owner}${path.sep}${name}${path.sep}`)
+      ) {
+        matches.push(entryPath);
+      }
+      walk(entryPath);
+    }
+  };
+  walk(base);
+  if (matches.length !== 1) {
+    throw new Error(`expected one cached official package for ${skillId}, found ${matches.length}`);
+  }
+  return matches[0];
 }
 
 function publishLocalRegistrySkill(input: {
@@ -361,6 +383,7 @@ function signPublishedRegistryEntry(registryDir: string, signingKey: TestManifes
     version: string;
     digest: string;
     profile_digest?: string;
+    package_digest?: string;
     signed_manifest?: unknown;
   };
   const payload =
@@ -369,6 +392,7 @@ function signPublishedRegistryEntry(registryDir: string, signingKey: TestManifes
     `version=${entry.version}\n` +
     `digest=${entry.digest}\n` +
     `profile_digest=${entry.profile_digest ?? ""}\n` +
+    `package_digest=${entry.package_digest ?? ""}\n` +
     `signer_id=${signingKey.signerId}\n` +
     `key_id=${signingKey.keyId}\n`;
   entry.signed_manifest = {
@@ -377,6 +401,7 @@ function signPublishedRegistryEntry(registryDir: string, signingKey: TestManifes
     version: entry.version,
     digest: entry.digest,
     ...(entry.profile_digest ? { profile_digest: entry.profile_digest } : {}),
+    ...(entry.package_digest ? { package_digest: entry.package_digest } : {}),
     signer: {
       id: signingKey.signerId,
       key_id: signingKey.keyId,

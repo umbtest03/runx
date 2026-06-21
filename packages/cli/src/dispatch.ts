@@ -407,6 +407,9 @@ async function executeLocalSkillCommand(options: {
   pushOptionalFlag(args, "--registry", options.parsed.registryUrl);
   pushOptionalFlag(args, "--digest", options.parsed.expectedDigest);
   pushOptionalFlag(args, "--runner", options.parsed.runner);
+  if (options.parsed.forceRun) {
+    args.push("--run");
+  }
   pushOptionalFlag(args, "--receipt-dir", resolvedReceiptDir);
   pushOptionalFlag(args, "--run-id", options.parsed.runId);
   pushOptionalFlag(

@@ -88,7 +88,7 @@ fn needs_agent_mcp_tool_result(
 ) -> McpToolResult {
     mcp_host_tool_result(
         format!(
-            "{skill_name} needs agent input at {run_id}. Continue by rerunning the same skill with --run-id {run_id} --answers answers.json after resolving {request_count} request(s)."
+            "{skill_name} needs agent input at {run_id}. Resolve {request_count} request(s), write answers.json, then run: runx resume {run_id} answers.json."
         ),
         runx,
         false,

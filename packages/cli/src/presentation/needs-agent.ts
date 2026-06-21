@@ -110,7 +110,8 @@ export function renderNeedsAgent(
 }
 
 function formatContinueCommand(skillPath: string, runId: string): string {
-  return `runx skill ${shellQuote(skillPath)} --run-id ${shellQuote(runId)} --answers answers.json`;
+  void skillPath;
+  return `runx resume ${shellQuote(runId)} answers.json`;
 }
 
 function shellQuote(value: string): string {

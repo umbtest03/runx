@@ -1,5 +1,5 @@
 skill: ops-desk
-version: "0.1.2"
+version: "0.1.3"
 
 catalog:
   kind: skill
@@ -125,3 +125,78 @@ runners:
         type: string
         required: false
         description: Project topology and expected execution surfaces.
+
+  operate_from_projection:
+    type: graph
+    inputs:
+      data_source_ref:
+        type: string
+        required: true
+        description: Logical data source that stores the operating projection.
+      resource:
+        type: string
+        required: true
+        description: Declared projection or event resource.
+      aggregate_id:
+        type: string
+        required: true
+        description: Operating scope partition to read before planning.
+      objective:
+        type: string
+        required: true
+        description: The bounded operator objective.
+      scope_ref:
+        type: string
+        required: true
+        description: Project, workspace, account, product, or bounded operating surface being operated.
+      receipt_summary:
+        type: json
+        required: false
+        description: Receipt and effect evidence available to the run.
+      provider_status:
+        type: json
+        required: false
+        description: Provider health, account, webhook, credential, or deploy state.
+      approval_context:
+        type: json
+        required: false
+        description: Existing approvals, denials, or policy gates.
+      operator_policy:
+        type: string
+        required: false
+        description: Tenant-specific guardrails and lane names.
+      project_profile:
+        type: string
+        required: false
+        description: Project topology, existing commands/workflows, and verification expectations. Context only, not authority.
+      requested_action:
+        type: string
+        required: false
+        description: Optional action id or lane selected by the dashboard.
+    graph:
+      name: ops-desk-operate-from-projection
+      steps:
+        - id: read-state
+          skill: ../data-store
+          runner: read_projection
+          inputs:
+            data_source_ref: "$input.data_source_ref"
+            resource: "$input.resource"
+            aggregate_id: "$input.aggregate_id"
+        - id: operate
+          skill: .
+          runner: operate
+          inputs:
+            objective: "$input.objective"
+            scope_ref: "$input.scope_ref"
+            receipt_summary: "$input.receipt_summary"
+            provider_status: "$input.provider_status"
+            approval_context: "$input.approval_context"
+            operator_policy: "$input.operator_policy"
+            project_profile: "$input.project_profile"
+            requested_action: "$input.requested_action"
+          context:
+            dashboard_snapshot: read-state.step_outputs.read.data_operation_result.data.projection
+          artifacts:
+            wrap_as: ops_desk_packet
+            packet: runx.ops_desk.packet.v1

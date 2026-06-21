@@ -1731,6 +1731,48 @@ fn native_graph_skill_run_uses_canonical_tool_root() -> Result<(), Box<dyn std::
     Ok(())
 }
 
+#[cfg(feature = "catalog")]
+#[test]
+fn native_graph_skill_run_merges_imported_graph_skill_tool_roots()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let skill_dir = write_graph_importing_graph_with_bundled_tool(temp.path())?;
+    let receipt_dir = temp.path().join("receipts");
+    let inputs = [(
+        "thread_title".to_owned(),
+        JsonValue::String("Graph tool bug".to_owned()),
+    )]
+    .into_iter()
+    .collect::<BTreeMap<_, _>>();
+
+    let result = run_skill(SkillRunRequest {
+        skill_path: skill_dir,
+        receipt_dir: Some(receipt_dir),
+        run_id: None,
+        answers_path: None,
+        inputs,
+        env: BTreeMap::new(),
+        cwd: temp.path().to_path_buf(),
+        local_credential: None,
+    })?;
+
+    let output = object(&result.output, "nested graph tool root result")?;
+    assert_eq!(string_field(output, "status"), Some("sealed"));
+    let payload = object_field(output, "payload").ok_or("missing payload")?;
+    let nested_claim = step_claim(payload, "nested").ok_or("missing nested skill claim")?;
+    let child_steps = object_field(nested_claim, "step_outputs").ok_or("missing child steps")?;
+    let child_echo_step = object_field(child_steps, "echo").ok_or("missing child echo step")?;
+    let child_echo_claim =
+        object_field(child_echo_step, "skill_claim").ok_or("missing child echo claim")?;
+    let echo = object_field(child_echo_claim, "echo").ok_or("missing nested echo output")?;
+    assert_eq!(
+        string_field(echo, "message"),
+        Some("Nested graph tool root bug")
+    );
+
+    Ok(())
+}
+
 #[cfg(feature = "cli-tool")]
 #[test]
 fn native_graph_skill_run_executes_nested_cli_tool_skill() -> Result<(), Box<dyn std::error::Error>>
@@ -2437,6 +2479,64 @@ fn write_graph_tool_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Er
 fn write_graph_tool_skill_under_skills(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let skill_dir = root.join("skills/graph-tool");
     write_graph_tool_skill_at(&skill_dir)
+}
+
+#[cfg(feature = "catalog")]
+fn write_graph_importing_graph_with_bundled_tool(
+    root: &Path,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let parent_dir = root.join("skills/parent-board");
+    let child_dir = root.join("skills/child-data");
+    fs::create_dir_all(&parent_dir)?;
+    fs::create_dir_all(&child_dir)?;
+    fs::write(
+        parent_dir.join("SKILL.md"),
+        "---\nname: parent-board\n---\n# Parent Board\n",
+    )?;
+    fs::write(
+        parent_dir.join("X.yaml"),
+        r#"
+skill: parent-board
+runners:
+  graph:
+    default: true
+    type: graph
+    graph:
+      name: parent-board
+      steps:
+        - id: nested
+          skill: ../child-data
+          inputs:
+            message: $input.thread_title
+"#,
+    )?;
+
+    fs::write(
+        child_dir.join("SKILL.md"),
+        "---\nname: child-data\n---\n# Child Data\n",
+    )?;
+    fs::write(
+        child_dir.join("X.yaml"),
+        r#"
+skill: child-data
+runners:
+  graph:
+    default: true
+    type: graph
+    graph:
+      name: child-data
+      steps:
+        - id: echo
+          tool: test.echo
+          inputs:
+            message: $input.message
+"#,
+    )?;
+    write_echo_tool_at(
+        &child_dir.join("tools/test/echo"),
+        "Nested graph tool root bug",
+    )?;
+    Ok(parent_dir)
 }
 
 #[cfg(feature = "catalog")]

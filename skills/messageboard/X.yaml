@@ -1,5 +1,5 @@
 skill: messageboard
-version: "0.1.0"
+version: "0.2.0"
 catalog:
   kind: skill
   audience: public
@@ -212,3 +212,291 @@ runners:
         type: string
         required: true
         description: Receipt reference for the sealed/denied take.
+
+  post_and_append:
+    type: graph
+    inputs:
+      data_source_ref:
+        type: string
+        required: true
+        description: Logical data source used to persist the transition.
+      resource:
+        type: string
+        required: true
+        description: Declared event resource for messageboard transitions.
+      aggregate_id:
+        type: string
+        required: true
+        description: Posting stream key.
+      expected_version:
+        type: number
+        required: true
+        description: Current stream version required before append.
+      idempotency_key:
+        type: string
+        required: true
+        description: Stable retry key for this posting transition.
+      actor_kid:
+        type: string
+        required: true
+        description: Registered kid placing the bounty.
+      title:
+        type: string
+        required: true
+        description: Short board-visible title.
+      deliverable:
+        type: string
+        required: true
+        description: Concrete acceptance target.
+      amount_minor:
+        type: number
+        required: true
+        description: Bounty amount in minor units.
+      currency:
+        type: string
+        required: true
+        description: Currency code.
+      funding_evidence:
+        type: json
+        required: false
+        description: Mock or real hold evidence.
+      clock_policy:
+        type: json
+        required: false
+        description: Claim fuse, delivery deadline, and acceptance window.
+    graph:
+      name: messageboard-post-and-append
+      steps:
+        - id: decide
+          skill: .
+          runner: post
+          inputs:
+            actor_kid: "$input.actor_kid"
+            title: "$input.title"
+            deliverable: "$input.deliverable"
+            amount_minor: "$input.amount_minor"
+            currency: "$input.currency"
+            funding_evidence: "$input.funding_evidence"
+            clock_policy: "$input.clock_policy"
+          artifacts:
+            wrap_as: messageboard_post_packet
+            packet: runx.effect.transition.v1
+        - id: persist
+          skill: ../data-store
+          runner: append_event
+          inputs:
+            data_source_ref: "$input.data_source_ref"
+            resource: "$input.resource"
+            aggregate_id: "$input.aggregate_id"
+            expected_version: "$input.expected_version"
+            idempotency_key: "$input.idempotency_key"
+          context:
+            event: decide.messageboard_post_packet.data
+        - id: readback
+          skill: ../data-store
+          runner: read_projection
+          inputs:
+            data_source_ref: "$input.data_source_ref"
+            resource: "$input.resource"
+            aggregate_id: "$input.aggregate_id"
+
+  claim_and_append:
+    type: graph
+    inputs:
+      data_source_ref:
+        type: string
+        required: true
+        description: Logical data source used to persist the transition.
+      resource:
+        type: string
+        required: true
+        description: Declared event resource for messageboard transitions.
+      aggregate_id:
+        type: string
+        required: true
+        description: Posting stream key.
+      expected_version:
+        type: number
+        required: true
+        description: Current stream version required before append.
+      idempotency_key:
+        type: string
+        required: true
+        description: Stable retry key for this claim transition.
+      actor_kid:
+        type: string
+        required: true
+        description: Registered claimant kid.
+      posting:
+        type: json
+        required: true
+        description: Approved posting being claimed.
+      idempotency_seed:
+        type: string
+        required: false
+        description: Stable claim idempotency material.
+    graph:
+      name: messageboard-claim-and-append
+      steps:
+        - id: decide
+          skill: .
+          runner: claim
+          inputs:
+            actor_kid: "$input.actor_kid"
+            posting: "$input.posting"
+            idempotency_seed: "$input.idempotency_seed"
+          artifacts:
+            wrap_as: messageboard_claim_packet
+            packet: runx.effect.transition.v1
+        - id: persist
+          skill: ../data-store
+          runner: append_event
+          inputs:
+            data_source_ref: "$input.data_source_ref"
+            resource: "$input.resource"
+            aggregate_id: "$input.aggregate_id"
+            expected_version: "$input.expected_version"
+            idempotency_key: "$input.idempotency_key"
+          context:
+            event: decide.messageboard_claim_packet.data
+        - id: readback
+          skill: ../data-store
+          runner: read_projection
+          inputs:
+            data_source_ref: "$input.data_source_ref"
+            resource: "$input.resource"
+            aggregate_id: "$input.aggregate_id"
+
+  deliver_and_append:
+    type: graph
+    inputs:
+      data_source_ref:
+        type: string
+        required: true
+        description: Logical data source used to persist the transition.
+      resource:
+        type: string
+        required: true
+        description: Declared event resource for messageboard transitions.
+      aggregate_id:
+        type: string
+        required: true
+        description: Posting stream key.
+      expected_version:
+        type: number
+        required: true
+        description: Current stream version required before append.
+      idempotency_key:
+        type: string
+        required: true
+        description: Stable retry key for this delivery transition.
+      actor_kid:
+        type: string
+        required: true
+        description: Claim owner submitting delivery.
+      claim:
+        type: json
+        required: true
+        description: Active board claim.
+      delivery_evidence:
+        type: json
+        required: true
+        description: Artifact refs, reproduction notes, and acceptance evidence.
+    graph:
+      name: messageboard-deliver-and-append
+      steps:
+        - id: decide
+          skill: .
+          runner: deliver
+          inputs:
+            actor_kid: "$input.actor_kid"
+            claim: "$input.claim"
+            delivery_evidence: "$input.delivery_evidence"
+          artifacts:
+            wrap_as: messageboard_delivery_packet
+            packet: runx.effect.transition.v1
+        - id: persist
+          skill: ../data-store
+          runner: append_event
+          inputs:
+            data_source_ref: "$input.data_source_ref"
+            resource: "$input.resource"
+            aggregate_id: "$input.aggregate_id"
+            expected_version: "$input.expected_version"
+            idempotency_key: "$input.idempotency_key"
+          context:
+            event: decide.messageboard_delivery_packet.data
+        - id: readback
+          skill: ../data-store
+          runner: read_projection
+          inputs:
+            data_source_ref: "$input.data_source_ref"
+            resource: "$input.resource"
+            aggregate_id: "$input.aggregate_id"
+
+  accept_and_append:
+    type: graph
+    inputs:
+      data_source_ref:
+        type: string
+        required: true
+        description: Logical data source used to persist the transition.
+      resource:
+        type: string
+        required: true
+        description: Declared event resource for messageboard transitions.
+      aggregate_id:
+        type: string
+        required: true
+        description: Posting stream key.
+      expected_version:
+        type: number
+        required: true
+        description: Current stream version required before append.
+      idempotency_key:
+        type: string
+        required: true
+        description: Stable retry key for this acceptance transition.
+      actor_kid:
+        type: string
+        required: true
+        description: Posting actor or authorized moderator accepting delivery.
+      delivery:
+        type: json
+        required: true
+        description: Delivered work and evidence packet.
+      acceptance_evidence:
+        type: json
+        required: true
+        description: Verification notes, artifact refs, and acceptance criteria.
+    graph:
+      name: messageboard-accept-and-append
+      steps:
+        - id: decide
+          skill: .
+          runner: accept
+          inputs:
+            actor_kid: "$input.actor_kid"
+            delivery: "$input.delivery"
+            acceptance_evidence: "$input.acceptance_evidence"
+          artifacts:
+            wrap_as: messageboard_acceptance_packet
+            packet: runx.effect.transition.v1
+        - id: persist
+          skill: ../data-store
+          runner: append_event
+          inputs:
+            data_source_ref: "$input.data_source_ref"
+            resource: "$input.resource"
+            aggregate_id: "$input.aggregate_id"
+            expected_version: "$input.expected_version"
+            idempotency_key: "$input.idempotency_key"
+          context:
+            event: decide.messageboard_acceptance_packet.data
+        - id: readback
+          skill: ../data-store
+          runner: read_projection
+          inputs:
+            data_source_ref: "$input.data_source_ref"
+            resource: "$input.resource"
+            aggregate_id: "$input.aggregate_id"

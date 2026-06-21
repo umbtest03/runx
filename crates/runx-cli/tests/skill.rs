@@ -451,8 +451,7 @@ fn native_skill_text_output_is_concise_for_pending_agent_request()
     assert!(stdout.contains("status: needs_agent"));
     assert!(stdout.contains("pending_requests: 1"));
     assert!(stdout.contains("agent_task.issue-intake.output"));
-    assert!(stdout.contains(skill_dir.to_str().ok_or("non-utf8 skill dir")?));
-    assert!(stdout.contains("--run-id run_agent_task-issue-intake-output --answers answers.json"));
+    assert!(stdout.contains("runx resume run_agent_task-issue-intake-output answers.json"));
     assert!(!stdout.contains("<answers.json>"));
     assert!(!stdout.trim_start().starts_with('{'));
 
@@ -555,7 +554,7 @@ fn native_skill_rejects_retired_receipt_options() -> Result<(), Box<dyn std::err
 }
 
 fn runx_command() -> Command {
-    crate::support::signed_runx_command("skill-test-key")
+    crate::support::isolated_runx_command_with_inherited_cwd("skill-test-key")
 }
 
 fn trusted_registry_runx_command(root: &Path) -> Result<Command, Box<dyn std::error::Error>> {

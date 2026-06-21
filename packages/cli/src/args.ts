@@ -57,6 +57,7 @@ export interface ParsedArgs {
   readonly answersPath?: string;
   readonly receiptDir?: string;
   readonly runner?: string;
+  readonly forceRun: boolean;
   readonly knowledgeProject?: string;
   readonly sourceFilter?: string;
   readonly addVersion?: string;
@@ -93,6 +94,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   let receiptDir: string | undefined;
   let runId: string | undefined;
   let runner: string | undefined;
+  let forceRun = false;
 
   for (let index = 0; index < rest.length; index += 1) {
     const token = rest[index];
@@ -117,6 +119,11 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
 
     if (knownKey === "json") {
       json = true;
+      continue;
+    }
+
+    if (knownKey === "run") {
+      forceRun = inlineValue === undefined ? true : truthyFlag(parseInputValue(inlineValue));
       continue;
     }
 
@@ -197,6 +204,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     isReceiptPublish && truthyFlag(inputs.allowLocalApi ?? inputs["allow-local-api"]);
   const registryUrl = (isSkillSearch || isTopLevelAdd || isSkillPublish || isSkillRun) && typeof inputs.registry === "string" ? inputs.registry : undefined;
   const expectedDigest = (isTopLevelAdd || isSkillRun) && typeof inputs.digest === "string" ? normalizeDigest(inputs.digest) : undefined;
+  const selectedRunner = runner ?? (isSkillRun ? positionals[1] : undefined);
   const newDirectory = isNew && typeof inputs.directory === "string"
     ? inputs.directory
     : isNew && typeof inputs.dir === "string"
@@ -305,7 +313,8 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     answersPath,
     receiptDir,
     runId,
-    runner,
+    runner: selectedRunner,
+    forceRun,
     knowledgeProject,
     sourceFilter,
     addVersion,

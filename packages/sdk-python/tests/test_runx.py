@@ -102,11 +102,8 @@ class RunxClientTests(unittest.TestCase):
             self.assertEqual(
                 report["args"],
                 [
-                    "skill",
-                    "skills/example",
-                    "--run-id",
+                    "resume",
                     "run-123",
-                    "--answers",
                     str(answers_path),
                     "--non-interactive",
                     "--json",

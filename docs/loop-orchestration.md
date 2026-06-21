@@ -96,6 +96,7 @@ Use runx for:
 - governed skill/graph turns;
 - authority attenuation and approval gates;
 - bounded model/tool execution;
+- governed data operations through declared data-source adapters;
 - digest-bound skill context;
 - receipt sealing and verification.
 
@@ -110,6 +111,10 @@ Use the outer loop host for:
 
 The loop host can be a local script, hosted runx service, product app, Temporal
 workflow, LangGraph app, n8n/Make/Zapier workflow, or another orchestrator.
+When the loop host stores state through runx, use the provider-agnostic data
+plane in [docs/governed-data-plane.md](governed-data-plane.md): the host owns
+scheduling and stop policy, while runx seals each bounded read, append, or
+projection operation.
 
 ## Do Not Build
 

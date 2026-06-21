@@ -18,7 +18,7 @@ pub(crate) mod public_api;
 pub(crate) mod public_api_token;
 pub mod publish;
 pub mod registry;
-pub(crate) mod resume;
+pub mod resume;
 pub mod runtime;
 pub mod scaffold;
 pub mod skill;

@@ -6,7 +6,7 @@ mod tool_roots;
 
 #[cfg(any(feature = "mcp", feature = "agent"))]
 pub(crate) use env::process_env_snapshot;
-pub(crate) use env::{WorkspaceEnv, process_env_value};
+pub(crate) use env::{WorkspaceEnv, merge_inferred_tool_roots, process_env_value};
 pub(crate) use receipts::ReceiptServices;
 #[cfg(any(feature = "cli-tool", feature = "mcp"))]
 pub(crate) use sandbox::SandboxServices;

@@ -8,6 +8,11 @@ const taskId = argv[1] || "";
 const cwd = process.cwd();
 const draftPath = path.join(cwd, ".scafld", "specs", "drafts", `${taskId}.md`);
 
+if (command === "--version" || command === "version") {
+  process.stdout.write("scafld 2.4.0\n");
+  process.exit(0);
+}
+
 switch (command) {
   case "plan":
     requireTask();

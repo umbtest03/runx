@@ -3,8 +3,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::{
-    CODEX_RULE_END, CODEX_RULE_RUNX_ON_PATH, CODEX_RULE_START, ExportError, GeneratedFile, Target,
-    display_path,
+    CODEX_RULE_END, CODEX_RULE_RUNX_ON_PATH, CODEX_RULE_RUNX_RESUME_ON_PATH, CODEX_RULE_START,
+    ExportError, GeneratedFile, Target, display_path,
 };
 
 pub(super) fn write_files(files: &[GeneratedFile]) -> Result<(), ExportError> {
@@ -87,7 +87,7 @@ pub(super) fn merge_codex_rules(path: &Path, runx_bin: &Path) -> Result<PathBuf,
         }
     };
     let block = format!(
-        "{CODEX_RULE_START}\n{CODEX_RULE_RUNX_ON_PATH}\n{}\n{CODEX_RULE_END}\n",
+        "{CODEX_RULE_START}\n{CODEX_RULE_RUNX_ON_PATH}\n{CODEX_RULE_RUNX_RESUME_ON_PATH}\n{}\n{CODEX_RULE_END}\n",
         codex_rule_for_binary(runx_bin)
     );
     let contents = replace_or_append_block(&existing, &block);
@@ -99,9 +99,10 @@ pub(super) fn merge_codex_rules(path: &Path, runx_bin: &Path) -> Result<PathBuf,
 }
 
 fn codex_rule_for_binary(runx_bin: &Path) -> String {
+    let path =
+        serde_json::to_string(&display_path(runx_bin)).unwrap_or_else(|_| "\"runx\"".to_owned());
     format!(
-        "prefix_rule(pattern = [{}, \"skill\"], decision = \"allow\", justification = \"runx skill invocations are trusted\")",
-        serde_json::to_string(&display_path(runx_bin)).unwrap_or_else(|_| "\"runx\"".to_owned())
+        "prefix_rule(pattern = [{path}, \"skill\"], decision = \"allow\", justification = \"runx skill invocations are trusted\")\nprefix_rule(pattern = [{path}, \"resume\"], decision = \"allow\", justification = \"runx resume invocations are trusted\")"
     )
 }
 

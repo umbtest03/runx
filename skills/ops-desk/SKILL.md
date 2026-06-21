@@ -39,6 +39,12 @@ The model may diagnose and write the operator rationale. The mutation itself
 must be a deterministic handoff to an existing skill runner, CLI command, hosted
 API route, workflow, or provider tool.
 
+When the desk should start from durable state, use `operate_from_projection`.
+That runner reads a projection through `data-store` first, then passes the
+projection as the dashboard snapshot. The storage provider is still selected by
+the logical `data_source_ref`; ops desk does not know whether state came from
+SQLite, Postgres, D1, Redis, or a product API.
+
 ## When to use this skill
 
 - An operator asks an agent to manage a project, workspace, product, account,
@@ -112,6 +118,9 @@ product gap. Do not invent a private workaround.
      whether the artifact is real, useful, complete, and valuable. A reachable
      artifact with no credible user, maintainer, operator, public proof, or
      marketing value is not ready.
+   - If using `operate_from_projection`, treat the read projection as the
+     dashboard snapshot. An empty projection is not an error, but it should
+     usually produce `needs_input` rather than fake readiness.
 
 3. Route to governed lanes.
    - Release questions route to `release` plus the project release profile and

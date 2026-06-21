@@ -11,8 +11,8 @@ use runx_runtime::orchestrator::LocalCredentialDescriptor;
 use runx_runtime::{resolve_path_from_user_input, resolve_runx_home_dir};
 use serde::Deserialize;
 
-use super::SkillPlan;
-use super::inputs::{parse_direct_input_arg, parse_input_arg};
+use super::inputs::{parse_direct_input_arg, parse_input_arg, parse_json_input_arg};
+use super::{SkillAction, SkillPlan};
 
 pub fn parse_skill_plan(args: &[OsString]) -> Result<SkillPlan, String> {
     let mut state = SkillParseState::default();
@@ -39,7 +39,18 @@ pub fn parse_skill_plan(args: &[OsString]) -> Result<SkillPlan, String> {
         return Err("runx skill --run-id requires --answers".to_owned());
     }
 
+    let action = if state.force_run
+        || state.run_id.is_some()
+        || state.answers.is_some()
+        || !state.inputs.is_empty()
+    {
+        SkillAction::Run
+    } else {
+        SkillAction::Inspect
+    };
+
     Ok(SkillPlan {
+        action,
         skill_path,
         runner: state.runner,
         receipt_dir: state.receipt_dir,
@@ -63,6 +74,7 @@ struct SkillParseState {
     registry: Option<String>,
     expected_digest: Option<String>,
     json: bool,
+    force_run: bool,
     inputs: BTreeMap<String, JsonValue>,
     credential: Option<CredentialBinding>,
     credential_profile: Option<String>,
@@ -397,6 +409,14 @@ fn parse_skill_arg(
                 &mut state.inputs,
             )?;
         }
+        value if value.starts_with("--input-json=") => {
+            index = parse_json_input_arg(
+                args,
+                index,
+                Some(value.trim_start_matches("--input-json=")),
+                &mut state.inputs,
+            )?;
+        }
         value if value.starts_with("-i=") => {
             index = parse_input_arg(
                 args,
@@ -406,7 +426,9 @@ fn parse_skill_arg(
             )?;
         }
         "--input" => index = parse_input_arg(args, index, None, &mut state.inputs)?,
+        "--input-json" => index = parse_json_input_arg(args, index, None, &mut state.inputs)?,
         "-i" => index = parse_input_arg(args, index, None, &mut state.inputs)?,
+        "--run" => state.force_run = true,
         value if value.starts_with("--credential=") => {
             state.credential = Some(parse_credential_binding(
                 value.trim_start_matches("--credential="),
@@ -455,10 +477,13 @@ fn parse_skill_arg(
             index = parse_direct_input_arg(args, index, value, &mut state.inputs)?;
         }
         value => {
-            if state.skill_path.is_some() {
+            if state.skill_path.is_none() {
+                state.skill_path = Some(PathBuf::from(value));
+            } else if state.runner.is_none() {
+                state.runner = Some(value.to_owned());
+            } else {
                 return Err(format!("unexpected runx skill argument {value}"));
             }
-            state.skill_path = Some(PathBuf::from(value));
         }
     }
     Ok(index)
@@ -499,7 +524,7 @@ mod tests {
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{SkillParseState, finalize_local_credential};
+    use super::{SkillAction, SkillParseState, finalize_local_credential};
 
     #[test]
     fn credential_profile_resolves_project_descriptor_and_env_secret() -> Result<(), String> {
@@ -593,6 +618,128 @@ mod tests {
         );
         assert!(state.json);
         Ok(())
+    }
+
+    #[test]
+    fn input_json_parses_strict_json_values() -> Result<(), String> {
+        let args = [
+            "skill",
+            "skills/data-store",
+            "--input-json",
+            "event",
+            r#"{"type":"posting.claimed","payload":{"actor":"agent-9"}}"#,
+            "--input-json=limits={\"rows\":10}",
+        ]
+        .into_iter()
+        .map(std::ffi::OsString::from)
+        .collect::<Vec<_>>();
+        let plan = super::parse_skill_plan(&args)?;
+        assert_eq!(plan.action, SkillAction::Run);
+
+        assert_eq!(
+            plan.inputs
+                .get("event")
+                .and_then(runx_contracts::JsonValue::as_object)
+                .and_then(|event| event.get("type"))
+                .and_then(runx_contracts::JsonValue::as_str),
+            Some("posting.claimed")
+        );
+        let rows = plan
+            .inputs
+            .get("limits")
+            .and_then(runx_contracts::JsonValue::as_object)
+            .and_then(|limits| limits.get("rows"))
+            .and_then(|rows| match rows {
+                runx_contracts::JsonValue::Number(number) => number.as_f64(),
+                _ => None,
+            });
+        assert_eq!(rows, Some(10.0));
+        Ok(())
+    }
+
+    #[test]
+    fn skill_without_inputs_inspects_skill_card() -> Result<(), String> {
+        let args = ["skill", "skills/messageboard"]
+            .into_iter()
+            .map(std::ffi::OsString::from)
+            .collect::<Vec<_>>();
+        let plan = super::parse_skill_plan(&args)?;
+
+        assert_eq!(plan.action, SkillAction::Inspect);
+        assert_eq!(
+            plan.skill_path,
+            std::path::PathBuf::from("skills/messageboard")
+        );
+        assert_eq!(plan.runner, None);
+        Ok(())
+    }
+
+    #[test]
+    fn positional_runner_without_inputs_inspects_runner_card() -> Result<(), String> {
+        let args = ["skill", "skills/messageboard", "post_and_append"]
+            .into_iter()
+            .map(std::ffi::OsString::from)
+            .collect::<Vec<_>>();
+        let plan = super::parse_skill_plan(&args)?;
+
+        assert_eq!(plan.action, SkillAction::Inspect);
+        assert_eq!(plan.runner.as_deref(), Some("post_and_append"));
+        Ok(())
+    }
+
+    #[test]
+    fn positional_runner_with_inputs_executes_runner() -> Result<(), String> {
+        let args = [
+            "skill",
+            "skills/messageboard",
+            "post_and_append",
+            "-i",
+            "title=hello",
+        ]
+        .into_iter()
+        .map(std::ffi::OsString::from)
+        .collect::<Vec<_>>();
+        let plan = super::parse_skill_plan(&args)?;
+
+        assert_eq!(plan.action, SkillAction::Run);
+        assert_eq!(plan.runner.as_deref(), Some("post_and_append"));
+        assert_eq!(
+            plan.inputs.get("title"),
+            Some(&runx_contracts::JsonValue::String("hello".to_owned()))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn run_flag_executes_zero_input_runner() -> Result<(), String> {
+        let args = ["skill", "skills/ops-desk", "refresh", "--run"]
+            .into_iter()
+            .map(std::ffi::OsString::from)
+            .collect::<Vec<_>>();
+        let plan = super::parse_skill_plan(&args)?;
+
+        assert_eq!(plan.action, SkillAction::Run);
+        assert_eq!(plan.runner.as_deref(), Some("refresh"));
+        Ok(())
+    }
+
+    #[test]
+    fn input_json_rejects_non_json_values() {
+        let args = [
+            "skill",
+            "skills/data-store",
+            "--input-json",
+            "event",
+            "plain text",
+        ]
+        .into_iter()
+        .map(std::ffi::OsString::from)
+        .collect::<Vec<_>>();
+        let error = super::parse_skill_plan(&args)
+            .err()
+            .expect("invalid json input should fail");
+
+        assert!(error.contains("--input-json event is invalid JSON"));
     }
 
     #[test]

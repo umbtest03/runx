@@ -1,5 +1,5 @@
 import { generateKeyPairSync, sign } from "node:crypto";
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -23,7 +23,7 @@ describe("CLI skill registry execution profile", () => {
         runCli(
           ["skill", "publish", "skills/sourcey", "--owner", "acme", "--version", "1.0.0", "--registry", registryDir, "--json"],
           { stdin: process.stdin, stdout: publishOut, stderr: publishErr },
-          { ...process.env, RUNX_CWD: process.cwd(), ...trustEnv },
+          { ...process.env, RUNX_CWD: process.cwd(), RUNX_DEV_RUST_CLI_BIN: nativeRunxBinaryForTest(), ...trustEnv },
         ),
       ).resolves.toBe(0);
       expect(publishErr.contents()).toBe("");
@@ -44,7 +44,13 @@ describe("CLI skill registry execution profile", () => {
         runCli(
           ["skill", "search", "sourcey", "--json"],
           { stdin: process.stdin, stdout: searchOut, stderr: searchErr },
-          { ...process.env, RUNX_CWD: process.cwd(), RUNX_REGISTRY_DIR: registryDir, ...trustEnv },
+          {
+            ...process.env,
+            RUNX_CWD: process.cwd(),
+            RUNX_DEV_RUST_CLI_BIN: nativeRunxBinaryForTest(),
+            RUNX_REGISTRY_DIR: registryDir,
+            ...trustEnv,
+          },
         ),
       ).resolves.toBe(0);
       expect(searchErr.contents()).toBe("");
@@ -65,7 +71,13 @@ describe("CLI skill registry execution profile", () => {
         runCli(
           ["add", "acme/sourcey@1.0.0", "--to", skillsDir, "--json"],
           { stdin: process.stdin, stdout: addOut, stderr: addErr },
-          { ...process.env, RUNX_CWD: process.cwd(), RUNX_REGISTRY_DIR: registryDir, ...trustEnv },
+          {
+            ...process.env,
+            RUNX_CWD: process.cwd(),
+            RUNX_DEV_RUST_CLI_BIN: nativeRunxBinaryForTest(),
+            RUNX_REGISTRY_DIR: registryDir,
+            ...trustEnv,
+          },
         ),
       ).resolves.toBe(0);
       expect(addErr.contents()).toBe("");
@@ -131,6 +143,15 @@ function registryTrustEnv(owner: string, signingKey: TestManifestSigningKey): No
   };
 }
 
+function nativeRunxBinaryForTest(): string {
+  const existing = process.env.RUNX_DEV_RUST_CLI_BIN;
+  if (existing) {
+    return existing;
+  }
+  const candidate = path.resolve("crates/target/debug/runx");
+  return existsSync(candidate) ? candidate : "runx";
+}
+
 function signPublishedRegistryEntry(registryDir: string, signingKey: TestManifestSigningKey): void {
   const entryPath = findSingleRegistryEntry(registryDir);
   const entry = JSON.parse(readFileSync(entryPath, "utf8")) as {
@@ -138,6 +159,7 @@ function signPublishedRegistryEntry(registryDir: string, signingKey: TestManifes
     version: string;
     digest: string;
     profile_digest?: string;
+    package_digest?: string;
     signed_manifest?: unknown;
   };
   const payload =
@@ -146,6 +168,7 @@ function signPublishedRegistryEntry(registryDir: string, signingKey: TestManifes
     `version=${entry.version}\n` +
     `digest=${entry.digest}\n` +
     `profile_digest=${entry.profile_digest ?? ""}\n` +
+    `package_digest=${entry.package_digest ?? ""}\n` +
     `signer_id=${signingKey.signerId}\n` +
     `key_id=${signingKey.keyId}\n`;
   entry.signed_manifest = {
@@ -154,6 +177,7 @@ function signPublishedRegistryEntry(registryDir: string, signingKey: TestManifes
     version: entry.version,
     digest: entry.digest,
     ...(entry.profile_digest ? { profile_digest: entry.profile_digest } : {}),
+    ...(entry.package_digest ? { package_digest: entry.package_digest } : {}),
     signer: {
       id: signingKey.signerId,
       key_id: signingKey.keyId,

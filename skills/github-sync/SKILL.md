@@ -36,6 +36,11 @@ plan is the artifact a downstream adapter executes after the approval gate
 clears. Planning and mutation stay on opposite sides of the gate so a review can
 read intent before anything changes on the remote.
 
+When a sync loop needs a durable cursor, use `plan_and_append_cursor`. That
+runner reads the cursor projection through `data-store`, plans the bounded sync,
+appends the plan as a cursor event, and reads back the projection. The storage
+provider is selected by `data_source_ref`, not by GitHub-specific code.
+
 ## When to use this skill
 
 - An agent needs to fetch a bounded set of issues, threads, or PRs into the
@@ -79,6 +84,9 @@ one comment.
 7. Record `scope_used` as the narrowest scope the plan actually needs.
 8. Emit the smallest `sync_plan` an adapter can execute without widening
    authority, and stop at the approval gate for any write.
+9. For cursor-backed loops, read the cursor projection first, append one sync
+   plan event with an idempotency key and expected version, and read back the
+   projection before the next turn.
 
 ## Edge cases and stop conditions
 
@@ -137,6 +145,15 @@ selected each; `diff_summary` is empty and `gates.approval_required` is false.
 No write grant is exercised and no approval gate is opened, because a pull is
 pure observation. Had the same request asked to `push` labels without a
 `repo:write` grant, the run would refuse instead of reading.
+
+Cursor-backed loop:
+
+```text
+read cursor -> plan bounded pull/push -> append sync plan event -> read cursor
+```
+
+The cursor event stores refs, filters, digests, and gate status. It does not
+store raw issue bodies, OAuth tokens, or write payload secrets.
 
 ## Inputs
 

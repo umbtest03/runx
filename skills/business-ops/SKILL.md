@@ -20,6 +20,12 @@ This is not a provider integration and not an operator dashboard. It is the
 small core shape that teams copy when they want one objective to fan out into a
 chain of skills, then replay that chain with receipts.
 
+When the route itself should become durable, use `route_and_append`. That runner
+classifies the signal, appends the classification packet through `data-store`,
+and reads back the projection. The same graph can use local JSON, SQLite,
+Postgres, D1, Redis, or a product adapter by changing the `data_source_ref`
+binding.
+
 ## What this skill does
 
 - Classifies one business signal before doing work.
@@ -31,6 +37,7 @@ chain of skills, then replay that chain with receipts.
   drafts and plans can be produced, but sends, spend, merges, publishes, and
   deploys require a separate approval and execution lane.
 - Gives downstream agents a clear handoff target instead of vague prose.
+- Optionally persists the classified route for replay through `data-store`.
 
 ## What this skill deliberately does not do
 
@@ -110,6 +117,8 @@ skill runner or provider tool.
 6. Name the exact downstream handoff that should replace the fixture in a real
    workflow.
 7. Seal the graph so the route itself is replayable.
+8. If using `route_and_append`, append the classification packet with an
+   idempotency key and expected version, then read back the projection.
 
 ## Edge cases and stop conditions
 

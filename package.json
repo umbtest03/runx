@@ -33,6 +33,7 @@
     "docs:api": "tsx scripts/gen-api-index.ts",
     "docs:exit-codes": "tsx scripts/check-cli-exit-codes.ts",
     "authoring:check-package-contract": "node scripts/check-authoring-package-contract.mjs",
+    "bindings:check": "node scripts/check-upstream-skill-bindings.mjs",
     "release:version:check": "tsx scripts/set-release-version.ts --check",
     "release:smoke-live": "node scripts/smoke-released-cli-live.mjs",
     "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",

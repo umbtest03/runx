@@ -15,71 +15,6 @@ import {
 import { validateSkillMarkdown } from "./parser-eval.js";
 import { resolveRunxBinary } from "./runx-binary.js";
 
-const publicCatalogPackages = [
-  "brand-voice",
-  "business-ops",
-  "charge",
-  "content-pipeline",
-  "deep-research-brief",
-  "design-skill",
-  "dispute-respond",
-  "draft-content",
-  "ecosystem-brief",
-  "ecosystem-vuln-scan",
-  "evolve",
-  "github-sync",
-  "governed-outbound",
-  "improve-skill",
-  "inbox-and-calendar-exec",
-  "issue-intake",
-  "issue-to-pr",
-  "issue-triage",
-  "knowledge-router",
-  "lead-enrichment",
-  "lead-router",
-  "least-privilege-auditor",
-  "ledger",
-  "messageboard",
-  "moltbook",
-  "n8n-handoff",
-  "nitrosend",
-  "nws-weather-forecast",
-  "overlay-generator",
-  "policy-author",
-  "pr-review-note",
-  "prior-art",
-  "receipt-auditor",
-  "redact-pii",
-  "reflect-digest",
-  "refund",
-  "release",
-  "research",
-  "review-receipt",
-  "review-skill",
-  "run-history-analyst",
-  "ops-desk",
-  "sandbox-harden",
-  "send-as",
-  "settle-invoice",
-  "sign-receipt",
-  "skill-lab",
-  "skill-testing",
-  "slack-notify",
-  "sourcey",
-  "spend",
-  "sql-analyst",
-  "stripe-pay",
-  "taste-profile",
-  "vault-unseal",
-  "vuln-scan",
-  "web-fetch",
-  "weather-forecast",
-  "work-plan",
-  "write-harness",
-  "x402-pay",
-  "zapier-handoff",
-] as const;
-
 const publicSkillRequiredHeadings = [
   "What this skill does",
   "When to use this skill",
@@ -221,8 +156,15 @@ describe("official skill catalog", () => {
 
   it("keeps the public official catalog limited to implemented catalog skills", async () => {
     const publicSkills = officialSkillPackages().filter((skillName) => catalogVisibility(skillName) === "public");
+    const entries = JSON.parse(
+      await readFile(path.resolve("packages", "cli", "src", "official-skills.lock.json"), "utf8"),
+    ) as ReadonlyArray<{ readonly skill_id: string; readonly catalog_visibility?: string }>;
+    const publicLockSkills = entries
+      .filter((entry) => entry.catalog_visibility === "public")
+      .map((entry) => entry.skill_id.slice("runx/".length))
+      .sort();
 
-    expect(publicSkills).toEqual([...publicCatalogPackages].sort());
+    expect(publicLockSkills).toEqual(publicSkills);
   });
 
   it("keeps public official skills at the execution-context documentation bar", () => {
@@ -399,6 +341,7 @@ describe("official skill catalog", () => {
 function officialSkillPackages(): readonly string[] {
   return readdirSync(path.resolve("skills"), { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
+    .filter((entry) => !entry.name.startsWith("."))
     .filter((entry) => existsSync(path.resolve("skills", entry.name, "SKILL.md")))
     .filter((entry) => existsSync(path.resolve("skills", entry.name, "X.yaml")))
     .map((entry) => entry.name)

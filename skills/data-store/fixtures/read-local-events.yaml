@@ -1,0 +1,22 @@
+name: read-local-events
+kind: skill
+target: ..
+runner: read_events
+inputs:
+  data_source_ref: local://runx-data-store/read-events-fixture
+  store_id: data-store-read-local-events-v1
+  resource: generic_events
+  aggregate_id: item-1
+  limit: 10
+expect:
+  status: sealed
+  receipt:
+    schema: runx.receipt.v1
+  steps:
+    - read
+metadata:
+  public_skill: data-store
+  source_case: read-local-events
+  source: skills-fixture
+  runner_kind: graph
+  graph_shape: read_events

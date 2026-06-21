@@ -28,11 +28,10 @@ operator dogfood. It should feel direct, literal, and governed:
 ```bash
 runx skill weather-forecast \
   --input location="Sydney, AU" \
-  --input forecast_evidence='{"provider":"example","periods":[]}' \
+  --input-json forecast_evidence='{"provider":"example","periods":[]}' \
   --json
 
-runx skill nws-weather-forecast \
-  --runner forecast \
+runx skill nws-weather-forecast forecast \
   --office LWX \
   --grid-x 97 \
   --grid-y 71
@@ -44,7 +43,7 @@ Operator rules:
   directory.
 - `--input key=value` is the documented portable form; direct flags such as
   `--office LWX` remain the ergonomic shorthand.
-- `--runner <name>` selects a non-default runner without changing the skill
+- `runx skill <skill> <runner>` selects a non-default runner without changing the skill
   package.
 - `--json` prints the full machine contract. Without `--json`, the CLI prints a
   concise status view with run id, receipt id, and pending request ids rather

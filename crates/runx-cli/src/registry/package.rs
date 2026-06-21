@@ -65,8 +65,21 @@ pub(super) fn read_skill_package(
     } else {
         Vec::new()
     };
+    let harness_package_files = if include_harness {
+        collect_publish_harness_package_files(
+            &markdown_path,
+            profile_path.as_deref(),
+            &package_files,
+        )?
+    } else {
+        Vec::new()
+    };
     let harness_package = if include_harness {
-        publish_harness_package(&markdown, profile_document.as_deref(), &package_files)?
+        publish_harness_package(
+            &markdown,
+            profile_document.as_deref(),
+            &harness_package_files,
+        )?
     } else {
         PublishHarnessPackage {
             path: None,
@@ -208,7 +221,7 @@ fn publish_harness_package(
                 ))
             })?;
         }
-        fs::write(&destination, &file.content).map_err(|error| {
+        write_publish_harness_file(&destination, &file.content).map_err(|error| {
             internal_error(format!(
                 "failed to write publish harness package file {}: {error}",
                 destination.display()
@@ -219,6 +232,28 @@ fn publish_harness_package(
         path: Some(temp_dir.clone()),
         temp_dir: Some(temp_dir),
     })
+}
+
+fn write_publish_harness_file(path: &Path, content: &str) -> Result<(), std::io::Error> {
+    fs::write(path, content)?;
+    mark_executable_if_script(path, content)
+}
+
+#[cfg(unix)]
+fn mark_executable_if_script(path: &Path, content: &str) -> Result<(), std::io::Error> {
+    if !content.starts_with("#!") {
+        return Ok(());
+    }
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut permissions = fs::metadata(path)?.permissions();
+    permissions.set_mode(permissions.mode() | 0o111);
+    fs::set_permissions(path, permissions)
+}
+
+#[cfg(not(unix))]
+fn mark_executable_if_script(_path: &Path, _content: &str) -> Result<(), std::io::Error> {
+    Ok(())
 }
 
 fn collect_publish_package_files(
@@ -251,6 +286,150 @@ fn collect_publish_package_files(
         profile_path.as_ref(),
         &consumed_root_scripts,
     )
+}
+
+fn collect_publish_harness_package_files(
+    markdown_path: &Path,
+    profile_path: Option<&Path>,
+    package_files: &[HostedSkillPackageFile],
+) -> Result<Vec<HostedSkillPackageFile>, RegistryCliError> {
+    let mut files = package_files
+        .iter()
+        .cloned()
+        .map(|file| (file.path.clone(), file))
+        .collect::<BTreeMap<_, _>>();
+    let Some(profile_path) = profile_path else {
+        return Ok(files.into_values().collect());
+    };
+    let Some(package_dir) = markdown_path.parent() else {
+        return Ok(files.into_values().collect());
+    };
+    let package_dir = fs::canonicalize(package_dir).map_err(|error| {
+        internal_error(format!(
+            "failed to canonicalize skill package directory {}: {error}",
+            package_dir.display()
+        ))
+    })?;
+    let dependencies = consumed_harness_dependency_files_from_profile(profile_path)?;
+    let mut total_bytes = files
+        .values()
+        .map(|file| file.content.len() as u64)
+        .sum::<u64>();
+    for declared_relative in dependencies {
+        for relative in resolve_publish_harness_dependency_paths(&package_dir, &declared_relative)?
+        {
+            if files.contains_key(&relative) {
+                continue;
+            }
+            copy_publish_harness_dependency(&package_dir, &relative, &mut files, &mut total_bytes)?;
+        }
+    }
+    Ok(files.into_values().collect())
+}
+
+fn resolve_publish_harness_dependency_paths(
+    package_dir: &Path,
+    declared_relative: &str,
+) -> Result<Vec<String>, RegistryCliError> {
+    if package_dir.join(declared_relative).exists() {
+        return Ok(vec![declared_relative.to_owned()]);
+    }
+    let graph_dir = package_dir.join("graph");
+    let mut matches = Vec::new();
+    let Ok(entries) = fs::read_dir(&graph_dir) else {
+        return Ok(vec![declared_relative.to_owned()]);
+    };
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            internal_error(format!(
+                "failed to read publish harness graph dependency entry in {}: {error}",
+                graph_dir.display()
+            ))
+        })?;
+        let stage_dir = entry.path();
+        if stage_dir.join(declared_relative).exists() {
+            let stage_name = entry.file_name().to_string_lossy().to_string();
+            matches.push(format!("graph/{stage_name}/{declared_relative}"));
+        }
+    }
+    if matches.len() == 1 {
+        return Ok(matches);
+    }
+    Ok(vec![declared_relative.to_owned()])
+}
+
+fn copy_publish_harness_dependency(
+    package_dir: &Path,
+    relative: &str,
+    files: &mut BTreeMap<String, HostedSkillPackageFile>,
+    total_bytes: &mut u64,
+) -> Result<(), RegistryCliError> {
+    if files.contains_key(relative) {
+        return Ok(());
+    }
+    if should_reject_remote_publish_file(relative) {
+        return Err(internal_error(format!(
+            "publish harness dependency {relative} looks like a secret or local credential"
+        )));
+    }
+    let candidate = package_dir.join(relative);
+    let metadata = fs::symlink_metadata(&candidate).map_err(|error| {
+        internal_error(format!(
+            "failed to inspect publish harness dependency {}: {error}",
+            candidate.display()
+        ))
+    })?;
+    if !metadata.file_type().is_file() {
+        return Err(internal_error(format!(
+            "publish harness dependency {} is not a regular file",
+            candidate.display()
+        )));
+    }
+    if metadata.len() > MAX_REMOTE_PUBLISH_FILE_BYTES {
+        return Err(internal_error(format!(
+            "publish harness dependency {} exceeds {} bytes",
+            candidate.display(),
+            MAX_REMOTE_PUBLISH_FILE_BYTES
+        )));
+    }
+    *total_bytes += metadata.len();
+    if *total_bytes > MAX_REMOTE_PUBLISH_TOTAL_BYTES {
+        return Err(internal_error(format!(
+            "publish harness dependencies exceed {} total bytes",
+            MAX_REMOTE_PUBLISH_TOTAL_BYTES
+        )));
+    }
+    if files.len() >= MAX_REMOTE_PUBLISH_FILE_COUNT {
+        return Err(internal_error(format!(
+            "publish harness package cannot contain more than {MAX_REMOTE_PUBLISH_FILE_COUNT} files"
+        )));
+    }
+    let canonical = fs::canonicalize(&candidate).map_err(|error| {
+        internal_error(format!(
+            "failed to canonicalize publish harness dependency {}: {error}",
+            candidate.display()
+        ))
+    })?;
+    if !canonical.starts_with(package_dir) {
+        return Err(internal_error(format!(
+            "publish harness dependency {} escapes the skill package",
+            candidate.display()
+        )));
+    }
+    let content = fs::read_to_string(&canonical).map_err(|error| {
+        internal_error(format!(
+            "publish harness dependency {} must be UTF-8 text: {error}",
+            canonical.display()
+        ))
+    })?;
+    files.insert(
+        relative.to_owned(),
+        HostedSkillPackageFile {
+            path: relative.to_owned(),
+            content,
+        },
+    );
+    Ok(())
 }
 
 fn collect_allowed_publish_package_files(
@@ -473,6 +652,91 @@ fn consumed_root_scripts_from_profile(
     Ok(scripts)
 }
 
+fn consumed_harness_dependency_files_from_profile(
+    profile_path: &Path,
+) -> Result<BTreeSet<String>, RegistryCliError> {
+    let document = fs::read_to_string(profile_path).map_err(|error| {
+        internal_error(format!(
+            "failed to read profile while selecting publish harness files {}: {error}",
+            profile_path.display()
+        ))
+    })?;
+    let manifest = runx_runtime::validate_runner_manifest(
+        runx_runtime::parse_runner_manifest_yaml(&document).map_err(|error| {
+            internal_error(format!(
+                "failed to parse profile while selecting publish harness files {}: {error}",
+                profile_path.display()
+            ))
+        })?,
+    )
+    .map_err(|error| {
+        internal_error(format!(
+            "failed to validate profile while selecting publish harness files {}: {error}",
+            profile_path.display()
+        ))
+    })?;
+    let mut files = BTreeSet::new();
+    if let Some(harness) = manifest.harness {
+        for case in harness.cases {
+            for value in case.inputs.values() {
+                collect_harness_dependency_from_value(value, &mut files);
+            }
+            for value in case.env.values() {
+                collect_harness_dependency_from_string(value, &mut files);
+            }
+            if let Some(answers) = case.caller.answers {
+                for value in answers.values() {
+                    collect_harness_dependency_from_value(value, &mut files);
+                }
+            }
+        }
+    }
+    Ok(files)
+}
+
+fn collect_harness_dependency_from_value(value: &JsonValue, files: &mut BTreeSet<String>) {
+    match value {
+        JsonValue::String(value) => collect_harness_dependency_from_string(value, files),
+        JsonValue::Array(values) => {
+            for value in values {
+                collect_harness_dependency_from_value(value, files);
+            }
+        }
+        JsonValue::Object(values) => {
+            for value in values.values() {
+                collect_harness_dependency_from_value(value, files);
+            }
+        }
+        JsonValue::Bool(_) | JsonValue::Null | JsonValue::Number(_) => {}
+    }
+}
+
+fn collect_harness_dependency_from_string(value: &str, files: &mut BTreeSet<String>) {
+    if let Some(path) = normalize_harness_dependency_file(value) {
+        files.insert(path);
+    }
+}
+
+fn normalize_harness_dependency_file(value: &str) -> Option<String> {
+    let path = value
+        .trim()
+        .strip_prefix("./")
+        .unwrap_or_else(|| value.trim());
+    if !(path.ends_with(".mjs") || path.ends_with(".js")) {
+        return None;
+    }
+    if path.is_empty()
+        || path.starts_with('/')
+        || path.contains('\\')
+        || path
+            .split('/')
+            .any(|segment| segment.is_empty() || segment == "." || segment == "..")
+    {
+        return None;
+    }
+    Some(path.to_owned())
+}
+
 fn collect_root_scripts_from_source(
     source: &runx_runtime::SkillSource,
     scripts: &mut BTreeSet<String>,
@@ -604,8 +868,8 @@ fn publish_harness_report(
 mod tests {
     use super::{
         PUBLISH_HARNESS_SIGNING_ISSUER_TYPE, PUBLISH_HARNESS_SIGNING_KID,
-        collect_publish_package_files, ensure_publish_harness_signing_env,
-        should_reject_remote_publish_file, unique_temp_dir,
+        collect_publish_harness_package_files, collect_publish_package_files,
+        ensure_publish_harness_signing_env, should_reject_remote_publish_file, unique_temp_dir,
     };
     use std::fs;
 
@@ -780,6 +1044,65 @@ runners:
         assert!(!paths.contains(&".env".to_owned()));
         assert!(!paths.contains(&"tools/frantic/post/src/index.ts".to_owned()));
         assert!(!paths.contains(&"fixtures/happy-path.yaml".to_owned()));
+
+        let _ignored = fs::remove_dir_all(dir);
+        Ok(())
+    }
+
+    #[test]
+    fn publish_harness_package_includes_explicit_harness_dependencies_only()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let dir = unique_temp_dir("runx-publish-harness-dependency-test")?;
+        fs::write(
+            dir.join("SKILL.md"),
+            "---\nname: harness-deps\n---\n# Harness deps\n",
+        )?;
+        fs::write(
+            dir.join("X.yaml"),
+            r#"skill: harness-deps
+harness:
+  cases:
+    - name: fixture-helper
+      runner: main
+      inputs:
+        helper: ./fixtures/helper.mjs
+        ignored_text: ./fixtures/not-a-script.txt
+      expect:
+        status: sealed
+runners:
+  main:
+    default: true
+    type: cli-tool
+    command: node
+    args:
+      - ./run.mjs
+    input_mode: stdin
+"#,
+        )?;
+        fs::write(dir.join("run.mjs"), "console.log('run')\n")?;
+        fs::create_dir_all(dir.join("fixtures"))?;
+        fs::write(dir.join("fixtures/helper.mjs"), "console.log('helper')\n")?;
+        fs::write(dir.join("fixtures/not-a-script.txt"), "not copied\n")?;
+
+        let package_files =
+            collect_publish_package_files(&dir.join("SKILL.md"), Some(&dir.join("X.yaml")))?;
+        let package_paths = package_files
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect::<Vec<_>>();
+        assert!(!package_paths.contains(&"fixtures/helper.mjs"));
+
+        let harness_files = collect_publish_harness_package_files(
+            &dir.join("SKILL.md"),
+            Some(&dir.join("X.yaml")),
+            &package_files,
+        )?;
+        let harness_paths = harness_files
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect::<Vec<_>>();
+        assert!(harness_paths.contains(&"fixtures/helper.mjs"));
+        assert!(!harness_paths.contains(&"fixtures/not-a-script.txt"));
 
         let _ignored = fs::remove_dir_all(dir);
         Ok(())
