@@ -70,7 +70,7 @@ runx skill business-ops \
   --json
 ```
 
-![Basic runx business ops graph](docs/assets/ops-fanout.svg)
+![runx business ops execution trace](docs/assets/ops-fanout.svg)
 
 The graph is the core shape: goal in, governed lanes out, receipts and approval
 gates back. Real teams replace the demo lanes with private context, policies,
