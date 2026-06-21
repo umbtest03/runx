@@ -20,12 +20,35 @@ try {
   const thread = asRecord(payload.thread, "payload.thread");
   const outboxEntry = asRecord(payload.outbox_entry, "payload.outbox_entry");
   const draftPullRequest = optionalRecord(payload.draft_pull_request);
-  const workspacePath = firstNonEmptyString(payload.workspace_path);
+  const workspacePath = firstNonEmptyString(payload.workspace_path, payload.fixture);
   const nextStatus = firstNonEmptyString(payload.next_status);
   const kind = firstNonEmptyString(outboxEntry.kind);
   const env = process.env;
-  const adapterRef = firstNonEmptyString(optionalRecord(thread.adapter)?.adapter_ref);
+  const adapter = optionalRecord(thread.adapter);
+  const adapterRef = firstNonEmptyString(adapter?.adapter_ref);
   const pendingProviderThread = optionalRecord(thread.metadata)?.pending_provider_thread === true;
+  const shouldUseLiveProvider = isGitHubThreadAdapter(adapter);
+
+  if (!shouldUseLiveProvider) {
+    writeJson({
+      observation: observationFor({
+        request,
+        locator: undefined,
+        status: "skipped",
+        idempotencyStatus: "skipped",
+        reason: "thread adapter is not github",
+      }),
+      output: skippedProviderOutput({
+        request,
+        thread,
+        outboxEntry,
+        draftPullRequest,
+        reason: "thread adapter is not github",
+      }),
+    });
+    process.exit(0);
+  }
+
   const pushThread = adapterRef && !pendingProviderThread
     ? fetchGitHubIssueThread({ adapterRef, env, cwd: workspacePath ?? process.cwd() })
     : thread;
@@ -111,7 +134,13 @@ function providerPayload(request) {
   return asRecord(parsed, "payload.body");
 }
 
-function observationFor({ request, locator }) {
+function observationFor({
+  request,
+  locator,
+  status = "accepted",
+  idempotencyStatus = "created",
+  reason,
+}) {
   const observedAt = new Date().toISOString();
   const providerLocator = locator
     ? {
@@ -135,10 +164,10 @@ function observationFor({ request, locator }) {
     provider: request.provider,
     operation: "push",
     request_id: request.push_id,
-    status: "accepted",
+    status,
     idempotency: {
       key: request.idempotency?.key,
-      status: "created",
+      status: idempotencyStatus,
     },
     provider_locator: providerLocator,
     provider_event_id_hash: locator ? sha256Prefixed(locator) : undefined,
@@ -154,8 +183,52 @@ function observationFor({ request, locator }) {
         uri: "runx:redaction_policy:provider-output",
       },
     ],
+    errors: reason
+      ? [
+          {
+            code: "provider_skipped",
+            message: reason,
+            retryable: false,
+          },
+        ]
+      : undefined,
     observed_at: observedAt,
   });
+}
+
+function skippedProviderOutput({
+  request,
+  thread,
+  outboxEntry,
+  draftPullRequest,
+  reason,
+}) {
+  return prune({
+    draft_pull_request: draftPullRequest,
+    outbox_entry: outboxEntry,
+    thread,
+    push: {
+      status: "skipped",
+      provider: request.provider,
+      adapter: optionalRecord(thread.adapter),
+      reason,
+    },
+  });
+}
+
+function isGitHubThreadAdapter(adapter) {
+  if (!adapter) {
+    return true;
+  }
+  const type = firstNonEmptyString(adapter.type);
+  const provider = firstNonEmptyString(adapter.provider);
+  if (type && type !== "github") {
+    return false;
+  }
+  if (provider && provider !== "github") {
+    return false;
+  }
+  return true;
 }
 
 function asRecord(value, field) {

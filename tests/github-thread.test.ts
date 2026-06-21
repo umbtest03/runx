@@ -1,6 +1,7 @@
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -629,6 +630,91 @@ describe("GitHub thread helper", () => {
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
+  });
+
+  it("skips live GitHub mutation for non-GitHub fixture thread adapters", () => {
+    const request = {
+      protocol_version: "runx.thread_outbox_provider.v1",
+      push_id: "thread_push_fixture",
+      adapter_id: "thread-provider.github",
+      provider: "github",
+      thread_locator: {
+        provider: "github",
+        locator: "github://example/repo/issues/123",
+        thread_ref: {
+          type: "github_issue",
+          uri: "github://example/repo/issues/123",
+          provider: "github",
+          locator: "github://example/repo/issues/123",
+        },
+      },
+      outbox_entry_id: "pull_request:fixture",
+      idempotency: {
+        key: "thread-outbox:github:fixture",
+        content_hash: "sha256:fixture",
+      },
+      payload: {
+        format: "json",
+        body: JSON.stringify({
+          thread: {
+            kind: "runx.thread.v1",
+            adapter: {
+              type: "file",
+              adapter_ref: "github://example/repo/issues/123",
+            },
+            thread_kind: "signal",
+            thread_locator: "github://example/repo/issues/123",
+            entries: [],
+            decisions: [],
+            outbox: [],
+            source_refs: [],
+          },
+          outbox_entry: {
+            entry_id: "pull_request:fixture",
+            kind: "pull_request",
+            status: "proposed",
+            thread_locator: "github://example/repo/issues/123",
+          },
+          draft_pull_request: {
+            target: {
+              repo: "example/repo",
+              branch: "fixture",
+            },
+          },
+          fixture: "/tmp/runx-fixture",
+        }),
+      },
+    };
+
+    const result = spawnSync("node", ["tools/thread/thread_outbox_provider/github-provider.mjs"], {
+      cwd: process.cwd(),
+      input: `${JSON.stringify(request)}\n`,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        RUNX_GH_BIN: "/path/that/should/not/be/called",
+      },
+    });
+
+    expect(result.status, result.stderr || result.stdout).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed).toMatchObject({
+      observation: {
+        status: "skipped",
+        idempotency: {
+          status: "skipped",
+        },
+      },
+      output: {
+        outbox_entry: {
+          entry_id: "pull_request:fixture",
+        },
+        push: {
+          status: "skipped",
+          reason: "thread adapter is not github",
+        },
+      },
+    });
   });
 });
 
