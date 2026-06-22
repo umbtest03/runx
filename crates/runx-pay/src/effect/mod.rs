@@ -22,15 +22,15 @@ use thiserror::Error;
 use crate::authority::{
     PaymentSpendCapabilityBinding, StepAuthorityAdmission, admit_step_authority,
 };
-use crate::json_util::json_value_kind;
-use crate::packets::{PaymentRailProof, read_effect_evidence_packet};
-use crate::state::{
+use crate::effect_state::{
     EffectIdempotencyEntry, EffectIdempotencyKey, EffectMutation, EffectMutationStatus,
     EffectPeriodSpendReservation, EffectRecoveryState, EffectRunSpendReservation, EffectStateError,
     EffectStepStateInput, consumed_spend_capability_recorded, escalate_effect_mutation,
     lookup_effect_idempotency_entry, lookup_effect_mutation, period_window_start,
     persist_effect_step_state, record_effect_finality_intent,
 };
+use crate::json_util::json_value_kind;
+use crate::packets::{PaymentRailProof, read_effect_evidence_packet};
 use crate::supervisor::{
     PAYMENT_RAIL_SUPERVISOR_EVIDENCE_METADATA, PaymentSupervisorProof, PaymentSupervisorProofMatch,
     PaymentSupervisorVerificationInput, insert_payment_supervisor_proof_metadata,

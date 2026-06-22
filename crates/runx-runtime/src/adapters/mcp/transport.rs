@@ -14,7 +14,7 @@ use runx_contracts::{JsonObject, JsonValue};
 use serde_json::{self, Value as JsonWireValue};
 
 #[cfg(unix)]
-use crate::process_signal::{ProcessSignal, signal_process_group_id};
+use crate::process::{ProcessSignal, signal_process_group_id};
 use crate::sandbox::SandboxPlan;
 
 use super::rmcp_content_length::{RmcpContentLengthTransport, RmcpTransportErrorState};

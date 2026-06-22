@@ -10,7 +10,7 @@ use std::thread;
 
 use runx_contracts::EffectFinalityPhase;
 use runx_contracts::{JsonObject, JsonValue, Receipt};
-use runx_pay::state::{
+use runx_pay::effect_state::{
     EffectCapabilityConsumption, EffectFinalityEventRecord, EffectFinalityIntent,
     EffectFinalityIntentStatus, EffectFinalityRecord, EffectIdempotencyEntry, EffectIdempotencyKey,
     EffectMutation, EffectMutationStatus, EffectPeriodSpendReservation, EffectRecoveryState,

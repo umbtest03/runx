@@ -169,7 +169,7 @@ fn try_inline_agent_resolution(
         AgentAdapterSourceType, AgentResolver, build_managed_agent_act_invocation,
     };
     use crate::adapters::agent_resolver::AnthropicAgentResolver;
-    use crate::runtime_http::ReqwestHttpTransport;
+    use crate::http::ReqwestHttpTransport;
     use runx_contracts::ResolutionRequest;
 
     let source_type = if invocation.source.source_type == runx_parser::SourceKind::Agent {

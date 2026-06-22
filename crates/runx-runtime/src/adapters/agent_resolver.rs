@@ -18,7 +18,7 @@ use super::agent_anthropic::{AgentToolDefinition, AnthropicModelCaller};
 use super::agent_loop::{AgentLoopConfig, run_agent_loop};
 use super::agent_tools::RuntimeToolExecutor;
 use crate::credentials::{CredentialDelivery, SecretString};
-use crate::runtime_http::RuntimeHttpTransport;
+use crate::http::RuntimeHttpTransport;
 
 const FINAL_RESULT_TOOL: &str = "runx_final_result";
 const MAX_ROUNDS: u32 = 16;

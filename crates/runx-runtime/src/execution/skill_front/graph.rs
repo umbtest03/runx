@@ -554,7 +554,7 @@ impl InlineResolver {
     fn try_resolve(&self, request: &ResolutionRequest) -> Result<Option<JsonValue>, RuntimeError> {
         use crate::adapters::agent::AgentResolver;
         use crate::adapters::agent_resolver::AnthropicAgentResolver;
-        use crate::runtime_http::ReqwestHttpTransport;
+        use crate::http::ReqwestHttpTransport;
 
         let fail = |message: String| RuntimeError::SkillFailed {
             skill_name: "managed-agent".to_owned(),

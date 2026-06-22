@@ -10,7 +10,7 @@ use runx_contracts::{
 };
 use runx_core::state_machine::GraphStatus;
 use runx_pay::PAYMENT_EFFECT_FAMILY;
-use runx_pay::state::{
+use runx_pay::effect_state::{
     EffectMutationStatus, EffectRecoveryState, FileBackedEffectStateStore,
     RUNX_EFFECT_STATE_PATH_ENV,
 };
@@ -893,7 +893,7 @@ fn x402_paid_echo_partial_mutation_escalates_without_second_rail()
     let mutation = store
         .lookup_mutation(
             PAYMENT_EFFECT_FAMILY,
-            &runx_pay::state::EffectIdempotencyKey::new(
+            &runx_pay::effect_state::EffectIdempotencyKey::new(
                 "mock",
                 "merchant:paid-echo",
                 PAID_ECHO_IDEMPOTENCY_KEY,
