@@ -73,10 +73,10 @@ fn minor_unit_caps_subset(
     child_payment: &AuthorityEffectLimit,
     parent_payment: &AuthorityEffectLimit,
 ) -> bool {
-    if uses_minor_units(child) && child_payment.max_per_call_units.is_none() {
-        return false;
-    }
-    if uses_minor_units(child) && parent_payment.max_per_call_units.is_none() {
+    if uses_minor_units(child)
+        && (child_payment.max_per_call_units.is_none()
+            || parent_payment.max_per_call_units.is_none())
+    {
         return false;
     }
 

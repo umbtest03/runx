@@ -431,17 +431,10 @@ fn discover_skill_diagnostics(root: &Path) -> Result<Vec<DoctorDiagnostic>, Runt
             continue;
         }
         let skill_dir = profile_path.parent().map_or(root, |parent| parent);
-        let skill_name = if skill_dir == root {
-            root.file_name().map_or_else(
-                || ".".to_owned(),
-                |name| name.to_string_lossy().into_owned(),
-            )
-        } else {
-            skill_dir.file_name().map_or_else(
-                || ".".to_owned(),
-                |name| name.to_string_lossy().into_owned(),
-            )
-        };
+        let skill_name = skill_dir.file_name().map_or_else(
+            || ".".to_owned(),
+            |name| name.to_string_lossy().into_owned(),
+        );
         if let Err(message) = validate_skill_profile(&contents) {
             diagnostics.push(skill_profile_invalid_diagnostic(
                 root,

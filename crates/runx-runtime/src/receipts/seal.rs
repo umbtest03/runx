@@ -1156,14 +1156,13 @@ impl SignatureVerifier for RuntimeReceiptSignatureVerifier<'_> {
         body_digest: &str,
     ) -> Result<(), SignatureVerificationFailure> {
         if is_local_pseudo_signature(&signature.value) {
-            return if self.policy.allows_local_pseudo_signatures()
-                && signature.value == format!("sig:{body_digest}")
-            {
+            if !self.policy.allows_local_pseudo_signatures() {
+                return Err(SignatureVerificationFailure::MalformedSignature);
+            }
+            return if signature.value.strip_prefix("sig:") == Some(body_digest) {
                 Ok(())
-            } else if self.policy.allows_local_pseudo_signatures() {
-                Err(SignatureVerificationFailure::SignatureMismatch)
             } else {
-                Err(SignatureVerificationFailure::MalformedSignature)
+                Err(SignatureVerificationFailure::SignatureMismatch)
             };
         }
         let Some(verifier) = self.policy.production_verifier else {
@@ -1185,8 +1184,7 @@ fn authority_attenuation_verified(attenuation: &AuthorityAttenuation) -> bool {
             proof.parent_authority_ref == *parent
                 && matches!(proof.result, AuthoritySubsetResult::Subset)
         }
-        (Some(_), None) | (None, Some(_)) => false,
-        (None, None) => false,
+        _ => false,
     }
 }
 

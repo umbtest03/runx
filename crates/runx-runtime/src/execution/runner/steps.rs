@@ -1481,16 +1481,7 @@ fn agent_answer_disposition_value(
 }
 
 fn closure_disposition_label(disposition: &ClosureDisposition) -> &'static str {
-    match disposition {
-        ClosureDisposition::Closed => "closed",
-        ClosureDisposition::Deferred => "deferred",
-        ClosureDisposition::Superseded => "superseded",
-        ClosureDisposition::Declined => "declined",
-        ClosureDisposition::Blocked => "blocked",
-        ClosureDisposition::Failed => "failed",
-        ClosureDisposition::Killed => "killed",
-        ClosureDisposition::TimedOut => "timed_out",
-    }
+    disposition.label()
 }
 
 pub(super) fn run_approval_step<A>(

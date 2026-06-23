@@ -595,16 +595,7 @@ fn closure_output(seal: &runx_contracts::Seal) -> JsonObject {
 }
 
 fn closure_disposition_label(disposition: &ClosureDisposition) -> &'static str {
-    match disposition {
-        ClosureDisposition::Closed => "closed",
-        ClosureDisposition::Deferred => "deferred",
-        ClosureDisposition::Superseded => "superseded",
-        ClosureDisposition::Declined => "declined",
-        ClosureDisposition::Blocked => "blocked",
-        ClosureDisposition::Failed => "failed",
-        ClosureDisposition::Killed => "killed",
-        ClosureDisposition::TimedOut => "timed_out",
-    }
+    disposition.label()
 }
 
 fn normalize_request_id(value: &str) -> String {
