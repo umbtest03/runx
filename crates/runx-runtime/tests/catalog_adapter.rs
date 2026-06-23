@@ -208,9 +208,15 @@ fn catalog_adapter_wraps_local_tool_outputs_for_graph_context_paths()
 
     assert_eq!(output.status, InvocationStatus::Success);
     let payload: JsonValue = serde_json::from_str(&output.stdout)?;
+    // The tool already emits a self-described `{ schema, data }` packet, so `wrap_as`
+    // exposes it as-is at a SINGLE `.data` depth rather than re-wrapping into `.data.data`.
     assert_eq!(
-        json_path(&payload, &["wrapped_packet", "data", "data", "message"]),
+        json_path(&payload, &["wrapped_packet", "data", "message"]),
         Some("hello")
+    );
+    assert!(
+        json_path(&payload, &["wrapped_packet", "data", "data", "message"]).is_none(),
+        "a self-described packet must not be double-wrapped"
     );
     Ok(())
 }

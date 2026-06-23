@@ -107,7 +107,7 @@ pub(crate) const OFFICIAL_SKILLS: &[OfficialSkillLockEntry] = &[
     },
     OfficialSkillLockEntry {
         skill_id: "runx/issue-to-pr",
-        version: "sha-15ad5657509d",
+        version: "sha-6f5184ad4f50",
         digest: "c62756dd6f63d2600075cd5ffcee74786b81ef9db99b8ccf9d79362c43595010",
     },
     OfficialSkillLockEntry {
@@ -307,7 +307,7 @@ pub(crate) const OFFICIAL_SKILLS: &[OfficialSkillLockEntry] = &[
     },
     OfficialSkillLockEntry {
         skill_id: "runx/sourcey",
-        version: "sha-2b08f620e0fa",
+        version: "sha-0ddf49779321",
         digest: "4b6316c7fbb323b7d27d304deb8f11cb8f939dc31e0b74349d56f27abf618504",
     },
     OfficialSkillLockEntry {

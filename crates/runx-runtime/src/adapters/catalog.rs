@@ -521,9 +521,12 @@ fn apply_local_tool_artifact_wrappers(
     if let Some(wrap_as) = artifacts.wrap_as.as_deref()
         && !object.contains_key(wrap_as)
     {
-        let mut wrapper = JsonObject::new();
-        wrapper.insert("data".to_owned(), JsonValue::Object(object.clone()));
-        object.insert(wrap_as.to_owned(), JsonValue::Object(wrapper));
+        // Wrap the claim in the canonical `{ data: ... }` envelope idempotently: a tool
+        // that already emits a self-described `{ schema, data }` packet is exposed as-is
+        // (single `.data`) rather than re-wrapped into `.data.data`. Mirrors the
+        // `named_emits` branch so artifact depth is uniform across both forms.
+        let wrapped = data_envelope(JsonValue::Object(object.clone()));
+        object.insert(wrap_as.to_owned(), wrapped);
         changed = true;
     }
 
