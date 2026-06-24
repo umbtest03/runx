@@ -354,8 +354,8 @@ where
     let child_runtime = Runtime::new(child_adapter, child_options);
     let run =
         child_runtime.run_graph_with_host(&invocation.skill_directory, graph, request.host)?;
-    let payload = nested_graph_payload(&run)?;
-    let mut output = nested_graph_skill_output(&payload, &run)?;
+    let payload = graph_run_payload(&run, true);
+    let mut output = graph_run_skill_output(&payload, &run)?;
     let mut projection = step_output_projection(request.step, &output)?;
     adopt_terminal_step_contract(&run, &mut projection.outputs);
     prepare_effect_output_before_gate(
@@ -411,7 +411,13 @@ fn adopt_terminal_step_contract(run: &GraphRun, outputs: &mut JsonObject) {
     }
 }
 
-fn nested_graph_payload(run: &GraphRun) -> Result<JsonValue, RuntimeError> {
+// Canonical graph-run payload builder, shared in shape with the skill-front graph
+// path (`skill_front::graph::graph_run_payload`). `include_receipt_id` adds the
+// `graph_receipt_id` field that only the NESTED step path surfaces; the outer
+// skill-front path passes `false`. The value is assembled directly: every field is
+// infallible (clones and `format!`), so the old `to_value().and_then(from_value)`
+// round-trip was a no-op and is gone.
+fn graph_run_payload(run: &GraphRun, include_receipt_id: bool) -> JsonValue {
     let mut payload = JsonObject::new();
     payload.insert(
         "graph".to_owned(),
@@ -421,10 +427,12 @@ fn nested_graph_payload(run: &GraphRun) -> Result<JsonValue, RuntimeError> {
         "graph_status".to_owned(),
         JsonValue::String(format!("{:?}", run.state.status)),
     );
-    payload.insert(
-        "graph_receipt_id".to_owned(),
-        JsonValue::String(run.receipt.id.to_string()),
-    );
+    if include_receipt_id {
+        payload.insert(
+            "graph_receipt_id".to_owned(),
+            JsonValue::String(run.receipt.id.to_string()),
+        );
+    }
     let mut step_outputs = JsonObject::new();
     let mut step_summaries = Vec::new();
     for step in &run.steps {
@@ -454,12 +462,10 @@ fn nested_graph_payload(run: &GraphRun) -> Result<JsonValue, RuntimeError> {
     }
     payload.insert("steps".to_owned(), JsonValue::Array(step_summaries));
     payload.insert("step_outputs".to_owned(), JsonValue::Object(step_outputs));
-    serde_json::to_value(JsonValue::Object(payload))
-        .and_then(serde_json::from_value)
-        .map_err(|source| RuntimeError::json("serializing nested graph payload", source))
+    JsonValue::Object(payload)
 }
 
-fn nested_graph_skill_output(
+fn graph_run_skill_output(
     payload: &JsonValue,
     run: &GraphRun,
 ) -> Result<SkillOutput, RuntimeError> {
@@ -1079,7 +1085,7 @@ fn seal_agent_act_step<A>(
     let disposition = agent_answer_disposition_value(step, &response.payload)?;
     let output = agent_task_output(response, &disposition)?;
     let projection = build_step_output_projection(step, &output, extra_artifacts)?;
-    let disposition_label = closure_disposition_label(&disposition);
+    let disposition_label = disposition.label();
     let receipt = seal_step(
         StepSeal {
             graph_name,
@@ -1434,7 +1440,7 @@ fn agent_task_output(
         } else {
             format!(
                 "agent act closed with {}",
-                closure_disposition_label(disposition)
+                disposition.label()
             )
         },
         exit_code: succeeded.then_some(0),
@@ -1478,10 +1484,6 @@ fn agent_answer_disposition_value(
         step_id: step.id.clone(),
         reason: format!("{error}"),
     })
-}
-
-fn closure_disposition_label(disposition: &ClosureDisposition) -> &'static str {
-    disposition.label()
 }
 
 pub(super) fn run_approval_step<A>(

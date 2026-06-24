@@ -231,7 +231,7 @@ fn seal_skill_answer(
     disposition: ClosureDisposition,
     signature_config: &RuntimeReceiptSignatureConfig,
 ) -> Result<runx_contracts::Receipt, SkillRunError> {
-    let disposition_label = closure_disposition_label(&disposition);
+    let disposition_label = disposition.label();
     let succeeded = disposition == ClosureDisposition::Closed;
     let status = if succeeded {
         InvocationStatus::Success
@@ -577,7 +577,7 @@ fn closure_output(seal: &runx_contracts::Seal) -> JsonObject {
     let mut closure = JsonObject::new();
     closure.insert(
         "disposition".to_owned(),
-        JsonValue::String(closure_disposition_label(&seal.disposition).to_owned()),
+        JsonValue::String(seal.disposition.label().to_owned()),
     );
     closure.insert(
         "reason_code".to_owned(),
@@ -592,10 +592,6 @@ fn closure_output(seal: &runx_contracts::Seal) -> JsonObject {
         JsonValue::String(seal.closed_at.to_string()),
     );
     closure
-}
-
-fn closure_disposition_label(disposition: &ClosureDisposition) -> &'static str {
-    disposition.label()
 }
 
 fn normalize_request_id(value: &str) -> String {

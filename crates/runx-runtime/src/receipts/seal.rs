@@ -37,17 +37,12 @@ pub fn step_receipt(
     output: &SkillOutput,
     created_at: &str,
 ) -> Result<Receipt, RuntimeError> {
-    let disposition = disposition(output);
-    step_receipt_with_disposition(StepReceiptWithDisposition {
-        graph_name,
-        step_id,
-        attempt,
-        output,
-        created_at,
-        reason_code: process_reason_code(&disposition),
-        disposition,
-        summary: format!("step {step_id} completed"),
-    })
+    step_receipt_with_disposition_and_policy(
+        StepReceiptWithDisposition::with_default_closure(
+            graph_name, step_id, attempt, output, created_at,
+        ),
+        RuntimeReceiptSignaturePolicy::local_development(),
+    )
 }
 
 pub fn step_receipt_with_signature_policy(
@@ -58,18 +53,10 @@ pub fn step_receipt_with_signature_policy(
     created_at: &str,
     signature_policy: RuntimeReceiptSignaturePolicy<'_>,
 ) -> Result<Receipt, RuntimeError> {
-    let disposition = disposition(output);
     step_receipt_with_disposition_and_policy(
-        StepReceiptWithDisposition {
-            graph_name,
-            step_id,
-            attempt,
-            output,
-            created_at,
-            reason_code: process_reason_code(&disposition),
-            disposition,
-            summary: format!("step {step_id} completed"),
-        },
+        StepReceiptWithDisposition::with_default_closure(
+            graph_name, step_id, attempt, output, created_at,
+        ),
         signature_policy,
     )
 }
@@ -82,19 +69,11 @@ pub fn step_receipt_with_authority_grant_refs(
     authority_grant_refs: Vec<Reference>,
     created_at: &str,
 ) -> Result<Receipt, RuntimeError> {
-    let disposition = disposition(output);
     let projection = project_step_output(output);
     step_receipt_with_disposition_projection_authority_and_policy(
-        StepReceiptWithDisposition {
-            graph_name,
-            step_id,
-            attempt,
-            output,
-            created_at,
-            reason_code: process_reason_code(&disposition),
-            disposition,
-            summary: format!("step {step_id} completed"),
-        },
+        StepReceiptWithDisposition::with_default_closure(
+            graph_name, step_id, attempt, output, created_at,
+        ),
         &projection,
         authority_grant_refs,
         RuntimeReceiptSignaturePolicy::local_development(),
@@ -112,13 +91,34 @@ pub(crate) struct StepReceiptWithDisposition<'a> {
     pub(crate) summary: String,
 }
 
-pub(crate) fn step_receipt_with_disposition(
-    params: StepReceiptWithDisposition<'_>,
-) -> Result<Receipt, RuntimeError> {
-    step_receipt_with_disposition_and_policy(
-        params,
-        RuntimeReceiptSignaturePolicy::local_development(),
-    )
+impl<'a> StepReceiptWithDisposition<'a> {
+    /// A step-receipt request whose closure is derived from the output (the
+    /// process-exit default): `Closed`/`Failed` by exit status, the matching
+    /// `process_*` reason code, and a generic completion summary. This is the
+    /// single source of that derivation for the process-exit step receipts.
+    pub(crate) fn with_default_closure(
+        graph_name: &'a str,
+        step_id: &'a str,
+        attempt: u32,
+        output: &'a SkillOutput,
+        created_at: &'a str,
+    ) -> Self {
+        let StepSealClosure {
+            disposition,
+            reason_code,
+            summary,
+        } = StepSealClosure::default_for(output, step_id);
+        Self {
+            graph_name,
+            step_id,
+            attempt,
+            output,
+            created_at,
+            disposition,
+            reason_code,
+            summary,
+        }
+    }
 }
 
 pub(crate) fn step_receipt_with_disposition_and_policy(
@@ -126,17 +126,9 @@ pub(crate) fn step_receipt_with_disposition_and_policy(
     signature_policy: RuntimeReceiptSignaturePolicy<'_>,
 ) -> Result<Receipt, RuntimeError> {
     let projection = project_step_output(params.output);
-    step_receipt_with_disposition_projection_and_policy(params, &projection, signature_policy)
-}
-
-pub(crate) fn step_receipt_with_disposition_projection_and_policy(
-    params: StepReceiptWithDisposition<'_>,
-    projection: &StepOutputProjection,
-    signature_policy: RuntimeReceiptSignaturePolicy<'_>,
-) -> Result<Receipt, RuntimeError> {
     step_receipt_with_disposition_projection_authority_and_policy(
         params,
-        projection,
+        &projection,
         Vec::new(),
         signature_policy,
     )
@@ -225,6 +217,20 @@ pub(crate) struct StepSealClosure {
     pub(crate) summary: String,
 }
 
+impl StepSealClosure {
+    /// The process-exit default closure derived from the output: `Closed`/`Failed`
+    /// by exit status, the matching `process_*` reason code, and a generic
+    /// completion summary. The single source of this derivation.
+    pub(crate) fn default_for(output: &SkillOutput, step_id: &str) -> Self {
+        let disposition = disposition(output);
+        Self {
+            reason_code: process_reason_code(&disposition),
+            summary: format!("step {step_id} completed"),
+            disposition,
+        }
+    }
+}
+
 pub(crate) fn seal_step(
     params: StepSeal<'_>,
     signature_policy: RuntimeReceiptSignaturePolicy<'_>,
@@ -243,14 +249,7 @@ pub(crate) fn seal_step(
         disposition,
         reason_code,
         summary,
-    } = closure.unwrap_or_else(|| {
-        let disposition = disposition(output);
-        StepSealClosure {
-            reason_code: process_reason_code(&disposition),
-            summary: format!("step {step_id} completed"),
-            disposition,
-        }
-    });
+    } = closure.unwrap_or_else(|| StepSealClosure::default_for(output, step_id));
     step_receipt_with_disposition_projection_authority_and_policy(
         StepReceiptWithDisposition {
             graph_name,

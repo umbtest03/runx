@@ -575,7 +575,6 @@ fn locate_notary_verification(
     root.get("receipt")
         .and_then(|receipt| receipt.get("notary_verification"))
         .or_else(|| root.get("notary_verification"))
-        .or(Some(root))
         .and_then(serde_json::Value::as_object)
 }
 
@@ -1479,6 +1478,55 @@ mod tests {
         assert_eq!(verdict["valid"], JsonValue::Bool(true));
         assert_eq!(verdict["counter_seal"]["digest_status"], "valid");
         assert_eq!(verdict["counter_seal"]["signature_status"], "valid");
+        Ok(())
+    }
+
+    #[test]
+    fn hosted_notary_flags_object_document_without_notary_verification() -> Result<(), io::Error> {
+        let temp = tempfile_dir()?;
+        let key_pair = ring::signature::Ed25519KeyPair::from_seed_unchecked(&FIXTURE_SEED)
+            .map_err(|_| io::Error::other("fixture key must be valid"))?;
+        let public_key_path = temp.join("trusted-notary.pem");
+        fs::write(
+            &public_key_path,
+            ed25519_spki_pem(key_pair.public_key().as_ref()),
+        )?;
+        // An object document that carries no notary_verification (or
+        // receipt.notary_verification) wrapper must surface the missing finding,
+        // not fall through to a misleading counter_seal_missing diagnostic.
+        let document = test_json::json!({ "counter_seal": "not-a-notary-block" });
+
+        let result = run_verify_command_with_stdin(
+            &[
+                "verify".into(),
+                "--notary".into(),
+                "-".into(),
+                "--notary-key".into(),
+                public_key_path.into_os_string(),
+                "--json".into(),
+            ],
+            &BTreeMap::new(),
+            &temp,
+            io::Cursor::new(serde_json::to_vec(&document).map_err(io::Error::other)?),
+        )
+        .map_err(|error| io::Error::other(error.to_string()))?;
+
+        assert!(
+            result.failed,
+            "document without notary_verification must fail: {}",
+            result.output
+        );
+        let verdict: JsonValue = serde_json::from_str(&result.output).map_err(io::Error::other)?;
+        assert_eq!(verdict["valid"], JsonValue::Bool(false));
+        let codes = finding_codes(&verdict);
+        assert!(
+            codes.contains(&"notary_verification_missing".to_owned()),
+            "expected notary_verification_missing, got {codes:?}"
+        );
+        assert!(
+            !codes.contains(&"counter_seal_missing".to_owned()),
+            "must not fall through to counter_seal_missing: {codes:?}"
+        );
         Ok(())
     }
 

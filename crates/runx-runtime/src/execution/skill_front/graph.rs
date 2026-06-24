@@ -151,7 +151,7 @@ pub(super) fn execute_graph_skill_run(
                         &mut final_host,
                     )?;
                     write_graph_receipts(request, workspace, receipts, &run)?;
-                    let payload = graph_payload(&run)?;
+                    let payload = graph_run_payload(&run, false);
                     // A graph that declares an `act:` block seals a clean domain-act
                     // receipt as its primary receipt; the step receipts above remain
                     // as its execution trace.
@@ -166,7 +166,7 @@ pub(super) fn execute_graph_skill_run(
                         write_skill_receipt(request, workspace, receipts, domain_receipt)?;
                     }
                     let receipt = domain.as_ref().unwrap_or(&run.receipt);
-                    let output = graph_skill_output(&payload, &run)?;
+                    let output = graph_run_skill_output(&payload, &run)?;
                     return Ok(JsonValue::Object(sealed_output(
                         manifest,
                         &run_id,
@@ -379,8 +379,8 @@ fn seal_blocked_graph_skill_run(
         &mut final_host,
     )?;
     write_graph_receipts(context.request, context.workspace, context.receipts, &run)?;
-    let payload = graph_payload(&run)?;
-    let output = graph_skill_output(&payload, &run)?;
+    let payload = graph_run_payload(&run, false);
+    let output = graph_run_skill_output(&payload, &run)?;
     Ok(JsonValue::Object(sealed_output(
         context.manifest,
         context.run_id,
@@ -691,7 +691,14 @@ fn graph_run_id(
     }
 }
 
-fn graph_payload(run: &GraphRun) -> Result<JsonValue, SkillRunError> {
+// Canonical graph-run payload builder. The nested-step path
+// (`runner::steps::graph_run_payload`) keeps a shape-identical copy: while the
+// `runner::steps` and `skill_front::graph` submodules are each private to their
+// parent and cannot name one another, the two builders are kept byte-identical so
+// they collapse to one call the moment a re-export lets them share. The
+// skill-front path passes `include_receipt_id = false`; only the nested-step path
+// surfaces `graph_receipt_id`.
+fn graph_run_payload(run: &GraphRun, include_receipt_id: bool) -> JsonValue {
     let mut payload = JsonObject::new();
     payload.insert(
         "graph".to_owned(),
@@ -701,6 +708,12 @@ fn graph_payload(run: &GraphRun) -> Result<JsonValue, SkillRunError> {
         "graph_status".to_owned(),
         JsonValue::String(format!("{:?}", run.state.status)),
     );
+    if include_receipt_id {
+        payload.insert(
+            "graph_receipt_id".to_owned(),
+            JsonValue::String(run.receipt.id.to_string()),
+        );
+    }
     let mut step_outputs = JsonObject::new();
     let mut step_summaries = Vec::new();
     for step in &run.steps {
@@ -730,10 +743,10 @@ fn graph_payload(run: &GraphRun) -> Result<JsonValue, SkillRunError> {
     }
     payload.insert("steps".to_owned(), JsonValue::Array(step_summaries));
     payload.insert("step_outputs".to_owned(), JsonValue::Object(step_outputs));
-    Ok(JsonValue::Object(payload))
+    JsonValue::Object(payload)
 }
 
-fn graph_skill_output(payload: &JsonValue, run: &GraphRun) -> Result<SkillOutput, SkillRunError> {
+fn graph_run_skill_output(payload: &JsonValue, run: &GraphRun) -> Result<SkillOutput, RuntimeError> {
     let stdout = serde_json::to_string(payload)
         .map_err(|source| RuntimeError::json("serializing graph payload", source))?;
     Ok(SkillOutput {
