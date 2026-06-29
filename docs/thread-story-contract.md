@@ -71,6 +71,13 @@ repair sweeps, the driver accepts `THREAD_SYNC_FULL_RECONCILE=1` or
 `THREAD_SYNC_MODE=full` and sends `mode=full` to the source, asking it to return
 every mirrorable thread rather than only changed threads.
 
+The driver flushes observations after each reconciled thread. That is deliberate:
+if a long repair run is cancelled after a provider mutation, the source still
+records the provider locator/cursor for work already completed. Long runs also
+emit `[thread-sync]` progress lines on stderr; set `THREAD_SYNC_PROGRESS_EVERY`
+to reduce or increase progress frequency, and use `THREAD_SYNC_LIMIT` only for
+bounded manual proof runs.
+
 The canonical v1 milestone ids are:
 
 - `accepted`

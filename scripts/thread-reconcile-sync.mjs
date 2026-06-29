@@ -29,28 +29,51 @@ async function main() {
   const config = readConfig(process.env);
   const payload = await fetchDesiredState(config);
   const threads = Array.isArray(payload.threads) ? payload.threads : [];
-  const observations = [];
+  const pendingObservations = [];
   const results = [];
+  let observed = 0;
 
-  for (const thread of threads) {
+  logSyncEvent("start", {
+    mode: config.fullReconcile ? "full" : "incremental",
+    dry_run: config.dryRun,
+    threads: threads.length,
+    limit: config.limit,
+  });
+
+  for (const [index, thread] of threads.entries()) {
+    const startedAt = Date.now();
     try {
       const outcome = reconcileThread(thread, config);
       results.push(outcome.summary);
-      if (outcome.observation) observations.push(outcome.observation);
+      if (outcome.observation) {
+        pendingObservations.push(outcome.observation);
+        observed += await flushObservations(config, pendingObservations);
+      }
+      logThreadProgress(config, {
+        index,
+        total: threads.length,
+        duration_ms: Date.now() - startedAt,
+        ...outcome.summary,
+      });
     } catch (error) {
       results.push({ identity_key: thread?.identity_key, error: messageOf(error) });
+      logThreadProgress(config, {
+        index,
+        total: threads.length,
+        duration_ms: Date.now() - startedAt,
+        identity_key: thread?.identity_key,
+        error: messageOf(error),
+      });
       if (!config.continueOnError) throw error;
     }
   }
 
-  if (!config.dryRun && observations.length > 0) {
-    await postObservations(config, observations);
-  }
+  observed += await flushObservations(config, pendingObservations);
 
   process.stdout.write(`${JSON.stringify({
     ok: true,
     reconciled: threads.length,
-    observed: observations.length,
+    observed,
     results,
   })}\n`);
 }
@@ -81,7 +104,7 @@ function reconcileThread(thread, config) {
   let created = false;
   let snapshot;
   if (!locator) {
-    const pushed = runProvider(buildCreateFrame(thread, frameOptions(config)), config.env);
+    const pushed = runProvider(buildCreateFrame(thread, frameOptions(config)), config);
     locator = threadLocatorFrom(pushed);
     providerThreadId = providerThreadIdFrom(pushed);
     created = true;
@@ -103,14 +126,14 @@ function reconcileThread(thread, config) {
   const labelRemoves = managedLabels.filter((label) => !desiredSet.has(label) && present.has(label));
   const stateDrift = (String(snapshot.state).toUpperCase() !== "CLOSED") !== (thread.state === "open");
   if (labelAdds.length > 0 || labelRemoves.length > 0 || stateDrift) {
-    runProvider(buildLifecycleFrame(thread, locator, frameOptions(config)), config.env);
+    runProvider(buildLifecycleFrame(thread, locator, frameOptions(config)), config);
   }
 
   // 4. Post only comments whose marker is not already on the issue.
   const presentComments = new Set(snapshot.comment_markers);
   const missingComments = comments.filter((comment) => !presentComments.has(comment.entry_id));
   for (const comment of missingComments) {
-    runProvider(buildMessageFrame(thread, comment, locator, frameOptions(config)), config.env);
+    runProvider(buildMessageFrame(thread, comment, locator, frameOptions(config)), config);
   }
 
   return {
@@ -158,6 +181,10 @@ function readConfig(env) {
   if (!internalSecret) {
     throw new Error("THREAD_SYNC_INTERNAL_SECRET is required.");
   }
+  const fullReconcile =
+    env.THREAD_SYNC_FULL_RECONCILE === "1"
+    || env.THREAD_SYNC_FULL_RECONCILE === "true"
+    || env.THREAD_SYNC_MODE === "full";
   return {
     apiBaseUrl: apiBaseUrl.replace(/\/+$/, ""),
     internalSecret,
@@ -168,12 +195,11 @@ function readConfig(env) {
     // No cap by default: reconcile every changed thread the source returns. A
     // limit is only for bounded test/repair runs.
     limit: optionalPositiveInteger(env.THREAD_SYNC_LIMIT),
-    fullReconcile:
-      env.THREAD_SYNC_FULL_RECONCILE === "1"
-      || env.THREAD_SYNC_FULL_RECONCILE === "true"
-      || env.THREAD_SYNC_MODE === "full",
+    fullReconcile,
     dryRun: env.THREAD_SYNC_DRY_RUN === "1" || env.THREAD_SYNC_DRY_RUN === "true",
     continueOnError: env.THREAD_SYNC_FAIL_FAST !== "1" && env.THREAD_SYNC_FAIL_FAST !== "true",
+    progressEvery: optionalPositiveInteger(env.THREAD_SYNC_PROGRESS_EVERY) ?? (fullReconcile ? 1 : 10),
+    providerTimeoutMs: positiveInteger(env.THREAD_SYNC_PROVIDER_TIMEOUT_MS, 60_000),
     env,
   };
 }
@@ -213,12 +239,26 @@ async function postObservations(config, observations) {
   }
 }
 
-function runProvider(frame, env) {
+async function flushObservations(config, observations) {
+  if (config.dryRun || observations.length === 0) {
+    return 0;
+  }
+  const batch = observations.slice();
+  await postObservations(config, batch);
+  observations.length = 0;
+  return batch.length;
+}
+
+function runProvider(frame, config) {
   const child = spawnSync(process.execPath, [PROVIDER_SCRIPT], {
     input: JSON.stringify(frame),
     encoding: "utf8",
-    env: env ?? process.env,
+    env: config.env ?? process.env,
+    timeout: config.providerTimeoutMs,
   });
+  if (child.error) {
+    throw new Error(`thread provider failed for ${frame.outbox_entry_id}: ${child.error.message}`);
+  }
   if (child.status !== 0) {
     throw new Error([
       `thread provider failed for ${frame.outbox_entry_id}.`,
@@ -227,6 +267,30 @@ function runProvider(frame, env) {
     ].filter(Boolean).join("\n"));
   }
   return JSON.parse(child.stdout);
+}
+
+function logSyncEvent(event, fields) {
+  process.stderr.write(`[thread-sync] ${event} ${JSON.stringify(prune(fields) ?? {})}\n`);
+}
+
+function logThreadProgress(config, fields) {
+  const index = Number.isInteger(fields.index) ? fields.index : 0;
+  const total = Number.isInteger(fields.total) ? fields.total : 0;
+  const isLast = total > 0 && index === total - 1;
+  if (!isLast && (index + 1) % config.progressEvery !== 0) {
+    return;
+  }
+  logSyncEvent("thread", {
+    position: `${index + 1}/${total}`,
+    identity_key: fields.identity_key,
+    locator: fields.locator,
+    created: fields.created,
+    labels_changed: fields.labels_changed,
+    comments_posted: fields.comments_posted,
+    dry_run: fields.dry_run,
+    duration_ms: fields.duration_ms,
+    error: fields.error,
+  });
 }
 
 function threadLocatorFrom(pushed) {
