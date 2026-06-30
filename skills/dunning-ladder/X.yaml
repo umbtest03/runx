@@ -24,7 +24,7 @@ harness:
         status: sealed
         receipt:
           schema: runx.receipt.v1
-    - name: cap-reached-escalate
+    - name: cap-reached-refused
       inputs:
         invoice_status: overdue
         aging_days: 60
@@ -38,7 +38,7 @@ harness:
               channel: letter
           cap: 3
       expect:
-        status: failure
+        status: escalated
 runners:
   dunning:
     default: true

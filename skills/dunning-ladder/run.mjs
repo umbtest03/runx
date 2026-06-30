@@ -32,8 +32,8 @@ if (step >= cadence_policy.cap) {
       recommended_action: "escalate to collections",
     },
   }
-  console.error(JSON.stringify(output))
-  process.exit(1)
+  console.log(JSON.stringify(output))
+  process.exit(0)
 }
 
 const currentStep = cadence_policy.steps[step]
