@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.runx.dev/runx/receipt/v1.json",
+  "$id": "https://schemas.runx.ai/runx/receipt/v1.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
@@ -9,7 +9,7 @@
         "properties": {
           "artifact_refs": {
             "items": {
-              "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+              "$id": "https://schemas.runx.ai/runx/reference/v1.json",
               "$schema": "https://json-schema.org/draft/2020-12/schema",
               "additionalProperties": false,
               "properties": {
@@ -335,7 +335,7 @@
             "type": "object"
           },
           "context_ref": {
-            "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+            "$id": "https://schemas.runx.ai/runx/reference/v1.json",
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
@@ -566,7 +566,7 @@
                 },
                 "evidence_refs": {
                   "items": {
-                    "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                    "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                     "$schema": "https://json-schema.org/draft/2020-12/schema",
                     "additionalProperties": false,
                     "properties": {
@@ -819,7 +819,7 @@
                 },
                 "verification_refs": {
                   "items": {
-                    "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                    "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                     "$schema": "https://json-schema.org/draft/2020-12/schema",
                     "additionalProperties": false,
                     "properties": {
@@ -1091,7 +1091,7 @@
               },
               "derived_from": {
                 "items": {
-                  "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                  "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
                   "additionalProperties": false,
                   "properties": {
@@ -1437,7 +1437,7 @@
                           "type": "string"
                         },
                         "surface_ref": {
-                          "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                          "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                           "$schema": "https://json-schema.org/draft/2020-12/schema",
                           "additionalProperties": false,
                           "properties": {
@@ -1676,7 +1676,7 @@
               },
               "handoff_refs": {
                 "items": {
-                  "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                  "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
                   "additionalProperties": false,
                   "properties": {
@@ -1908,7 +1908,7 @@
               },
               "revision_refs": {
                 "items": {
-                  "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                  "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
                   "additionalProperties": false,
                   "properties": {
@@ -2143,7 +2143,7 @@
                       "type": "string"
                     },
                     "surface_ref": {
-                      "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                      "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
                       "additionalProperties": false,
                       "properties": {
@@ -2374,7 +2374,7 @@
                 "type": "array"
               },
               "verification": {
-                "$id": "https://schemas.runx.dev/runx/verification/v1.json",
+                "$id": "https://schemas.runx.ai/runx/verification/v1.json",
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "additionalProperties": false,
                 "properties": {
@@ -2388,7 +2388,7 @@
                         },
                         "checked_refs": {
                           "items": {
-                            "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                            "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                             "$schema": "https://json-schema.org/draft/2020-12/schema",
                             "additionalProperties": false,
                             "properties": {
@@ -2620,7 +2620,7 @@
                         },
                         "evidence_refs": {
                           "items": {
-                            "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                            "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                             "$schema": "https://json-schema.org/draft/2020-12/schema",
                             "additionalProperties": false,
                             "properties": {
@@ -2889,7 +2889,7 @@
                   },
                   "evidence_refs": {
                     "items": {
-                      "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                      "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
                       "additionalProperties": false,
                       "properties": {
@@ -3171,7 +3171,7 @@
           },
           "source_refs": {
             "items": {
-              "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+              "$id": "https://schemas.runx.ai/runx/reference/v1.json",
               "$schema": "https://json-schema.org/draft/2020-12/schema",
               "additionalProperties": false,
               "properties": {
@@ -3400,7 +3400,7 @@
           },
           "target_refs": {
             "items": {
-              "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+              "$id": "https://schemas.runx.ai/runx/reference/v1.json",
               "$schema": "https://json-schema.org/draft/2020-12/schema",
               "additionalProperties": false,
               "properties": {
@@ -3634,7 +3634,7 @@
                 "type": "array"
               },
               "deployment_ref": {
-                "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "additionalProperties": false,
                 "properties": {
@@ -3856,7 +3856,7 @@
                 "x-runx-schema": "runx.reference.v1"
               },
               "verification": {
-                "$id": "https://schemas.runx.dev/runx/verification/v1.json",
+                "$id": "https://schemas.runx.ai/runx/verification/v1.json",
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "additionalProperties": false,
                 "properties": {
@@ -3870,7 +3870,7 @@
                         },
                         "checked_refs": {
                           "items": {
-                            "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                            "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                             "$schema": "https://json-schema.org/draft/2020-12/schema",
                             "additionalProperties": false,
                             "properties": {
@@ -4102,7 +4102,7 @@
                         },
                         "evidence_refs": {
                           "items": {
-                            "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                            "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                             "$schema": "https://json-schema.org/draft/2020-12/schema",
                             "additionalProperties": false,
                             "properties": {
@@ -4371,7 +4371,7 @@
                   },
                   "evidence_refs": {
                     "items": {
-                      "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                      "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
                       "additionalProperties": false,
                       "properties": {
@@ -4667,7 +4667,7 @@
       "additionalProperties": false,
       "properties": {
         "actor_ref": {
-          "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+          "$id": "https://schemas.runx.ai/runx/reference/v1.json",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
@@ -4894,7 +4894,7 @@
             "parent_authority_ref": {
               "anyOf": [
                 {
-                  "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                  "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
                   "additionalProperties": false,
                   "properties": {
@@ -5123,7 +5123,7 @@
             "subset_proof": {
               "anyOf": [
                 {
-                  "$id": "https://schemas.runx.dev/runx/authority/subset-proof/v1.json",
+                  "$id": "https://schemas.runx.ai/runx/authority/subset-proof/v1.json",
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
                   "additionalProperties": false,
                   "properties": {
@@ -5171,7 +5171,7 @@
                       "type": "string"
                     },
                     "parent_authority_ref": {
-                      "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                      "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
                       "additionalProperties": false,
                       "properties": {
@@ -5393,7 +5393,7 @@
                       "x-runx-schema": "runx.reference.v1"
                     },
                     "proof_ref": {
-                      "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                      "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
                       "additionalProperties": false,
                       "properties": {
@@ -5651,7 +5651,7 @@
         },
         "authority_proof_refs": {
           "items": {
-            "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+            "$id": "https://schemas.runx.ai/runx/reference/v1.json",
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
@@ -5883,7 +5883,7 @@
             },
             "redaction_refs": {
               "items": {
-                "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "additionalProperties": false,
                 "properties": {
@@ -6108,7 +6108,7 @@
             },
             "setup_refs": {
               "items": {
-                "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "additionalProperties": false,
                 "properties": {
@@ -6333,7 +6333,7 @@
             },
             "teardown_refs": {
               "items": {
-                "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "additionalProperties": false,
                 "properties": {
@@ -6564,7 +6564,7 @@
         },
         "grant_refs": {
           "items": {
-            "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+            "$id": "https://schemas.runx.ai/runx/reference/v1.json",
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
@@ -6788,7 +6788,7 @@
           "type": "array"
         },
         "mandate_ref": {
-          "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+          "$id": "https://schemas.runx.ai/runx/reference/v1.json",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
@@ -7011,7 +7011,7 @@
         },
         "scope_refs": {
           "items": {
-            "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+            "$id": "https://schemas.runx.ai/runx/reference/v1.json",
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
@@ -7243,7 +7243,7 @@
                   "additionalProperties": false,
                   "properties": {
                     "approval_ref": {
-                      "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                      "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
                       "additionalProperties": false,
                       "properties": {
@@ -7470,7 +7470,7 @@
                       "type": "string"
                     },
                     "approved_by_ref": {
-                      "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                      "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                       "$schema": "https://json-schema.org/draft/2020-12/schema",
                       "additionalProperties": false,
                       "properties": {
@@ -8003,7 +8003,7 @@
                     },
                     "refs": {
                       "items": {
-                        "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                        "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                         "$schema": "https://json-schema.org/draft/2020-12/schema",
                         "additionalProperties": false,
                         "properties": {
@@ -8236,7 +8236,7 @@
                 "type": "array"
               },
               "credential_ref": {
-                "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "additionalProperties": false,
                 "properties": {
@@ -8463,7 +8463,7 @@
                 "type": "string"
               },
               "issued_by_ref": {
-                "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "additionalProperties": false,
                 "properties": {
@@ -8685,7 +8685,7 @@
                 "x-runx-schema": "runx.reference.v1"
               },
               "principal_ref": {
-                "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "additionalProperties": false,
                 "properties": {
@@ -8951,7 +8951,7 @@
                 ]
               },
               "resource_ref": {
-                "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "additionalProperties": false,
                 "properties": {
@@ -9288,13 +9288,13 @@
     },
     "decisions": {
       "items": {
-        "$id": "https://schemas.runx.dev/runx/decision/v1.json",
+        "$id": "https://schemas.runx.ai/runx/decision/v1.json",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
           "artifact_refs": {
             "items": {
-              "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+              "$id": "https://schemas.runx.ai/runx/reference/v1.json",
               "$schema": "https://json-schema.org/draft/2020-12/schema",
               "additionalProperties": false,
               "properties": {
@@ -9630,7 +9630,7 @@
             "properties": {
               "opportunity_refs": {
                 "items": {
-                  "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                  "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
                   "additionalProperties": false,
                   "properties": {
@@ -9856,7 +9856,7 @@
               "selection_ref": {
                 "anyOf": [
                   {
-                    "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                    "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                     "$schema": "https://json-schema.org/draft/2020-12/schema",
                     "additionalProperties": false,
                     "properties": {
@@ -10084,7 +10084,7 @@
               },
               "signal_refs": {
                 "items": {
-                  "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                  "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
                   "additionalProperties": false,
                   "properties": {
@@ -10310,7 +10310,7 @@
               "target_ref": {
                 "anyOf": [
                   {
-                    "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                    "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                     "$schema": "https://json-schema.org/draft/2020-12/schema",
                     "additionalProperties": false,
                     "properties": {
@@ -10548,7 +10548,7 @@
             "properties": {
               "evidence_refs": {
                 "items": {
-                  "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                  "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
                   "additionalProperties": false,
                   "properties": {
@@ -10793,7 +10793,7 @@
               },
               "derived_from": {
                 "items": {
-                  "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                  "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
                   "additionalProperties": false,
                   "properties": {
@@ -11074,7 +11074,7 @@
           "selected_harness_ref": {
             "anyOf": [
               {
-                "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "additionalProperties": false,
                 "properties": {
@@ -11391,7 +11391,7 @@
       "properties": {
         "children": {
           "items": {
-            "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+            "$id": "https://schemas.runx.ai/runx/reference/v1.json",
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "additionalProperties": false,
             "properties": {
@@ -11615,7 +11615,7 @@
           "type": "array"
         },
         "parent": {
-          "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+          "$id": "https://schemas.runx.ai/runx/reference/v1.json",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
@@ -11837,7 +11837,7 @@
           "x-runx-schema": "runx.reference.v1"
         },
         "previous": {
-          "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+          "$id": "https://schemas.runx.ai/runx/reference/v1.json",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
@@ -12059,7 +12059,7 @@
           "x-runx-schema": "runx.reference.v1"
         },
         "resume_ref": {
-          "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+          "$id": "https://schemas.runx.ai/runx/reference/v1.json",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {
@@ -12404,7 +12404,7 @@
               },
               "evidence_refs": {
                 "items": {
-                  "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                  "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
                   "additionalProperties": false,
                   "properties": {
@@ -12657,7 +12657,7 @@
               },
               "verification_refs": {
                 "items": {
-                  "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+                  "$id": "https://schemas.runx.ai/runx/reference/v1.json",
                   "$schema": "https://json-schema.org/draft/2020-12/schema",
                   "additionalProperties": false,
                   "properties": {
@@ -12950,7 +12950,7 @@
     },
     "signals": {
       "items": {
-        "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+        "$id": "https://schemas.runx.ai/runx/reference/v1.json",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
@@ -13280,7 +13280,7 @@
           "type": "string"
         },
         "ref": {
-          "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+          "$id": "https://schemas.runx.ai/runx/reference/v1.json",
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "additionalProperties": false,
           "properties": {

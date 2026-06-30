@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.runx.dev/runx/payment/quote/v1.json",
+  "$id": "https://schemas.runx.ai/runx/payment/quote/v1.json",
   "x-runx-packet-id": "runx.payment.quote.v1",
   "type": "object",
   "properties": {

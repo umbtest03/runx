@@ -59,7 +59,7 @@ impl RunxSchema for Fixture {
             );
             object.insert(
                 "$id".to_owned(),
-                json!("https://schemas.runx.dev/runx/fixture/v1.json"),
+                json!("https://schemas.runx.ai/runx/fixture/v1.json"),
             );
             object.insert("x-runx-schema".to_owned(), json!("runx.fixture.v1"));
         }

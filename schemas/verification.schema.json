@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.runx.dev/runx/verification/v1.json",
+  "$id": "https://schemas.runx.ai/runx/verification/v1.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
@@ -13,7 +13,7 @@
           },
           "checked_refs": {
             "items": {
-              "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+              "$id": "https://schemas.runx.ai/runx/reference/v1.json",
               "$schema": "https://json-schema.org/draft/2020-12/schema",
               "additionalProperties": false,
               "properties": {
@@ -245,7 +245,7 @@
           },
           "evidence_refs": {
             "items": {
-              "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+              "$id": "https://schemas.runx.ai/runx/reference/v1.json",
               "$schema": "https://json-schema.org/draft/2020-12/schema",
               "additionalProperties": false,
               "properties": {
@@ -514,7 +514,7 @@
     },
     "evidence_refs": {
       "items": {
-        "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+        "$id": "https://schemas.runx.ai/runx/reference/v1.json",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {

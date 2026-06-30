@@ -1,10 +1,10 @@
 {
-  "$id": "https://schemas.runx.dev/runx/dev/v1.json",
+  "$id": "https://schemas.runx.ai/runx/dev/v1.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
     "doctor": {
-      "$id": "https://schemas.runx.dev/runx/doctor/v1.json",
+      "$id": "https://schemas.runx.ai/runx/doctor/v1.json",
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
       "properties": {

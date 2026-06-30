@@ -237,7 +237,7 @@ pub enum AuthoritySubsetResult {
 #[serde(deny_unknown_fields)]
 #[runx_schema(
     id = "runx.authority_subset_proof.v1",
-    url = "https://schemas.runx.dev/runx/authority/subset-proof/v1.json"
+    url = "https://schemas.runx.ai/runx/authority/subset-proof/v1.json"
 )]
 pub struct AuthoritySubsetProof {
     pub parent_authority_ref: Reference,

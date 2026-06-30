@@ -47,6 +47,7 @@ await runParallelGroup("source checks", [
   step("typecheck", "pnpm", ["typecheck"]),
   step("bindings:check", "pnpm", ["bindings:check"]),
   step("command drift", "pnpm", ["commands:check-drift"]),
+  step("public domain URLs", "pnpm", ["domains:check"]),
   step("release version sync", "pnpm", ["release:version:check"]),
   step("integration module guard", "node", ["scripts/check-integration-test-modules.mjs"]),
 ]);

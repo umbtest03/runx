@@ -139,7 +139,7 @@ impl RunxSchema for LedgerEntry {
             );
             object.insert(
                 "$id".to_owned(),
-                json!("https://schemas.runx.dev/runx/ledger-entry/v1.json"),
+                json!("https://schemas.runx.ai/runx/ledger-entry/v1.json"),
             );
             object.insert("x-runx-schema".to_owned(), json!("runx.ledger.entry.v1"));
         }

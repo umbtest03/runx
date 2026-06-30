@@ -1,6 +1,7 @@
 import { Type, type Static } from "../internal.js";
 import {
   JSON_SCHEMA_DRAFT_2020_12,
+  RUNX_CONTRACT_IDS,
   type DeepReadonly,
   generatedSchema,
   validateContractSchema,
@@ -36,7 +37,7 @@ const ledgerRecordTypeSchema = Type.Object(
   },
   {
     $schema: JSON_SCHEMA_DRAFT_2020_12,
-    $id: "https://schemas.runx.dev/runx/ledger-entry/v1.json",
+    $id: RUNX_CONTRACT_IDS.ledgerEntry,
     "x-runx-schema": ledgerRecordSchemaVersion,
     additionalProperties: false,
   },

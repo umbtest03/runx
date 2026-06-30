@@ -6,7 +6,7 @@ import {
 
 export const JSON_SCHEMA_DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema" as const;
 
-export const RUNX_SCHEMA_BASE_URL = "https://schemas.runx.dev" as const;
+export const RUNX_SCHEMA_BASE_URL = "https://schemas.runx.ai" as const;
 
 export const RUNX_CONTRACT_IDS = {
   doctor: `${RUNX_SCHEMA_BASE_URL}/runx/doctor/v1.json`,

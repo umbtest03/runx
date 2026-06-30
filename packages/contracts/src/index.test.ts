@@ -90,14 +90,14 @@ describe("@runxhq/contracts", () => {
   });
 
   it("uses durable schema URI ids", () => {
-    expect(RUNX_CONTRACT_IDS.toolManifest).toBe("https://schemas.runx.dev/runx/tool/manifest/v1.json");
+    expect(RUNX_CONTRACT_IDS.toolManifest).toBe("https://schemas.runx.ai/runx/tool/manifest/v1.json");
     expect(runxContractSchemas.toolManifest.$id).toBe(RUNX_CONTRACT_IDS.toolManifest);
     expect(toolManifestV1Schema).toBe(runxContractSchemas.toolManifest);
     expect(RUNX_CONTRACT_IDS.effectFinalityReceipt)
-      .toBe("https://schemas.runx.dev/runx/effect-finality-receipt/v1.json");
+      .toBe("https://schemas.runx.ai/runx/effect-finality-receipt/v1.json");
     expect(runxContractSchemas.effectFinalityReceipt.$id).toBe(RUNX_CONTRACT_IDS.effectFinalityReceipt);
     expect(RUNX_CONTRACT_IDS.dataOperationResult)
-      .toBe("https://schemas.runx.dev/runx/data/operation-result/v1.json");
+      .toBe("https://schemas.runx.ai/runx/data/operation-result/v1.json");
     expect(runxContractSchemas.dataOperationResult.$id).toBe(RUNX_CONTRACT_IDS.dataOperationResult);
     expect((toolManifestV1Schema.properties as Record<string, unknown>).source).toBeDefined();
     expect((toolManifestV1Schema.required as readonly string[])).not.toContain("version");
@@ -515,7 +515,7 @@ describe("@runxhq/contracts", () => {
 
   it("owns operational policy for issue intake and source-thread routing", () => {
     expect(RUNX_LOGICAL_SCHEMAS.operationalPolicy).toBe("runx.operational_policy.v1");
-    expect(RUNX_CONTRACT_IDS.operationalPolicy).toBe("https://schemas.runx.dev/runx/operational-policy/v1.json");
+    expect(RUNX_CONTRACT_IDS.operationalPolicy).toBe("https://schemas.runx.ai/runx/operational-policy/v1.json");
     expect(runxContractSchemas.operationalPolicy.$id).toBe(RUNX_CONTRACT_IDS.operationalPolicy);
     const policy = {
       schema: RUNX_LOGICAL_SCHEMAS.operationalPolicy,
@@ -582,7 +582,7 @@ describe("@runxhq/contracts", () => {
 
   it("owns the generic operational proposal contract", () => {
     expect(RUNX_CONTRACT_IDS.operationalProposal)
-      .toBe("https://schemas.runx.dev/runx/operational-proposal/v1.json");
+      .toBe("https://schemas.runx.ai/runx/operational-proposal/v1.json");
     expect(runxContractSchemas.operationalProposal.$id)
       .toBe(RUNX_CONTRACT_IDS.operationalProposal);
 
@@ -974,7 +974,7 @@ describe("@runxhq/contracts", () => {
   });
 
   it("owns generic post-handoff contracts for reusable outreach state", () => {
-    expect(RUNX_CONTRACT_IDS.handoffSignal).toBe("https://schemas.runx.dev/runx/handoff-signal/v1.json");
+    expect(RUNX_CONTRACT_IDS.handoffSignal).toBe("https://schemas.runx.ai/runx/handoff-signal/v1.json");
     expect(runxContractSchemas.handoffSignal.$id).toBe(RUNX_CONTRACT_IDS.handoffSignal);
     expect(validateHandoffSignalContract({
       schema: "runx.handoff_signal.v1",
@@ -1030,7 +1030,7 @@ describe("@runxhq/contracts", () => {
   });
 
   it("owns a generic act assignment envelope contract for host-neutral invocation", () => {
-    expect(RUNX_CONTRACT_IDS.actAssignment).toBe("https://schemas.runx.dev/runx/act-assignment/v1.json");
+    expect(RUNX_CONTRACT_IDS.actAssignment).toBe("https://schemas.runx.ai/runx/act-assignment/v1.json");
     expect(runxContractSchemas.actAssignment.$id).toBe(RUNX_CONTRACT_IDS.actAssignment);
 
     expect(validateActAssignmentContract({

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.runx.dev/runx/builder/work-plan/v1.json",
+  "$id": "https://schemas.runx.ai/runx/builder/work-plan/v1.json",
   "x-runx-packet-id": "runx.builder.work_plan.v1",
   "type": "object",
   "properties": {

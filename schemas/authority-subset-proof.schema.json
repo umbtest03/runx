@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.runx.dev/runx/authority/subset-proof/v1.json",
+  "$id": "https://schemas.runx.ai/runx/authority/subset-proof/v1.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
@@ -47,7 +47,7 @@
       "type": "string"
     },
     "parent_authority_ref": {
-      "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+      "$id": "https://schemas.runx.ai/runx/reference/v1.json",
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
       "properties": {
@@ -269,7 +269,7 @@
       "x-runx-schema": "runx.reference.v1"
     },
     "proof_ref": {
-      "$id": "https://schemas.runx.dev/runx/reference/v1.json",
+      "$id": "https://schemas.runx.ai/runx/reference/v1.json",
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false,
       "properties": {

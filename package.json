@@ -35,6 +35,7 @@
     "authoring:check-package-contract": "node scripts/check-authoring-package-contract.mjs",
     "bindings:check": "node scripts/check-upstream-skill-bindings.mjs",
     "commands:check-drift": "node scripts/check-command-drift.mjs",
+    "domains:check": "node scripts/check-public-domain-urls.mjs",
     "release:version:check": "tsx scripts/set-release-version.ts --check",
     "release:smoke-live": "node scripts/smoke-released-cli-live.mjs",
     "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",

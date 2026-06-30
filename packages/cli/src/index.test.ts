@@ -1624,7 +1624,7 @@ source:
       path.join(tempDir, "dist", "packets", "profile.v1.schema.json"),
       `${JSON.stringify({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": "https://schemas.runx.dev/packet-graph/profile/v1.json",
+        "$id": "https://schemas.runx.ai/packet-graph/profile/v1.json",
         "x-runx-packet-id": "packet-graph.profile.v1",
         type: "object",
         properties: {
@@ -2130,7 +2130,7 @@ expect:
       path.join(tempDir, "dist", "packets", "echo.v1.schema.json"),
       `${JSON.stringify({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": "https://schemas.runx.dev/packet-demo/echo/v1.json",
+        "$id": "https://schemas.runx.ai/packet-demo/echo/v1.json",
         "x-runx-packet-id": "packet-demo.echo.v1",
         type: "object",
         required: ["message"],
@@ -2228,7 +2228,7 @@ expect:
       path.join(tempDir, "dist", "packets", "echo.v1.schema.json"),
       `${JSON.stringify({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": "https://schemas.runx.dev/replay-demo/echo/v1.json",
+        "$id": "https://schemas.runx.ai/replay-demo/echo/v1.json",
         "x-runx-packet-id": "replay-demo.echo.v1",
         type: "object",
         required: ["message"],

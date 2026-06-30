@@ -81,13 +81,13 @@ impl Property {
 
 /// The top-level identity envelope a contract document carries.
 ///
-/// Most contracts are `Runx { logical }`: a `schemas.runx.dev` `$id` derived
+/// Most contracts are `Runx { logical }`: a `schemas.runx.ai` `$id` derived
 /// from the logical name, the `x-runx-schema` marker, and an optional `schema`
 /// const discriminant. A handful of legacy contracts carry only a bare `$id`
 /// (the `runx.ai/spec` and `runx.ai/schemas` documents) with no
 /// `x-runx-schema` and no injected `schema` discriminant; those use `BareId`.
 pub enum Identity<'a> {
-    /// Logical-name identity: `schemas.runx.dev` `$id`, `x-runx-schema` marker,
+    /// Logical-name identity: `schemas.runx.ai` `$id`, `x-runx-schema` marker,
     /// and an injected optional `schema` const. The `$id` is `url` when given
     /// (for the few logical names whose canonical `$id` does not match the
     /// mechanical [`schema_id_url`] transform), otherwise derived.
@@ -337,7 +337,7 @@ pub fn const_string(value: &str) -> Value {
 }
 
 /// Map a logical schema name (`runx.reference.v1`) to its canonical `$id` URL
-/// (`https://schemas.runx.dev/runx/reference/v1.json`). Each dot-delimited
+/// (`https://schemas.runx.ai/runx/reference/v1.json`). Each dot-delimited
 /// segment is path-joined with `/`, and underscores within a segment become
 /// hyphens (`runx.external_adapter.response.v1` ->
 /// `.../runx/external-adapter/response/v1.json`).
@@ -347,7 +347,7 @@ pub fn schema_id_url(logical: &str) -> String {
         .map(|segment| segment.replace('_', "-"))
         .collect::<Vec<_>>()
         .join("/");
-    format!("https://schemas.runx.dev/{path}.json")
+    format!("https://schemas.runx.ai/{path}.json")
 }
 
 impl RunxSchema for String {
