@@ -1,0 +1,48 @@
+skill: meeting-prep
+version: "0.1.0"
+
+catalog:
+  kind: skill
+  audience: public
+  visibility: public
+  role: canonical
+
+harness:
+  cases:
+    - name: sealed-meeting-brief
+      runner: default
+      inputs:
+        event_context: '{"title": "Sync", "attendees": ["Alice", "Bob"], "date": "2026-07-02"}'
+        provided_notes: "Alice needs to discuss budget."
+        thread_snippets: "Bob: I will bring the Q3 report."
+        public_link_notes: "Q3 budget is $10k."
+        expected_version: "1"
+        idempotency_key: "abc-123"
+      expect:
+        status: sealed
+        receipt:
+          schema: runx.receipt.v1
+          state: sealed
+          disposition: closed
+
+runners:
+  default:
+    default: true
+    type: cli-tool
+    command: node
+    args:
+      - run.mjs
+    inputs:
+      event_context:
+        type: string
+        required: true
+      provided_notes:
+        type: string
+      thread_snippets:
+        type: string
+      public_link_notes:
+        type: string
+      expected_version:
+        type: string
+      idempotency_key:
+        type: string
