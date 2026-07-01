@@ -1,9 +1,24 @@
 {
   "summary": "Meeting Prep skill implemented and verified using local harness",
-  "dogfood": {
-    "command": "runx harness skills/meeting-prep --json",
-    "cli-version": "runx-cli 0.6.14",
-    "status": "passed",
-    "receipt_id": "sha256:3f270ada169a589f4be4e16a06e51cf2b65d5a31d14994ba80ed3083094ab5f3"
-  }
+  "observations": [
+    {
+      "source_repo": "https://github.com/runxhq/runx",
+      "pinned_commit": "506ed5c3bb5f79db0bdbf61bb7150e09c3ba89c2",
+      "commands": [
+        "runx harness skills/meeting-prep --json"
+      ],
+      "generated_files": [
+        "skills/meeting-prep/X.yaml",
+        "skills/meeting-prep/SKILL.md",
+        "skills/meeting-prep/fixtures/dogfood.yaml",
+        "skills/meeting-prep/evidence/evidence.json",
+        "skills/meeting-prep/evidence/report.md"
+      ],
+      "harness_status": "passed",
+      "receipt_ids": [
+        "sha256:3f270ada169a589f4be4e16a06e51cf2b65d5a31d14994ba80ed3083094ab5f3"
+      ],
+      "cli-version": "runx-cli 0.6.14"
+    }
+  ]
 }
