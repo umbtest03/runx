@@ -196,9 +196,14 @@ const PUBLISH_HARNESS_SIGNING_SEED_BASE64: &str = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQ
 const PUBLISH_HARNESS_SIGNING_ISSUER_TYPE: &str = "ci";
 
 fn publish_harness_env() -> BTreeMap<String, String> {
-    let mut env = env::vars().collect();
+    let mut env = runx_runtime::RuntimeOptions::safe_process_env();
+    strip_hosted_publish_env(&mut env);
     ensure_publish_harness_signing_env(&mut env);
     env
+}
+
+fn strip_hosted_publish_env(env: &mut BTreeMap<String, String>) {
+    env.retain(|key, _| !key.starts_with("RUNX_HOSTED_"));
 }
 
 fn ensure_publish_harness_signing_env(env: &mut BTreeMap<String, String>) {
@@ -968,7 +973,8 @@ mod tests {
     use super::{
         PUBLISH_HARNESS_SIGNING_ISSUER_TYPE, PUBLISH_HARNESS_SIGNING_KID,
         collect_publish_harness_package_files, collect_publish_package_files,
-        ensure_publish_harness_signing_env, should_reject_remote_publish_file, unique_temp_dir,
+        ensure_publish_harness_signing_env, should_reject_remote_publish_file,
+        strip_hosted_publish_env, unique_temp_dir,
     };
     use std::fs;
 
@@ -1013,6 +1019,27 @@ mod tests {
         );
         assert!(!env.contains_key(RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64_ENV));
         assert!(!env.contains_key(RUNX_RECEIPT_SIGN_ISSUER_TYPE_ENV));
+    }
+
+    #[test]
+    fn publish_harness_strips_hosted_registry_credentials() {
+        let mut env = std::collections::BTreeMap::from([
+            ("PATH".to_owned(), "/bin".to_owned()),
+            (
+                "RUNX_HOSTED_REGISTRY_PUBLISH_TOKEN".to_owned(),
+                "secret".to_owned(),
+            ),
+            (
+                "RUNX_HOSTED_PUBLIC_HARNESS_OWNERS".to_owned(),
+                "[\"runx\"]".to_owned(),
+            ),
+        ]);
+
+        strip_hosted_publish_env(&mut env);
+
+        assert_eq!(env.get("PATH").map(String::as_str), Some("/bin"));
+        assert!(!env.contains_key("RUNX_HOSTED_REGISTRY_PUBLISH_TOKEN"));
+        assert!(!env.contains_key("RUNX_HOSTED_PUBLIC_HARNESS_OWNERS"));
     }
 
     #[test]

@@ -78,6 +78,11 @@ impl RuntimeOptions {
         Self::from_env(safe_default_env())
     }
 
+    #[must_use]
+    pub fn safe_process_env() -> BTreeMap<String, String> {
+        safe_default_env()
+    }
+
     pub fn from_env(mut env: BTreeMap<String, String>) -> Result<Self, RuntimeError> {
         let receipt_services =
             ReceiptServices::from_env(&env).map_err(|error| RuntimeError::ReceiptInvalid {
