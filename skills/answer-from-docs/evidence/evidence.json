@@ -87,5 +87,6 @@
     {"key": "runx_verify_verdict", "value": "valid: true, signature_mode: production, receipt_count: 1"},
     {"key": "verification_json_url", "value": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb/skills/answer-from-docs/evidence/verification.json"}
   ],
-  "delivery_status": "pending_approval"
+  "summary": "Published answer-from-docs skill to runx.ai registry. Local harness passed 2/2. Hosted harness validated server-side. Dogfood run produced sealed receipt. PR #231 open against runxhq/runx. All 9 artifacts submitted.",
+  "delivery_status": "delivered"
 }

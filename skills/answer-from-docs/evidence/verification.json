@@ -83,7 +83,7 @@
     "failed": 0
   },
   "cross_references": {
-    "evidence_json_sha256": "F5A3DB851F17DD247643F5A2E908AB71B5CCE4C99404E0FBD10696A1E293807F",
+    "evidence_json_sha256": "9A60D13DE81975982C7BADA59F07B2C1B04AEB5D5836647AA54AC6E6C3AFB4E7",
     "source_url_commit": "765e5c6773c2768471691f4e95b91c76e8c9f90f",
     "pr_url": "https://github.com/runxhq/runx/pull/231",
     "registry_digest": "sha256:a1ebe1632c00dd894da040660c742f2f98915a438e874fd096bcfa12b8e5a5b3",
