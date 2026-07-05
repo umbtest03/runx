@@ -29,7 +29,7 @@
       "id": "x_yaml",
       "type": "url",
       "path": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor/X.yaml",
-      "sha256": "E41B0AE19FE916BDA6DC82B0E75AA9DB9B6A2A0D4E92BFE280C8AAF121EF08C6",
+      "sha256": "A61BACF614649400F5FD96C7F9A469DD25A1A2F4D1940A3DB4A60FF44C80F68B",
       "verified": true,
       "note": "Profile with 2 harness cases, HTTP 200"
     },
@@ -37,7 +37,7 @@
       "id": "skill_md",
       "type": "url",
       "path": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor/SKILL.md",
-      "sha256": "394D4B36C716A04D06EBA88DABEF7BBC9D9CCBC6EFF4D08EBC586C4C5C32860F",
+      "sha256": "D94DF0FD11703BD3FF6249511375CC9273619DBFAA0C32F9FC8848D3CB2C53B9",
       "verified": true,
       "note": "Skill declaration, HTTP 200"
     },
