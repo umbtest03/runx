@@ -17,9 +17,9 @@
   },
   "pr": {
     "pr_url": "https://github.com/runxhq/runx/pull/231",
-    "head_commit": "2c2d1802bc07e3f651e77fc5022e455ecaa7bed5"
+    "head_commit": "254a3690f51dcf974f1e95c1056ad9eca82369a5"
   },
-  "source_url": "https://github.com/umbtest03/runx/tree/2c2d1802bc07e3f651e77fc5022e455ecaa7bed5/skills/docs-doctor",
+  "source_url": "https://github.com/umbtest03/runx/tree/254a3690f51dcf974f1e95c1056ad9eca82369a5/skills/docs-doctor",
   "harness": {
     "local": "passed (2/2 cases, 0 assertion errors, WSL)",
     "hosted": "passed (server-side registry validation)",
@@ -54,7 +54,7 @@
     "registry_ref": "umbtest03/docs-doctor@sha-7dbb7270bec3",
     "public_url": "https://runx.ai/x/umbtest03/docs-doctor",
     "pr_url": "https://github.com/runxhq/runx/pull/231",
-    "source_url_raw": "https://raw.githubusercontent.com/umbtest03/runx/2c2d1802bc07e3f651e77fc5022e455ecaa7bed5/skills/docs-doctor",
+    "source_url_raw": "https://raw.githubusercontent.com/umbtest03/runx/254a3690f51dcf974f1e95c1056ad9eca82369a5/skills/docs-doctor",
     "publish_method": "runx registry publish ./skills/docs-doctor/SKILL.md --registry https://api.runx.ai",
     "install_command": "runx add umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai",
     "harness_case_names": "stale-docs, fresh-docs",
