@@ -1,0 +1,71 @@
+skill: answer-from-docs
+version: "0.1.0"
+
+catalog:
+  kind: skill
+  audience: public
+  visibility: public
+  role: canonical
+
+harness:
+  cases:
+    - name: grounded-answer
+      runner: default
+      inputs:
+        question: "What is the runx harness?"
+        corpus:
+          - id: doc1
+            text: "runx harness replays skill fixtures and seals signed receipts for every case."
+          - id: doc2
+            text: "runx registry publish uploads skills and verifies them server-side."
+          - id: doc3
+            text: "runx receipts provide auditable evidence of execution with cryptographic signatures."
+      expect:
+        status: sealed
+        receipt:
+          schema: runx.receipt.v1
+          state: sealed
+          disposition: closed
+          reason_code: process_closed
+
+    - name: unanswered-question
+      runner: default
+      inputs:
+        question: "What is the meaning of life?"
+        corpus:
+          - id: doc1
+            text: "runx is a governed execution platform for AI agents."
+          - id: doc2
+            text: "Skills are portable, typed execution units with harness fixtures."
+      expect:
+        status: failure
+        reason_code: no_answer_found
+
+runners:
+  default:
+    default: true
+    type: cli-tool
+    command: node
+    args:
+      - run.mjs
+    artifacts:
+      named_emits:
+        answer: answer
+        kb_gaps: kb_gaps
+        grounded: grounded
+    inputs:
+      question:
+        type: string
+        required: true
+        description: Natural-language question to answer from the corpus.
+      corpus:
+        type: array
+        required: true
+        description: Bounded set of source documents, each with id and text.
+        items:
+          type: object
+          properties:
+            id:
+              type: string
+            text:
+              type: string
