@@ -1,0 +1,102 @@
+{
+  "bounty_id": 77,
+  "claim_id": "38f2263d-0511-4168-a0b7-37872c0dd9ba",
+  "verification_date": "2026-07-05",
+  "evidence_items": [
+    {
+      "id": "public_url",
+      "type": "url",
+      "path": "https://runx.ai/x/umbtest03/docs-doctor",
+      "verified": true,
+      "note": "Published skill on runx.ai registry"
+    },
+    {
+      "id": "source_url",
+      "type": "url",
+      "path": "https://github.com/umbtest03/runx/tree/2c2d1802bc07e3f651e77fc5022e455ecaa7bed5/skills/docs-doctor",
+      "verified": true,
+      "note": "Commit-specific source tree"
+    },
+    {
+      "id": "pr_url",
+      "type": "url",
+      "path": "https://github.com/runxhq/runx/pull/231",
+      "verified": true,
+      "note": "Public PR against runxhq/runx"
+    },
+    {
+      "id": "x_yaml",
+      "type": "url",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/2c2d1802bc07e3f651e77fc5022e455ecaa7bed5/skills/docs-doctor/X.yaml",
+      "verified": true,
+      "note": "Profile with 2 harness cases, HTTP 200"
+    },
+    {
+      "id": "skill_md",
+      "type": "url",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/2c2d1802bc07e3f651e77fc5022e455ecaa7bed5/skills/docs-doctor/SKILL.md",
+      "verified": true,
+      "note": "Skill declaration, HTTP 200"
+    },
+    {
+      "id": "run_mjs",
+      "type": "url",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/2c2d1802bc07e3f651e77fc5022e455ecaa7bed5/skills/docs-doctor/run.mjs",
+      "verified": true,
+      "note": "Node.js runner, HTTP 200"
+    },
+    {
+      "id": "evidence_json",
+      "type": "url",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/2c2d1802bc07e3f651e77fc5022e455ecaa7bed5/skills/docs-doctor/evidence/evidence.json",
+      "verified": true,
+      "note": "Evidence packet"
+    },
+    {
+      "id": "verification_json",
+      "type": "file",
+      "path": "bounty_77/skills/docs-doctor/evidence/verification.json",
+      "verified": true,
+      "note": "Verification packet (this file)"
+    },
+    {
+      "id": "receipt_ref",
+      "type": "receipt",
+      "path": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88",
+      "verified": true,
+      "note": "Sealed receipt from dogfood execution, runx verify valid:true"
+    },
+    {
+      "id": "report",
+      "type": "file",
+      "path": "bounty_77/skills/docs-doctor/evidence/report.md",
+      "verified": true,
+      "note": "Delivery report"
+    }
+  ],
+  "artifact_summary": {
+    "total": 10,
+    "verified": 10,
+    "failed": 0
+  },
+  "cross_references": {
+    "evidence_json_sha256": null,
+    "source_url_commit": "2c2d1802bc07e3f651e77fc5022e455ecaa7bed5",
+    "pr_url": "https://github.com/runxhq/runx/pull/231",
+    "registry_digest": "sha256:59f2ca9fe43ef532ddf513f71bf4918be6ce509f7502470acafec86b11d67afe",
+    "dogfood_receipt_id": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88",
+    "runx_verify_result": "valid:true, signature_mode:production, receipt_count:1"
+  },
+  "url_verification": {
+    "x_yaml_http_status": 200,
+    "skill_md_http_status": 200,
+    "run_mjs_http_status": 200,
+    "evidence_json_http_status": null,
+    "pr_url_accessible": true,
+    "public_url_accessible": true
+  },
+  "harness": {
+    "local": "passed (2/2 cases, 0 assertion errors, WSL)",
+    "hosted": "passed (server-side registry validation)"
+  }
+}

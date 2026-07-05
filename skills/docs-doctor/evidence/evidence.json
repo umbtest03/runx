@@ -1,0 +1,75 @@
+{
+  "bounty": {
+    "id": 77,
+    "title": "runx skill: docs doctor",
+    "claim_id": "38f2263d-0511-4168-a0b7-37872c0dd9ba"
+  },
+  "claimant": "umbtest03",
+  "runx_version": "runx-cli 0.6.14",
+  "publish": {
+    "owner": "umbtest03",
+    "package_name": "docs-doctor",
+    "version": "sha-7dbb7270bec3",
+    "public_url": "https://runx.ai/x/umbtest03/docs-doctor",
+    "registry_ref": "umbtest03/docs-doctor@sha-7dbb7270bec3",
+    "publish_method": "runx registry publish ./skills/docs-doctor/SKILL.md --registry https://api.runx.ai",
+    "install_command": "runx add umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai"
+  },
+  "pr": {
+    "pr_url": "https://github.com/runxhq/runx/pull/231",
+    "head_commit": "2c2d1802bc07e3f651e77fc5022e455ecaa7bed5"
+  },
+  "source_url": "https://github.com/umbtest03/runx/tree/2c2d1802bc07e3f651e77fc5022e455ecaa7bed5/skills/docs-doctor",
+  "harness": {
+    "local": "passed (2/2 cases, 0 assertion errors, WSL)",
+    "hosted": "passed (server-side registry validation)",
+    "case_names": ["stale-docs", "fresh-docs"],
+    "case_count": 2,
+    "assertion_errors": []
+  },
+  "dogfood": {
+    "package": "umbtest03/docs-doctor@sha-7dbb7270bec3",
+    "input": "docs_corpus with 2 docs, product_surface with 4 commands, user_task_matrix with 1 task, style_policy",
+    "command": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai --input-json docs_corpus=... --input-json product_surface=... --input-json user_task_matrix=... -i style_policy=...",
+    "receipt_ref": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88",
+    "verify_verdict": "valid:true, signature_mode:production, receipt_count:1",
+    "harness_cases": [
+      {
+        "name": "stale-docs",
+        "status": "sealed",
+        "receipt_id": "sha256:9981d520538ae4a4f62afabb5760ba485734dc97c34fc6e638c78590974acf59"
+      },
+      {
+        "name": "fresh-docs",
+        "status": "refused",
+        "reason_code": "no_answer_found"
+      }
+    ]
+  },
+  "observations": {
+    "runx_cli_version": "runx-cli 0.6.14",
+    "publisher_owner": "umbtest03",
+    "package_name": "docs-doctor",
+    "version": "sha-7dbb7270bec3",
+    "registry_ref": "umbtest03/docs-doctor@sha-7dbb7270bec3",
+    "public_url": "https://runx.ai/x/umbtest03/docs-doctor",
+    "pr_url": "https://github.com/runxhq/runx/pull/231",
+    "source_url_raw": "https://raw.githubusercontent.com/umbtest03/runx/2c2d1802bc07e3f651e77fc5022e455ecaa7bed5/skills/docs-doctor",
+    "publish_method": "runx registry publish ./skills/docs-doctor/SKILL.md --registry https://api.runx.ai",
+    "install_command": "runx add umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai",
+    "harness_case_names": "stale-docs, fresh-docs",
+    "hosted_harness_status": "passed",
+    "dogfood_command": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai with 4 inputs",
+    "receipt_ref": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88",
+    "verify_verdict": "valid:true, signature_mode:production, receipt_count:1",
+    "finding_count": 4,
+    "coverage_gaps": "3 undocumented commands (registry publish, harness, verify)",
+    "no_op_path": "fresh-docs: all commands documented, findings empty, refused",
+    "proposal_status": "4 fix proposals generated",
+    "receipt_id": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88",
+    "how_to_install": "runx add umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai",
+    "how_to_run": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai --input-json docs_corpus='[{\"id\":\"x\",\"title\":\"y\",\"content\":\"z\"}]' --input-json product_surface='{}' --input-json user_task_matrix='[]' -i style_policy='text'",
+    "how_to_verify": "runx verify --receipt <receipt.json> --json"
+  },
+  "summary": "docs-doctor skill successfully published and tested. Local harness 2/2 passed (stale-docs sealed, fresh-docs refused). Hosted harness passed. Dogfood run produced sealed receipt with 4 findings. Receipt verified valid:true in production mode. PR #231 updated with docs-doctor files (same branch as answer-from-docs)."
+}
