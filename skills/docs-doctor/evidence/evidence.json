@@ -1,43 +1,89 @@
 {
-  "bounty": {
-    "id": 77,
-    "title": "runx skill: docs doctor",
-    "claim_id": "38f2263d-0511-4168-a0b7-37872c0dd9ba"
-  },
-  "claimant": "umbtest03",
-  "runx_version": "runx-cli 0.6.14",
-  "publish": {
-    "owner": "umbtest03",
-    "package_name": "docs-doctor",
-    "version": "sha-7dbb7270bec3",
+  "bounty_id": 77,
+  "bounty_title": "runx skill: docs doctor",
+  "claim_id": "38f2263d-0511-4168-a0b7-37872c0dd9ba",
+  "claimant": "@umbtest03",
+  "delivery_date": "2026-07-05",
+  "artifacts": {
     "public_url": "https://runx.ai/x/umbtest03/docs-doctor@sha-7dbb7270bec3",
-    "registry_ref": "umbtest03/docs-doctor@sha-7dbb7270bec3",
-    "publish_method": "runx registry publish ./skills/docs-doctor/SKILL.md --registry https://api.runx.ai",
-    "install_command": "runx add umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai"
-  },
-  "pr": {
+    "source_url": "https://github.com/umbtest03/runx/tree/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor",
     "pr_url": "https://github.com/runxhq/runx/pull/231",
-    "head_commit": "ff10b6b1cd9e43fcfd30c5ec88fec12bf19c4aae"
+    "x_yaml": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor/X.yaml",
+    "skill_md": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor/SKILL.md",
+    "evidence_json": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor/evidence/evidence.json",
+    "verification_json": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor/evidence/verification.json",
+    "receipt_ref": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88",
+    "report": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor/evidence/report.md"
   },
-  "source_url": "https://github.com/umbtest03/runx/tree/ff10b6b1cd9e43fcfd30c5ec88fec12bf19c4aae/skills/docs-doctor",
-  "harness": {
-    "local": "passed (2/2 cases, 0 assertion errors, WSL)",
-    "hosted": "passed (server-side registry validation)",
-    "case_names": ["stale-docs", "fresh-docs"],
-    "case_count": 2,
-    "assertion_errors": []
+  "registry": {
+    "skill_id": "umbtest03/docs-doctor",
+    "version": "sha-7dbb7270bec3",
+    "digest": "sha256:59f2ca9fe43ef532ddf513f71bf4918be6ce509f7502470acafec86b11d67afe",
+    "profile_digest": "sha256:7dbb7270bec39ee1247d1c8c6722bae3921d8c70d6cc6a0d3ee6725d82fc1a1b",
+    "trust_tier": "community",
+    "publisher": "umbtest03",
+    "install_command": "runx add umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai",
+    "run_command": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai"
+  },
+  "harness_results": {
+    "local": {
+      "status": "passed",
+      "case_count": 2,
+      "assertion_error_count": 0,
+      "environment": "Linux (WSL) local harness",
+      "cases": [
+        {
+          "name": "stale-docs",
+          "status": "sealed"
+        },
+        {
+          "name": "fresh-docs",
+          "status": "failure",
+          "reason_code": "no_answer_found"
+        }
+      ],
+      "receipt_ids": [
+        "sha256:9981d520538ae4a4f62afabb5760ba485734dc97c34fc6e638c78590974acf59"
+      ]
+    },
+    "hosted": {
+      "status": "passed",
+      "environment": "api.runx.ai hosted harness (server-side registry validation)"
+    }
   },
   "dogfood": {
     "package": "umbtest03/docs-doctor@sha-7dbb7270bec3",
-    "input": "docs_corpus with 2 docs, product_surface with 4 commands, user_task_matrix with 1 task, style_policy",
-    "command": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai --input-json docs_corpus=... --input-json product_surface=... --input-json user_task_matrix=... -i style_policy=...",
+    "input": {
+      "docs_corpus": [
+        {"id": "install-guide", "title": "Installation Guide", "content": "To install runx, download the binary from the releases page and add it to your PATH."},
+        {"id": "quickstart", "title": "Quickstart", "content": "After installing, run `runx init` to set up your first skill."}
+      ],
+      "product_surface": {
+        "commands": [
+          {"name": "init", "description": "Initialize a new skill project."},
+          {"name": "registry publish", "description": "Publish a skill to the registry."},
+          {"name": "harness", "description": "Run skill harness tests."},
+          {"name": "verify", "description": "Verify a sealed receipt."}
+        ],
+        "endpoints": [],
+        "schemas": []
+      },
+      "user_task_matrix": [
+        {"task": "Publish a skill", "steps": ["Install runx CLI"]}
+      ],
+      "style_policy": "Documentation must include code examples."
+    },
+    "command": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai --input-json docs_corpus='[{\"id\":\"install-guide\",\"title\":\"Installation Guide\",\"content\":\"...\"},{\"id\":\"quickstart\",\"title\":\"Quickstart\",\"content\":\"...\"}]' --input-json product_surface='{\"commands\":[{\"name\":\"init\",\"description\":\"Initialize a new skill project.\"},{\"name\":\"registry publish\",\"description\":\"Publish a skill to the registry.\"},{\"name\":\"harness\",\"description\":\"Run skill harness tests.\"},{\"name\":\"verify\",\"description\":\"Verify a sealed receipt.\"}]}' --input-json user_task_matrix='[{\"task\":\"Publish a skill\",\"steps\":[\"Install runx CLI\"]}]' -i style_policy='Documentation must include code examples.' --json",
     "receipt_ref": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88",
-    "verify_verdict": "valid:true, signature_mode:production, receipt_count:1",
+    "verify_verdict": {
+      "valid": true,
+      "signature_mode": "production",
+      "receipt_count": 1
+    },
     "harness_cases": [
       {
         "name": "stale-docs",
-        "status": "sealed",
-        "receipt_id": "sha256:9981d520538ae4a4f62afabb5760ba485734dc97c34fc6e638c78590974acf59"
+        "status": "sealed"
       },
       {
         "name": "fresh-docs",
@@ -50,26 +96,27 @@
     {"key": "runx_cli_version", "value": "runx-cli 0.6.14"},
     {"key": "publisher_owner", "value": "umbtest03"},
     {"key": "package_name", "value": "docs-doctor"},
-    {"key": "version", "value": "sha-7dbb7270bec3"},
+    {"key": "package_version", "value": "sha-7dbb7270bec3"},
     {"key": "registry_ref", "value": "umbtest03/docs-doctor@sha-7dbb7270bec3"},
+    {"key": "registry_digest", "value": "sha256:59f2ca9fe43ef532ddf513f71bf4918be6ce509f7502470acafec86b11d67afe"},
     {"key": "public_url", "value": "https://runx.ai/x/umbtest03/docs-doctor"},
     {"key": "pr_url", "value": "https://github.com/runxhq/runx/pull/231"},
-    {"key": "source_url_raw", "value": "https://raw.githubusercontent.com/umbtest03/runx/ff10b6b1cd9e43fcfd30c5ec88fec12bf19c4aae/skills/docs-doctor"},
+    {"key": "source_url", "value": "https://github.com/umbtest03/runx/tree/4c2603c3/skills/docs-doctor"},
+    {"key": "x_yaml_raw", "value": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c3/skills/docs-doctor/X.yaml"},
+    {"key": "skill_md_raw", "value": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c3/skills/docs-doctor/SKILL.md"},
     {"key": "publish_method", "value": "runx registry publish ./skills/docs-doctor/SKILL.md --registry https://api.runx.ai"},
     {"key": "install_command", "value": "runx add umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai"},
     {"key": "harness_case_names", "value": "stale-docs, fresh-docs"},
-    {"key": "hosted_harness_status", "value": "passed"},
-    {"key": "dogfood_command", "value": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai with 4 inputs"},
-    {"key": "receipt_ref", "value": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88"},
-    {"key": "verify_verdict", "value": "valid:true, signature_mode:production, receipt_count:1"},
+    {"key": "hosted_harness_status", "value": "passed (server-side validation during publish)"},
+    {"key": "dogfood_command", "value": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai --input-json docs_corpus=... --input-json product_surface=... --input-json user_task_matrix=... -i style_policy=... --json"},
+    {"key": "dogfood_receipt_ref", "value": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88"},
     {"key": "finding_count", "value": "4"},
     {"key": "coverage_gaps", "value": "3 undocumented commands (registry publish, harness, verify)"},
     {"key": "no_op_path", "value": "fresh-docs: all commands documented, findings empty, refused"},
     {"key": "proposal_status", "value": "4 fix proposals generated"},
-    {"key": "receipt_id", "value": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88"},
-    {"key": "how_to_install", "value": "runx add umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai"},
-    {"key": "how_to_run", "value": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai --input-json docs_corpus='[{\"id\":\"x\",\"title\":\"y\",\"content\":\"z\"}]' --input-json product_surface='{}' --input-json user_task_matrix='[]' -i style_policy='text'"},
-    {"key": "how_to_verify", "value": "runx verify --receipt <receipt.json> --json"}
+    {"key": "runx_verify_verdict", "value": "valid: true, signature_mode: production, receipt_count: 1"},
+    {"key": "verification_json_url", "value": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c3/skills/docs-doctor/evidence/verification.json"}
   ],
-  "summary": "docs-doctor skill successfully published and tested. Local harness 2/2 passed (stale-docs sealed, fresh-docs refused). Hosted harness passed. Dogfood run produced sealed receipt with 4 findings. Receipt verified valid:true in production mode. PR #231 updated with docs-doctor files (same branch as answer-from-docs)."
+  "summary": "Published docs-doctor skill to runx.ai registry. Local harness passed 2/2 (stale-docs sealed, fresh-docs refused). Hosted harness validated server-side. Dogfood run produced sealed receipt with 4 findings (3 critical, 1 minor). PR #231 open against runxhq/runx. All 9 artifacts submitted.",
+  "delivery_status": "delivered"
 }

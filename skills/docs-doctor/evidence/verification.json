@@ -2,6 +2,7 @@
   "bounty_id": 77,
   "claim_id": "38f2263d-0511-4168-a0b7-37872c0dd9ba",
   "verification_date": "2026-07-05",
+  "claimant": "@umbtest03",
   "evidence_items": [
     {
       "id": "public_url",
@@ -13,7 +14,7 @@
     {
       "id": "source_url",
       "type": "url",
-      "path": "https://github.com/umbtest03/runx/tree/ff10b6b1cd9e43fcfd30c5ec88fec12bf19c4aae/skills/docs-doctor",
+      "path": "https://github.com/umbtest03/runx/tree/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor",
       "verified": true,
       "note": "Commit-specific source tree"
     },
@@ -27,28 +28,23 @@
     {
       "id": "x_yaml",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/ff10b6b1cd9e43fcfd30c5ec88fec12bf19c4aae/skills/docs-doctor/X.yaml",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor/X.yaml",
+      "sha256": "E41B0AE19FE916BDA6DC82B0E75AA9DB9B6A2A0D4E92BFE280C8AAF121EF08C6",
       "verified": true,
       "note": "Profile with 2 harness cases, HTTP 200"
     },
     {
       "id": "skill_md",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/ff10b6b1cd9e43fcfd30c5ec88fec12bf19c4aae/skills/docs-doctor/SKILL.md",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor/SKILL.md",
+      "sha256": "394D4B36C716A04D06EBA88DABEF7BBC9D9CCBC6EFF4D08EBC586C4C5C32860F",
       "verified": true,
       "note": "Skill declaration, HTTP 200"
     },
     {
-      "id": "run_mjs",
-      "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/ff10b6b1cd9e43fcfd30c5ec88fec12bf19c4aae/skills/docs-doctor/run.mjs",
-      "verified": true,
-      "note": "Node.js runner, HTTP 200"
-    },
-    {
       "id": "evidence_json",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/ff10b6b1cd9e43fcfd30c5ec88fec12bf19c4aae/skills/docs-doctor/evidence/evidence.json",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor/evidence/evidence.json",
       "verified": true,
       "note": "Evidence packet"
     },
@@ -75,13 +71,12 @@
     }
   ],
   "artifact_summary": {
-    "total": 10,
-    "verified": 10,
+    "total": 9,
+    "verified": 9,
     "failed": 0
   },
   "cross_references": {
-    "evidence_json_sha256": null,
-    "source_url_commit": "ff10b6b1cd9e43fcfd30c5ec88fec12bf19c4aae",
+    "source_url_commit": "4c2603c39ba2181f4269a07d64145a77a0af88d5",
     "pr_url": "https://github.com/runxhq/runx/pull/231",
     "registry_digest": "sha256:59f2ca9fe43ef532ddf513f71bf4918be6ce509f7502470acafec86b11d67afe",
     "dogfood_receipt_id": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88",
@@ -90,8 +85,7 @@
   "url_verification": {
     "x_yaml_http_status": 200,
     "skill_md_http_status": 200,
-    "run_mjs_http_status": 200,
-    "evidence_json_http_status": null,
+    "evidence_json_http_status": 200,
     "pr_url_accessible": true,
     "public_url_accessible": true
   },
