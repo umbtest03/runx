@@ -11,14 +11,14 @@
 | # | Artifact | URL/Ref |
 |---|----------|---------|
 | 1 | public_url | https://runx.ai/x/umbtest03/docs-doctor@sha-7dbb7270bec3 |
-| 2 | source_url | https://github.com/umbtest03/runx/tree/ff10b6b1/skills/docs-doctor |
+| 2 | source_url | https://github.com/umbtest03/runx/tree/4ad9441/skills/docs-doctor |
 | 3 | pr_url | https://github.com/runxhq/runx/pull/231 |
-| 4 | x_yaml | https://raw.githubusercontent.com/umbtest03/runx/ff10b6b1/skills/docs-doctor/X.yaml |
-| 5 | skill_md | https://raw.githubusercontent.com/umbtest03/runx/ff10b6b1/skills/docs-doctor/SKILL.md |
-| 6 | evidence_json | https://raw.githubusercontent.com/umbtest03/runx/ff10b6b1/skills/docs-doctor/evidence/evidence.json |
-| 7 | verification_json | https://raw.githubusercontent.com/umbtest03/runx/ff10b6b1/skills/docs-doctor/evidence/verification.json |
+| 4 | x_yaml | https://raw.githubusercontent.com/umbtest03/runx/4ad9441/skills/docs-doctor/X.yaml |
+| 5 | skill_md | https://raw.githubusercontent.com/umbtest03/runx/4ad9441/skills/docs-doctor/SKILL.md |
+| 6 | evidence_json | https://raw.githubusercontent.com/umbtest03/runx/4ad9441/skills/docs-doctor/evidence/evidence.json |
+| 7 | verification_json | https://raw.githubusercontent.com/umbtest03/runx/4ad9441/skills/docs-doctor/evidence/verification.json |
 | 8 | receipt_ref | sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88 |
-| 9 | report | https://raw.githubusercontent.com/umbtest03/runx/ff10b6b1/skills/docs-doctor/evidence/report.md |
+| 9 | report | https://raw.githubusercontent.com/umbtest03/runx/4ad9441/skills/docs-doctor/evidence/report.md |
 
 ## Skill Description
 Finds stale product documentation by comparing docs against the actual product surface. Emits grounded findings with severity, evidence, and fix proposals. Never rewrites docs without a proposal.
