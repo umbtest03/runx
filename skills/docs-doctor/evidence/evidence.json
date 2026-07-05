@@ -17,16 +17,13 @@
   },
   "pr": {
     "pr_url": "https://github.com/runxhq/runx/pull/231",
-    "head_commit": "1b1d1f8713ffea0c4c8680296b0de04124302b60"
+    "head_commit": "ff10b6b1cd9e43fcfd30c5ec88fec12bf19c4aae"
   },
-  "source_url": "https://github.com/umbtest03/runx/tree/1b1d1f8713ffea0c4c8680296b0de04124302b60/skills/docs-doctor",
+  "source_url": "https://github.com/umbtest03/runx/tree/ff10b6b1cd9e43fcfd30c5ec88fec12bf19c4aae/skills/docs-doctor",
   "harness": {
     "local": "passed (2/2 cases, 0 assertion errors, WSL)",
     "hosted": "passed (server-side registry validation)",
-    "case_names": [
-      "stale-docs",
-      "fresh-docs"
-    ],
+    "case_names": ["stale-docs", "fresh-docs"],
     "case_count": 2,
     "assertion_errors": []
   },
@@ -50,98 +47,29 @@
     ]
   },
   "observations": [
-    {
-      "key": "runx_cli_version",
-      "value": "runx-cli 0.6.14"
-    },
-    {
-      "key": "publisher_owner",
-      "value": "umbtest03"
-    },
-    {
-      "key": "package_name",
-      "value": "docs-doctor"
-    },
-    {
-      "key": "version",
-      "value": "sha-7dbb7270bec3"
-    },
-    {
-      "key": "registry_ref",
-      "value": "umbtest03/docs-doctor@sha-7dbb7270bec3"
-    },
-    {
-      "key": "public_url",
-      "value": "https://runx.ai/x/umbtest03/docs-doctor"
-    },
-    {
-      "key": "pr_url",
-      "value": "https://github.com/runxhq/runx/pull/231"
-    },
-    {
-      "key": "source_url_raw",
-      "value": "https://raw.githubusercontent.com/umbtest03/runx/1b1d1f8713ffea0c4c8680296b0de04124302b60/skills/docs-doctor"
-    },
-    {
-      "key": "publish_method",
-      "value": "runx registry publish ./skills/docs-doctor/SKILL.md --registry https://api.runx.ai"
-    },
-    {
-      "key": "install_command",
-      "value": "runx add umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai"
-    },
-    {
-      "key": "harness_case_names",
-      "value": "stale-docs, fresh-docs"
-    },
-    {
-      "key": "hosted_harness_status",
-      "value": "passed"
-    },
-    {
-      "key": "dogfood_command",
-      "value": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai with 4 inputs"
-    },
-    {
-      "key": "receipt_ref",
-      "value": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88"
-    },
-    {
-      "key": "verify_verdict",
-      "value": "valid:true, signature_mode:production, receipt_count:1"
-    },
-    {
-      "key": "finding_count",
-      "value": "4"
-    },
-    {
-      "key": "coverage_gaps",
-      "value": "3 undocumented commands (registry publish, harness, verify)"
-    },
-    {
-      "key": "no_op_path",
-      "value": "fresh-docs: all commands documented, findings empty, refused"
-    },
-    {
-      "key": "proposal_status",
-      "value": "4 fix proposals generated"
-    },
-    {
-      "key": "receipt_id",
-      "value": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88"
-    },
-    {
-      "key": "how_to_install",
-      "value": "runx add umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai"
-    },
-    {
-      "key": "how_to_run",
-      "value": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai --input-json docs_corpus='[{\"id\":\"x\",\"title\":\"y\",\"content\":\"z\"}]' --input-json product_surface='{}' --input-json user_task_matrix='[]' -i style_policy='text'"
-    },
-    {
-      "key": "how_to_verify",
-      "value": "runx verify --receipt <receipt.json> --json"
-    }
+    {"key": "runx_cli_version", "value": "runx-cli 0.6.14"},
+    {"key": "publisher_owner", "value": "umbtest03"},
+    {"key": "package_name", "value": "docs-doctor"},
+    {"key": "version", "value": "sha-7dbb7270bec3"},
+    {"key": "registry_ref", "value": "umbtest03/docs-doctor@sha-7dbb7270bec3"},
+    {"key": "public_url", "value": "https://runx.ai/x/umbtest03/docs-doctor"},
+    {"key": "pr_url", "value": "https://github.com/runxhq/runx/pull/231"},
+    {"key": "source_url_raw", "value": "https://raw.githubusercontent.com/umbtest03/runx/ff10b6b1cd9e43fcfd30c5ec88fec12bf19c4aae/skills/docs-doctor"},
+    {"key": "publish_method", "value": "runx registry publish ./skills/docs-doctor/SKILL.md --registry https://api.runx.ai"},
+    {"key": "install_command", "value": "runx add umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai"},
+    {"key": "harness_case_names", "value": "stale-docs, fresh-docs"},
+    {"key": "hosted_harness_status", "value": "passed"},
+    {"key": "dogfood_command", "value": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai with 4 inputs"},
+    {"key": "receipt_ref", "value": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88"},
+    {"key": "verify_verdict", "value": "valid:true, signature_mode:production, receipt_count:1"},
+    {"key": "finding_count", "value": "4"},
+    {"key": "coverage_gaps", "value": "3 undocumented commands (registry publish, harness, verify)"},
+    {"key": "no_op_path", "value": "fresh-docs: all commands documented, findings empty, refused"},
+    {"key": "proposal_status", "value": "4 fix proposals generated"},
+    {"key": "receipt_id", "value": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88"},
+    {"key": "how_to_install", "value": "runx add umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai"},
+    {"key": "how_to_run", "value": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai --input-json docs_corpus='[{\"id\":\"x\",\"title\":\"y\",\"content\":\"z\"}]' --input-json product_surface='{}' --input-json user_task_matrix='[]' -i style_policy='text'"},
+    {"key": "how_to_verify", "value": "runx verify --receipt <receipt.json> --json"}
   ],
   "summary": "docs-doctor skill successfully published and tested. Local harness 2/2 passed (stale-docs sealed, fresh-docs refused). Hosted harness passed. Dogfood run produced sealed receipt with 4 findings. Receipt verified valid:true in production mode. PR #231 updated with docs-doctor files (same branch as answer-from-docs)."
 }
