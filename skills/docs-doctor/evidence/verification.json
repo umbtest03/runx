@@ -14,7 +14,7 @@
     {
       "id": "source_url",
       "type": "url",
-      "path": "https://github.com/umbtest03/runx/tree/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor",
+      "path": "https://github.com/umbtest03/runx/tree/825238ea7836ada502b1cba098941fc97f41749c/skills/docs-doctor",
       "verified": true,
       "note": "Commit-specific source tree"
     },
@@ -28,7 +28,7 @@
     {
       "id": "x_yaml",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor/X.yaml",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/825238ea7836ada502b1cba098941fc97f41749c/skills/docs-doctor/X.yaml",
       "sha256": "A61BACF614649400F5FD96C7F9A469DD25A1A2F4D1940A3DB4A60FF44C80F68B",
       "verified": true,
       "note": "Profile with 2 harness cases, HTTP 200"
@@ -36,7 +36,7 @@
     {
       "id": "skill_md",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor/SKILL.md",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/825238ea7836ada502b1cba098941fc97f41749c/skills/docs-doctor/SKILL.md",
       "sha256": "D94DF0FD11703BD3FF6249511375CC9273619DBFAA0C32F9FC8848D3CB2C53B9",
       "verified": true,
       "note": "Skill declaration, HTTP 200"
@@ -44,7 +44,7 @@
     {
       "id": "evidence_json",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/4c2603c39ba2181f4269a07d64145a77a0af88d5/skills/docs-doctor/evidence/evidence.json",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/825238ea7836ada502b1cba098941fc97f41749c/skills/docs-doctor/evidence/evidence.json",
       "verified": true,
       "note": "Evidence packet"
     },
@@ -76,7 +76,7 @@
     "failed": 0
   },
   "cross_references": {
-    "source_url_commit": "4c2603c39ba2181f4269a07d64145a77a0af88d5",
+    "source_url_commit": "825238ea7836ada502b1cba098941fc97f41749c",
     "pr_url": "https://github.com/runxhq/runx/pull/231",
     "registry_digest": "sha256:59f2ca9fe43ef532ddf513f71bf4918be6ce509f7502470acafec86b11d67afe",
     "dogfood_receipt_id": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88",

@@ -11,14 +11,14 @@
 | # | Artifact | URL/Ref |
 |---|----------|---------|
 | 1 | public_url | https://runx.ai/x/umbtest03/docs-doctor |
-| 2 | source_url | https://github.com/umbtest03/runx/tree/4c2603c3/skills/docs-doctor |
+| 2 | source_url | https://github.com/umbtest03/runx/tree/825238ea/skills/docs-doctor |
 | 3 | pr_url | https://github.com/runxhq/runx/pull/231 |
-| 4 | x_yaml | https://raw.githubusercontent.com/umbtest03/runx/4c2603c3/skills/docs-doctor/X.yaml |
-| 5 | skill_md | https://raw.githubusercontent.com/umbtest03/runx/4c2603c3/skills/docs-doctor/SKILL.md |
-| 6 | evidence_json | https://raw.githubusercontent.com/umbtest03/runx/4c2603c3/skills/docs-doctor/evidence/evidence.json |
-| 7 | verification_json | https://raw.githubusercontent.com/umbtest03/runx/4c2603c3/skills/docs-doctor/evidence/verification.json |
+| 4 | x_yaml | https://raw.githubusercontent.com/umbtest03/runx/825238ea/skills/docs-doctor/X.yaml |
+| 5 | skill_md | https://raw.githubusercontent.com/umbtest03/runx/825238ea/skills/docs-doctor/SKILL.md |
+| 6 | evidence_json | https://raw.githubusercontent.com/umbtest03/runx/825238ea/skills/docs-doctor/evidence/evidence.json |
+| 7 | verification_json | https://raw.githubusercontent.com/umbtest03/runx/825238ea/skills/docs-doctor/evidence/verification.json |
 | 8 | receipt_ref | sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88 |
-| 9 | report | https://raw.githubusercontent.com/umbtest03/runx/4c2603c3/skills/docs-doctor/evidence/report.md |
+| 9 | report | https://raw.githubusercontent.com/umbtest03/runx/825238ea/skills/docs-doctor/evidence/report.md |
 
 ## Skill Description
 Audits documentation against a product surface and user task matrix. Identifies undocumented commands, endpoints, schemas, and missing or stale documentation with fix proposals. Refuses when all commands are fully documented.
