@@ -11,14 +11,14 @@
 | # | Artifact | URL/Ref |
 |---|----------|---------|
 | 1 | public_url | https://runx.ai/x/umbtest03/answer-from-docs |
-| 2 | source_url | https://github.com/umbtest03/runx/tree/64b8bdeb/skills/answer-from-docs |
+| 2 | source_url | https://github.com/umbtest03/runx/tree/765e5c67/skills/answer-from-docs |
 | 3 | pr_url | https://github.com/runxhq/runx/pull/231 |
-| 4 | x_yaml | https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb/skills/answer-from-docs/X.yaml |
-| 5 | skill_md | https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb/skills/answer-from-docs/SKILL.md |
-| 6 | evidence_json | https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb/skills/answer-from-docs/evidence/evidence.json |
-| 7 | verification_json | https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb/skills/answer-from-docs/evidence/verification.json |
+| 4 | x_yaml | https://raw.githubusercontent.com/umbtest03/runx/765e5c67/skills/answer-from-docs/X.yaml |
+| 5 | skill_md | https://raw.githubusercontent.com/umbtest03/runx/765e5c67/skills/answer-from-docs/SKILL.md |
+| 6 | evidence_json | https://raw.githubusercontent.com/umbtest03/runx/765e5c67/skills/answer-from-docs/evidence/evidence.json |
+| 7 | verification_json | https://raw.githubusercontent.com/umbtest03/runx/765e5c67/skills/answer-from-docs/evidence/verification.json |
 | 8 | receipt_ref | sha256:65a86dfa545997d8166f0dca7af0fb4fd479ee179e1ec4dbf2076d62353b11d1 |
-| 9 | report | https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb/skills/answer-from-docs/evidence/report.md |
+| 9 | report | https://raw.githubusercontent.com/umbtest03/runx/765e5c67/skills/answer-from-docs/evidence/report.md |
 
 ## Skill Description
 Answers a natural-language question strictly from a bounded corpus. Returns grounded answers with citations or refuses when corpus lacks coverage.

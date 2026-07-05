@@ -13,7 +13,7 @@
     {
       "id": "source_url",
       "type": "url",
-      "path": "https://github.com/umbtest03/runx/tree/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs",
+      "path": "https://github.com/umbtest03/runx/tree/765e5c6773c2768471691f4e95b91c76e8c9f90f/skills/answer-from-docs",
       "verified": true,
       "note": "Commit-specific source tree"
     },
@@ -27,7 +27,7 @@
     {
       "id": "x_yaml",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs/X.yaml",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/765e5c6773c2768471691f4e95b91c76e8c9f90f/skills/answer-from-docs/X.yaml",
       "sha256": "257F2E25FE28B85E2E672E6E523A705EE5C636E867ED12BEEC0651BFB599993A",
       "verified": true,
       "note": "Profile with 2 harness cases, HTTP 200"
@@ -35,7 +35,7 @@
     {
       "id": "skill_md",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs/SKILL.md",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/765e5c6773c2768471691f4e95b91c76e8c9f90f/skills/answer-from-docs/SKILL.md",
       "sha256": "B453E6C749A05C4612AF0C4162B2C356F42C9DFECD53546E1AD4BFBCA1E6A449",
       "verified": true,
       "note": "Skill declaration, HTTP 200"
@@ -43,7 +43,7 @@
     {
       "id": "run_mjs",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs/run.mjs",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/765e5c6773c2768471691f4e95b91c76e8c9f90f/skills/answer-from-docs/run.mjs",
       "sha256": "69ABCD674AF94D412C7090357EF2070684D7663426FBA90B7EAD478B338AB5D4",
       "verified": true,
       "note": "Node.js runner, HTTP 200"
@@ -51,7 +51,7 @@
     {
       "id": "evidence_json",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs/evidence/evidence.json",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/765e5c6773c2768471691f4e95b91c76e8c9f90f/skills/answer-from-docs/evidence/evidence.json",
       "verified": true,
       "note": "Evidence packet"
     },
@@ -83,8 +83,8 @@
     "failed": 0
   },
   "cross_references": {
-    "evidence_json_sha256": "800D63E1EAB841B7E1CC919E6F9D63303111BC7670ECF8E7951BBB922963D14C",
-    "source_url_commit": "64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3",
+    "evidence_json_sha256": "F5A3DB851F17DD247643F5A2E908AB71B5CCE4C99404E0FBD10696A1E293807F",
+    "source_url_commit": "765e5c6773c2768471691f4e95b91c76e8c9f90f",
     "pr_url": "https://github.com/runxhq/runx/pull/231",
     "registry_digest": "sha256:a1ebe1632c00dd894da040660c742f2f98915a438e874fd096bcfa12b8e5a5b3",
     "dogfood_receipt_id": "sha256:65a86dfa545997d8166f0dca7af0fb4fd479ee179e1ec4dbf2076d62353b11d1",

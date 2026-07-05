@@ -6,14 +6,14 @@
   "delivery_date": "2026-07-05",
   "artifacts": {
     "public_url": "https://runx.ai/x/umbtest03/answer-from-docs",
-    "source_url": "https://github.com/umbtest03/runx/tree/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs",
+    "source_url": "https://github.com/umbtest03/runx/tree/765e5c6773c2768471691f4e95b91c76e8c9f90f/skills/answer-from-docs",
     "pr_url": "https://github.com/runxhq/runx/pull/231",
-    "x_yaml": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs/X.yaml",
-    "skill_md": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs/SKILL.md",
-    "evidence_json": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs/evidence/evidence.json",
-    "verification_json": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs/evidence/verification.json",
+    "x_yaml": "https://raw.githubusercontent.com/umbtest03/runx/765e5c6773c2768471691f4e95b91c76e8c9f90f/skills/answer-from-docs/X.yaml",
+    "skill_md": "https://raw.githubusercontent.com/umbtest03/runx/765e5c6773c2768471691f4e95b91c76e8c9f90f/skills/answer-from-docs/SKILL.md",
+    "evidence_json": "https://raw.githubusercontent.com/umbtest03/runx/765e5c6773c2768471691f4e95b91c76e8c9f90f/skills/answer-from-docs/evidence/evidence.json",
+    "verification_json": "https://raw.githubusercontent.com/umbtest03/runx/765e5c6773c2768471691f4e95b91c76e8c9f90f/skills/answer-from-docs/evidence/verification.json",
     "receipt_ref": "sha256:65a86dfa545997d8166f0dca7af0fb4fd479ee179e1ec4dbf2076d62353b11d1",
-    "report": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs/evidence/report.md"
+    "report": "https://raw.githubusercontent.com/umbtest03/runx/765e5c6773c2768471691f4e95b91c76e8c9f90f/skills/answer-from-docs/evidence/report.md"
   },
   "registry": {
     "skill_id": "umbtest03/answer-from-docs",
