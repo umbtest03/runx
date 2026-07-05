@@ -13,7 +13,7 @@
     {
       "id": "source_url",
       "type": "url",
-      "path": "https://github.com/umbtest03/runx/tree/254a3690f51dcf974f1e95c1056ad9eca82369a5/skills/docs-doctor",
+      "path": "https://github.com/umbtest03/runx/tree/e9ecb16009e62725548c4d0805ad3c53bcb5d59d/skills/docs-doctor",
       "verified": true,
       "note": "Commit-specific source tree"
     },
@@ -27,28 +27,28 @@
     {
       "id": "x_yaml",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/254a3690f51dcf974f1e95c1056ad9eca82369a5/skills/docs-doctor/X.yaml",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/e9ecb16009e62725548c4d0805ad3c53bcb5d59d/skills/docs-doctor/X.yaml",
       "verified": true,
       "note": "Profile with 2 harness cases, HTTP 200"
     },
     {
       "id": "skill_md",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/254a3690f51dcf974f1e95c1056ad9eca82369a5/skills/docs-doctor/SKILL.md",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/e9ecb16009e62725548c4d0805ad3c53bcb5d59d/skills/docs-doctor/SKILL.md",
       "verified": true,
       "note": "Skill declaration, HTTP 200"
     },
     {
       "id": "run_mjs",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/254a3690f51dcf974f1e95c1056ad9eca82369a5/skills/docs-doctor/run.mjs",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/e9ecb16009e62725548c4d0805ad3c53bcb5d59d/skills/docs-doctor/run.mjs",
       "verified": true,
       "note": "Node.js runner, HTTP 200"
     },
     {
       "id": "evidence_json",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/254a3690f51dcf974f1e95c1056ad9eca82369a5/skills/docs-doctor/evidence/evidence.json",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/e9ecb16009e62725548c4d0805ad3c53bcb5d59d/skills/docs-doctor/evidence/evidence.json",
       "verified": true,
       "note": "Evidence packet"
     },
