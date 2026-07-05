@@ -1,0 +1,203 @@
+skill: docs-doctor
+version: "0.1.0"
+
+catalog:
+  kind: skill
+  audience: public
+  visibility: public
+  role: canonical
+
+harness:
+  cases:
+    - name: stale-docs
+      runner: default
+      inputs:
+        docs_corpus:
+          - id: install-guide
+            title: Installation Guide
+            content: >
+              To install runx, download the binary from the releases page and add
+              it to your PATH.
+          - id: quickstart
+            title: Quickstart
+            content: >
+              After installing, run `runx init` to set up your first skill.
+        product_surface:
+          commands:
+            - name: init
+              description: Initialize a new skill project.
+            - name: registry publish
+              description: Publish a skill to the registry.
+            - name: harness
+              description: Run skill harness tests.
+            - name: verify
+              description: Verify a sealed receipt.
+          endpoints: []
+          schemas: []
+        user_task_matrix:
+          - task: Publish a skill
+            steps:
+              - Install runx CLI
+              - Create a skill directory
+              - Write SKILL.md
+              - Run harness locally
+              - Publish to registry
+          - task: Verify a receipt
+            steps:
+              - Run a skill
+              - Capture the sealed receipt
+              - Run verify command
+        style_policy: >
+          Documentation must include code examples, command syntax with flags,
+          expected output, and common troubleshooting tips.
+      expect:
+        status: sealed
+        receipt:
+          schema: runx.receipt.v1
+          state: sealed
+          disposition: closed
+          reason_code: process_closed
+
+    - name: fresh-docs
+      runner: default
+      inputs:
+        docs_corpus:
+          - id: init-guide
+            title: Init Command
+            content: >
+              `runx init --name my-skill` scaffolds a new skill project.
+              Use `runx init --template minimal` for a bare starter.
+              See runx doc init for all flags and examples.
+          - id: publishing-guide
+            title: Publishing Guide
+            content: >
+              Use `runx registry publish ./path/to/SKILL.md --registry
+              https://api.runx.ai` to publish. Requires `runx login --provider
+              github --for publish` first.
+          - id: receipt-verify
+            title: Receipt Verification
+            content: >
+              `runx verify --receipt receipt.json --json` checks the signature
+              and returns the verified receipt payload.
+          - id: harness-guide
+            title: Harness Guide
+            content: >
+              `runx harness ./path/to/skill` runs all cases defined in X.yaml.
+              Each case produces a sealed receipt on success.
+        product_surface:
+          commands:
+            - name: init
+              description: Initialize a new skill project.
+            - name: registry publish
+              description: Publish a skill to the registry.
+            - name: harness
+              description: Run skill harness tests.
+            - name: verify
+              description: Verify a sealed receipt.
+          endpoints: []
+          schemas: []
+        user_task_matrix:
+          - task: Initialize a skill
+            steps:
+              - Run runx init
+              - Follow the prompts
+              - Edit the generated files
+          - task: Publish a skill
+            steps:
+              - Install runx CLI
+              - Create a skill directory
+              - Write SKILL.md
+              - Run harness locally
+              - Publish to registry
+          - task: Verify a receipt
+            steps:
+              - Run a skill
+              - Capture the sealed receipt
+              - Run verify command
+        style_policy: >
+          Documentation must include code examples, command syntax with flags,
+          expected output, and common troubleshooting tips.
+      expect:
+        status: failure
+        reason_code: no_answer_found
+
+runners:
+  default:
+    default: true
+    type: cli-tool
+    command: node
+    args:
+      - run.mjs
+    artifacts:
+      named_emits:
+        doc_findings: doc_findings
+        coverage_map: coverage_map
+        patch_plan: patch_plan
+        docs_pr_proposal: docs_pr_proposal
+    inputs:
+      docs_corpus:
+        type: array
+        required: true
+        description: Current documentation entries.
+        items:
+          type: object
+          properties:
+            id:
+              type: string
+            title:
+              type: string
+            content:
+              type: string
+      product_surface:
+        type: object
+        required: true
+        description: Actual product surface.
+        properties:
+          commands:
+            type: array
+            items:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+          endpoints:
+            type: array
+            items:
+              type: object
+              properties:
+                path:
+                  type: string
+                method:
+                  type: string
+                description:
+                  type: string
+          schemas:
+            type: array
+            items:
+              type: object
+              properties:
+                name:
+                  type: string
+                fields:
+                  type: array
+                  items:
+                    type: string
+      user_task_matrix:
+        type: array
+        required: true
+        description: Common user tasks.
+        items:
+          type: object
+          properties:
+            task:
+              type: string
+            steps:
+              type: array
+              items:
+                type: string
+      style_policy:
+        type: string
+        required: true
+        description: Style guidelines.
