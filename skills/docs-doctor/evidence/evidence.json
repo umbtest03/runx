@@ -17,9 +17,9 @@
   },
   "pr": {
     "pr_url": "https://github.com/runxhq/runx/pull/231",
-    "head_commit": "e9ecb160175bcac24c272297cab76d310590e365"
+    "head_commit": "1b1d1f8713ffea0c4c8680296b0de04124302b60"
   },
-  "source_url": "https://github.com/umbtest03/runx/tree/e9ecb160175bcac24c272297cab76d310590e365/skills/docs-doctor",
+  "source_url": "https://github.com/umbtest03/runx/tree/1b1d1f8713ffea0c4c8680296b0de04124302b60/skills/docs-doctor",
   "harness": {
     "local": "passed (2/2 cases, 0 assertion errors, WSL)",
     "hosted": "passed (server-side registry validation)",
@@ -80,7 +80,7 @@
     },
     {
       "key": "source_url_raw",
-      "value": "https://raw.githubusercontent.com/umbtest03/runx/e9ecb160175bcac24c272297cab76d310590e365/skills/docs-doctor"
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/1b1d1f8713ffea0c4c8680296b0de04124302b60/skills/docs-doctor"
     },
     {
       "key": "publish_method",
