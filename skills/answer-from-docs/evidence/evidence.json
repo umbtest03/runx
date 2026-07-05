@@ -6,12 +6,14 @@
   "delivery_date": "2026-07-05",
   "artifacts": {
     "public_url": "https://runx.ai/x/umbtest03/answer-from-docs",
-    "source_url": "https://github.com/umbtest03/runx/tree/e0b6ae34abb85d645320e09769e3668e2e95e682/skills/answer-from-docs",
+    "source_url": "https://github.com/umbtest03/runx/tree/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs",
     "pr_url": "https://github.com/runxhq/runx/pull/231",
-    "x_yaml": "bounty_87/skills/answer-from-docs/X.yaml",
-    "skill_md": "bounty_87/skills/answer-from-docs/SKILL.md",
-    "run_mjs": "bounty_87/skills/answer-from-docs/run.mjs",
-    "receipt_ref": "sha256:86ac9cc641a7fc2589a037ef3e83900543ad8597df6a4ee3c14b331afd740775"
+    "x_yaml": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs/X.yaml",
+    "skill_md": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs/SKILL.md",
+    "evidence_json": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs/evidence/evidence.json",
+    "verification_json": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs/evidence/verification.json",
+    "receipt_ref": "sha256:65a86dfa545997d8166f0dca7af0fb4fd479ee179e1ec4dbf2076d62353b11d1",
+    "report": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb993772ac3f39cb1bb4a6750ce81f58f3/skills/answer-from-docs/evidence/report.md"
   },
   "registry": {
     "skill_id": "umbtest03/answer-from-docs",
@@ -19,25 +21,71 @@
     "digest": "sha256:a1ebe1632c00dd894da040660c742f2f98915a438e874fd096bcfa12b8e5a5b3",
     "profile_digest": "sha256:257f2e25fe28b85e2e672e6e523a705ee5c636e867ed12beec0651bfb599993a",
     "trust_tier": "community",
+    "publisher": "umbtest03",
     "install_command": "runx add umbtest03/answer-from-docs@sha-1ee1c7040328 --registry https://api.runx.ai",
     "run_command": "runx skill umbtest03/answer-from-docs@sha-1ee1c7040328 --registry https://api.runx.ai"
   },
   "harness_results": {
-    "status": "passed",
-    "case_count": 2,
-    "assertion_error_count": 0,
-    "cases": ["grounded-answer", "unanswered-question"],
-    "receipt_ids": [
-      "sha256:0ec82e51879368dc363a1f677a48b28310ab731d92253bd351a6107a2fe6ae32",
-      "sha256:996fd6f25d45e930eff82621640b689a2bb6800c907f9a51929263eef79cdd24"
-    ]
-  },
-  "dogfood": {
-    "grounded_run": {
-      "receipt_id": "sha256:86ac9cc641a7fc2589a037ef3e83900543ad8597df6a4ee3c14b331afd740775",
-      "status": "sealed",
-      "input": {"question": "What is the runx harness?", "corpus": "[{\"id\":\"doc1\",\"text\":\"runx harness replays skill fixtures and seals signed receipts for every case.\"}]"}
+    "local": {
+      "status": "passed",
+      "case_count": 2,
+      "assertion_error_count": 0,
+      "environment": "Linux (WSL) local harness",
+      "cases": [
+        {"name": "grounded-answer", "status": "sealed"},
+        {"name": "unanswered-question", "status": "failure"}
+      ],
+      "receipt_ids": [
+        "sha256:0ec82e51879368dc363a1f677a48b28310ab731d92253bd351a6107a2fe6ae32",
+        "sha256:996fd6f25d45e930eff82621640b689a2bb6800c907f9a51929263eef79cdd24"
+      ]
+    },
+    "hosted": {
+      "status": "passed",
+      "environment": "api.runx.ai hosted harness (server-side registry validation)"
     }
   },
+  "dogfood": {
+    "package": "umbtest03/answer-from-docs@sha-1ee1c7040328",
+    "input": {
+      "question": "What is the runx harness?",
+      "corpus": [{"id": "doc1", "text": "runx harness replays skill fixtures and seals signed receipts for every case."}]
+    },
+    "command": "runx skill umbtest03/answer-from-docs@sha-1ee1c7040328 --registry https://api.runx.ai -i question='What is the runx harness?' --input-json corpus='[{\"id\":\"doc1\",\"text\":\"runx harness replays skill fixtures and seals signed receipts for every case.\"}]' --json",
+    "receipt_ref": "sha256:65a86dfa545997d8166f0dca7af0fb4fd479ee179e1ec4dbf2076d62353b11d1",
+    "verify_verdict": {
+      "valid": true,
+      "signature_mode": "production",
+      "receipt_count": 1
+    },
+    "harness_cases": [
+      {"name": "grounded-answer", "status": "sealed"},
+      {"name": "unanswered-question", "status": "failure"}
+    ]
+  },
+  "observations": [
+    {"key": "runx_cli_version", "value": "runx-cli 0.6.14"},
+    {"key": "publisher_owner", "value": "umbtest03"},
+    {"key": "package_name", "value": "answer-from-docs"},
+    {"key": "package_version", "value": "sha-1ee1c7040328"},
+    {"key": "registry_ref", "value": "umbtest03/answer-from-docs@sha-1ee1c7040328"},
+    {"key": "registry_digest", "value": "sha256:a1ebe1632c00dd894da040660c742f2f98915a438e874fd096bcfa12b8e5a5b3"},
+    {"key": "public_url", "value": "https://runx.ai/x/umbtest03/answer-from-docs"},
+    {"key": "pr_url", "value": "https://github.com/runxhq/runx/pull/231"},
+    {"key": "source_url", "value": "https://github.com/umbtest03/runx/tree/64b8bdeb/skills/answer-from-docs"},
+    {"key": "x_yaml_raw", "value": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb/skills/answer-from-docs/X.yaml"},
+    {"key": "skill_md_raw", "value": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb/skills/answer-from-docs/SKILL.md"},
+    {"key": "publish_method", "value": "runx registry publish ./skills/answer-from-docs --registry https://api.runx.ai"},
+    {"key": "install_command", "value": "runx add umbtest03/answer-from-docs@sha-1ee1c7040328 --registry https://api.runx.ai"},
+    {"key": "harness_case_names", "value": "grounded-answer, unanswered-question"},
+    {"key": "hosted_harness_status", "value": "passed (server-side validation during publish)"},
+    {"key": "dogfood_command", "value": "runx skill umbtest03/answer-from-docs@sha-1ee1c7040328 --registry https://api.runx.ai -i question=... --input-json corpus=... --json"},
+    {"key": "dogfood_receipt_ref", "value": "sha256:65a86dfa545997d8166f0dca7af0fb4fd479ee179e1ec4dbf2076d62353b11d1"},
+    {"key": "dogfood_grounded_verdict", "value": "true"},
+    {"key": "dogfood_citation_mapping", "value": "doc1 -> 'runx harness replays skill fixtures...'"},
+    {"key": "dogfood_kb_gaps", "value": "[]"},
+    {"key": "runx_verify_verdict", "value": "valid: true, signature_mode: production, receipt_count: 1"},
+    {"key": "verification_json_url", "value": "https://raw.githubusercontent.com/umbtest03/runx/64b8bdeb/skills/answer-from-docs/evidence/verification.json"}
+  ],
   "delivery_status": "pending_approval"
 }
