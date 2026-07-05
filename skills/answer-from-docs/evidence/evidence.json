@@ -6,7 +6,7 @@
   "delivery_date": "2026-07-05",
   "artifacts": {
     "public_url": "https://runx.ai/x/umbtest03/answer-from-docs",
-    "source_url": "https://github.com/umbtest03/runx/tree/ec6f65155f344bafabb7315d591e88dedf124c6a/skills/answer-from-docs",
+    "source_url": "https://github.com/umbtest03/runx/tree/912167225c972e114efa79bb49b13a57393ffd7d/skills/answer-from-docs",
     "pr_url": "https://github.com/runxhq/runx/pull/231",
     "x_yaml": "bounty_87/skills/answer-from-docs/X.yaml",
     "skill_md": "bounty_87/skills/answer-from-docs/SKILL.md",
