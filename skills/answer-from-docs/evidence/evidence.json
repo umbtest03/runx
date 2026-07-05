@@ -1,0 +1,43 @@
+{
+  "bounty_id": 87,
+  "bounty_title": "runx skill: answer-from-docs",
+  "claim_id": "1683cf08-2c26-4a02-ab5c-38c82edb09fc",
+  "claimant": "@umbtest03",
+  "delivery_date": "2026-07-05",
+  "artifacts": {
+    "public_url": "https://runx.ai/x/umbtest03/answer-from-docs",
+    "source_url": "https://github.com/umbtest03/runx/tree/b3e2eabd814919f61e37cf47684cf5d59354b0c4/skills/answer-from-docs",
+    "pr_url": "https://github.com/runxhq/runx/pull/231",
+    "x_yaml": "bounty_87/skills/answer-from-docs/X.yaml",
+    "skill_md": "bounty_87/skills/answer-from-docs/SKILL.md",
+    "run_mjs": "bounty_87/skills/answer-from-docs/run.mjs",
+    "receipt_ref": "sha256:86ac9cc641a7fc2589a037ef3e83900543ad8597df6a4ee3c14b331afd740775"
+  },
+  "registry": {
+    "skill_id": "umbtest03/answer-from-docs",
+    "version": "sha-1ee1c7040328",
+    "digest": "sha256:a1ebe1632c00dd894da040660c742f2f98915a438e874fd096bcfa12b8e5a5b3",
+    "profile_digest": "sha256:257f2e25fe28b85e2e672e6e523a705ee5c636e867ed12beec0651bfb599993a",
+    "trust_tier": "community",
+    "install_command": "runx add umbtest03/answer-from-docs@sha-1ee1c7040328 --registry https://api.runx.ai",
+    "run_command": "runx skill umbtest03/answer-from-docs@sha-1ee1c7040328 --registry https://api.runx.ai"
+  },
+  "harness_results": {
+    "status": "passed",
+    "case_count": 2,
+    "assertion_error_count": 0,
+    "cases": ["grounded-answer", "unanswered-question"],
+    "receipt_ids": [
+      "sha256:0ec82e51879368dc363a1f677a48b28310ab731d92253bd351a6107a2fe6ae32",
+      "sha256:996fd6f25d45e930eff82621640b689a2bb6800c907f9a51929263eef79cdd24"
+    ]
+  },
+  "dogfood": {
+    "grounded_run": {
+      "receipt_id": "sha256:86ac9cc641a7fc2589a037ef3e83900543ad8597df6a4ee3c14b331afd740775",
+      "status": "sealed",
+      "input": {"question": "What is the runx harness?", "corpus": "[{\"id\":\"doc1\",\"text\":\"runx harness replays skill fixtures and seals signed receipts for every case.\"}]"}
+    }
+  },
+  "delivery_status": "pending_approval"
+}
