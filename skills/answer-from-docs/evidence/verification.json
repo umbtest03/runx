@@ -13,7 +13,7 @@
     {
       "id": "source_url",
       "type": "url",
-      "path": "https://github.com/umbtest03/runx/tree/b3e2eabd814919f61e37cf47684cf5d59354b0c4/skills/answer-from-docs",
+      "path": "https://github.com/umbtest03/runx/tree/ec6f65155f344bafabb7315d591e88dedf124c6a/skills/answer-from-docs",
       "verified": true,
       "note": "Commit-specific source tree"
     },
@@ -27,7 +27,7 @@
     {
       "id": "x_yaml",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/b3e2eabd814919f61e37cf47684cf5d59354b0c4/skills/answer-from-docs/X.yaml",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/ec6f65155f344bafabb7315d591e88dedf124c6a/skills/answer-from-docs/X.yaml",
       "sha256": "257F2E25FE28B85E2E672E6E523A705EE5C636E867ED12BEEC0651BFB599993A",
       "verified": true,
       "note": "Profile with 2 harness cases"
@@ -35,7 +35,7 @@
     {
       "id": "skill_md",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/b3e2eabd814919f61e37cf47684cf5d59354b0c4/skills/answer-from-docs/SKILL.md",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/ec6f65155f344bafabb7315d591e88dedf124c6a/skills/answer-from-docs/SKILL.md",
       "sha256": "B453E6C749A05C4612AF0C4162B2C356F42C9DFECD53546E1AD4BFBCA1E6A449",
       "verified": true,
       "note": "Skill declaration"
@@ -43,7 +43,7 @@
     {
       "id": "run_mjs",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/b3e2eabd814919f61e37cf47684cf5d59354b0c4/skills/answer-from-docs/run.mjs",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/ec6f65155f344bafabb7315d591e88dedf124c6a/skills/answer-from-docs/run.mjs",
       "sha256": "69ABCD674AF94D412C7090357EF2070684D7663426FBA90B7EAD478B338AB5D4",
       "verified": true,
       "note": "Node.js runner"
@@ -51,7 +51,7 @@
     {
       "id": "evidence_json",
       "type": "url",
-      "path": "https://raw.githubusercontent.com/umbtest03/runx/b3e2eabd814919f61e37cf47684cf5d59354b0c4/skills/answer-from-docs/evidence/evidence.json",
+      "path": "https://raw.githubusercontent.com/umbtest03/runx/ec6f65155f344bafabb7315d591e88dedf124c6a/skills/answer-from-docs/evidence/evidence.json",
       "sha256": "F253CDF30F67E03FF36E5F52596648EAC8B677C1F5A1205FA7FFCA06BEC257CE",
       "verified": true,
       "note": "Evidence packet"
@@ -85,7 +85,7 @@
   },
   "cross_references": {
     "evidence_json_sha256": "F253CDF30F67E03FF36E5F52596648EAC8B677C1F5A1205FA7FFCA06BEC257CE",
-    "source_url_commit": "b3e2eabd814919f61e37cf47684cf5d59354b0c4",
+    "source_url_commit": "ec6f65155f344bafabb7315d591e88dedf124c6a",
     "pr_url": "https://github.com/runxhq/runx/pull/231",
     "registry_digest": "sha256:a1ebe1632c00dd894da040660c742f2f98915a438e874fd096bcfa12b8e5a5b3"
   },

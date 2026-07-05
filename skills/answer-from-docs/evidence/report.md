@@ -10,11 +10,11 @@
 | # | Artifact | URL |
 |---|----------|-----|
 | 1 | public_url | https://runx.ai/x/umbtest03/answer-from-docs |
-| 2 | source_url | https://github.com/umbtest03/runx/tree/b3e2eabd814919f61e37cf47684cf5d59354b0c4/skills/answer-from-docs |
+| 2 | source_url | https://github.com/umbtest03/runx/tree/ec6f65155f344bafabb7315d591e88dedf124c6a/skills/answer-from-docs |
 | 3 | pr_url | https://github.com/runxhq/runx/pull/231 |
-| 4 | x_yaml | https://raw.githubusercontent.com/umbtest03/runx/b3e2eabd814919f61e37cf47684cf5d59354b0c4/skills/answer-from-docs/X.yaml |
-| 5 | skill_md | https://raw.githubusercontent.com/umbtest03/runx/b3e2eabd814919f61e37cf47684cf5d59354b0c4/skills/answer-from-docs/SKILL.md |
-| 6 | evidence_json | https://raw.githubusercontent.com/umbtest03/runx/b3e2eabd814919f61e37cf47684cf5d59354b0c4/skills/answer-from-docs/evidence/evidence.json |
+| 4 | x_yaml | https://raw.githubusercontent.com/umbtest03/runx/ec6f65155f344bafabb7315d591e88dedf124c6a/skills/answer-from-docs/X.yaml |
+| 5 | skill_md | https://raw.githubusercontent.com/umbtest03/runx/ec6f65155f344bafabb7315d591e88dedf124c6a/skills/answer-from-docs/SKILL.md |
+| 6 | evidence_json | https://raw.githubusercontent.com/umbtest03/runx/ec6f65155f344bafabb7315d591e88dedf124c6a/skills/answer-from-docs/evidence/evidence.json |
 | 7 | verification_json | bounty_87/skills/answer-from-docs/evidence/verification.json |
 | 8 | receipt_ref | sha256:86ac9cc641a7fc2589a037ef3e83900543ad8597df6a4ee3c14b331afd740775 |
 | 9 | report | bounty_87/skills/answer-from-docs/evidence/report.md (this file) |
