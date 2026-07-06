@@ -1,25 +1,31 @@
 {
   "schema": "runx.verify_verdict.v1",
-  "receipt_id": "sha256:27c5e7f6822b139ea40a3a618c0477db178eacfa055212111f82ed5dd396d992",
-  "valid": true,
+  "receipt_id": null,
+  "valid": false,
   "digest": {
-    "status": "valid",
-    "expected": "sha256:de4da5e05f288c0be500f3e09b8b9d462d7075b0ad5a560369e7beeda1105806",
-    "actual": "sha256:de4da5e05f288c0be500f3e09b8b9d462d7075b0ad5a560369e7beeda1105806"
+    "status": "not_evaluated",
+    "expected": null,
+    "actual": null
   },
   "content_address": {
-    "status": "valid",
-    "expected": "sha256:27c5e7f6822b139ea40a3a618c0477db178eacfa055212111f82ed5dd396d992",
-    "actual": "sha256:27c5e7f6822b139ea40a3a618c0477db178eacfa055212111f82ed5dd396d992"
+    "status": "not_evaluated",
+    "expected": null,
+    "actual": null
   },
   "signature": {
     "mode": "local-development",
-    "status": "valid",
-    "kid": "runtime-skeleton"
+    "status": "not_evaluated",
+    "kid": null
   },
   "lineage": {
     "status": "unverified",
     "message": "single receipt verification cannot prove receipt-tree lineage"
   },
-  "findings": []
+  "findings": [
+    {
+      "code": "receipt_parse_error",
+      "path": "$",
+      "message": "unknown field `closure`, expected one of `schema`, `id`, `created_at`, `canonicalization`, `issuer`, `signature`, `digest`, `idempotency`, `subject`, `authority`, `signals`, `decisions`, `acts`, `seal`, `lineage`, `metadata` at line 2 column 11"
+    }
+  ]
 }

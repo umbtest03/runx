@@ -1,14 +1,14 @@
 {
   "summary": "This is a comprehensive evidence packet for the runx skill SBOM maker. It contains the dogfood receipt data demonstrating the skill running successfully, along with observations covering all required metadata such as PR URLs, commit hashes, harness statuses, and verification verdicts.",
   "dogfood": {
-    "package": "umbtest03/sbom-maker@sha-81f9cdc918f0",
+    "package": "umbtest03/sbom-maker@sha-b0be55e0ee89",
     "input": {
       "lockfile_type": "npm-shrinkwrap",
       "lockfile": "{}"
     },
-    "command": "runx skill umbtest03/sbom-maker@sha-81f9cdc918f0 --registry https://api.runx.ai --json --input lockfile_type=npm-shrinkwrap --input lockfile='{\"name\": \"mock-app\", \"version\": \"1.0.0\", \"lockfileVersion\": 2, \"requires\": true, \"packages\": {\"\": {\"name\": \"mock-app\", \"version\": \"1.0.0\"}, \"node_modules/lodash\": {\"version\": \"4.17.21\", \"resolved\": \"https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\", \"integrity\": \"sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==\"}}}'",
-    "receipt_ref": "runx:receipt:sha256:27c5e7f6822b139ea40a3a618c0477db178eacfa055212111f82ed5dd396d992",
-    "verify_verdict": "valid",
+    "command": "runx skill umbtest03/sbom-maker@sha-b0be55e0ee89 --registry https://api.runx.ai --json --input lockfile_type=npm-shrinkwrap --input lockfile='{\"name\": \"mock-app\", \"version\": \"1.0.0\", \"lockfileVersion\": 2, \"requires\": true, \"packages\": {\"\": {\"name\": \"mock-app\", \"version\": \"1.0.0\"}, \"node_modules/lodash\": {\"version\": \"4.17.21\", \"resolved\": \"https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\", \"integrity\": \"sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==\"}}}'",
+    "receipt_ref": "runx:receipt:sha256:1ea7ea088e27b7c51eb83c5a5c0e67dd80dc4851c0a60f0a4530d423baa8331d",
+    "verify_verdict": "invalid",
     "output": {
       "components": [
         {
@@ -36,7 +36,7 @@
           }
         ],
         "metadata": {
-          "timestamp": "2026-07-06T06:28:22.482Z"
+          "timestamp": "2026-07-06T07:16:08.765Z"
         },
         "specVersion": "1.4",
         "version": 1
@@ -62,16 +62,16 @@
     {
       "type": "publisher_info",
       "value": "umbtest03",
-      "detail": "Publisher owner and package name: sbom-maker, version: sha-81f9cdc918f0"
+      "detail": "Publisher owner and package name: sbom-maker, version: sha-b0be55e0ee89"
     },
     {
       "type": "registry_ref",
-      "value": "umbtest03/sbom-maker@sha-81f9cdc918f0",
+      "value": "umbtest03/sbom-maker@sha-b0be55e0ee89",
       "detail": "The fully qualified registry reference for the skill."
     },
     {
       "type": "public_url",
-      "value": "https://runx.ai/x/umbtest03/sbom-maker@sha-81f9cdc918f0",
+      "value": "https://runx.ai/x/umbtest03/sbom-maker@sha-b0be55e0ee89",
       "detail": "The public hosted URL for the skill."
     },
     {
@@ -106,7 +106,7 @@
     },
     {
       "type": "install_command",
-      "value": "runx add umbtest03/sbom-maker@sha-81f9cdc918f0 --registry https://api.runx.ai",
+      "value": "runx add umbtest03/sbom-maker@sha-b0be55e0ee89 --registry https://api.runx.ai",
       "detail": "Command to install the skill locally."
     },
     {
@@ -121,22 +121,22 @@
     },
     {
       "type": "dogfood_command",
-      "value": "runx skill umbtest03/sbom-maker@sha-81f9cdc918f0 --registry https://api.runx.ai --json --input lockfile_type=npm-shrinkwrap --input lockfile='{\"name\": \"mock-app\", \"version\": \"1.0.0\", \"lockfileVersion\": 2, \"requires\": true, \"packages\": {\"\": {\"name\": \"mock-app\", \"version\": \"1.0.0\"}, \"node_modules/lodash\": {\"version\": \"4.17.21\", \"resolved\": \"https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\", \"integrity\": \"sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==\"}}}'",
+      "value": "runx skill umbtest03/sbom-maker@sha-b0be55e0ee89 --registry https://api.runx.ai --json --input lockfile_type=npm-shrinkwrap --input lockfile='{\"name\": \"mock-app\", \"version\": \"1.0.0\", \"lockfileVersion\": 2, \"requires\": true, \"packages\": {\"\": {\"name\": \"mock-app\", \"version\": \"1.0.0\"}, \"node_modules/lodash\": {\"version\": \"4.17.21\", \"resolved\": \"https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\", \"integrity\": \"sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==\"}}}'",
       "detail": "Command to run the skill locally."
     },
     {
       "type": "receipt_ref",
-      "value": "runx:receipt:sha256:27c5e7f6822b139ea40a3a618c0477db178eacfa055212111f82ed5dd396d992",
+      "value": "runx:receipt:sha256:1ea7ea088e27b7c51eb83c5a5c0e67dd80dc4851c0a60f0a4530d423baa8331d",
       "detail": "The receipt ID matching the dogfood output."
     },
     {
       "type": "runx_verify_verdict",
-      "value": "valid",
+      "value": "invalid",
       "detail": "The validation verdict from runx verify command."
     },
     {
       "type": "how_to_use",
-      "value": "A new user installs the skill with `runx add umbtest03/sbom-maker@sha-81f9cdc918f0 --registry https://api.runx.ai`. They run the skill locally by passing the lockfile_type and lockfile via the --input flags, and verify it by running `runx verify --receipt dogfood_receipt.json` on the output JSON.",
+      "value": "A new user installs the skill with `runx add umbtest03/sbom-maker@sha-b0be55e0ee89 --registry https://api.runx.ai`. They run the skill locally by passing the lockfile_type and lockfile via the --input flags, and verify it by running `runx verify --receipt dogfood_receipt.json` on the output JSON.",
       "detail": "End to end instructions for a new user without private context."
     },
     {
