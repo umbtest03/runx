@@ -1,0 +1,80 @@
+skill: docs-doctor
+version: "1.0.0"
+
+catalog:
+  kind: skill
+  audience: public
+  visibility: public
+  role: canonical
+
+harness:
+  cases:
+    - name: stale-docs
+      runner: default
+      inputs:
+        docs_corpus: 
+          - page: "cli-reference.md"
+            content: "# CLI Reference\n\nRun the system with `my-app run`."
+        product_surface: 
+          commands: 
+            - name: "my-app run"
+              description: "Start the app"
+            - name: "my-app deploy"
+              description: "Deploy to cloud (NEW IN v2)"
+          endpoints: []
+          schemas: []
+        user_task_matrix: 
+          - task: "Deploying the app"
+            expected_docs: "Users need to know how to deploy."
+        style_policy: "All new commands must be documented in cli-reference.md."
+      expect:
+        status: sealed
+        receipt:
+          schema: runx.receipt.v1
+          state: sealed
+          disposition: closed
+    - name: fresh-docs
+      runner: default
+      inputs:
+        docs_corpus: 
+          - page: "cli-reference.md"
+            content: "# CLI Reference\n\nRun the system with `my-app run`.\nDeploy with `my-app deploy`."
+        product_surface: 
+          commands: 
+            - name: "my-app run"
+              description: "Start the app"
+            - name: "my-app deploy"
+              description: "Deploy to cloud (NEW IN v2)"
+          endpoints: []
+          schemas: []
+        user_task_matrix: 
+          - task: "Deploying the app"
+            expected_docs: "Users need to know how to deploy."
+        style_policy: "All new commands must be documented in cli-reference.md."
+      expect:
+        status: failure
+        receipt:
+          schema: runx.receipt.v1
+          state: failure
+          disposition: closed
+
+runners:
+  default:
+    default: true
+    type: cli-tool
+    command: node
+    args:
+      - run.mjs
+    inputs:
+      docs_corpus:
+        type: array
+        required: true
+      product_surface:
+        type: object
+        required: true
+      user_task_matrix:
+        type: array
+        required: true
+      style_policy:
+        type: string
+        required: true

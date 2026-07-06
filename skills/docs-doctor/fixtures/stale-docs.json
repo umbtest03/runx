@@ -1,0 +1,29 @@
+{
+  "docs_corpus": [
+    {
+      "page": "cli-reference.md",
+      "content": "# CLI Reference\n\nRun the system with `my-app run`."
+    }
+  ],
+  "product_surface": {
+    "commands": [
+      {
+        "name": "my-app run",
+        "description": "Start the app"
+      },
+      {
+        "name": "my-app deploy",
+        "description": "Deploy to cloud (NEW IN v2)"
+      }
+    ],
+    "endpoints": [],
+    "schemas": []
+  },
+  "user_task_matrix": [
+    {
+      "task": "Deploying the app",
+      "expected_docs": "Users need to know how to deploy."
+    }
+  ],
+  "style_policy": "All new commands must be documented in cli-reference.md."
+}
