@@ -1,0 +1,137 @@
+{
+  "summary": "Docs Doctor skill delivery for Bounty #77. Includes post-publish dogfood and single-commit artifact coherence.",
+  "observations": [
+    {
+      "type": "runx_cli_version",
+      "value": "runx-cli 0.6.16",
+      "detail": "runx --version output is exactly runx-cli 0.6.16"
+    },
+    {
+      "type": "publisher_owner",
+      "value": "umbtest03",
+      "detail": "Verified claimant account"
+    },
+    {
+      "type": "package_name",
+      "value": "docs-doctor",
+      "detail": "Exact package name required by bounty"
+    },
+    {
+      "type": "version",
+      "value": "sha-20d6c18021dc",
+      "detail": "Version deployed to registry"
+    },
+    {
+      "type": "registry_ref",
+      "value": "umbtest03/docs-doctor@sha-20d6c18021dc",
+      "detail": "Registry reference for install and execution"
+    },
+    {
+      "type": "public_url",
+      "value": "https://runx.ai/x/umbtest03/docs-doctor@sha-20d6c18021dc",
+      "detail": "Live public registry URL"
+    },
+    {
+      "type": "pr_url",
+      "value": "https://github.com/runxhq/runx/pull/259",
+      "detail": "Pull Request against runxhq/runx"
+    },
+    {
+      "type": "source_url",
+      "value": "https://github.com/umbtest03/runx/tree/docs-doctor-v2/skills/docs-doctor",
+      "detail": "Source repository URL"
+    },
+    {
+      "type": "raw_x_yaml",
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/docs-doctor-v2/skills/docs-doctor/X.yaml",
+      "detail": "Raw X.yaml from PR head"
+    },
+    {
+      "type": "raw_skill_md",
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/docs-doctor-v2/skills/docs-doctor/SKILL.md",
+      "detail": "Raw SKILL.md from PR head"
+    },
+    {
+      "type": "verification_json",
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/docs-doctor-v2/evidence/verification.json",
+      "detail": "Raw verification output from PR head"
+    },
+    {
+      "type": "publish_method",
+      "value": "runx registry publish ./skills/docs-doctor/SKILL.md --registry https://api.runx.ai",
+      "detail": "Command used to publish to registry"
+    },
+    {
+      "type": "install_command",
+      "value": "runx add umbtest03/docs-doctor@sha-20d6c18021dc",
+      "detail": "Command for clean installation"
+    },
+    {
+      "type": "harness_case_names",
+      "value": "stale-docs, fresh-docs",
+      "detail": "Both harness cases tested"
+    },
+    {
+      "type": "hosted_harness_status",
+      "value": "passed",
+      "detail": "The hosted harness on the registry returns success"
+    },
+    {
+      "type": "dogfood_command",
+      "value": "runx skill umbtest03/docs-doctor@sha-20d6c18021dc --registry https://api.runx.ai --json < skills/docs-doctor/fixtures/stale-docs.json",
+      "detail": "Command used to generate the dogfood receipt"
+    },
+    {
+      "type": "receipt_ref",
+      "value": "runx:receipt:sha256:d018744ddd0dc40567d2d7a87d82d0f4dbe8b257548917f778f9e84568b2993f",
+      "detail": "Receipt from the post-publish dogfood"
+    },
+    {
+      "type": "runx_verify_verdict",
+      "value": "valid",
+      "detail": "Verification verdict using the signed receipt"
+    },
+    {
+      "type": "new_user_instructions",
+      "value": "runx add umbtest03/docs-doctor; runx skill umbtest03/docs-doctor < input.json > receipt.json; runx verify --receipt receipt.json",
+      "detail": "How a new user installs, runs, and verifies without private context"
+    },
+    {
+      "type": "finding_count",
+      "value": "1",
+      "detail": "One finding emitted in stale-docs"
+    },
+    {
+      "type": "coverage_gaps",
+      "value": "1",
+      "detail": "One coverage gap identified"
+    },
+    {
+      "type": "no_op_path",
+      "value": "fresh-docs",
+      "detail": "fresh-docs acts as the refused/no-op path"
+    },
+    {
+      "type": "proposal_status",
+      "value": "generated",
+      "detail": "docs_pr_proposal generated for stale-docs"
+    }
+  ],
+  "dogfood": {
+    "package": "docs-doctor",
+    "input": "stale-docs.json",
+    "command": "runx skill umbtest03/docs-doctor@sha-20d6c18021dc --registry https://api.runx.ai --json < skills/docs-doctor/fixtures/stale-docs.json",
+    "receipt_ref": "sha256:d018744ddd0dc40567d2d7a87d82d0f4dbe8b257548917f778f9e84568b2993f",
+    "verify_verdict": "valid",
+    "harness_cases": [
+      {
+        "name": "stale-docs",
+        "status": "sealed"
+      },
+      {
+        "name": "fresh-docs",
+        "status": "refused"
+      }
+    ]
+  }
+}
