@@ -7,7 +7,7 @@ This report verifies the successful implementation, publishing, and dogfooding o
 The `sbom-maker` skill parses lockfiles locally without network access to emit a CycloneDX-formatted SBOM. It checks for license risks, specifically targeting GPL-3.0 as a viral license.
 - **Skill Name**: `sbom-maker`
 - **Owner**: `umbtest03`
-- **Version**: `sha-d2184aa985fb`
+- **Version**: `sha-81f9cdc918f0`
 
 ## Validation Results
 - **Local Harness Passed**: `api.runx.ai hosted harness passed`
@@ -16,7 +16,7 @@ The `sbom-maker` skill parses lockfiles locally without network access to emit a
 
 ## Dependencies & Artifacts
 The skill has been committed to the `sbom-maker` branch on `umbtest03/runx` fork.
-All evidence and verification files correspond to the identical `sha-d2184aa985fb` published state.
+All evidence and verification files correspond to the identical `sha-81f9cdc918f0` published state.
 
 ## Conclusion
 The `sbom-maker` skill is ready for delivery.

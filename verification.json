@@ -1,6 +1,6 @@
 {
   "closure": {
-    "closed_at": "2026-07-06T06:22:55.784Z",
+    "closed_at": "2026-07-06T06:28:22.503Z",
     "disposition": "closed",
     "reason_code": "process_closed",
     "summary": "cli-tool default completed"
@@ -11,7 +11,7 @@
       "components": [
         {
           "evidence_location": "dependencies[\"lodash\"]",
-          "license": "MIT",
+          "license": "UNKNOWN",
           "name": "lodash",
           "version": "4.17.21"
         }
@@ -19,7 +19,7 @@
       "license_risks": [],
       "license_summary": {
         "license_counts": {
-          "MIT": 1
+          "UNKNOWN": 1
         },
         "total_components": 1
       },
@@ -28,25 +28,25 @@
         "components": [
           {
             "evidence_location": "dependencies[\"lodash\"]",
-            "license": "MIT",
+            "license": "UNKNOWN",
             "name": "lodash",
             "version": "4.17.21"
           }
         ],
         "metadata": {
-          "timestamp": "2026-07-06T06:22:55.781Z"
+          "timestamp": "2026-07-06T06:28:22.482Z"
         },
         "specVersion": "1.4",
         "version": 1
       }
     },
-    "stderr": "INPUT: {\"lockfile\":{\"lockfileVersion\":2,\"name\":\"example-app\",\"packages\":{\"node_modules/lodash\":{\"version\":\"4.17.21\"}},\"version\":\"1.0.0\"},\"lockfile_type\":\"npm-shrinkwrap\"}\n",
-    "stdout": "{\n  \"sbom\": {\n    \"bomFormat\": \"CycloneDX\",\n    \"specVersion\": \"1.4\",\n    \"version\": 1,\n    \"metadata\": {\n      \"timestamp\": \"2026-07-06T06:22:55.781Z\"\n    },\n    \"components\": [\n      {\n        \"name\": \"lodash\",\n        \"version\": \"4.17.21\",\n        \"license\": \"MIT\",\n        \"evidence_location\": \"dependencies[\\\"lodash\\\"]\"\n      }\n    ]\n  },\n  \"components\": [\n    {\n      \"name\": \"lodash\",\n      \"version\": \"4.17.21\",\n      \"license\": \"MIT\",\n      \"evidence_location\": \"dependencies[\\\"lodash\\\"]\"\n    }\n  ],\n  \"license_summary\": {\n    \"total_components\": 1,\n    \"license_counts\": {\n      \"MIT\": 1\n    }\n  },\n  \"license_risks\": []\n}\n",
+    "stderr": "",
+    "stdout": "{\n  \"sbom\": {\n    \"bomFormat\": \"CycloneDX\",\n    \"specVersion\": \"1.4\",\n    \"version\": 1,\n    \"metadata\": {\n      \"timestamp\": \"2026-07-06T06:28:22.482Z\"\n    },\n    \"components\": [\n      {\n        \"name\": \"lodash\",\n        \"version\": \"4.17.21\",\n        \"license\": \"UNKNOWN\",\n        \"evidence_location\": \"dependencies[\\\"lodash\\\"]\"\n      }\n    ]\n  },\n  \"components\": [\n    {\n      \"name\": \"lodash\",\n      \"version\": \"4.17.21\",\n      \"license\": \"UNKNOWN\",\n      \"evidence_location\": \"dependencies[\\\"lodash\\\"]\"\n    }\n  ],\n  \"license_summary\": {\n    \"total_components\": 1,\n    \"license_counts\": {\n      \"UNKNOWN\": 1\n    }\n  },\n  \"license_risks\": []\n}\n",
     "structured_output": {
       "components": [
         {
           "evidence_location": "dependencies[\"lodash\"]",
-          "license": "MIT",
+          "license": "UNKNOWN",
           "name": "lodash",
           "version": "4.17.21"
         }
@@ -54,7 +54,7 @@
       "license_risks": [],
       "license_summary": {
         "license_counts": {
-          "MIT": 1
+          "UNKNOWN": 1
         },
         "total_components": 1
       },
@@ -63,13 +63,13 @@
         "components": [
           {
             "evidence_location": "dependencies[\"lodash\"]",
-            "license": "MIT",
+            "license": "UNKNOWN",
             "name": "lodash",
             "version": "4.17.21"
           }
         ],
         "metadata": {
-          "timestamp": "2026-07-06T06:22:55.781Z"
+          "timestamp": "2026-07-06T06:28:22.482Z"
         },
         "specVersion": "1.4",
         "version": 1
@@ -80,7 +80,7 @@
     "components": [
       {
         "evidence_location": "dependencies[\"lodash\"]",
-        "license": "MIT",
+        "license": "UNKNOWN",
         "name": "lodash",
         "version": "4.17.21"
       }
@@ -88,7 +88,7 @@
     "license_risks": [],
     "license_summary": {
       "license_counts": {
-        "MIT": 1
+        "UNKNOWN": 1
       },
       "total_components": 1
     },
@@ -97,13 +97,13 @@
       "components": [
         {
           "evidence_location": "dependencies[\"lodash\"]",
-          "license": "MIT",
+          "license": "UNKNOWN",
           "name": "lodash",
           "version": "4.17.21"
         }
       ],
       "metadata": {
-        "timestamp": "2026-07-06T06:22:55.781Z"
+        "timestamp": "2026-07-06T06:28:22.482Z"
       },
       "specVersion": "1.4",
       "version": 1
@@ -114,7 +114,7 @@
       {
         "artifact_refs": [],
         "closure": {
-          "closed_at": "2026-07-06T06:22:55.784Z",
+          "closed_at": "2026-07-06T06:28:22.503Z",
           "disposition": "closed",
           "reason_code": "process_exit",
           "summary": "cli-tool exited successfully"
@@ -169,7 +169,7 @@
       "terms": []
     },
     "canonicalization": "runx.receipt.c14n.v1",
-    "created_at": "2026-07-06T06:22:55.784Z",
+    "created_at": "2026-07-06T06:28:22.503Z",
     "decisions": [
       {
         "artifact_refs": [],
@@ -197,8 +197,8 @@
         "selected_harness_ref": null
       }
     ],
-    "digest": "sha256:70722b429cba8a2bd008746f2536bcccfd4f0e2d74214b60db53ccdc229babe0",
-    "id": "sha256:b4292f40539da0d183f39974f7b8036905720420bdf32c71f3daf4b93425c1cf",
+    "digest": "sha256:de4da5e05f288c0be500f3e09b8b9d462d7075b0ad5a560369e7beeda1105806",
+    "id": "sha256:27c5e7f6822b139ea40a3a618c0477db178eacfa055212111f82ed5dd396d992",
     "idempotency": {
       "content_hash": "sha256:run_default_bcbe269b0dd6-default-content",
       "intent_key": "sha256:run_default_bcbe269b0dd6-default-intent",
@@ -215,7 +215,7 @@
     },
     "schema": "runx.receipt.v1",
     "seal": {
-      "closed_at": "2026-07-06T06:22:55.784Z",
+      "closed_at": "2026-07-06T06:28:22.503Z",
       "criteria": [
         {
           "criterion_id": "process_exit",
@@ -226,14 +226,14 @@
         }
       ],
       "disposition": "closed",
-      "last_observed_at": "2026-07-06T06:22:55.784Z",
+      "last_observed_at": "2026-07-06T06:28:22.503Z",
       "reason_code": "process_closed",
       "summary": "cli-tool default completed"
     },
     "signals": [],
     "signature": {
       "alg": "Ed25519",
-      "value": "sig:sha256:70722b429cba8a2bd008746f2536bcccfd4f0e2d74214b60db53ccdc229babe0"
+      "value": "sig:sha256:de4da5e05f288c0be500f3e09b8b9d462d7075b0ad5a560369e7beeda1105806"
     },
     "subject": {
       "commitments": [],
@@ -244,7 +244,7 @@
       }
     }
   },
-  "receipt_id": "sha256:b4292f40539da0d183f39974f7b8036905720420bdf32c71f3daf4b93425c1cf",
+  "receipt_id": "sha256:27c5e7f6822b139ea40a3a618c0477db178eacfa055212111f82ed5dd396d992",
   "registry_provenance": {
     "digest": "sha256:ed43c32708454c9ae6642a10caf574c91f8937557c6360201c67a7dfe03706c4",
     "profile_digest": "sha256:c03b2e86224876faea7b15835f3c6664d7b326ab7cae17040cd63cd82b0c346a",
@@ -254,7 +254,7 @@
     "skill_id": "umbtest03/sbom-maker",
     "trust_state": "trusted",
     "trust_tier": "community",
-    "version": "sha-d2184aa985fb"
+    "version": "sha-81f9cdc918f0"
   },
   "run_id": "run_default_bcbe269b0dd6",
   "schema": "runx.skill_run.v1",
