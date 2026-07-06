@@ -16,6 +16,7 @@ The `sbom-maker` skill parses lockfiles locally without network access to emit a
 
 ## Dependencies & Artifacts
 The skill has been committed to the `sbom-maker` branch on `umbtest03/runx` fork.
+PR URL: https://github.com/runxhq/runx/pull/261
 All evidence and verification files correspond to the identical `sha-81f9cdc918f0` published state.
 
 ## Conclusion
