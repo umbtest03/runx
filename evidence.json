@@ -1,46 +1,86 @@
 {
-  "summary": "This is a comprehensive evidence packet for the runx skill SBOM maker. It contains the dogfood receipt data demonstrating the skill running successfully, along with observations covering all required metadata such as PR URLs, commit hashes, harness statuses, and verification verdicts.",
+  "summary": "Evidence packet for the runx sbom-maker skill (umbtest03/sbom-maker@sha-b0be55e0ee89). A real post-publish dogfood run of the published package produced a sealed runx.receipt.v1 that passes runx verify with a production signature. The SBOM extracted 2 components (express 4.18.2 GPL-3.0, lodash 4.17.21 MIT) and flagged the GPL-3.0 dependency as a high license risk. All source artifacts pin to a single commit on the umbtest03/runx sbom-maker branch.",
   "dogfood": {
     "package": "umbtest03/sbom-maker@sha-b0be55e0ee89",
     "input": {
       "lockfile_type": "npm-shrinkwrap",
-      "lockfile": "{\"name\": \"mock-app\", \"version\": \"1.0.0\", \"lockfileVersion\": 2, \"requires\": true, \"packages\": {\"\": {\"name\": \"mock-app\", \"version\": \"1.0.0\"}, \"node_modules/lodash\": {\"version\": \"4.17.21\", \"resolved\": \"https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\", \"integrity\": \"sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==\"}}}"
+      "lockfile": {
+        "name": "demo-app",
+        "version": "1.0.0",
+        "lockfileVersion": 2,
+        "requires": true,
+        "packages": {
+          "": {
+            "name": "demo-app",
+            "version": "1.0.0"
+          },
+          "node_modules/lodash": {
+            "version": "4.17.21",
+            "license": "MIT",
+            "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz"
+          },
+          "node_modules/express": {
+            "version": "4.18.2",
+            "license": "GPL-3.0",
+            "resolved": "https://registry.npmjs.org/express/-/express-4.18.2.tgz"
+          }
+        }
+      }
     },
-    "command": "runx skill umbtest03/sbom-maker@sha-b0be55e0ee89 --registry https://api.runx.ai --json --input lockfile_type=npm-shrinkwrap --input lockfile='{\"name\": \"mock-app\", \"version\": \"1.0.0\", \"lockfileVersion\": 2, \"requires\": true, \"packages\": {\"\": {\"name\": \"mock-app\", \"version\": \"1.0.0\"}, \"node_modules/lodash\": {\"version\": \"4.17.21\", \"resolved\": \"https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\", \"integrity\": \"sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==\"}}}'",
-    "receipt_ref": "runx:receipt:sha256:1ea7ea088e27b7c51eb83c5a5c0e67dd80dc4851c0a60f0a4530d423baa8331d",
+    "command": "runx skill umbtest03/sbom-maker@sha-b0be55e0ee89 --registry https://api.runx.ai --json -i lockfile_type=npm-shrinkwrap --input-json lockfile='{\"name\":\"demo-app\",\"version\":\"1.0.0\",\"lockfileVersion\":2,\"requires\":true,\"packages\":{\"\":{\"name\":\"demo-app\",\"version\":\"1.0.0\"},\"node_modules/lodash\":{\"version\":\"4.17.21\",\"license\":\"MIT\",\"resolved\":\"https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\"},\"node_modules/express\":{\"version\":\"4.18.2\",\"license\":\"GPL-3.0\",\"resolved\":\"https://registry.npmjs.org/express/-/express-4.18.2.tgz\"}}}' -R ./receipts",
+    "receipt_ref": "runx:receipt:sha256:8f369097cae2d34750a2e23d143f049e130477d82c77e058653106e8f0a7c9ff",
     "verify_verdict": "valid",
     "output": {
-      "components": [
-        {
-          "evidence_location": "dependencies[\"lodash\"]",
-          "license": "UNKNOWN",
-          "name": "lodash",
-          "version": "4.17.21"
-        }
-      ],
-      "license_risks": [],
-      "license_summary": {
-        "license_counts": {
-          "UNKNOWN": 1
-        },
-        "total_components": 1
-      },
       "sbom": {
         "bomFormat": "CycloneDX",
         "components": [
           {
+            "evidence_location": "dependencies[\"express\"]",
+            "license": "GPL-3.0",
+            "name": "express",
+            "version": "4.18.2"
+          },
+          {
             "evidence_location": "dependencies[\"lodash\"]",
-            "license": "UNKNOWN",
+            "license": "MIT",
             "name": "lodash",
             "version": "4.17.21"
           }
         ],
         "metadata": {
-          "timestamp": "2026-07-06T07:16:08.765Z"
+          "timestamp": "2026-07-06T12:09:56.790Z"
         },
         "specVersion": "1.4",
         "version": 1
-      }
+      },
+      "components": [
+        {
+          "evidence_location": "dependencies[\"express\"]",
+          "license": "GPL-3.0",
+          "name": "express",
+          "version": "4.18.2"
+        },
+        {
+          "evidence_location": "dependencies[\"lodash\"]",
+          "license": "MIT",
+          "name": "lodash",
+          "version": "4.17.21"
+        }
+      ],
+      "license_summary": {
+        "license_counts": {
+          "GPL-3.0": 1,
+          "MIT": 1
+        },
+        "total_components": 2
+      },
+      "license_risks": [
+        {
+          "component": "express",
+          "reason": "GPL-3.0 may trigger viral licensing requirements",
+          "risk": "high"
+        }
+      ]
     },
     "harness_cases": [
       {
@@ -57,107 +97,122 @@
     {
       "type": "runx_version",
       "value": "runx-cli 0.6.16",
-      "detail": "The version of runx used to build and verify the skill."
+      "detail": "runx --version used for publish/install/dogfood/verify."
     },
     {
-      "type": "publisher_info",
+      "type": "publisher_owner",
       "value": "umbtest03",
-      "detail": "Publisher owner and package name: sbom-maker, version: sha-b0be55e0ee89"
+      "detail": "Publisher owner of the skill."
+    },
+    {
+      "type": "package_name",
+      "value": "sbom-maker",
+      "detail": "Exact published package name."
+    },
+    {
+      "type": "version",
+      "value": "sha-b0be55e0ee89",
+      "detail": "Published package version."
     },
     {
       "type": "registry_ref",
       "value": "umbtest03/sbom-maker@sha-b0be55e0ee89",
-      "detail": "The fully qualified registry reference for the skill."
+      "detail": "Fully qualified registry reference."
     },
     {
       "type": "public_url",
       "value": "https://runx.ai/x/umbtest03/sbom-maker@sha-b0be55e0ee89",
-      "detail": "The public hosted URL for the skill."
+      "detail": "Live registry listing / canonical adoption page."
     },
     {
       "type": "pr_url",
       "value": "https://github.com/runxhq/runx/pull/261",
-      "detail": "The pull request URL where the skill was submitted."
+      "detail": "Public PR against runxhq/runx containing the package."
     },
     {
       "type": "source_url",
-      "value": "https://github.com/umbtest03/runx/tree/68fad22fd977a3baab21874620b7c6a735ce8bc9",
-      "detail": "The source repository branch URL."
+      "value": "https://github.com/umbtest03/runx/tree/260bd71c94764aa307d175787673933e6c2b61cf",
+      "detail": "Public source/provenance revision for the skill package."
     },
     {
       "type": "raw_x_yaml",
-      "value": "https://raw.githubusercontent.com/umbtest03/runx/68fad22fd977a3baab21874620b7c6a735ce8bc9/skills/sbom-maker/X.yaml",
-      "detail": "Raw GitHub URL for the X.yaml manifest."
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/260bd71c94764aa307d175787673933e6c2b61cf/skills/sbom-maker/X.yaml",
+      "detail": "Raw X.yaml at the source revision."
     },
     {
       "type": "raw_skill_md",
-      "value": "https://raw.githubusercontent.com/umbtest03/runx/68fad22fd977a3baab21874620b7c6a735ce8bc9/skills/sbom-maker/SKILL.md",
-      "detail": "Raw GitHub URL for the SKILL.md documentation."
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/260bd71c94764aa307d175787673933e6c2b61cf/skills/sbom-maker/SKILL.md",
+      "detail": "Raw SKILL.md at the source revision."
     },
     {
       "type": "verification_json",
-      "value": "https://raw.githubusercontent.com/umbtest03/runx/68fad22fd977a3baab21874620b7c6a735ce8bc9/verification.json",
-      "detail": "Raw GitHub URL for the verification receipt output."
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/260bd71c94764aa307d175787673933e6c2b61cf/verification.json",
+      "detail": "Raw runx verify verdict output."
     },
     {
       "type": "publish_method",
       "value": "runx login --provider github --for publish, then runx registry publish ./skills/sbom-maker/SKILL.md --registry https://api.runx.ai",
-      "detail": "Commands to authenticate and publish the skill."
+      "detail": "Authenticate and publish commands."
     },
     {
       "type": "install_command",
       "value": "runx add umbtest03/sbom-maker@sha-b0be55e0ee89 --registry https://api.runx.ai",
-      "detail": "Command to install the skill locally."
+      "detail": "Clean install command (verified: source=remote, status=installed)."
     },
     {
       "type": "harness_cases",
-      "value": "supported-lockfile, unsupported-lockfile",
-      "detail": "The defined harness test cases."
+      "value": "supported-lockfile (sealed), unsupported-lockfile (refused)",
+      "detail": "Harness case names with sealed/refused status."
     },
     {
       "type": "hosted_harness_status",
-      "value": "api.runx.ai hosted harness passed",
-      "detail": "Status of the automated evaluation platform."
+      "value": "Published package installs cleanly from the remote registry (runx add: source=remote, status=installed); harness cases validate: WSL local `runx harness ./skills/sbom-maker` passed 2/2 with 0 assertion errors (supported-lockfile sealed, unsupported-lockfile refused). Environment: WSL Linux local + remote registry install.",
+      "detail": "Harness status with explicit environment labeling."
     },
     {
       "type": "dogfood_command",
-      "value": "runx skill umbtest03/sbom-maker@sha-b0be55e0ee89 --registry https://api.runx.ai --json --input lockfile_type=npm-shrinkwrap --input lockfile='{\"name\": \"mock-app\", \"version\": \"1.0.0\", \"lockfileVersion\": 2, \"requires\": true, \"packages\": {\"\": {\"name\": \"mock-app\", \"version\": \"1.0.0\"}, \"node_modules/lodash\": {\"version\": \"4.17.21\", \"resolved\": \"https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\", \"integrity\": \"sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==\"}}}'",
-      "detail": "Command to run the skill locally."
+      "value": "runx skill umbtest03/sbom-maker@sha-b0be55e0ee89 --registry https://api.runx.ai --json -i lockfile_type=npm-shrinkwrap --input-json lockfile='{\"name\":\"demo-app\",\"version\":\"1.0.0\",\"lockfileVersion\":2,\"requires\":true,\"packages\":{\"\":{\"name\":\"demo-app\",\"version\":\"1.0.0\"},\"node_modules/lodash\":{\"version\":\"4.17.21\",\"license\":\"MIT\",\"resolved\":\"https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\"},\"node_modules/express\":{\"version\":\"4.18.2\",\"license\":\"GPL-3.0\",\"resolved\":\"https://registry.npmjs.org/express/-/express-4.18.2.tgz\"}}}' -R ./receipts",
+      "detail": "Exact post-publish dogfood command."
     },
     {
       "type": "receipt_ref",
-      "value": "runx:receipt:sha256:1ea7ea088e27b7c51eb83c5a5c0e67dd80dc4851c0a60f0a4530d423baa8331d",
-      "detail": "The receipt ID matching the dogfood output."
+      "value": "runx:receipt:sha256:8f369097cae2d34750a2e23d143f049e130477d82c77e058653106e8f0a7c9ff",
+      "detail": "Sealed receipt id from the post-publish dogfood run (not the harness fixture seal)."
     },
     {
       "type": "runx_verify_verdict",
-      "value": "valid",
-      "detail": "The validation verdict from runx verify command."
-    },
-    {
-      "type": "how_to_use",
-      "value": "A new user installs the skill with `runx add umbtest03/sbom-maker@sha-b0be55e0ee89 --registry https://api.runx.ai`. They run the skill locally by passing the lockfile_type and lockfile via the --input flags, and verify it by running `runx verify --receipt dogfood_receipt.json` on the output JSON.",
-      "detail": "End to end instructions for a new user without private context."
+      "value": "valid=True, signature_mode=production, signature_status=valid, digest=valid, content_address=valid",
+      "detail": "runx verify verdict for the dogfood receipt."
     },
     {
       "type": "component_count",
-      "value": "1",
-      "detail": "Total number of components in the SBOM."
+      "value": "2",
+      "detail": "Number of components extracted from the lockfile."
     },
     {
       "type": "format",
       "value": "CycloneDX",
-      "detail": "The SBOM specification format used."
+      "detail": "SBOM specification format."
     },
     {
-      "type": "license_summary_output",
-      "value": "{\"license_counts\": {\"UNKNOWN\": 1}, \"total_components\": 1}",
-      "detail": "Summary of licenses found."
+      "type": "license_summary",
+      "value": "{\"GPL-3.0\": 1, \"MIT\": 1}",
+      "detail": "License counts across extracted components."
+    },
+    {
+      "type": "license_risk_flagged",
+      "value": "express 4.18.2: GPL-3.0 (high) - GPL-3.0 may trigger viral licensing requirements",
+      "detail": "License risk flagged by the skill."
     },
     {
       "type": "refused_reason",
       "value": "Unsupported lockfile type: unknown-format",
-      "detail": "Expected failure message for unsupported formats."
+      "detail": "Refusal message emitted for the unsupported-lockfile case."
+    },
+    {
+      "type": "how_to_use",
+      "value": "Install: runx add umbtest03/sbom-maker@sha-b0be55e0ee89 --registry https://api.runx.ai. Run: runx skill umbtest03/sbom-maker@sha-b0be55e0ee89 --registry https://api.runx.ai --json -i lockfile_type=npm-shrinkwrap --input-json lockfile='<lockfile-json>' -R ./receipts. Verify: runx verify --receipt <receipt.json> --json (expects valid=true, signature_mode=production).",
+      "detail": "End-to-end install/run/verify for a new user without private context."
     }
   ]
 }
