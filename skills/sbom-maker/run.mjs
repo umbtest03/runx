@@ -15,7 +15,11 @@ function parseInput() {
 
 function parseLockfile(lockfile) {
   try {
-    return typeof lockfile === 'string' ? JSON.parse(lockfile) : lockfile;
+    const parsed = typeof lockfile === 'string' ? JSON.parse(lockfile) : lockfile;
+    if (!parsed || typeof parsed !== 'object') {
+      return refuse("Malformed or missing lockfile content");
+    }
+    return parsed;
   } catch (e) {
     return refuse("Malformed or missing lockfile content");
   }
@@ -30,7 +34,7 @@ function extractDependencies(parsedLockfile) {
   const dependencies = parsedLockfile.dependencies;
 
   const processDep = (name, version, pkgLicense) => {
-    const finalLicense = pkgLicense || "UNKNOWN";
+    const finalLicense = typeof pkgLicense === 'string' ? pkgLicense : "UNKNOWN";
     
     components.push({
       name: name,
@@ -41,7 +45,7 @@ function extractDependencies(parsedLockfile) {
 
     licenses.set(finalLicense, (licenses.get(finalLicense) || 0) + 1);
 
-    if (finalLicense.includes("GPL-3.0")) {
+    if (finalLicense.toLowerCase().includes("gpl-3.0")) {
       license_risks.push({
         component: name,
         risk: "high",

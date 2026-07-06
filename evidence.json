@@ -9,6 +9,39 @@
     "command": "runx skill umbtest03/sbom-maker@sha-81f9cdc918f0 --registry https://api.runx.ai --json --input lockfile_type=npm-shrinkwrap --input lockfile='{\"name\": \"mock-app\", \"version\": \"1.0.0\", \"lockfileVersion\": 2, \"requires\": true, \"packages\": {\"\": {\"name\": \"mock-app\", \"version\": \"1.0.0\"}, \"node_modules/lodash\": {\"version\": \"4.17.21\", \"resolved\": \"https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\", \"integrity\": \"sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==\"}}}'",
     "receipt_ref": "runx:receipt:sha256:27c5e7f6822b139ea40a3a618c0477db178eacfa055212111f82ed5dd396d992",
     "verify_verdict": "valid",
+    "output": {
+      "components": [
+        {
+          "evidence_location": "dependencies[\"lodash\"]",
+          "license": "UNKNOWN",
+          "name": "lodash",
+          "version": "4.17.21"
+        }
+      ],
+      "license_risks": [],
+      "license_summary": {
+        "license_counts": {
+          "UNKNOWN": 1
+        },
+        "total_components": 1
+      },
+      "sbom": {
+        "bomFormat": "CycloneDX",
+        "components": [
+          {
+            "evidence_location": "dependencies[\"lodash\"]",
+            "license": "UNKNOWN",
+            "name": "lodash",
+            "version": "4.17.21"
+          }
+        ],
+        "metadata": {
+          "timestamp": "2026-07-06T06:28:22.482Z"
+        },
+        "specVersion": "1.4",
+        "version": 1
+      }
+    },
     "harness_cases": [
       {
         "name": "supported-lockfile",
@@ -105,6 +138,26 @@
       "type": "how_to_use",
       "value": "A new user installs the skill with `runx add umbtest03/sbom-maker@sha-81f9cdc918f0 --registry https://api.runx.ai`. They run the skill locally by passing the lockfile_type and lockfile via the --input flags, and verify it by running `runx verify --receipt dogfood_receipt.json` on the output JSON.",
       "detail": "End to end instructions for a new user without private context."
+    },
+    {
+      "type": "component_count",
+      "value": "1",
+      "detail": "Total number of components in the SBOM."
+    },
+    {
+      "type": "format",
+      "value": "CycloneDX",
+      "detail": "The SBOM specification format used."
+    },
+    {
+      "type": "license_summary_output",
+      "value": "{\"license_counts\": {\"UNKNOWN\": 1}, \"total_components\": 1}",
+      "detail": "Summary of licenses found."
+    },
+    {
+      "type": "refused_reason",
+      "value": "Unsupported lockfile type: unknown-format",
+      "detail": "Expected failure message for unsupported formats."
     }
   ]
 }
