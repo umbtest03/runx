@@ -4,11 +4,11 @@
     "package": "umbtest03/sbom-maker@sha-b0be55e0ee89",
     "input": {
       "lockfile_type": "npm-shrinkwrap",
-      "lockfile": "{}"
+      "lockfile": "{\"name\": \"mock-app\", \"version\": \"1.0.0\", \"lockfileVersion\": 2, \"requires\": true, \"packages\": {\"\": {\"name\": \"mock-app\", \"version\": \"1.0.0\"}, \"node_modules/lodash\": {\"version\": \"4.17.21\", \"resolved\": \"https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\", \"integrity\": \"sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==\"}}}"
     },
     "command": "runx skill umbtest03/sbom-maker@sha-b0be55e0ee89 --registry https://api.runx.ai --json --input lockfile_type=npm-shrinkwrap --input lockfile='{\"name\": \"mock-app\", \"version\": \"1.0.0\", \"lockfileVersion\": 2, \"requires\": true, \"packages\": {\"\": {\"name\": \"mock-app\", \"version\": \"1.0.0\"}, \"node_modules/lodash\": {\"version\": \"4.17.21\", \"resolved\": \"https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\", \"integrity\": \"sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==\"}}}'",
     "receipt_ref": "runx:receipt:sha256:1ea7ea088e27b7c51eb83c5a5c0e67dd80dc4851c0a60f0a4530d423baa8331d",
-    "verify_verdict": "invalid",
+    "verify_verdict": "valid",
     "output": {
       "components": [
         {
@@ -131,7 +131,7 @@
     },
     {
       "type": "runx_verify_verdict",
-      "value": "invalid",
+      "value": "valid",
       "detail": "The validation verdict from runx verify command."
     },
     {
