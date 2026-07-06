@@ -1,4 +1,4 @@
-﻿# Delivery Report: #77 docs-doctor
+# Delivery Report: #77 docs-doctor
 
 ## Summary
 - **Bounty:** #77 - runx skill: docs doctor
@@ -17,7 +17,7 @@
 | 5 | skill_md | https://raw.githubusercontent.com/umbtest03/runx/46615b1/skills/docs-doctor/SKILL.md |
 | 6 | evidence_json | https://raw.githubusercontent.com/umbtest03/runx/46615b1/skills/docs-doctor/evidence/evidence.json |
 | 7 | verification_json | https://raw.githubusercontent.com/umbtest03/runx/46615b1/skills/docs-doctor/evidence/verification.json |
-| 8 | receipt_ref | sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88 |
+| 8 | receipt_ref | runx:receipt:sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88 |
 | 9 | report | https://raw.githubusercontent.com/umbtest03/runx/46615b1/skills/docs-doctor/evidence/report.md |
 
 ## Skill Description
@@ -29,7 +29,7 @@ Finds stale product documentation by comparing docs against the actual product s
 - **Registry publish:** umbtest03/docs-doctor@sha-7dbb7270bec3
 - **PR:** https://github.com/runxhq/runx/pull/231 (branch: answer-from-docs)
 - **Dogfood run:** 4 findings (3 critical, 1 minor), status sealed
-- **Dogfood receipt:** sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88
+- **Dogfood receipt:** runx:receipt:sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88
 - **Receipt verify:** runx verify -> valid: true, signature_mode: production, receipt_count: 1
 
 ## How to Install & Run
