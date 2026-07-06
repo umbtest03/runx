@@ -1,0 +1,189 @@
+{
+  "summary": "Evidence packet for the runx docs-doctor skill (umbtest03/docs-doctor@sha-169c63676569). A real post-publish dogfood run of the published package produced a sealed runx.receipt.v1 that passes runx verify with a production signature. The stale-docs case sealed with 1 doc finding(s) plus coverage_map, patch_plan, and a gated docs_pr_proposal; the fresh-docs case is the refused no-op path. All source and evidence artifacts pin to a single commit.",
+  "dogfood": {
+    "package": "umbtest03/docs-doctor@sha-169c63676569",
+    "input": {
+      "docs_corpus": [
+        {
+          "page": "cli-reference.md",
+          "content": "# CLI Reference\n\nRun the system with `my-app run`."
+        }
+      ],
+      "product_surface": {
+        "commands": [
+          {
+            "name": "my-app run",
+            "description": "Start the app"
+          },
+          {
+            "name": "my-app deploy",
+            "description": "Deploy to cloud (NEW IN v2)"
+          }
+        ],
+        "endpoints": [],
+        "schemas": []
+      },
+      "user_task_matrix": [
+        {
+          "task": "Deploying the app",
+          "expected_docs": "Users need to know how to deploy."
+        }
+      ],
+      "style_policy": "All new commands must be documented in cli-reference.md."
+    },
+    "command": "runx skill umbtest03/docs-doctor@sha-169c63676569 --registry https://api.runx.ai --json --input-json docs_corpus='[{\"page\":\"cli-reference.md\",\"content\":\"# CLI Reference\\n\\nRun the system with `my-app run`.\"}]' --input-json product_surface='{\"commands\":[{\"name\":\"my-app run\",\"description\":\"Start the app\"},{\"name\":\"my-app deploy\",\"description\":\"Deploy to cloud (NEW IN v2)\"}],\"endpoints\":[],\"schemas\":[]}' --input-json user_task_matrix='[{\"task\":\"Deploying the app\",\"expected_docs\":\"Users need to know how to deploy.\"}]' -i style_policy='All new commands must be documented in cli-reference.md.' -R ./receipts",
+    "receipt_ref": "runx:receipt:sha256:7016659dc1ee1c333f02b9cc5597bd5fd399abb5f3676960004b700451133fec",
+    "verify_verdict": "valid",
+    "output": {
+      "doc_findings": [
+        {
+          "doc_evidence": "Run the system with `my-app run`.",
+          "issue": "Missing documentation for new command",
+          "page": "cli-reference.md",
+          "product_surface_evidence": "Deploy to cloud (NEW IN v2)",
+          "proposed_fix_scope": "Add my-app deploy to cli-reference.md",
+          "severity": "high"
+        }
+      ],
+      "coverage_map": {
+        "my-app deploy": "missing",
+        "my-app run": "documented"
+      },
+      "patch_plan": [
+        "Update cli-reference.md to include my-app deploy"
+      ],
+      "docs_pr_proposal": {
+        "branch": "docs/add-deploy-cmd",
+        "description": "This PR adds the missing documentation for the new `my-app deploy` command.",
+        "title": "docs: add missing deploy command documentation"
+      }
+    },
+    "harness_cases": [
+      {
+        "name": "stale-docs",
+        "status": "sealed"
+      },
+      {
+        "name": "fresh-docs",
+        "status": "refused"
+      }
+    ]
+  },
+  "observations": [
+    {
+      "type": "runx_version",
+      "value": "runx-cli 0.6.16",
+      "detail": "runx --version used for install/dogfood/verify."
+    },
+    {
+      "type": "publisher_owner",
+      "value": "umbtest03",
+      "detail": "Publisher owner."
+    },
+    {
+      "type": "package_name",
+      "value": "docs-doctor",
+      "detail": "Exact published package name."
+    },
+    {
+      "type": "version",
+      "value": "sha-169c63676569",
+      "detail": "Published package version."
+    },
+    {
+      "type": "registry_ref",
+      "value": "umbtest03/docs-doctor@sha-169c63676569",
+      "detail": "Fully qualified registry reference."
+    },
+    {
+      "type": "public_url",
+      "value": "https://runx.ai/x/umbtest03/docs-doctor@sha-169c63676569",
+      "detail": "Live registry listing / canonical adoption page."
+    },
+    {
+      "type": "pr_url",
+      "value": "https://github.com/runxhq/runx/pull/259",
+      "detail": "Public PR against runxhq/runx containing the package."
+    },
+    {
+      "type": "source_url",
+      "value": "https://github.com/umbtest03/runx/tree/f217906c9ae1f193a3b57acb7c60505bdb073923",
+      "detail": "Public source revision."
+    },
+    {
+      "type": "raw_x_yaml",
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/f217906c9ae1f193a3b57acb7c60505bdb073923/skills/docs-doctor/X.yaml",
+      "detail": "Raw X.yaml at the source revision."
+    },
+    {
+      "type": "raw_skill_md",
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/f217906c9ae1f193a3b57acb7c60505bdb073923/skills/docs-doctor/SKILL.md",
+      "detail": "Raw SKILL.md at the source revision."
+    },
+    {
+      "type": "verification_json",
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/f217906c9ae1f193a3b57acb7c60505bdb073923/skills/docs-doctor/evidence/verification.json",
+      "detail": "Raw runx verify verdict."
+    },
+    {
+      "type": "publish_method",
+      "value": "runx login --provider github --for publish, then runx registry publish ./skills/docs-doctor/SKILL.md --registry https://api.runx.ai",
+      "detail": "Authenticate and publish commands."
+    },
+    {
+      "type": "install_command",
+      "value": "runx add umbtest03/docs-doctor@sha-169c63676569 --registry https://api.runx.ai",
+      "detail": "Clean install command (verified: source=remote, status=installed)."
+    },
+    {
+      "type": "harness_cases",
+      "value": "stale-docs (sealed), fresh-docs (refused)",
+      "detail": "Harness case names with status."
+    },
+    {
+      "type": "hosted_harness_status",
+      "value": "Published package installs cleanly from the remote registry (runx add: source=remote, status=installed); harness cases validate: WSL local `runx harness ./skills/docs-doctor` passed 2/2 with 0 assertion errors (stale-docs sealed, fresh-docs refused). Environment: WSL Linux local + remote registry install.",
+      "detail": "Harness status with explicit environment labeling."
+    },
+    {
+      "type": "dogfood_command",
+      "value": "runx skill umbtest03/docs-doctor@sha-169c63676569 --registry https://api.runx.ai --json --input-json docs_corpus='[{\"page\":\"cli-reference.md\",\"content\":\"# CLI Reference\\n\\nRun the system with `my-app run`.\"}]' --input-json product_surface='{\"commands\":[{\"name\":\"my-app run\",\"description\":\"Start the app\"},{\"name\":\"my-app deploy\",\"description\":\"Deploy to cloud (NEW IN v2)\"}],\"endpoints\":[],\"schemas\":[]}' --input-json user_task_matrix='[{\"task\":\"Deploying the app\",\"expected_docs\":\"Users need to know how to deploy.\"}]' -i style_policy='All new commands must be documented in cli-reference.md.' -R ./receipts",
+      "detail": "Exact post-publish dogfood command."
+    },
+    {
+      "type": "receipt_ref",
+      "value": "runx:receipt:sha256:7016659dc1ee1c333f02b9cc5597bd5fd399abb5f3676960004b700451133fec",
+      "detail": "Sealed receipt id from the post-publish dogfood run (not a harness fixture seal)."
+    },
+    {
+      "type": "runx_verify_verdict",
+      "value": "valid=True, signature_mode=production, signature_status=valid, digest=valid, content_address=valid",
+      "detail": "runx verify verdict for the dogfood receipt."
+    },
+    {
+      "type": "finding_count",
+      "value": "1",
+      "detail": "Number of doc findings emitted in the stale-docs case."
+    },
+    {
+      "type": "coverage_gaps",
+      "value": "my-app deploy",
+      "detail": "Product-surface items missing from docs (coverage_map != documented)."
+    },
+    {
+      "type": "no_op_path",
+      "value": "fresh-docs case: docs already match the product surface -> refused, no SBOM/no findings emitted",
+      "detail": "The refused/no-op path."
+    },
+    {
+      "type": "proposal_status",
+      "value": "docs_pr_proposal present and gated: title='docs: add missing deploy command documentation', branch='docs/add-deploy-cmd' (consumed by issue-to-pr; this skill edits nothing)",
+      "detail": "Gated PR proposal status."
+    },
+    {
+      "type": "how_to_use",
+      "value": "Install: runx add umbtest03/docs-doctor@sha-169c63676569 --registry https://api.runx.ai. Run: runx skill umbtest03/docs-doctor@sha-169c63676569 --registry https://api.runx.ai --json --input-json docs_corpus='...' --input-json product_surface='...' --input-json user_task_matrix='...' -i style_policy='...' -R ./receipts. Verify: runx verify --receipt <receipt.json> --json (expects valid=true, signature_mode=production).",
+      "detail": "End-to-end install/run/verify for a new user without private context."
+    }
+  ]
+}
