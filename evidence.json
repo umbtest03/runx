@@ -81,22 +81,22 @@
     },
     {
       "type": "source_url",
-      "value": "https://github.com/umbtest03/runx/tree/sbom-maker",
+      "value": "https://github.com/umbtest03/runx/tree/68fad22fd977a3baab21874620b7c6a735ce8bc9",
       "detail": "The source repository branch URL."
     },
     {
       "type": "raw_x_yaml",
-      "value": "https://raw.githubusercontent.com/umbtest03/runx/sbom-maker/skills/sbom-maker/X.yaml",
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/68fad22fd977a3baab21874620b7c6a735ce8bc9/skills/sbom-maker/X.yaml",
       "detail": "Raw GitHub URL for the X.yaml manifest."
     },
     {
       "type": "raw_skill_md",
-      "value": "https://raw.githubusercontent.com/umbtest03/runx/sbom-maker/skills/sbom-maker/SKILL.md",
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/68fad22fd977a3baab21874620b7c6a735ce8bc9/skills/sbom-maker/SKILL.md",
       "detail": "Raw GitHub URL for the SKILL.md documentation."
     },
     {
       "type": "verification_json",
-      "value": "https://raw.githubusercontent.com/umbtest03/runx/sbom-maker/verification.json",
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/68fad22fd977a3baab21874620b7c6a735ce8bc9/verification.json",
       "detail": "Raw GitHub URL for the verification receipt output."
     },
     {
