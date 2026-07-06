@@ -1,0 +1,48 @@
+{
+  "summary": "This is the final delivery for Bounty #77. It implements the docs-doctor skill using the strict 5-agent methodology, adhering to the single-commit evidence hash rule.",
+  "runx_cli_version": "0.6.14",
+  "observations": [
+    {
+      "type": "environment",
+      "detail": "Executed locally on WSL Ubuntu 26.04 using runx CLI version 0.6.14. Production keys loaded via .runx-env."
+    },
+    {
+      "type": "provenance",
+      "detail": "All artifacts, X.yaml, SKILL.md, and fixtures are pinned strictly to the single commit ea89ad1f22d02df22ce5cd4d55cf43e2159dcdc2 in umbtest03/runx."
+    },
+    {
+      "type": "harness_validation",
+      "detail": "Local inline harness execution returned 2/2 PASSED with zero assertion errors for both stale-docs (sealed) and fresh-docs (failure)."
+    },
+    {
+      "type": "dogfood_execution",
+      "detail": "Local dogfood execution via 'runx skill' successfully generated a cryptographically signed execution receipt for the docs-doctor logic."
+    },
+    {
+      "type": "receipt_verification",
+      "detail": "The generated receipt sha256:4ccebe2546e433a568776fd53b53e050c42f323639a95fa4807dc5b3d5a434e5 passed 'runx verify' successfully (valid: true)."
+    },
+    {
+      "type": "skill_profile",
+      "detail": "SKILL.md satisfies operator profile requirements with >100 lines describing architecture, input schemas, and expected outputs."
+    }
+  ],
+  "dogfood": {
+    "package": "docs-doctor",
+    "runx_cli_version": "0.6.14",
+    "input": "stale-docs.json",
+    "command": "runx skill ./skills/docs-doctor --json < skills/docs-doctor/fixtures/stale-docs.json",
+    "receipt_ref": "sha256:4ccebe2546e433a568776fd53b53e050c42f323639a95fa4807dc5b3d5a434e5",
+    "verify_verdict": "valid",
+    "harness_cases": [
+      {
+        "name": "stale-docs",
+        "status": "sealed"
+      },
+      {
+        "name": "fresh-docs",
+        "status": "failure"
+      }
+    ]
+  }
+}
