@@ -1,6 +1,4 @@
-import fs from 'fs';
-
-function main() {
+function parseInput() {
   const inputStr = process.env.RUNX_INPUTS_JSON;
   if (!inputStr) {
     return refuse("No input provided via RUNX_INPUTS_JSON");
@@ -9,11 +7,68 @@ function main() {
   let parsedInput;
   try {
     parsedInput = JSON.parse(inputStr);
-    console.error("INPUT:", inputStr);
   } catch (e) {
     return refuse("Invalid JSON input");
   }
+  return parsedInput;
+}
 
+function parseLockfile(lockfile) {
+  try {
+    return typeof lockfile === 'string' ? JSON.parse(lockfile) : lockfile;
+  } catch (e) {
+    return refuse("Malformed or missing lockfile content");
+  }
+}
+
+function extractDependencies(parsedLockfile) {
+  const components = [];
+  const licenses = new Map();
+  const license_risks = [];
+
+  const packages = parsedLockfile.packages;
+  const dependencies = parsedLockfile.dependencies;
+
+  const processDep = (name, version, pkgLicense) => {
+    const finalLicense = pkgLicense || "UNKNOWN";
+    
+    components.push({
+      name: name,
+      version: version,
+      license: finalLicense,
+      evidence_location: `dependencies["${name}"]`
+    });
+
+    licenses.set(finalLicense, (licenses.get(finalLicense) || 0) + 1);
+
+    if (finalLicense.includes("GPL-3.0")) {
+      license_risks.push({
+        component: name,
+        risk: "high",
+        reason: "GPL-3.0 may trigger viral licensing requirements"
+      });
+    }
+  };
+
+  if (packages && typeof packages === 'object') {
+    for (const [path, details] of Object.entries(packages)) {
+      if (path === "") continue; 
+      const name = path.split('node_modules/').pop();
+      processDep(name, details.version || "unknown", details.license);
+    }
+  } else if (dependencies && typeof dependencies === 'object') {
+    for (const [name, details] of Object.entries(dependencies)) {
+      processDep(name, details.version || "unknown", details.license);
+    }
+  } else {
+    return refuse("No dependencies found in lockfile");
+  }
+
+  return { components, licenses, license_risks };
+}
+
+function main() {
+  const parsedInput = parseInput();
   const { lockfile, lockfile_type } = parsedInput;
 
   if (!lockfile || !lockfile_type) {
@@ -24,61 +79,8 @@ function main() {
     return refuse("Unsupported lockfile type: " + lockfile_type);
   }
 
-  // Parse the lockfile content
-  let parsedLockfile;
-  try {
-    parsedLockfile = typeof lockfile === 'string' ? JSON.parse(lockfile) : lockfile;
-  } catch (e) {
-    return refuse("Malformed or missing lockfile content");
-  }
-
-  // Very simple npm package-lock.json / npm-shrinkwrap.json parser
-  const dependencies = parsedLockfile.dependencies || {};
-  const packages = parsedLockfile.packages || {};
-  
-  const components = [];
-  const licenses = new Map();
-  const license_risks = [];
-
-  // Helper to process a dependency
-  const processDep = (name, version) => {
-    // Generate a pseudo-license based on package name length to avoid network lookup
-    const pseudoLicense = (name.length % 2 === 0) ? "MIT" : "GPL-3.0";
-    
-    components.push({
-      name: name,
-      version: version,
-      license: pseudoLicense,
-      evidence_location: `dependencies["${name}"]`
-    });
-
-    licenses.set(pseudoLicense, (licenses.get(pseudoLicense) || 0) + 1);
-
-    if (pseudoLicense === "GPL-3.0") {
-      license_risks.push({
-        component: name,
-        risk: "high",
-        reason: "GPL-3.0 may trigger viral licensing requirements"
-      });
-    }
-  };
-
-  if (Object.keys(packages).length > 0) {
-    // v2/v3 lockfile
-    for (const [path, details] of Object.entries(packages)) {
-      if (path === "") continue; // root
-      const name = path.split('node_modules/').pop();
-      processDep(name, details.version || "unknown");
-    }
-  } else if (Object.keys(dependencies).length > 0) {
-    // v1 lockfile
-    for (const [name, details] of Object.entries(dependencies)) {
-      processDep(name, details.version || "unknown");
-    }
-  } else {
-    // Empty or unrecognized structure, but valid JSON
-    return refuse("No dependencies found in lockfile");
-  }
+  const parsedLockfile = parseLockfile(lockfile);
+  const { components, licenses, license_risks } = extractDependencies(parsedLockfile);
 
   const sbom = {
     bomFormat: "CycloneDX",
