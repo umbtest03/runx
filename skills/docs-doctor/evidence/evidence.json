@@ -1,4 +1,4 @@
-﻿{
+{
   "bounty": {
     "id": 77,
     "title": "runx skill: docs doctor",
@@ -31,7 +31,7 @@
     "package": "umbtest03/docs-doctor@sha-7dbb7270bec3",
     "input": "docs_corpus with 2 docs, product_surface with 4 commands, user_task_matrix with 1 task, style_policy",
     "command": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai --input-json docs_corpus=... --input-json product_surface=... --input-json user_task_matrix=... -i style_policy=...",
-    "receipt_ref": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88",
+    "receipt_ref": "runx:receipt:sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88",
     "verify_verdict": "valid:true, signature_mode:production, receipt_count:1",
     "harness_cases": [
       {
@@ -60,7 +60,7 @@
     {"key": "harness_case_names", "value": "stale-docs, fresh-docs"},
     {"key": "hosted_harness_status", "value": "passed"},
     {"key": "dogfood_command", "value": "runx skill umbtest03/docs-doctor@sha-7dbb7270bec3 --registry https://api.runx.ai with 4 inputs"},
-    {"key": "receipt_ref", "value": "sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88"},
+    {"key": "receipt_ref", "value": "runx:receipt:sha256:35d95442a83fb2e997efc24094fac349bdaf1f69918aacbdfecb638410f78d88"},
     {"key": "verify_verdict", "value": "valid:true, signature_mode:production, receipt_count:1"},
     {"key": "finding_count", "value": "4"},
     {"key": "coverage_gaps", "value": "3 undocumented commands (registry publish, harness, verify)"},
