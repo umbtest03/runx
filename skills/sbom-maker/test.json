@@ -1,0 +1,4 @@
+{
+  "lockfile": "fixtures/supported-lockfile.json",
+  "lockfile_type": "npm-shrinkwrap"
+}
