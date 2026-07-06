@@ -28,9 +28,9 @@
     "public_url": "https://runx.ai/x/umbtest03/sbom-maker@sha-81f9cdc918f0",
     "pr_url": "https://github.com/runxhq/runx/pull/261",
     "source_url": "https://github.com/umbtest03/runx/tree/sbom-maker",
-    "raw_x_yaml": "https://raw.githubusercontent.com/umbtest03/runx/38581ef02c98f146c43b8df97f4a0cc1c2140ba6/skills/sbom-maker/X.yaml",
-    "raw_skill_md": "https://raw.githubusercontent.com/umbtest03/runx/38581ef02c98f146c43b8df97f4a0cc1c2140ba6/skills/sbom-maker/SKILL.md",
-    "verification_json": "https://raw.githubusercontent.com/umbtest03/runx/38581ef02c98f146c43b8df97f4a0cc1c2140ba6/verification.json",
+    "raw_x_yaml": "https://raw.githubusercontent.com/umbtest03/runx/sbom-maker/skills/sbom-maker/X.yaml",
+    "raw_skill_md": "https://raw.githubusercontent.com/umbtest03/runx/sbom-maker/skills/sbom-maker/SKILL.md",
+    "verification_json": "https://raw.githubusercontent.com/umbtest03/runx/sbom-maker/verification.json",
     "publish_method": "runx login --provider github --for publish, then runx registry publish ./skills/sbom-maker/SKILL.md --registry https://api.runx.ai",
     "install_command": "runx add umbtest03/sbom-maker@sha-81f9cdc918f0 --registry https://api.runx.ai",
     "harness_case_names": [
@@ -38,10 +38,10 @@
       "unsupported-lockfile"
     ],
     "hosted_harness_status": "api.runx.ai hosted harness passed",
-    "dogfood_command": "runx skill umbtest03/sbom-maker@sha-81f9cdc918f0 --registry https://api.runx.ai --json --input lockfile_type=npm-shrinkwrap --input lockfile='...'",
+    "dogfood_command": "runx skill umbtest03/sbom-maker@sha-81f9cdc918f0 --registry https://api.runx.ai --json --input lockfile_type=npm-shrinkwrap --input lockfile='{\"name\": \"mock-app\", \"version\": \"1.0.0\", \"lockfileVersion\": 2, \"requires\": true, \"packages\": {\"\": {\"name\": \"mock-app\", \"version\": \"1.0.0\"}, \"node_modules/lodash\": {\"version\": \"4.17.21\", \"resolved\": \"https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\", \"integrity\": \"sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==\"}}}'",
     "receipt_ref": "runx:receipt:sha256:27c5e7f6822b139ea40a3a618c0477db178eacfa055212111f82ed5dd396d992",
     "runx_verify_verdict": "valid",
-    "how_to_use": "A new user installs the skill with `runx add umbtest03/sbom-maker@sha-81f9cdc918f0 --registry https://api.runx.ai`. They run the skill locally by passing the lockfile_type and lockfile via the --input flags, and verify it by running `runx verify --receipt <receipt.json>` on the output JSON.",
+    "how_to_use": "A new user installs the skill with `runx add umbtest03/sbom-maker@sha-81f9cdc918f0 --registry https://api.runx.ai`. They run the skill locally by passing the lockfile_type and lockfile via the --input flags, and verify it by running `runx verify --receipt dogfood_receipt.json` on the output JSON.",
     "component_count": 1,
     "format": "CycloneDX",
     "license_summary": {
