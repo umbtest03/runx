@@ -9,6 +9,7 @@ function main() {
   let parsedInput;
   try {
     parsedInput = JSON.parse(inputStr);
+    console.error("INPUT:", inputStr);
   } catch (e) {
     return refuse("Invalid JSON input");
   }
@@ -26,7 +27,7 @@ function main() {
   // Parse the lockfile content
   let parsedLockfile;
   try {
-    parsedLockfile = JSON.parse(lockfile);
+    parsedLockfile = typeof lockfile === 'string' ? JSON.parse(lockfile) : lockfile;
   } catch (e) {
     return refuse("Malformed or missing lockfile content");
   }
