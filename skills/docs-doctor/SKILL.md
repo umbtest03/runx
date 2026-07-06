@@ -1,7 +1,7 @@
 ---
 name: docs-doctor
 description: Finds stale product docs by comparing them with the actual surface they describe, emitting finding reports and patch plans.
-version: 1.0.0
+version: 1.0.1
 author: umbtest03
 ---
 
