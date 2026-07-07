@@ -1,5 +1,5 @@
 {
-  "summary": "Evidence packet for the runx sbom-maker skill (umbtest03/sbom-maker@sha-b0be55e0ee89). A real post-publish dogfood run of the published package produced a sealed runx.receipt.v1 that passes runx verify with a production signature. The SBOM extracted 2 components (express 4.18.2 GPL-3.0, lodash 4.17.21 MIT) and flagged the GPL-3.0 dependency as a high license risk. All source artifacts pin to a single commit on the umbtest03/runx sbom-maker branch.",
+  "summary": "Evidence packet for the runx sbom-maker skill (umbtest03/sbom-maker@sha-b0be55e0ee89). A real post-publish dogfood run of the published package produced a sealed runx.receipt.v1 that passes runx verify with a production signature. The SBOM extracted 2 components (express 4.18.2 GPL-3.0, lodash 4.17.21 MIT) and flagged the GPL-3.0 dependency as a high license risk. source_url, X.yaml, SKILL.md and verification.json all resolve at a single source revision (commit 66816d9a2ee8d700473738a93e0a40444dd88664); this evidence packet and the report are committed as its direct child and describe that same revision.",
   "dogfood": {
     "package": "umbtest03/sbom-maker@sha-b0be55e0ee89",
     "input": {
@@ -131,23 +131,23 @@
     },
     {
       "type": "source_url",
-      "value": "https://github.com/umbtest03/runx/tree/260bd71c94764aa307d175787673933e6c2b61cf",
-      "detail": "Public source/provenance revision for the skill package."
+      "value": "https://github.com/umbtest03/runx/tree/66816d9a2ee8d700473738a93e0a40444dd88664",
+      "detail": "Public source/provenance revision for the skill package (single source revision)."
     },
     {
       "type": "raw_x_yaml",
-      "value": "https://raw.githubusercontent.com/umbtest03/runx/260bd71c94764aa307d175787673933e6c2b61cf/skills/sbom-maker/X.yaml",
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/66816d9a2ee8d700473738a93e0a40444dd88664/skills/sbom-maker/X.yaml",
       "detail": "Raw X.yaml at the source revision."
     },
     {
       "type": "raw_skill_md",
-      "value": "https://raw.githubusercontent.com/umbtest03/runx/260bd71c94764aa307d175787673933e6c2b61cf/skills/sbom-maker/SKILL.md",
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/66816d9a2ee8d700473738a93e0a40444dd88664/skills/sbom-maker/SKILL.md",
       "detail": "Raw SKILL.md at the source revision."
     },
     {
       "type": "verification_json",
-      "value": "https://raw.githubusercontent.com/umbtest03/runx/260bd71c94764aa307d175787673933e6c2b61cf/verification.json",
-      "detail": "Raw runx verify verdict output."
+      "value": "https://raw.githubusercontent.com/umbtest03/runx/66816d9a2ee8d700473738a93e0a40444dd88664/verification.json",
+      "detail": "Raw runx verify verdict output at the source revision."
     },
     {
       "type": "publish_method",
@@ -183,6 +183,11 @@
       "type": "runx_verify_verdict",
       "value": "valid=True, signature_mode=production, signature_status=valid, digest=valid, content_address=valid",
       "detail": "runx verify verdict for the dogfood receipt."
+    },
+    {
+      "type": "registry_provenance",
+      "value": "registry_source=remote https://api.runx.ai, skill_id=umbtest03/sbom-maker, version=sha-b0be55e0ee89, trust_state=trusted, trust_tier=community",
+      "detail": "Receipt registry provenance: the dogfood run resolved the published package from the remote registry at the exact published version (same published package version)."
     },
     {
       "type": "component_count",

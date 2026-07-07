@@ -5,13 +5,13 @@ This report documents the published `sbom-maker` runx skill and a real, verifiab
 post-publish dogfood run.
 
 ## Package
-- **Skill**: `sbom-maker`  •  **Owner**: `umbtest03`  •  **Version**: `sha-b0be55e0ee89`
+- **Skill**: `sbom-maker` | **Owner**: `umbtest03` | **Version**: `sha-b0be55e0ee89`
 - **Registry ref**: `umbtest03/sbom-maker@sha-b0be55e0ee89`
 - **public_url**: https://runx.ai/x/umbtest03/sbom-maker@sha-b0be55e0ee89
 - **pr_url**: https://github.com/runxhq/runx/pull/261
-- **source_url**: https://github.com/umbtest03/runx/tree/260bd71c94764aa307d175787673933e6c2b61cf
-- **raw X.yaml**: https://raw.githubusercontent.com/umbtest03/runx/260bd71c94764aa307d175787673933e6c2b61cf/skills/sbom-maker/X.yaml
-- **raw SKILL.md**: https://raw.githubusercontent.com/umbtest03/runx/260bd71c94764aa307d175787673933e6c2b61cf/skills/sbom-maker/SKILL.md
+- **source_url**: https://github.com/umbtest03/runx/tree/66816d9a2ee8d700473738a93e0a40444dd88664
+- **raw X.yaml**: https://raw.githubusercontent.com/umbtest03/runx/66816d9a2ee8d700473738a93e0a40444dd88664/skills/sbom-maker/X.yaml
+- **raw SKILL.md**: https://raw.githubusercontent.com/umbtest03/runx/66816d9a2ee8d700473738a93e0a40444dd88664/skills/sbom-maker/SKILL.md
 
 ## runx CLI
 - `runx --version` -> **runx-cli 0.6.16** (>= 0.6.14 floor). Used for install, dogfood, and verify.
@@ -30,12 +30,17 @@ post-publish dogfood run.
 - Receipt: `runx:receipt:sha256:8f369097cae2d34750a2e23d143f049e130477d82c77e058653106e8f0a7c9ff`
 - `runx verify --receipt dogfood_receipt.json --json` -> **valid: true, signature_mode: production, signature: valid**.
 
-## Provenance
-All bound artifact URLs are pinned to a single PR head commit on the `umbtest03/runx` `sbom-maker`
-branch; the skill files are byte-identical to the published package (digest ed43c327...). The recorded
-receipt_ref is the post-publish dogfood run of the published package, not a harness fixture seal.
+## Provenance (single source revision)
+- Registry provenance (from the dogfood receipt): registry_source=remote https://api.runx.ai, skill_id=umbtest03/sbom-maker, version=sha-b0be55e0ee89, trust_state=trusted, trust_tier=community — the dogfood run
+  resolved the published package from the remote registry at the exact published version.
+- source_url, raw X.yaml, raw SKILL.md and verification.json all resolve at one source revision:
+  commit `66816d9a2ee8d700473738a93e0a40444dd88664` on the `umbtest03/runx` `sbom-maker` branch.
+- The skill files at `66816d9a2ee8d700473738a93e0a40444dd88664` are byte-identical to the published package `umbtest03/sbom-maker@sha-b0be55e0ee89` (matching digest).
+- This report and evidence.json are committed as the direct child of `66816d9a2ee8d700473738a93e0a40444dd88664` and describe that same
+  revision; the recorded receipt_ref is the post-publish dogfood run of the published package, not a
+  harness fixture seal.
 
 ## What to inspect first
 1. `runx verify --receipt dogfood_receipt.json --json` (valid=true, production).
 2. `evidence.json` dogfood.output (real SBOM with 2 components + GPL-3.0 risk).
-3. Raw X.yaml / SKILL.md at the PR head commit.
+3. Raw X.yaml / SKILL.md / verification.json at source revision `66816d9a2ee8d700473738a93e0a40444dd88664`.
