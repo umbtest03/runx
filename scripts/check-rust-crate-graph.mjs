@@ -117,18 +117,25 @@ const findings = [];
 const workspaceManifest = await readManifest("Cargo.toml");
 const actualMembers = parseWorkspaceMembers(workspaceManifest);
 const workspaceRunxVersions = parseWorkspaceRunxDependencyVersions(workspaceManifest);
+const crateManifests = new Map();
 
 checkMembers(actualMembers);
 checkDisallowedDependencies("workspace", workspaceManifest);
 
 for (const crateName of expectedMembers) {
-  const manifest = await readManifest(`${crateName}/Cargo.toml`);
+  crateManifests.set(crateName, await readManifest(`${crateName}/Cargo.toml`));
+}
+
+const releaseStampedGraph = isReleaseStampedGraph(crateManifests, workspaceRunxVersions);
+
+for (const crateName of expectedMembers) {
+  const manifest = crateManifests.get(crateName);
   const packageName = parsePackageName(manifest);
   if (packageName !== crateName) {
     findings.push(`${crateName}/Cargo.toml package name is ${packageName ?? "missing"}, expected ${crateName}`);
   }
   checkWorkspaceDependencyVersion(crateName, manifest);
-  checkPublishingReadiness(crateName, manifest);
+  checkPublishingReadiness(crateName, manifest, releaseStampedGraph);
   checkRunxDependencies(crateName, manifest);
   await checkRunxDependencyUsage(crateName, manifest);
   checkDisallowedDependencies(crateName, manifest);
@@ -184,6 +191,16 @@ function parseWorkspaceRunxDependencyVersions(manifest) {
   return versions;
 }
 
+function isReleaseStampedGraph(manifests, workspaceVersions) {
+  const releaseVersion = parsePackageVersion(manifests.get("runx-cli") ?? "");
+  if (!releaseVersion) {
+    return false;
+  }
+  const packagesMatch = expectedMembers.every((crateName) => parsePackageVersion(manifests.get(crateName) ?? "") === releaseVersion);
+  const workspaceDependenciesMatch = [...workspaceVersions.values()].every((version) => version === releaseVersion);
+  return packagesMatch && workspaceDependenciesMatch;
+}
+
 function checkMembers(actualMembers) {
   const expected = [...expectedMembers].sort();
   if (actualMembers.join("\n") !== expected.join("\n")) {
@@ -207,14 +224,14 @@ function checkWorkspaceDependencyVersion(crateName, manifest) {
   }
 }
 
-function checkPublishingReadiness(crateName, manifest) {
+function checkPublishingReadiness(crateName, manifest, releaseStamped) {
   const packageBody = sectionBody(manifest, "package");
   const hasPublishFalse = /^publish\s*=\s*false\s*$/mu.test(packageBody);
   const version = parsePackageVersion(manifest);
   if (apiBearingPublishedCrates.has(crateName) && version === "0.0.1") {
     findings.push(`${crateName}/Cargo.toml must not reuse the published reservation version 0.0.1 for API-bearing publishability`);
   }
-  if (reservationVersionCrates.has(crateName)) {
+  if (!releaseStamped && reservationVersionCrates.has(crateName)) {
     if (version !== "0.0.1") {
       findings.push(`${crateName}/Cargo.toml must use placeholder reservation version 0.0.1, found ${version ?? "missing"}`);
     }
