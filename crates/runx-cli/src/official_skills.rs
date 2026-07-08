@@ -247,7 +247,7 @@ pub(crate) const OFFICIAL_SKILLS: &[OfficialSkillLockEntry] = &[
     },
     OfficialSkillLockEntry {
         skill_id: "runx/release",
-        version: "sha-76b9da654f43",
+        version: "sha-99c592a9161d",
         digest: "20b8f78fee305165f010e501d5349897a384f323a1b98dbef864dbbc763c5a07",
     },
     OfficialSkillLockEntry {

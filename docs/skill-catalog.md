@@ -41,8 +41,8 @@ The command shape is deliberate:
 | Install package material | `runx add <owner>/<name>@<version>` |
 | Execute a local or registry skill | `runx skill <path-or-ref>` |
 
-There is no `runx skill add` command. Installation is `runx add`; execution is
-`runx skill`.
+Do not combine the install and execution verbs. Installation is `runx add`;
+execution is `runx skill`.
 
 ## Canonical category slugs
 
