@@ -39,16 +39,24 @@ expectEqual("scoop architecture.64bit.extract_dir", scoopArch?.extract_dir, winS
 expectEqual("scoop architecture.64bit.bin", scoopArch?.bin, "runx.exe");
 expectEqual("scoop autoupdate extract_dir", scoop.autoupdate?.architecture?.["64bit"]?.extract_dir, `runx-$version-${TARGETS.winX64}`);
 
-const winget = readFileSync(path.join(options.channels, "winget", "runx.yaml"), "utf8");
-expectIncludes("winget RelativeFilePath", winget, `RelativeFilePath: ${winStem}\\runx.exe`);
+const wingetVersion = readFileSync(path.join(options.channels, "winget", "runxhq.runx.yaml"), "utf8");
+expectIncludes("winget version manifest type", wingetVersion, "ManifestType: version");
+expectIncludes("winget default locale", wingetVersion, "DefaultLocale: en-US");
+
+const wingetLocale = readFileSync(path.join(options.channels, "winget", "runxhq.runx.locale.en-US.yaml"), "utf8");
+expectIncludes("winget locale manifest type", wingetLocale, "ManifestType: defaultLocale");
+expectIncludes("winget locale package name", wingetLocale, "PackageName: runx");
+
+const wingetInstaller = readFileSync(path.join(options.channels, "winget", "runxhq.runx.installer.yaml"), "utf8");
+expectIncludes("winget installer manifest type", wingetInstaller, "ManifestType: installer");
+expectIncludes("winget RelativeFilePath", wingetInstaller, `RelativeFilePath: ${winStem}\\runx.exe`);
 expectIncludes(
-  "winget installer-scoped NestedInstallerFiles",
-  winget,
+  "winget root NestedInstallerFiles",
+  wingetInstaller,
   [
-    "Installers:",
-    "  - Architecture: x64",
-    "    NestedInstallerFiles:",
-    `      - RelativeFilePath: ${winStem}\\runx.exe`,
+    "NestedInstallerFiles:",
+    `  - RelativeFilePath: ${winStem}\\runx.exe`,
+    "    PortableCommandAlias: runx",
   ].join("\n"),
 );
 

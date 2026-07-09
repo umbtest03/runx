@@ -552,13 +552,13 @@ jobs:
         with:
           name: channel-manifests
           path: channels
-      - name: Submit validated manifest to winget-pkgs
+      - name: Submit validated manifests to winget-pkgs
         if: steps.gate.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
         run: |
           node scripts/publish-winget-manifest.mjs \
-            --manifest channels/winget/runx.yaml \
+            --manifest channels/winget \
             --version "${{ needs.prepare.outputs.version }}" \
             --identifier runxhq.runx
 

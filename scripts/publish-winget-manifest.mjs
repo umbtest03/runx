@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 const options = parseArgs(process.argv.slice(2));
@@ -7,9 +7,8 @@ if (!token && !options.dryRun) {
   throw new Error("GH_TOKEN or GITHUB_TOKEN is required");
 }
 
-const manifestText = readFileSync(options.manifest, "utf8");
-const manifestPath = wingetManifestPath(options.identifier, options.version);
-const manifestDir = path.posix.dirname(manifestPath);
+const manifestDir = wingetManifestDir(options.identifier, options.version);
+const manifestFiles = loadManifestFiles(options.manifest, manifestDir);
 const branchName = `${options.branchPrefix}-${options.version}`;
 
 if (options.dryRun) {
@@ -20,7 +19,7 @@ if (options.dryRun) {
     identifier: options.identifier,
     version: options.version,
     branch: branchName,
-    manifestPath,
+    manifestPaths: manifestFiles.map((file) => file.path),
   }, null, 2));
   process.exit(0);
 }
@@ -31,15 +30,17 @@ await ensureFork(forkOwner);
 
 const baseRef = await api("GET", `/repos/${options.upstream}/git/ref/heads/${options.base}`);
 await resetBranch(forkOwner, branchName, baseRef.object.sha);
-await removeStaleVersionFiles(forkOwner, branchName, manifestDir, manifestPath);
-await putFile(forkOwner, branchName, manifestPath, manifestText);
+await removeStaleVersionFiles(forkOwner, branchName, manifestDir, new Set(manifestFiles.map((file) => file.path)));
+for (const file of manifestFiles) {
+  await putFile(forkOwner, branchName, file.path, file.contents);
+}
 const pullRequest = await ensurePullRequest(forkOwner, branchName);
 
 console.log(JSON.stringify({
   status: "published",
   fork: `${forkOwner}/winget-pkgs`,
   branch: branchName,
-  manifestPath,
+  manifestPaths: manifestFiles.map((file) => file.path),
   pullRequest: pullRequest.html_url,
 }, null, 2));
 
@@ -75,7 +76,7 @@ async function resetBranch(owner, branch, sha) {
   });
 }
 
-async function removeStaleVersionFiles(owner, branch, dir, keepPath) {
+async function removeStaleVersionFiles(owner, branch, dir, keepPaths) {
   const entries = await apiMaybe(
     "GET",
     `/repos/${owner}/winget-pkgs/contents/${encodePath(dir)}?ref=${encodeURIComponent(branch)}`,
@@ -84,7 +85,7 @@ async function removeStaleVersionFiles(owner, branch, dir, keepPath) {
     return;
   }
   for (const entry of entries) {
-    if (entry.type !== "file" || entry.path === keepPath) {
+    if (entry.type !== "file" || keepPaths.has(entry.path)) {
       continue;
     }
     await api("DELETE", `/repos/${owner}/winget-pkgs/contents/${encodePath(entry.path)}`, {
@@ -129,7 +130,7 @@ async function ensurePullRequest(owner, branch) {
   });
 }
 
-function wingetManifestPath(identifier, version) {
+function wingetManifestDir(identifier, version) {
   const parts = identifier.split(".");
   if (parts.length < 2 || parts.some((part) => !part)) {
     throw new Error(`invalid winget package identifier: ${identifier}`);
@@ -141,8 +142,27 @@ function wingetManifestPath(identifier, version) {
     publisher,
     packageName,
     version,
-    `${identifier}.yaml`,
   ].join("/");
+}
+
+function loadManifestFiles(source, targetDir) {
+  const sourceStat = statSync(source);
+  if (sourceStat.isDirectory()) {
+    return readdirSync(source)
+      .filter((entry) => entry.endsWith(".yaml"))
+      .sort()
+      .map((entry) => ({
+        path: `${targetDir}/${entry}`,
+        contents: readFileSync(path.join(source, entry), "utf8"),
+      }));
+  }
+  if (sourceStat.isFile()) {
+    return [{
+      path: `${targetDir}/${path.basename(source)}`,
+      contents: readFileSync(source, "utf8"),
+    }];
+  }
+  throw new Error(`--manifest must be a YAML file or directory: ${source}`);
 }
 
 async function api(method, apiPath, body) {

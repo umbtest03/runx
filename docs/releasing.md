@@ -76,8 +76,8 @@ channel that downloads its archives):
    contents (`check-channel-manifests.mjs`), and attach them to the Release.
 8. **publish-{homebrew,scoop,winget,aur}** — push to the owned registries when
    their credentials are configured; otherwise skipped with a warning. winget
-   submits the validated singleton manifest from `channels/winget/runx.yaml`
-   directly; it must not use a generator that guesses archive nesting.
+   submits the validated `channels/winget/` manifest set directly; it must not
+   use a generator that guesses archive nesting.
 9. **publish-docker** — multi-arch GHCR image (pulls the musl archive from the
    Release; no Rust toolchain in the image build).
 
@@ -152,7 +152,7 @@ scripts/
   build-channel-input.mjs     # checksums -> channel manifest input
   gen-channel-manifests.ts    # render Homebrew / Scoop / winget / AUR
   check-channel-manifests.mjs # verify channel manifests against real archives
-  publish-winget-manifest.mjs # submit the validated singleton manifest to winget
+  publish-winget-manifest.mjs # submit the validated winget manifest set
   make-signature-manifest.ts  # npm native-package signature manifest
   package-rust-cli.ts         # npm selector + native package staging
   check-rust-cli-release-artifacts.ts  # npm release contract validator

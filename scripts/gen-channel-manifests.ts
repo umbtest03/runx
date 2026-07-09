@@ -39,7 +39,9 @@ const outDir = path.resolve(workspaceRoot, options.outDir);
 const written: string[] = [];
 write("homebrew/runx.rb", renderHomebrew(manifest));
 write("scoop/runx.json", renderScoop(manifest));
-write("winget/runx.yaml", renderWinget(manifest));
+for (const file of renderWinget(manifest)) {
+  write(file.path, file.contents);
+}
 write("aur/PKGBUILD", renderPkgbuild(manifest));
 
 console.log(JSON.stringify({ status: "generated", version: manifest.version, files: written }, null, 2));
@@ -137,28 +139,54 @@ function renderScoop(m: Manifest): string {
   }, null, 2)}\n`;
 }
 
-function renderWinget(m: Manifest): string {
-  // Single-file winget manifest (installer + locale merged for brevity).
-  return `# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.6.0.schema.json
+function renderWinget(m: Manifest): readonly { path: string; contents: string }[] {
+  const base = "winget";
+  const manifestVersion = "1.6.0";
+  return [
+    {
+      path: `${base}/runxhq.runx.yaml`,
+      contents: `# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.${manifestVersion}.schema.json
 PackageIdentifier: runxhq.runx
 PackageVersion: ${m.version}
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: ${manifestVersion}
+`,
+    },
+    {
+      path: `${base}/runxhq.runx.locale.en-US.yaml`,
+      contents: `# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.${manifestVersion}.schema.json
+PackageIdentifier: runxhq.runx
+PackageVersion: ${m.version}
+PackageLocale: en-US
 PackageName: runx
 Publisher: runxhq
 License: MIT
 ShortDescription: ${m.description}
 PackageUrl: ${m.homepage}
+ManifestType: defaultLocale
+ManifestVersion: ${manifestVersion}
+`,
+    },
+    {
+      path: `${base}/runxhq.runx.installer.yaml`,
+      contents: `# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.${manifestVersion}.schema.json
+PackageIdentifier: runxhq.runx
+PackageVersion: ${m.version}
 InstallerType: zip
 NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: ${windowsBinaryPath(m, TARGETS.winX64)}
+    PortableCommandAlias: runx
 Installers:
   - Architecture: x64
-    NestedInstallerFiles:
-      - RelativeFilePath: ${windowsBinaryPath(m, TARGETS.winX64)}
-        PortableCommandAlias: runx
     InstallerUrl: ${archiveUrl(m, TARGETS.winX64)}
     InstallerSha256: ${artifact(m, TARGETS.winX64).sha256.toUpperCase()}
-ManifestType: singleton
-ManifestVersion: 1.6.0
-`;
+ManifestType: installer
+ManifestVersion: ${manifestVersion}
+`,
+    },
+  ];
 }
 
 function renderPkgbuild(m: Manifest): string {
