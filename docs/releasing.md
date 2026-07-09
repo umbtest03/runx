@@ -5,8 +5,10 @@ Maintainer doc. Most contributors do not need it.
 ## Identity
 
 The CLI ships from `github.com/runxhq/runx`. Release tags are `cli-vX.Y.Z`
-(prefixed so they do not collide with the repo's other release trains). The
-git tag is the single source of truth for the version.
+(prefixed so they do not collide with the repo's other release trains). In the
+workspace, `release/status.json` is the operator source of truth for package
+release status, the CLI package allowlist, and the cloud pin. The git tag is the
+immutable OSS release event that the public workflow builds.
 
 The same product version is used on every active channel. The release workflow
 is secret-gated, so package-manager channels that are not configured are skipped
@@ -126,8 +128,12 @@ package.
 ## Cutting a release
 
 ```bash
-# 1. dry-run from the Actions tab (workflow_dispatch, version = X.Y.Z)
-# 2. tag and push:
+# 1. from the workspace root, prepare cloud/status together:
+pnpm release:prepare -- --version X.Y.Z
+pnpm release:check
+
+# 2. dry-run from the Actions tab (workflow_dispatch, version = X.Y.Z)
+# 3. tag and push:
 git tag cli-vX.Y.Z
 git push origin cli-vX.Y.Z
 ```
