@@ -137,6 +137,10 @@ pub fn run_native_resume(plan: ResumePlan) -> ExitCode {
         registry: None,
         expected_digest: None,
         json: plan.json,
+        non_interactive: true,
+        skip_operator_context: true,
+        full_operator_context: false,
+        approve_operator_context: None,
         inputs: BTreeMap::new(),
         local_credential: None,
     };

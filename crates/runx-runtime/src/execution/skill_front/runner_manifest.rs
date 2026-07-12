@@ -27,7 +27,7 @@ use runx_contracts::ClosureDisposition;
 
 const RUNX_HOSTED_CREDENTIAL_HANDLES_JSON_ENV: &str = "RUNX_HOSTED_CREDENTIAL_HANDLES_JSON";
 
-pub(super) fn resolve_skill_dir(path: &Path) -> Result<PathBuf, SkillRunError> {
+pub(crate) fn resolve_skill_dir(path: &Path) -> Result<PathBuf, SkillRunError> {
     if path.is_dir() {
         return Ok(path.to_path_buf());
     }
@@ -43,7 +43,7 @@ pub(super) fn resolve_skill_dir(path: &Path) -> Result<PathBuf, SkillRunError> {
     )))
 }
 
-pub(super) fn load_runner_manifest(skill_dir: &Path) -> Result<SkillRunnerManifest, SkillRunError> {
+pub(crate) fn load_runner_manifest(skill_dir: &Path) -> Result<SkillRunnerManifest, SkillRunError> {
     let manifest_path = skill_dir.join("X.yaml");
     let raw = fs::read_to_string(&manifest_path).map_err(|source| {
         RuntimeError::io(format!("reading {}", manifest_path.display()), source)
@@ -54,7 +54,7 @@ pub(super) fn load_runner_manifest(skill_dir: &Path) -> Result<SkillRunnerManife
         .map_err(Into::into)
 }
 
-pub(super) fn selected_runner<'a>(
+pub(crate) fn selected_runner<'a>(
     manifest: &'a SkillRunnerManifest,
     requested: Option<&str>,
 ) -> Result<&'a SkillRunnerDefinition, SkillRunError> {
@@ -182,6 +182,7 @@ pub(super) fn execute_cli_tool_skill_run(
         format!("process_{}", disposition.label()),
         format!("cli-tool {} completed", runner.name),
         receipts.signature_config(),
+        workspace.env(),
     )?;
     write_skill_receipt(request, workspace, receipts, &receipt)?;
     Ok(JsonValue::Object(sealed_output(

@@ -492,6 +492,9 @@ where
             projection: &projection,
             created_at: &context.runtime.options.created_at,
             authority_grant_refs,
+            operator_refs: crate::execution::prepared_skill::prepared_receipt_references(
+                &context.runtime.options.env,
+            ),
             closure: None,
         },
         context.runtime.options.signature_policy(),
@@ -656,6 +659,9 @@ fn run_replayed_effect_step(
             projection: &projection,
             created_at: replay.receipt_created_at(),
             authority_grant_refs,
+            operator_refs: crate::execution::prepared_skill::prepared_receipt_references(
+                &runtime.options.env,
+            ),
             closure: None,
         },
         runtime.options.signature_policy(),
@@ -1021,6 +1027,9 @@ fn seal_agent_act_step<A>(
             projection: &projection,
             created_at: &runtime.options.created_at,
             authority_grant_refs: Vec::new(),
+            operator_refs: crate::execution::prepared_skill::prepared_receipt_references(
+                &runtime.options.env,
+            ),
             closure: Some(StepSealClosure {
                 disposition,
                 reason_code: format!("agent_act_{disposition_label}"),
@@ -1295,6 +1304,9 @@ where
                 projection: &projection,
                 created_at: &runtime.options.created_at,
                 authority_grant_refs,
+                operator_refs: crate::execution::prepared_skill::prepared_receipt_references(
+                    &runtime.options.env,
+                ),
                 closure: None,
             },
             runtime.options.signature_policy(),
@@ -1448,6 +1460,9 @@ where
             projection: &projection,
             created_at: &runtime.options.created_at,
             authority_grant_refs: Vec::new(),
+            operator_refs: crate::execution::prepared_skill::prepared_receipt_references(
+                &runtime.options.env,
+            ),
             closure: None,
         },
         runtime.options.signature_policy(),
@@ -1618,6 +1633,9 @@ where
             projection: &projection,
             created_at: &runtime.options.created_at,
             authority_grant_refs: Vec::new(),
+            operator_refs: crate::execution::prepared_skill::prepared_receipt_references(
+                &runtime.options.env,
+            ),
             closure: None,
         },
         runtime.options.signature_policy(),

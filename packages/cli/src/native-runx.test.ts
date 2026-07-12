@@ -78,6 +78,52 @@ describe("spawnNativeRunx", () => {
       }),
     ).rejects.toThrow("native runx stdout exceeded 3 bytes");
   });
+
+  it("can tee stderr before the native process exits while still capturing stdout", async () => {
+    let stderr = "";
+    let sawEarlyStderr = () => {};
+    const earlyStderr = new Promise<void>((resolve) => {
+      sawEarlyStderr = resolve;
+    });
+    const resultPromise = spawnNativeRunx({
+      command: process.execPath,
+      args: [
+        "-e",
+        "process.stderr.write('early-err'); setTimeout(() => { process.stdout.write('{\"ok\":true}'); process.exit(0); }, 500);",
+      ],
+      cwd: process.cwd(),
+      env: {},
+      timeoutMs: 5_000,
+      maxOutputBytes: 1_000,
+      stderr: {
+        write: (chunk: string | Uint8Array) => {
+          stderr += chunk.toString();
+          sawEarlyStderr();
+          return true;
+        },
+      } as NodeJS.WritableStream,
+    });
+    let settled = false;
+    resultPromise.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+
+    await earlyStderr;
+
+    expect(settled).toBe(false);
+    await expect(resultPromise).resolves.toMatchObject({
+      status: 0,
+      signal: null,
+      stdout: "{\"ok\":true}",
+      stderr: "early-err",
+    });
+    expect(stderr).toBe("early-err");
+  });
 });
 
 describe("streamNativeRunx", () => {

@@ -6,6 +6,8 @@ use runx_runtime::registry::{
     Transport,
 };
 
+#[cfg(test)]
+use super::package::HostedSkillPackageFile;
 use super::package::SkillPackage;
 use super::{RegistryCliError, RegistryPlan, internal_error, usage_error};
 
