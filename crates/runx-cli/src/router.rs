@@ -356,7 +356,7 @@ Commands:
   runx history [query] [--skill s] [--status s] [--source s] [--actor a] [--artifact-type t] [--since iso] [--until iso] [--receipt-dir dir] [--json]
   runx resume <run-id> <answers.json> [-R dir] [-j|--json]
   runx list [tools|skills|graphs|packets|overlays] [--ok-only|--invalid-only] [-j|--json]
-  runx login [--provider github|google|gitlab] [--for default|publish] [--api-base-url url] [--allow-local-api] [-j|--json]
+  runx login [--provider github|google|gitlab] [--for default|publish] [--from-gh] [--api-base-url url] [--allow-local-api] [-j|--json]
   runx config set|get|list [provider|model|api-key|public-token] [value] [-j|--json]
   runx policy inspect|lint <policy.json> [--json]
   runx publish <receipt.json> [--api-base-url url] [--token token] [--allow-local-api] [-j|--json]
@@ -435,11 +435,12 @@ pub fn login_help_text() -> String {
 runx login
 
 Usage:
-  runx login [--provider github|google|gitlab] [--for default|publish] [--api-base-url url] [--allow-local-api] [-j|--json]
+  runx login [--provider github|google|gitlab] [--for default|publish] [--from-gh] [--api-base-url url] [--allow-local-api] [-j|--json]
 
 Options:
   --provider provider
   --for purpose
+  --from-gh            Use the active GitHub CLI identity instead of browser OAuth
   --api-base-url url
   --allow-local-api
   -j, --json

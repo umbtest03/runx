@@ -61,7 +61,7 @@ fn top_level_help_and_version_are_native() {
     );
     assert_help_line(
         &help,
-        "runx login [--provider github|google|gitlab] [--for default|publish] [--api-base-url url] [--allow-local-api] [-j|--json]",
+        "runx login [--provider github|google|gitlab] [--for default|publish] [--from-gh] [--api-base-url url] [--allow-local-api] [-j|--json]",
     );
     assert!(
         !help.contains("runx connect"),
@@ -149,7 +149,7 @@ fn documented_command_help_is_native() {
     );
     assert_help_line(
         &login_help_text(),
-        "runx login [--provider github|google|gitlab] [--for default|publish] [--api-base-url url] [--allow-local-api] [-j|--json]",
+        "runx login [--provider github|google|gitlab] [--for default|publish] [--from-gh] [--api-base-url url] [--allow-local-api] [-j|--json]",
     );
     assert_help_line(
         &registry_help_text(),
@@ -167,6 +167,7 @@ fn routes_login_to_native_plan() {
             "github",
             "--for",
             "publish",
+            "--from-gh",
             "--api-base-url",
             "https://runx.test",
             "--json",
@@ -175,6 +176,7 @@ fn routes_login_to_native_plan() {
             provider: Some("github".to_owned()),
             purpose: Some("publish".to_owned()),
             api_base_url: Some("https://runx.test".to_owned()),
+            from_gh: true,
             allow_local_api: false,
             json: true,
         })
