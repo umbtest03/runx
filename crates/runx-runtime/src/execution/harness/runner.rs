@@ -559,6 +559,7 @@ fn skill_fixture_invocation(
     let runner = load_harness_runner(&skill_dir, fixture.runner.as_deref())?;
     let mut env = options.env.clone();
     env.extend(fixture.env.clone());
+    crate::services::merge_inferred_tool_roots(&mut env, &skill_dir);
     let skill_name = if fixture.runner.is_some() {
         runner
             .as_ref()
