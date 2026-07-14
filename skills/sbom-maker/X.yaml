@@ -1,0 +1,64 @@
+skill: sbom-maker
+version: "1.2.0"
+
+catalog:
+  kind: skill
+  audience: public
+  visibility: public
+  role: canonical
+
+harness:
+  cases:
+    - name: supported-lockfile
+      runner: default
+      inputs:
+        lockfile: "{\"name\": \"example-app\", \"version\": \"1.0.0\", \"lockfileVersion\": 2, \"packages\": {\"node_modules/lodash\": {\"version\": \"4.17.21\", \"license\": \"MIT\"}, \"node_modules/express\": {\"version\": \"4.18.2\", \"license\": \"GPL-3.0\"}}}"
+        lockfile_type: "npm-shrinkwrap"
+      expect:
+        status: sealed
+        receipt:
+          schema: runx.receipt.v1
+          state: sealed
+          disposition: closed
+    - name: supported-lockfile-classic
+      runner: default
+      inputs:
+        lockfile: "{\"name\": \"legacy-app\", \"version\": \"1.0.0\", \"lockfileVersion\": 1, \"dependencies\": {\"chalk\": {\"version\": \"4.1.2\", \"license\": \"MIT\"}, \"minimist\": {\"version\": \"1.2.5\", \"license\": \"MIT\"}}}"
+        lockfile_type: "package-lock"
+      expect:
+        status: sealed
+        receipt:
+          schema: runx.receipt.v1
+          state: sealed
+          disposition: closed
+    - name: unsupported-lockfile
+      runner: default
+      inputs:
+        lockfile: "{\"invalid\": \"structure\", \"not_a_lockfile\": true}"
+        lockfile_type: "unknown-format"
+      expect:
+        status: failure
+        receipt:
+          schema: runx.receipt.v1
+          state: failure
+          disposition: closed
+
+runners:
+  default:
+    default: true
+    type: cli-tool
+    command: node
+    args:
+      - run.mjs
+    inputs:
+      lockfile:
+        type: string
+        required: true
+      lockfile_type:
+        type: string
+        required: true
+    outputs:
+      sbom: object
+      components: array
+      license_summary: object
+      license_risks: array
