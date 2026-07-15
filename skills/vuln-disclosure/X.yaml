@@ -1,4 +1,4 @@
-skill: vuln-advisory
+skill: vuln-disclosure
 version: "0.1.1"
 
 catalog:
@@ -8,7 +8,7 @@ catalog:
   role: context
 harness:
   cases:
-    - name: vuln-advisory-approved-advisory
+    - name: vuln-disclosure-approved-advisory
       inputs:
         target: pnpm-lock.yaml
       caller:
@@ -45,20 +45,20 @@ harness:
             handoff_notes:
               next_action: publish after approval
         approvals:
-          vuln-advisory.publish.approval: true
+          vuln-disclosure.publish.approval: true
       expect:
         status: sealed
         receipt:
           schema: runx.receipt.v1
 
-    - name: vuln-advisory-needs-target
+    - name: vuln-disclosure-needs-target
       inputs: {}
       expect:
         status: failure
 
 
 runners:
-  vuln-advisory:
+  vuln-disclosure:
     default: true
     type: graph
     inputs:
@@ -85,7 +85,7 @@ runners:
         required: false
         description: "Verified exact-version CVE evidence from cve-audit. When present, the risk triage grounds its advisory in these confirmed findings."
     graph:
-      name: vuln-advisory
+      name: vuln-disclosure
       steps:
         - id: scan-risk
           skill: ../vuln-triage
@@ -104,7 +104,7 @@ runners:
           run:
             type: approval
           inputs:
-            gate_id: vuln-advisory.publish.approval
+            gate_id: vuln-disclosure.publish.approval
             reason: Approve the drafted advisory before packaging it for publication.
           context:
             advisory_draft: draft-advisory.vulnerability_advisory_packet.data.advisory_draft

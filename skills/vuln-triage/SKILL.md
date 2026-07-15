@@ -16,7 +16,7 @@ to run arbitrary destructive scans.
 When `cve_evidence` is supplied (the verified, exact-version findings a
 `cve-audit` run seals), triage those confirmed facts rather than inferring
 exposure. That is the intended chain: deterministic evidence from `cve-audit`
-flows into this judgment, and the drafted advisory flows on to `vuln-advisory`.
+flows into this judgment, and the drafted advisory flows on to `vuln-disclosure`.
 Without it, analyze the target surface directly.
 
 Cite package data, versions, advisories, scan output, commits, or other concrete

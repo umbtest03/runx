@@ -1,16 +1,20 @@
 ---
-name: vuln-advisory
-description: Turn triaged vulnerability risk into an approved, published advisory bundle, grounding on verified CVE evidence when it is supplied.
+name: vuln-disclosure
+description: Publish a governed, human-approved security advisory from triaged vulnerability risk, gating the outward disclosure behind explicit approval.
 runx:
   category: security
 ---
 
-# Vulnerability Advisory
+# Vulnerability Disclosure
 
-This is the public-facing advisory lane built on top of `vuln-triage`. Pass
-`cve_evidence` from a `cve-audit` run to ground the advisory in verified,
-exact-version findings; the deterministic evidence flows through the triage
-into the drafted advisory.
+This is the outward publication lane: it takes triaged vulnerability risk and
+turns it into an approved, public security advisory. Where `vuln-triage` decides
+what matters, this skill governs the disclosure to the world, holding the
+publish behind an explicit human approval gate.
+
+It builds on `vuln-triage`. Pass `cve_evidence` from a `cve-audit` run to ground
+the disclosure in verified, exact-version findings; the deterministic evidence
+flows through the triage into the drafted advisory that this skill publishes.
 
 It keeps the security flow bounded and reviewable:
 

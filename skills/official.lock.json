@@ -8,7 +8,7 @@
   },
   {
     "skill_id": "runx/audit-receipt",
-    "version": "sha-2760abfab1ee",
+    "version": "sha-943454180b2f",
     "digest": "5bc0edfbb5d194d909477bfb847f5ea260152f67a5ff2828abcb206efee47e3d",
     "catalog_visibility": "public",
     "catalog_role": "canonical"
@@ -78,7 +78,7 @@
   },
   {
     "skill_id": "runx/dispute-respond",
-    "version": "sha-39c3ae5164c4",
+    "version": "sha-9146d790ddf2",
     "digest": "81469e87f29886e11b27faa2249a4e83fae59659f84f6628c81da7de0bf762c5",
     "catalog_visibility": "public",
     "catalog_role": "canonical"
@@ -260,7 +260,7 @@
   },
   {
     "skill_id": "runx/nitrosend",
-    "version": "sha-430880d628cb",
+    "version": "sha-f5c7193aeb25",
     "digest": "e7761800cb158178fd1e8f41f594404c1a5b2a0c313ee229ed862fa64ca126b7",
     "catalog_visibility": "public",
     "catalog_role": "branded"
@@ -295,14 +295,14 @@
   },
   {
     "skill_id": "runx/overlay",
-    "version": "sha-888c4b28d76f",
+    "version": "sha-225920557287",
     "digest": "25b0c5dbaa4215e666786175873b931f042f03f12ec54d3cd61197e3a19db980",
     "catalog_visibility": "public",
     "catalog_role": "canonical"
   },
   {
     "skill_id": "runx/policy-author",
-    "version": "sha-a1f056d7c7f7",
+    "version": "sha-0e4324f59b5b",
     "digest": "b3bbcbda2711d78c59c572d99206c3116347e9751506301ca40a52c75e85bc84",
     "catalog_visibility": "public",
     "catalog_role": "canonical"
@@ -323,7 +323,7 @@
   },
   {
     "skill_id": "runx/redact-pii",
-    "version": "sha-542171804800",
+    "version": "sha-3917a34c8cd4",
     "digest": "953fb970fa685cc8e5bd6658208f12b12fbd117deea5005ef5969d30962b4cec",
     "catalog_visibility": "public",
     "catalog_role": "canonical"
@@ -379,29 +379,29 @@
   },
   {
     "skill_id": "runx/sandbox-harden",
-    "version": "sha-041a56470196",
+    "version": "sha-0a5ce41089d2",
     "digest": "9d98ef46622061ab3236c116e7720d1b4b975626c3bebfd39cedaadea0a85d86",
     "catalog_visibility": "public",
     "catalog_role": "canonical"
   },
   {
     "skill_id": "runx/send-as",
-    "version": "sha-651aa8334761",
+    "version": "sha-221a132cd93e",
     "digest": "cb8959b40115d1090a1f6da7902b3ce5cd6c735adf09fb4e89f25d31ef16e88f",
     "catalog_visibility": "public",
     "catalog_role": "canonical"
   },
   {
     "skill_id": "runx/settle-invoice",
-    "version": "sha-d691c9e3ccef",
+    "version": "sha-2fe3c1bf3a4d",
     "digest": "4fc9e01c12e2de29066f737ab18f0e5e532c40543f5af3ce356b95548c4d1687",
     "catalog_visibility": "public",
     "catalog_role": "canonical"
   },
   {
     "skill_id": "runx/sign-receipt",
-    "version": "sha-b0e805b62e44",
-    "digest": "0ad7560492b770b4453c8a2b9d9fcfe565dfa591176d10edae246276fc387c2f",
+    "version": "sha-3437af6861fe",
+    "digest": "130cadcbf7c3c3a4f5fd849463f308e8dd7a3a121d9aa7c534ee1deac28a8289",
     "catalog_visibility": "public",
     "catalog_role": "canonical"
   },
@@ -421,7 +421,7 @@
   },
   {
     "skill_id": "runx/slack-notify",
-    "version": "sha-84710c6d78fe",
+    "version": "sha-01cb2c2c1beb",
     "digest": "9e0abd47c54455add3c715e18c371c427e0bbb0d617ed0212f60d766f62c2856",
     "catalog_visibility": "public",
     "catalog_role": "branded"
@@ -484,28 +484,28 @@
   },
   {
     "skill_id": "runx/vault-unseal",
-    "version": "sha-e0107692d312",
-    "digest": "82cb95cc5f5ae50e332338216bf3b88feadc337f772b560e5f81f59c7917739b",
+    "version": "sha-9a954b0187d4",
+    "digest": "1820157f5174546d50ade87d626c5e758436ae7b9c1cb58bca90bcdd4e7df210",
     "catalog_visibility": "public",
     "catalog_role": "canonical"
   },
   {
-    "skill_id": "runx/vuln-advisory",
-    "version": "sha-7af1e45fffff",
-    "digest": "d2a9c2695c4d3e23bc5a1c1ec043255751510cedaef368c1f524a9deb71c515f",
+    "skill_id": "runx/vuln-disclosure",
+    "version": "sha-a8b51336c951",
+    "digest": "7b677c87b593a3a38b804d199bbc5f80ed5a0f623118dfc9f7f6c266267b95fd",
     "catalog_visibility": "public",
     "catalog_role": "context"
   },
   {
     "skill_id": "runx/vuln-triage",
-    "version": "sha-6aa5c5ab56f1",
-    "digest": "a0439e78b79943cda53d83fb6a60afc0d3ac5a3f71df8f6b24e8d600fbd2be9b",
+    "version": "sha-835793f156fe",
+    "digest": "c3656fd9342adace36205bed20c967c121f487622102daadc689587082cfd1e2",
     "catalog_visibility": "public",
     "catalog_role": "context"
   },
   {
     "skill_id": "runx/weather-forecast",
-    "version": "sha-498fe9afa450",
+    "version": "sha-3c2dc868ff01",
     "digest": "2d104a7c806819c53c62f475e5d44e21ebefd940302a0b15b268721a5ee7f426",
     "catalog_visibility": "public",
     "catalog_role": "canonical"

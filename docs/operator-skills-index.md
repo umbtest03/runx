@@ -68,8 +68,8 @@ Skills that enforce policy, audit receipts, or review skill quality.
 | Directory | Purpose |
 |---|---|
 | `cve-audit/` | Audit exact npm dependency versions against OSV and emit reproducible, independently verified CVE evidence. |
-| `vuln-advisory/` | Scan one dependency surface, draft the advisory, and package it. |
-| `vuln-triage/` | Analyze dependency or ecosystem risk and produce remediation guidance. |
+| `vuln-triage/` | Assess vulnerability risk and produce remediation guidance and an advisory draft. |
+| `vuln-disclosure/` | Publish a governed, human-approved security advisory from triaged risk. |
 | `pr-review-note/` | Govern a GitHub PR review-note lane over MCP. |
 | `sandbox-harden/` | Produce a least-privilege runtime hardening profile (seccomp, capabilities). |
 | `redact-pii/` | Scrub personal data out of content before it crosses a trust boundary. |

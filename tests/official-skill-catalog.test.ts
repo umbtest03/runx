@@ -102,7 +102,7 @@ const harnessedShowcasePackages = [
   "content-pipeline",
   "deep-research",
   "ghostwrite",
-  "vuln-advisory",
+  "vuln-disclosure",
   "evolve",
   "issue-intake",
   "issue-triage",
