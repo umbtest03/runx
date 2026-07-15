@@ -87,7 +87,7 @@ Some other examples:
 runx skill sourcey -i project=. --json
 
 # Research/strategy: produce a governed decision brief.
-runx skill deep-research-brief \
+runx skill deep-research \
   -i objective="Which launch risks should we resolve first?" \
   --json
 

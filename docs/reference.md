@@ -320,8 +320,8 @@ authored source. Do not hand-edit generated `manifest.json` or `run.mjs`.
 The official catalog is explicit about why each package is public:
 
 - canonical governed skills: `charge`, `dispute-respond`, `evolve`,
-  `improve-skill`, `least-privilege-auditor`, `overlay-generator`,
-  `policy-author`, `receipt-auditor`, `refund`, `ops-desk`, `send-as`, `spend`,
+  `improve-skill`, `least-privilege`, `overlay`,
+  `policy-author`, `audit-receipt`, `refund`, `ops-desk`, `send-as`, `spend`,
   `weather-forecast`
 - branded provider skills: `nitrosend`, `nws-weather-forecast`, `stripe-pay`,
   `x402-pay`

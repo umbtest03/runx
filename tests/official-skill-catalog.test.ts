@@ -100,8 +100,8 @@ function isPaymentRegistrySkillId(skillId: string): boolean {
 
 const harnessedShowcasePackages = [
   "content-pipeline",
-  "deep-research-brief",
-  "draft-content",
+  "deep-research",
+  "ghostwrite",
   "ecosystem-vuln-scan",
   "evolve",
   "issue-intake",

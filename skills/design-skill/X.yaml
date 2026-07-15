@@ -71,7 +71,7 @@ harness:
                 context_from: []
                 description: Gather the evidence pack.
               - id: draft
-                skill: ../draft-content
+                skill: ../ghostwrite
                 scopes:
                   - runx:content:draft
                 mutating: false
@@ -82,7 +82,7 @@ harness:
             required_skills:
               - name: research
                 exists: true
-              - name: draft-content
+              - name: ghostwrite
                 exists: true
             open_questions: []
           agent_task.prior-art.output:
@@ -94,7 +94,7 @@ harness:
             catalog_fit:
               adjacent_skills:
                 - research
-                - draft-content
+                - ghostwrite
               why_new: The missing capability is the governed graph that turns those adjacent primitives into one reusable first-party ecosystem brief flow.
             quality_bar:
               audience: runx skill maintainers
@@ -121,7 +121,7 @@ harness:
             catalog_fit:
               adjacent_skills:
                 - research
-                - draft-content
+                - ghostwrite
               why_new: The current catalog exposes research and drafting separately, but not one first-party skill that turns them into a reusable ecosystem brief flow.
             maintainer_decisions:
               - question: Should the first-party graph stop at a reviewable brief draft?

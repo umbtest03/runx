@@ -13,7 +13,7 @@ Turn one bounded opportunity into a concrete skill proposal.
 one reviewable surface. It does not hide the builder capabilities; it composes
 them into one governed proposal flow:
 
-`work-plan` -> `prior-art` -> `write-harness` -> `draft-content`
+`work-plan` -> `prior-art` -> `write-harness` -> `ghostwrite`
 
 Use it when the real output is not code yet, but a candidate skill package and
 proposal packet that a maintainer can review, amend, approve, or reject.
@@ -30,7 +30,7 @@ proposal should:
 - read like a first-party runx skill or graph proposal, not a builder trace
 - identify the concrete pain point being addressed
 - explain fit against the current runx catalog
-- say when the right answer is an amendment to Sourcey, `draft-content`, an
+- say when the right answer is an amendment to Sourcey, `ghostwrite`, an
   existing skill, or an existing graph instead of a new skill
 - describe the concrete artifact a maintainer would ship or use
 - keep issue-thread evidence and approval mechanics as provenance, not proposal

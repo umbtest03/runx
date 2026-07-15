@@ -20,7 +20,7 @@ first-party runx skill proposal that a maintainer could plausibly review for the
 catalog:
 
 - treat "no new skill" as a valid high-quality outcome when the job belongs in
-  Sourcey, `draft-content`, an existing skill, or an existing graph
+  Sourcey, `ghostwrite`, an existing skill, or an existing graph
 - name the concrete operator, maintainer, or workflow pain being solved
 - explain why the current runx catalog does not already cover the job through
   an existing skill or graph

@@ -28,7 +28,7 @@ runners:
       Classify health, money, communications, providers, receipts, access,
       release, registry, and deploy state; rank the smallest useful next action;
       route every proposal to a named governed lane such as release, ledger,
-      receipt-auditor, least-privilege-auditor, send-as, provider.send,
+      audit-receipt, least-privilege, send-as, provider.send,
       messageboard, payment.quote, payment.payout, payment.refund,
       provider.health_check, deploy.smoke, or a product skill. For each
       consequential proposal include
