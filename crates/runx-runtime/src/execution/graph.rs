@@ -116,10 +116,6 @@ fn materialize_graph_input_value(
             if let Some(path) = value.strip_prefix("$input.") {
                 return resolve_graph_input_path(graph_inputs, path).cloned();
             }
-            if value.starts_with("{{") && value.ends_with("}}") {
-                let path = value.trim_start_matches('{').trim_end_matches('}').trim();
-                return resolve_graph_input_path(graph_inputs, path).cloned();
-            }
             Some(JsonValue::String(value.clone()))
         }
         JsonValue::Array(values) => Some(JsonValue::Array(

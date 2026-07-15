@@ -1,5 +1,5 @@
 skill: mpp-refund
-version: "0.1.0"
+version: "0.1.1"
 catalog:
   kind: graph
   audience: operator
@@ -117,12 +117,12 @@ runners:
           skill: ../refund
           runner: mpp
           inputs:
-            original_receipt_ref: "{{original_receipt_ref}}"
-            original_receipt: "{{original_receipt}}"
-            refund_request: "{{refund_request}}"
-            parent_payment_authority: "{{parent_payment_authority}}"
-            approval_context: "{{approval_context}}"
-            idempotency_seed: "{{idempotency_seed}}"
+            original_receipt_ref: "$input.original_receipt_ref"
+            original_receipt: "$input.original_receipt"
+            refund_request: "$input.refund_request"
+            parent_payment_authority: "$input.parent_payment_authority"
+            approval_context: "$input.approval_context"
+            idempotency_seed: "$input.idempotency_seed"
     runx:
       payment_authority:
         direction: provider_refund

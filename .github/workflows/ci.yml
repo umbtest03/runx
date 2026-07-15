@@ -20,9 +20,13 @@ permissions:
 jobs:
   js-checks:
     runs-on: ubuntu-latest
+    env:
+      RUNX_SKILL_VERSION_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6

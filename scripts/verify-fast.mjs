@@ -46,6 +46,7 @@ await runParallelGroup("source checks", [
   step("test:boundary", "pnpm", ["test:boundary"]),
   step("typecheck", "pnpm", ["typecheck"]),
   step("bindings:check", "pnpm", ["bindings:check"]),
+  step("catalog version drift", "pnpm", ["catalog:check"]),
   step("command drift", "pnpm", ["commands:check-drift"]),
   step("public domain URLs", "pnpm", ["domains:check"]),
   step("release version sync", "pnpm", ["release:version:check"]),
