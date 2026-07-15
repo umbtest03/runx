@@ -6,11 +6,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use runx_cli::router::{
-    HarnessPlan, RouterAction, add_help_text, connect_help_text, harness_help_text, help_text,
-    history_help_text, list_help_text, login_help_text, publish_help_text, registry_help_text,
-    resume_help_text, skill_help_text, verify_help_text,
-};
+use runx_cli::router::{HarnessPlan, RouterAction, command_help_text, help_text};
 
 const PACKAGE_HARNESS_SIGNING_HINT: &str = "runx: hint: package harnesses seal signed receipts; set RUNX_RECEIPT_SIGN_KID, RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64, and RUNX_RECEIPT_SIGN_ISSUER_TYPE together, or unset all three to use local-development receipts.";
 const PACKAGE_HARNESS_STALE_RECEIPT_STORE_HINT: &str = "runx: hint: the receipt store contains entries that do not verify with the current issuer; retry with --receipt-dir \"$(mktemp -d)\" for an isolated harness run.";
@@ -27,21 +23,14 @@ fn main() -> ExitCode {
             write_json_failure(&plan.message, &plan.code, plan.exit_code)
         }
         RouterAction::PrintHelp => write_stdout(&help_text()),
-        RouterAction::PrintAddHelp => write_stdout(&add_help_text()),
-        RouterAction::PrintConnectHelp => write_stdout(&connect_help_text()),
-        RouterAction::PrintHarnessHelp => write_stdout(&harness_help_text()),
-        RouterAction::PrintHistoryHelp => write_stdout(&history_help_text()),
-        RouterAction::PrintListHelp => write_stdout(&list_help_text()),
-        RouterAction::PrintLoginHelp => write_stdout(&login_help_text()),
-        RouterAction::PrintPublishHelp => write_stdout(&publish_help_text()),
-        RouterAction::PrintRegistryHelp => write_stdout(&registry_help_text()),
-        RouterAction::PrintRegistryUsageError => {
-            let _ignored = write_stderr_line(&registry_help_text());
+        RouterAction::PrintCommandHelp(command) => {
+            write_stdout(&command_help_text(command).unwrap_or_else(help_text))
+        }
+        RouterAction::PrintCommandUsageError(command) => {
+            let help = command_help_text(command).unwrap_or_else(help_text);
+            let _ignored = write_stderr_line(&help);
             ExitCode::from(64)
         }
-        RouterAction::PrintResumeHelp => write_stdout(&resume_help_text()),
-        RouterAction::PrintSkillHelp => write_stdout(&skill_help_text()),
-        RouterAction::PrintVerifyHelp => write_stdout(&verify_help_text()),
         RouterAction::PrintVersion => {
             write_stdout_line(&format!("runx-cli {}", env!("CARGO_PKG_VERSION")))
         }
@@ -110,7 +99,7 @@ fn run_native_verify(args: Vec<OsString>) -> ExitCode {
         Ok(result) => {
             let exit = write_stdout(&result.output);
             if result.failed {
-                ExitCode::from(1)
+                ExitCode::from(3)
             } else {
                 exit
             }

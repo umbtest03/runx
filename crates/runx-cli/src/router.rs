@@ -46,18 +46,8 @@ pub enum RouterAction {
     RunTool(ToolPlan),
     RunAddUrl(AddUrlPlan),
     PrintHelp,
-    PrintAddHelp,
-    PrintConnectHelp,
-    PrintHarnessHelp,
-    PrintHistoryHelp,
-    PrintListHelp,
-    PrintLoginHelp,
-    PrintPublishHelp,
-    PrintRegistryHelp,
-    PrintRegistryUsageError,
-    PrintResumeHelp,
-    PrintSkillHelp,
-    PrintVerifyHelp,
+    PrintCommandHelp(&'static str),
+    PrintCommandUsageError(&'static str),
     PrintVersion,
 }
 
@@ -184,10 +174,13 @@ pub fn route_args(args: Vec<OsString>) -> RouterAction {
         return RouterAction::PrintVersion;
     }
 
+    if let Some(spec) = documented_command(&args)
+        && nested_help_requested(&args)
+    {
+        return RouterAction::PrintCommandHelp(spec.name);
+    }
+
     if first_arg_is(&args, "harness") {
-        if nested_help_requested(&args) {
-            return RouterAction::PrintHarnessHelp;
-        }
         return native_harness_plan(&args);
     }
 
@@ -197,17 +190,11 @@ pub fn route_args(args: Vec<OsString>) -> RouterAction {
     }
 
     if first_arg_is(&args, "login") {
-        if nested_help_requested(&args) {
-            return RouterAction::PrintLoginHelp;
-        }
         return crate::login::parse_login_plan(&args)
             .map_or_else(RouterAction::Error, RouterAction::RunLogin);
     }
 
     if first_arg_is(&args, "connect") {
-        if nested_help_requested(&args) {
-            return RouterAction::PrintConnectHelp;
-        }
         return crate::connect::parse_connect_plan(&args)
             .map_or_else(RouterAction::Error, RouterAction::RunConnect);
     }
@@ -217,9 +204,6 @@ pub fn route_args(args: Vec<OsString>) -> RouterAction {
     }
 
     if first_arg_is(&args, "publish") {
-        if nested_help_requested(&args) {
-            return RouterAction::PrintPublishHelp;
-        }
         return crate::publish::parse_publish_plan(&args)
             .map_or_else(RouterAction::Error, RouterAction::RunPublish);
     }
@@ -246,22 +230,11 @@ pub fn route_args(args: Vec<OsString>) -> RouterAction {
     }
 
     if first_arg_is(&args, "export") {
-        if args.len() == 2
-            && args
-                .get(1)
-                .and_then(|arg| arg.to_str())
-                .is_some_and(|arg| matches!(arg, "--help" | "-h"))
-        {
-            return RouterAction::PrintHelp;
-        }
         return crate::export::parse_export_plan(&args)
             .map_or_else(RouterAction::Error, RouterAction::RunExport);
     }
 
     if first_arg_is(&args, "list") {
-        if nested_help_requested(&args) {
-            return RouterAction::PrintListHelp;
-        }
         return parse_list_plan(&args).map_or_else(RouterAction::Error, RouterAction::RunList);
     }
 
@@ -274,16 +247,10 @@ pub fn route_args(args: Vec<OsString>) -> RouterAction {
     }
 
     if first_arg_is(&args, "history") {
-        if nested_help_requested(&args) {
-            return RouterAction::PrintHistoryHelp;
-        }
         return RouterAction::RunHistory(HistoryPlan { args });
     }
 
     if first_arg_is(&args, "resume") {
-        if nested_help_requested(&args) {
-            return RouterAction::PrintResumeHelp;
-        }
         return crate::resume::parse_resume_plan(&args).map_or_else(
             |message| json_or_human_error(&args, message),
             RouterAction::RunResume,
@@ -291,9 +258,6 @@ pub fn route_args(args: Vec<OsString>) -> RouterAction {
     }
 
     if first_arg_is(&args, "verify") {
-        if nested_help_requested(&args) {
-            return RouterAction::PrintVerifyHelp;
-        }
         return RouterAction::RunVerify(VerifyPlan { args });
     }
 
@@ -312,11 +276,8 @@ pub fn route_args(args: Vec<OsString>) -> RouterAction {
     }
 
     if first_arg_is(&args, "registry") {
-        if nested_help_requested(&args) {
-            return RouterAction::PrintRegistryHelp;
-        }
         if args.len() == 1 {
-            return RouterAction::PrintRegistryUsageError;
+            return RouterAction::PrintCommandUsageError("registry");
         }
         return parse_registry_plan(&args).map_or_else(
             |message| json_or_human_error(&args, message),
@@ -325,16 +286,10 @@ pub fn route_args(args: Vec<OsString>) -> RouterAction {
     }
 
     if first_arg_is(&args, "add") {
-        if nested_help_requested(&args) {
-            return RouterAction::PrintAddHelp;
-        }
         return parse_add_plan(&args).unwrap_or_else(|message| json_or_human_error(&args, message));
     }
 
     if first_arg_is(&args, "skill") {
-        if nested_help_requested(&args) {
-            return RouterAction::PrintSkillHelp;
-        }
         if second_arg_is(&args, "add") {
             return json_or_human_error(
                 &args,
@@ -356,264 +311,63 @@ pub fn route_args(args: Vec<OsString>) -> RouterAction {
 }
 
 pub fn help_text() -> String {
-    "\
-runx
+    crate::command_spec::help_text()
+}
 
-Usage:
-  runx <command> [args]
-  runx --help
-  runx --version
-
-Commands:
-  runx new <name> [--directory dir] [--json]
-  runx init [-g|--global] [--prefetch official] [--json]
-  runx verify [receipt-id] [--receipt-dir dir] [--receipt <path|->] [--notary <path|-> --notary-key trusted.pem] [-j|--json]
-  runx history [query] [--skill s] [--status s] [--source s] [--actor a] [--artifact-type t] [--since iso] [--until iso] [--receipt-dir dir] [--json]
-  runx resume <run-id> <answers.json> [-R dir] [-j|--json]
-  runx list [tools|skills|graphs|packets|overlays] [--ok-only|--invalid-only] [-j|--json]
-  runx login [--provider github|google|gitlab] [--for default|publish] [--from-gh] [--api-base-url url] [--allow-local-api] [-j|--json]
-  runx connect list|start|status|invoke|revoke ... [-j|--json]
-  runx config set|get|list [provider|model|api-key|public-token] [value] [-j|--json]
-  runx policy inspect|lint <policy.json> [--json]
-  runx publish <receipt.json> [--api-base-url url] [--token token] [--allow-local-api] [-j|--json]
-  runx kernel eval --input <file|-> --json
-  runx payment admission issue --input <file|-> --json
-  runx parser eval --input <file|-> --json
-  runx doctor [path|authority|registry] [--json]
-  runx dev [root] [--lane lane] [--json]
-  runx export <claude|codex> [skill-ref...] [--project] [--json]
-  runx mcp serve <skill-ref...> [--receipt-dir dir] [--http-listen [addr]] [--http-allow-non-loopback]
-  runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [-j] [--approve-operator-context digest] [--full-operator-context] [--skip-operator-context] [--registry url|path] [--digest sha256] [--flag value] [--credential descriptor --credential-scope scope --secret-env NAME] [-R dir]
-  runx skill inspect <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-j] [--registry url|path] [--digest sha256]
-  runx add <skill-ref|github-url> [--registry url|path] [--version version] [--ref git-ref] [--digest sha256] [--to dir] [--api-base-url url] [--json]
-  runx harness <fixture.yaml...|skill-dir|SKILL.md> [-R dir] [-j|--json]
-  runx tool build <tool-dir>|--all [--json]
-  runx tool search <query> [--source source] [--json]
-  runx tool inspect <ref> [--source source] [--json]
-  runx registry search|read|resolve|install|publish ... --json
-"
-    .to_owned()
+pub fn command_help_text(command: &str) -> Option<String> {
+    crate::command_spec::command_help_text(command)
 }
 
 pub fn history_help_text() -> String {
-    "\
-runx history
-
-Usage:
-  runx history [query] [--skill s] [--status s] [--source s] [--actor a] [--artifact-type t] [--since iso] [--until iso] [--receipt-dir dir] [--json]
-
-Options:
-  --skill s
-  --status s
-  --source s
-  --actor a
-  --artifact-type t
-  --since iso
-  --until iso
-  --receipt-dir dir
-  --json
-"
-    .to_owned()
+    command_help("history")
 }
 
 pub fn harness_help_text() -> String {
-    "\
-runx harness
-
-Usage:
-  runx harness <fixture.yaml...|skill-dir|SKILL.md> [-R dir] [-j|--json]
-
-Package mode runs both inline harness.cases and sorted fixtures/*.yaml.
-
-Options:
-  -R, --receipt-dir dir
-  -j, --json
-"
-    .to_owned()
+    command_help("harness")
 }
 
 pub fn resume_help_text() -> String {
-    "\
-runx resume
-
-Usage:
-  runx resume <run-id> <answers.json> [-R dir] [-j|--json]
-
-Options:
-  -R, --receipts dir
-  --receipt-dir dir
-  -j, --json
-"
-    .to_owned()
+    command_help("resume")
 }
 
 pub fn list_help_text() -> String {
-    "\
-runx list
-
-Usage:
-  runx list [tools|skills|graphs|packets|overlays] [--ok-only|--invalid-only] [-j|--json]
-
-Options:
-  --ok-only
-  --invalid-only
-  -j, --json
-"
-    .to_owned()
+    command_help("list")
 }
 
 pub fn login_help_text() -> String {
-    "\
-runx login
-
-Usage:
-  runx login [--provider github|google|gitlab] [--for default|publish] [--from-gh] [--api-base-url url] [--allow-local-api] [-j|--json]
-
-Options:
-  --provider provider
-  --for purpose
-  --from-gh            Use the active GitHub CLI identity instead of browser OAuth
-  --api-base-url url
-  --allow-local-api
-  -j, --json
-"
-    .to_owned()
+    command_help("login")
 }
 
 pub fn connect_help_text() -> String {
-    "\
-runx connect
-
-Usage:
-  runx connect list [-j|--json]
-  runx connect start <provider> --scope <capability> [--scope <capability>...] [--scope-family family] [--authority-kind kind] [--target-repo repo] [--target-locator locator] [--binding id] [-j|--json]
-  runx connect status <session-id> [-j|--json]
-  runx connect invoke --grant <grant-id> --operation <operation> [--input <json-object>] [-j|--json]
-  runx connect revoke <grant-id> [-j|--json]
-
-Environment options:
-  --api-base-url url
-  --token token
-  --allow-local-api
-  -j, --json
-"
-    .to_owned()
+    command_help("connect")
 }
 
 pub fn publish_help_text() -> String {
-    "\
-runx publish
-
-Usage:
-  runx publish <receipt.json> [--api-base-url url] [--token token] [--allow-local-api] [-j|--json]
-
-Options:
-  --api-base-url url  Public API base URL (default: RUNX_PUBLIC_API_BASE_URL or https://api.runx.ai)
-  --token token       Public API token (default: RUNX_PUBLIC_API_TOKEN or runx login)
-  --allow-local-api   Allow loopback/private public API URLs for local dogfood only
-  -j, --json          Print the raw notary response as JSON
-"
-    .to_owned()
+    command_help("publish")
 }
 
 pub fn add_help_text() -> String {
-    "\
-runx add
-
-Usage:
-  runx add <skill-ref|github-url> [--registry url|path] [--version version] [--ref git-ref] [--digest sha256] [--to dir] [--api-base-url url] [--json]
-
-Options:
-  --registry url|path  Registry URL or local registry path for skill refs
-  --version version    Registry version for skill refs
-  --ref git-ref        Git ref for GitHub repository URLs
-  --digest sha256      Expected package digest for skill refs
-  --to dir             Install destination for skill refs
-  --api-base-url url   Hosted index API for GitHub repository URLs
-  -j, --json
-"
-    .to_owned()
+    command_help("add")
 }
 
 pub fn registry_help_text() -> String {
-    "\
-runx registry
-
-Usage:
-  runx registry search <query> [--registry url|path] [--registry-dir dir] [--limit n] [-j|--json]
-  runx registry read <ref> [--registry url|path] [--registry-dir dir] [--version version] [-j|--json]
-  runx registry resolve <ref> [--registry url|path] [--registry-dir dir] [--version version] [-j|--json]
-  runx registry install <ref> [--registry url|path] [--registry-dir dir] [--version version] [--digest sha256] [--to dir] [-j|--json]
-  runx registry publish <SKILL.md|skill-dir> [--registry url|path] [--owner owner] [--version version] [--profile X.yaml] [--trust-tier tier] [--upsert] [-j|--json]
-
-Options:
-  --registry url|path
-  --registry-dir dir
-  --version version
-  --digest sha256
-  --to dir
-  --owner owner
-  --profile X.yaml
-  --trust-tier first_party|verified|community
-  --limit n
-  --upsert
-  -j, --json
-"
-    .to_owned()
+    command_help("registry")
 }
 
 pub fn verify_help_text() -> String {
-    "\
-runx verify
-
-Usage:
-  runx verify [receipt-id] [--receipt-dir dir] [--receipt <path|->] [--notary <path|-> --notary-key trusted.pem] [-j|--json]
-
-Options:
-  --receipt-dir dir
-  --receipt <path|->
-  --notary <path|->
-  --notary-key trusted.pem
-  -j, --json
-"
-    .to_owned()
+    command_help("verify")
 }
 
 pub fn skill_help_text() -> String {
-    "\
-runx skill
+    command_help("skill")
+}
 
-Usage:
-  runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [-j] [--approve-operator-context digest] [--full-operator-context] [--skip-operator-context] [--registry url|path] [--digest sha256] [--flag value] [--credential descriptor --credential-scope scope --secret-env NAME] [-R dir]
-  runx skill inspect <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-j] [--registry url|path] [--digest sha256]
-
-Options:
-  -p, --profile name       Use a local credential profile from .runx/credentials.json
-  -i, --input key=value    Set a structured input; repeat for multiple inputs
-  --input-json key=json    Set an input that must parse as JSON
-  --approve-operator-context digest
-                            Run only when the prepared context matches this digest
-  --full-operator-context  Print the complete prepared context before approval
-  --skip-operator-context  Run without context preparation, approval, drift checks, or receipt binding
-  -R, --receipts dir       Write receipts under dir
-  --receipt-dir dir        Alias for --receipts
-  -j, --json               Print machine-readable output
-  --registry url|path
-  --digest sha256
-  --flag value
-  --credential descriptor  One-shot local credential descriptor
-  --credential-scope scope One granted scope; repeat for multiple scopes
-  --secret-env NAME        Env var holding the one-shot credential secret
-"
-    .to_owned()
+fn command_help(command: &str) -> String {
+    command_help_text(command).unwrap_or_default()
 }
 
 pub fn json_failure_output(message: &str, code: &str) -> String {
-    let message = json_string(message, "failed to serialize error message");
-    let code = json_string(code, "runtime_error");
-    format!(
-        "{{\n  \"status\": \"failure\",\n  \"error\": {{\n    \"message\": {message},\n    \"code\": {code}\n  }}\n}}\n"
-    )
+    crate::cli_error::json_failure_output(message, code)
 }
 
 pub fn json_requested(args: &[OsString]) -> bool {
@@ -643,17 +397,16 @@ fn json_or_human_error(args: &[OsString], message: String) -> RouterAction {
     }
 }
 
-fn json_string(value: &str, fallback: &str) -> String {
-    match serde_json::to_string(value) {
-        Ok(value) => value,
-        Err(_) => format!("\"{fallback}\""),
-    }
-}
-
 fn nested_help_requested(args: &[OsString]) -> bool {
     args.iter()
         .skip(1)
         .any(|arg| matches!(arg.to_str(), Some("--help" | "-h")))
+}
+
+fn documented_command(args: &[OsString]) -> Option<&'static crate::command_spec::CommandSpec> {
+    args.first()
+        .and_then(|arg| arg.to_str())
+        .and_then(crate::command_spec::command_spec)
 }
 
 fn first_arg_is(args: &[OsString], expected: &str) -> bool {

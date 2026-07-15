@@ -281,16 +281,10 @@ pub fn run_native_login(plan: LoginPlan) -> ExitCode {
         Ok(output) => crate::cli_io::write_stdout_code(&output, 0),
         Err(error) => {
             if plan.json {
-                let body = serde_json::json!({
-                    "status": "failure",
-                    "error": {
-                        "message": error.to_string(),
-                        "code": "login_failed",
-                    },
-                });
-                let serialized = serde_json::to_string_pretty(&body)
-                    .unwrap_or_else(|_| "{\"status\":\"failure\"}".to_owned());
-                return crate::cli_io::write_stdout_code(&format!("{serialized}\n"), 1);
+                return crate::cli_io::write_stdout_code(
+                    &crate::cli_error::json_failure_output(&error.to_string(), "login_failed"),
+                    1,
+                );
             }
             let _ignored = crate::cli_io::write_stderr(&format!("runx login: {error}\n"));
             ExitCode::from(1)

@@ -29,6 +29,8 @@ const retiredSurfaces = [
 ];
 const failures = [];
 
+checkCommandRegistryParity(failures);
+
 for (const relativePath of scannedRoots.flatMap((entry) => textFiles(entry))) {
   const source = readFileSync(path.join(root, relativePath), "utf8");
   for (const retired of retiredSurfaces) {
@@ -44,6 +46,33 @@ if (failures.length > 0) {
 }
 
 console.log("command drift check ok");
+
+function checkCommandRegistryParity(output) {
+  const registrySource = readFileSync(
+    path.join(root, "crates/runx-cli/src/command_spec/catalog.rs"),
+    "utf8",
+  );
+  const registryNames = new Set(
+    [...registrySource.matchAll(/CommandSpec \{\s*name: "([a-z][a-z0-9-]*)"/gu)]
+      .map((match) => match[1]),
+  );
+  const matrix = JSON.parse(readFileSync(path.join(root, "fixtures/cli-parity/commands.json"), "utf8"));
+  const matrixNames = new Set(
+    matrix.commands
+      .filter((command) => command.id !== "cli.help")
+      .map((command) => command.id.split(".")[0]),
+  );
+  for (const name of registryNames) {
+    if (!matrixNames.has(name)) {
+      output.push(`command registry '${name}' is missing from fixtures/cli-parity/commands.json`);
+    }
+  }
+  for (const name of matrixNames) {
+    if (!registryNames.has(name)) {
+      output.push(`CLI parity command '${name}' has no crates/runx-cli command registry entry`);
+    }
+  }
+}
 
 function textFiles(relativePath) {
   if (isIgnoredPath(relativePath)) return [];

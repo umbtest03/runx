@@ -51,7 +51,7 @@ const root = resolve(".");
 const fixturesDir = join(root, "fixtures/cli-parity");
 const casesDir = join(fixturesDir, "cases");
 
-const exitCodes = [0, 1, 2, 64] as const;
+const exitCodes = [0, 1, 2, 3, 64] as const;
 
 const commands: readonly CommandMatrixEntry[] = [
   command("cli.help", "runx --help", [], ["--help", "-h"], "none", ["cli-presentation"], ["help.top-level"]),
@@ -252,7 +252,7 @@ This directory captures the canonical native Rust CLI/runtime surface. The
 matrix is generated from \`scripts/generate-cli-feature-parity.ts\` and checked
 against \`crates/runx-cli/src/router.rs\`.
 
-Required exit-code coverage: \`"exitCodes": [0, 1, 2, 64]\`.
+Required exit-code coverage: \`"exitCodes": [0, 1, 2, 3, 64]\`.
 
 ## Files
 
@@ -274,84 +274,27 @@ Required exit-code coverage: \`"exitCodes": [0, 1, 2, 64]\`.
 }
 
 function checkUsageCoverage(): void {
-  const usageCommands = extractUsageCommands(readFileSync(join(root, "crates/runx-cli/src/router.rs"), "utf8"));
-  const commandIds = new Set(commands.map((entry) => entry.id));
-  const missing = usageCommands.flatMap((usage) =>
-    helpUsageCommandIds(usage)
-      .filter((id) => !commandIds.has(id))
-      .map((id) => `${usage} -> ${id}`));
-  if (missing.length > 0) {
-    throw new Error(`CLI parity matrix is missing help usage entries:\n${missing.join("\n")}`);
+  const source = readFileSync(join(root, "crates/runx-cli/src/command_spec/catalog.rs"), "utf8");
+  const registryNames = new Set(
+    [...source.matchAll(/CommandSpec \{\s*name: "([a-z][a-z0-9-]*)"/gu)]
+      .map((match) => match[1])
+      .filter((name): name is string => name !== undefined),
+  );
+  const matrixNames = new Set(
+    commands
+      .filter((entry) => entry.id !== "cli.help")
+      .map((entry) => entry.id.split(".")[0])
+      .filter((name): name is string => name !== undefined),
+  );
+  const missingFromMatrix = [...registryNames].filter((name) => !matrixNames.has(name));
+  const missingFromRegistry = [...matrixNames].filter((name) => !registryNames.has(name));
+  if (missingFromMatrix.length > 0 || missingFromRegistry.length > 0) {
+    throw new Error([
+      "CLI command registry and parity matrix disagree.",
+      `Missing from matrix: ${missingFromMatrix.join(", ") || "none"}`,
+      `Missing from registry: ${missingFromRegistry.join(", ") || "none"}`,
+    ].join("\n"));
   }
-}
-
-function extractUsageCommands(routerSource: string): readonly string[] {
-  return extractHelpBlock(extractRustHelpText(routerSource), "Commands:");
-}
-
-function extractRustHelpText(routerSource: string): string {
-  const match = routerSource.match(/pub fn help_text\(\) -> String \{\s*"\\\n([\s\S]*?)"\s*\.to_owned\(\)\s*\}/u);
-  if (!match?.[1]) {
-    throw new Error("Could not find help_text() string in crates/runx-cli/src/router.rs");
-  }
-  return match[1];
-}
-
-function extractHelpBlock(helpText: string, label: string): readonly string[] {
-  const lines = helpText.split("\n");
-  const start = lines.findIndex((line) => line.trim() === label);
-  if (start === -1) {
-    throw new Error(`Could not find ${label} block in crates/runx-cli/src/router.rs`);
-  }
-  const entries: string[] = [];
-  for (const line of lines.slice(start + 1)) {
-    if (line.trim() === "") {
-      break;
-    }
-    const trimmed = line.trim();
-    if (trimmed.startsWith("runx ")) {
-      entries.push(trimmed);
-    }
-  }
-  return entries;
-}
-
-function helpUsageCommandIds(usage: string): readonly string[] {
-  if (usage.startsWith("runx skill <")) {
-    return ["skill.run"];
-  }
-  if (usage.startsWith("runx skill inspect ")) {
-    return ["skill.inspect"];
-  }
-  if (usage.startsWith("runx config ")) {
-    return ["config.set", "config.get", "config.list"];
-  }
-  if (usage.startsWith("runx policy inspect|lint")) {
-    return ["policy.inspect", "policy.lint"];
-  }
-  if (usage.startsWith("runx policy inspect")) {
-    return ["policy.inspect"];
-  }
-  if (usage.startsWith("runx policy lint")) {
-    return ["policy.lint"];
-  }
-  if (usage.startsWith("runx mcp serve")) {
-    return ["mcp.serve"];
-  }
-  if (usage.startsWith("runx tool search")) {
-    return ["tool.search"];
-  }
-  if (usage.startsWith("runx tool inspect")) {
-    return ["tool.inspect"];
-  }
-  if (usage.startsWith("runx tool build")) {
-    return ["tool.build"];
-  }
-  const commandName = usage.split(/\s+/)[1];
-  if (!commandName) {
-    return [];
-  }
-  return [commandName];
 }
 
 function checkCanonicalOnly(): void {

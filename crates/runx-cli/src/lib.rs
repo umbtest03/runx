@@ -1,6 +1,8 @@
 pub mod add;
 pub mod cli_args;
+pub mod cli_error;
 pub(crate) mod cli_io;
+pub mod command_spec;
 pub mod config;
 pub mod connect;
 pub mod dev;

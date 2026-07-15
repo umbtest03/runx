@@ -1,3 +1,4 @@
+use runx_cli::command_spec::COMMAND_SPECS;
 use runx_cli::config::{ConfigAction, ConfigPlan};
 use runx_cli::connect::{ConnectAction, ConnectPlan};
 use runx_cli::export::{ExportPlan, Target};
@@ -11,9 +12,9 @@ use runx_cli::resume::ResumePlan;
 use runx_cli::router::{
     AddUrlPlan, DevPlan, DoctorMode, DoctorPlan, FilterMode, HarnessPlan, HistoryPlan, InitPlan,
     JsonErrorPlan, ListKind, ListPlan, NewPlan, RouterAction, ToolAction, ToolPlan, add_help_text,
-    connect_help_text, harness_help_text, help_text, history_help_text, list_help_text,
-    login_help_text, publish_help_text, registry_help_text, route_args, skill_help_text,
-    verify_help_text,
+    command_help_text, connect_help_text, harness_help_text, help_text, history_help_text,
+    list_help_text, login_help_text, publish_help_text, registry_help_text, route_args,
+    skill_help_text, verify_help_text,
 };
 use runx_cli::skill::{SkillAction, SkillPlan};
 use std::fs;
@@ -28,7 +29,10 @@ fn top_level_help_and_version_are_native() {
     assert_eq!(plan(&[]), RouterAction::PrintHelp);
     assert_eq!(plan(&["--help"]), RouterAction::PrintHelp);
     assert_eq!(plan(&["--version"]), RouterAction::PrintVersion);
-    assert_eq!(plan(&["export", "--help"]), RouterAction::PrintHelp);
+    assert_eq!(
+        plan(&["export", "--help"]),
+        RouterAction::PrintCommandHelp("export")
+    );
 
     let help = help_text();
     assert_help_line(
@@ -81,28 +85,58 @@ fn top_level_help_and_version_are_native() {
 
 #[test]
 fn nested_skill_history_verify_and_publish_help_are_native() {
-    assert_eq!(plan(&["skill", "--help"]), RouterAction::PrintSkillHelp);
-    assert_eq!(plan(&["skill", "-h"]), RouterAction::PrintSkillHelp);
+    assert_eq!(
+        plan(&["skill", "--help"]),
+        RouterAction::PrintCommandHelp("skill")
+    );
+    assert_eq!(
+        plan(&["skill", "-h"]),
+        RouterAction::PrintCommandHelp("skill")
+    );
     assert_eq!(
         plan(&["skill", "SKILL.md", "--help"]),
-        RouterAction::PrintSkillHelp
+        RouterAction::PrintCommandHelp("skill")
     );
-    assert_eq!(plan(&["history", "--help"]), RouterAction::PrintHistoryHelp);
-    assert_eq!(plan(&["history", "-h"]), RouterAction::PrintHistoryHelp);
+    assert_eq!(
+        plan(&["history", "--help"]),
+        RouterAction::PrintCommandHelp("history")
+    );
+    assert_eq!(
+        plan(&["history", "-h"]),
+        RouterAction::PrintCommandHelp("history")
+    );
     assert_eq!(
         plan(&["history", "sourcey", "--help"]),
-        RouterAction::PrintHistoryHelp
+        RouterAction::PrintCommandHelp("history")
     );
-    assert_eq!(plan(&["verify", "--help"]), RouterAction::PrintVerifyHelp);
-    assert_eq!(plan(&["verify", "-h"]), RouterAction::PrintVerifyHelp);
+    assert_eq!(
+        plan(&["verify", "--help"]),
+        RouterAction::PrintCommandHelp("verify")
+    );
+    assert_eq!(
+        plan(&["verify", "-h"]),
+        RouterAction::PrintCommandHelp("verify")
+    );
     assert_eq!(
         plan(&["verify", "receipt-123", "--help"]),
-        RouterAction::PrintVerifyHelp
+        RouterAction::PrintCommandHelp("verify")
     );
-    assert_eq!(plan(&["publish", "--help"]), RouterAction::PrintPublishHelp);
-    assert_eq!(plan(&["publish", "-h"]), RouterAction::PrintPublishHelp);
-    assert_eq!(plan(&["harness", "--help"]), RouterAction::PrintHarnessHelp);
-    assert_eq!(plan(&["harness", "-h"]), RouterAction::PrintHarnessHelp);
+    assert_eq!(
+        plan(&["publish", "--help"]),
+        RouterAction::PrintCommandHelp("publish")
+    );
+    assert_eq!(
+        plan(&["publish", "-h"]),
+        RouterAction::PrintCommandHelp("publish")
+    );
+    assert_eq!(
+        plan(&["harness", "--help"]),
+        RouterAction::PrintCommandHelp("harness")
+    );
+    assert_eq!(
+        plan(&["harness", "-h"]),
+        RouterAction::PrintCommandHelp("harness")
+    );
 
     assert_help_line(
         &skill_help_text(),
@@ -137,16 +171,31 @@ fn nested_skill_history_verify_and_publish_help_are_native() {
 
 #[test]
 fn documented_command_help_is_native() {
-    assert_eq!(plan(&["add", "--help"]), RouterAction::PrintAddHelp);
-    assert_eq!(plan(&["add", "-h"]), RouterAction::PrintAddHelp);
-    assert_eq!(plan(&["list", "--help"]), RouterAction::PrintListHelp);
-    assert_eq!(plan(&["login", "--help"]), RouterAction::PrintLoginHelp);
-    assert_eq!(plan(&["connect", "--help"]), RouterAction::PrintConnectHelp);
+    assert_eq!(
+        plan(&["add", "--help"]),
+        RouterAction::PrintCommandHelp("add")
+    );
+    assert_eq!(plan(&["add", "-h"]), RouterAction::PrintCommandHelp("add"));
+    assert_eq!(
+        plan(&["list", "--help"]),
+        RouterAction::PrintCommandHelp("list")
+    );
+    assert_eq!(
+        plan(&["login", "--help"]),
+        RouterAction::PrintCommandHelp("login")
+    );
+    assert_eq!(
+        plan(&["connect", "--help"]),
+        RouterAction::PrintCommandHelp("connect")
+    );
     assert_eq!(
         plan(&["registry", "--help"]),
-        RouterAction::PrintRegistryHelp
+        RouterAction::PrintCommandHelp("registry")
     );
-    assert_eq!(plan(&["registry"]), RouterAction::PrintRegistryUsageError);
+    assert_eq!(
+        plan(&["registry"]),
+        RouterAction::PrintCommandUsageError("registry")
+    );
 
     assert_help_line(
         &add_help_text(),
@@ -170,6 +219,30 @@ fn documented_command_help_is_native() {
         "runx registry search <query> [--registry url|path] [--registry-dir dir] [--limit n] [-j|--json]",
     );
     assert!(!registry_help_text().contains("--installation-id"));
+}
+
+#[test]
+fn every_documented_command_routes_to_registry_help() {
+    for spec in COMMAND_SPECS {
+        assert_eq!(
+            plan(&[spec.name, "--help"]),
+            RouterAction::PrintCommandHelp(spec.name),
+            "--help routing drifted for {}",
+            spec.name
+        );
+        assert_eq!(
+            plan(&[spec.name, "-h"]),
+            RouterAction::PrintCommandHelp(spec.name),
+            "-h routing drifted for {}",
+            spec.name
+        );
+        let help = command_help_text(spec.name).unwrap_or_default();
+        assert!(
+            help.starts_with(&format!("runx {}\n", spec.name)),
+            "detailed help missing for {}",
+            spec.name
+        );
+    }
 }
 
 #[test]
