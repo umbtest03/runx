@@ -44,6 +44,13 @@ The command shape is deliberate:
 Do not combine the install and execution verbs. Installation is `runx add`;
 execution is `runx skill`.
 
+## Renaming an official skill
+
+Renaming a `runx/*` skill is a governed operator procedure: it moves the hosted
+registry row wholesale (preserving `created_at`, version history, and metadata),
+not just a repo `git mv`. Follow [rename-official-skill.md](rename-official-skill.md)
+for the naming principle and the exact repo, registry, and deploy steps.
+
 ## Canonical category slugs
 
 Registry categories are maintained by runx, not invented per package. A skill
