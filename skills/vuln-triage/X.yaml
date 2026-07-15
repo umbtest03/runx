@@ -1,4 +1,4 @@
-skill: vuln-scan
+skill: vuln-triage
 version: "0.1.1"
 
 catalog:
@@ -8,14 +8,14 @@ catalog:
   role: context
 harness:
   cases:
-    - name: vuln-scan-risk-packet
+    - name: vuln-triage-risk-packet
       runner: scan
       inputs:
         target: pnpm-lock.yaml
         objective: identify the highest-risk dependency issue to surface today
       caller:
         answers:
-          agent_task.vuln-scan.output:
+          agent_task.vuln-triage.output:
             dependency_inventory:
               target: pnpm-lock.yaml
               packages:
@@ -36,7 +36,7 @@ harness:
         status: sealed
         receipt:
           schema: runx.receipt.v1
-    - name: vuln-scan-advisory-packet
+    - name: vuln-triage-advisory-packet
       runner: advisory
       inputs:
         target: pnpm-lock.yaml
@@ -45,7 +45,7 @@ harness:
             severity: medium
       caller:
         answers:
-          agent_task.vuln-scan-advisory.output:
+          agent_task.vuln-triage-advisory.output:
             advisory_draft:
               title: Example advisory
               body: We identified a medium-severity transitive dependency issue and are preparing the patch path.
@@ -65,7 +65,7 @@ runners:
     default: true
     type: agent-task
     agent: reviewer
-    task: vuln-scan
+    task: vuln-triage
     outputs:
       dependency_inventory: object
       advisories: array
@@ -87,11 +87,15 @@ runners:
         type: json
         required: false
         description: "Known packages, incidents, or prior findings."
+      cve_evidence:
+        type: json
+        required: false
+        description: "Verified exact-version CVE evidence from cve-audit (findings and provenance). When present, triage these confirmed findings instead of inferring exposure."
 
   advisory:
     type: agent-task
     agent: builder
-    task: vuln-scan-advisory
+    task: vuln-triage-advisory
     outputs:
       advisory_draft: object
       maintainer_summary: object

@@ -1,4 +1,4 @@
-skill: ecosystem-vuln-scan
+skill: vuln-advisory
 version: "0.1.1"
 
 catalog:
@@ -8,12 +8,12 @@ catalog:
   role: context
 harness:
   cases:
-    - name: ecosystem-vuln-scan-approved-advisory
+    - name: vuln-advisory-approved-advisory
       inputs:
         target: pnpm-lock.yaml
       caller:
         answers:
-          agent_task.vuln-scan.output:
+          agent_task.vuln-triage.output:
             dependency_inventory:
               target: pnpm-lock.yaml
             advisories:
@@ -26,7 +26,7 @@ harness:
             operator_summary:
               verdict: investigate
               summary: One advisory is worth preparing.
-          agent_task.vuln-scan-advisory.output:
+          agent_task.vuln-triage-advisory.output:
             advisory_draft:
               title: Example advisory
               body: We identified a medium-severity transitive issue and are preparing remediation.
@@ -45,20 +45,20 @@ harness:
             handoff_notes:
               next_action: publish after approval
         approvals:
-          ecosystem-vuln-scan.publish.approval: true
+          vuln-advisory.publish.approval: true
       expect:
         status: sealed
         receipt:
           schema: runx.receipt.v1
 
-    - name: ecosystem-vuln-scan-needs-target
+    - name: vuln-advisory-needs-target
       inputs: {}
       expect:
         status: failure
 
 
 runners:
-  ecosystem-vuln-scan:
+  vuln-advisory:
     default: true
     type: graph
     inputs:
@@ -80,16 +80,20 @@ runners:
         type: json
         required: false
         description: "Known incidents or prior findings."
+      cve_evidence:
+        type: json
+        required: false
+        description: "Verified exact-version CVE evidence from cve-audit. When present, the risk triage grounds its advisory in these confirmed findings."
     graph:
-      name: ecosystem-vuln-scan
+      name: vuln-advisory
       steps:
         - id: scan-risk
-          skill: ../vuln-scan
+          skill: ../vuln-triage
           runner: scan
           scopes:
             - runx:security:read
         - id: draft-advisory
-          skill: ../vuln-scan
+          skill: ../vuln-triage
           runner: advisory
           scopes:
             - runx:security:write-proposal
@@ -100,7 +104,7 @@ runners:
           run:
             type: approval
           inputs:
-            gate_id: ecosystem-vuln-scan.publish.approval
+            gate_id: vuln-advisory.publish.approval
             reason: Approve the drafted advisory before packaging it for publication.
           context:
             advisory_draft: draft-advisory.vulnerability_advisory_packet.data.advisory_draft

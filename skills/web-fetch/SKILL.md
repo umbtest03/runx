@@ -36,7 +36,7 @@ allowlist.
 - A research pass needs each source retrieved through a single bounded
   `net:allowlist` fetch with a complete redirect chain and byte count.
 - A review must later prove what a page said at fetch time.
-- A follow-on skill (prior-art, vuln-scan, brief) needs one source extracted as
+- A follow-on skill (prior-art, vuln-triage, brief) needs one source extracted as
   `text`, `metadata`, or `links`.
 
 ## When not to use this skill

@@ -1,13 +1,16 @@
 ---
-name: ecosystem-vuln-scan
-description: Scan one dependency surface, draft the advisory, and package the approved publication bundle.
+name: vuln-advisory
+description: Turn triaged vulnerability risk into an approved, published advisory bundle, grounding on verified CVE evidence when it is supplied.
 runx:
   category: security
 ---
 
-# Ecosystem Vulnerability Scan
+# Vulnerability Advisory
 
-This is the public-facing advisory lane built on top of `vuln-scan`.
+This is the public-facing advisory lane built on top of `vuln-triage`. Pass
+`cve_evidence` from a `cve-audit` run to ground the advisory in verified,
+exact-version findings; the deterministic evidence flows through the triage
+into the drafted advisory.
 
 It keeps the security flow bounded and reviewable:
 

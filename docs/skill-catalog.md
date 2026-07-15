@@ -25,9 +25,9 @@ Use the CLI when you are preparing work or checking for overlap:
 
 ```bash
 runx registry search "cve audit" --registry https://api.runx.ai --json
-runx registry read runx/dependency-cve-audit@sha-e11c90bbeb16 --registry https://api.runx.ai --json
-runx add runx/dependency-cve-audit@sha-e11c90bbeb16 --registry https://api.runx.ai
-runx skill runx/dependency-cve-audit@sha-e11c90bbeb16 --registry https://api.runx.ai --json
+runx registry read runx/cve-audit@sha-e11c90bbeb16 --registry https://api.runx.ai --json
+runx add runx/cve-audit@sha-e11c90bbeb16 --registry https://api.runx.ai
+runx skill runx/cve-audit@sha-e11c90bbeb16 --registry https://api.runx.ai --json
 ```
 
 The command shape is deliberate:
@@ -83,7 +83,7 @@ evidence, not copied into the repo by default.
 | `ops` | `github-sync`, `governed-outbound`, `chief-of-staff`, `issue-intake`, `issue-triage`, `messageboard`, `n8n-handoff`, `ops-desk`, `send-as`, `zapier-handoff` |
 | `payments` | `charge`, `dispute-respond`, `mock-pay`, `mock-refund`, `mpp-pay`, `mpp-refund`, `refund`, `settle-invoice`, `spend`, `stripe-pay`, `stripe-refund`, `x402-pay` |
 | `research` | `ecosystem-brief`, `research` |
-| `security` | `dependency-cve-audit`, `ecosystem-vuln-scan`, `least-privilege`, `audit-receipt`, `redact-pii`, `sandbox-harden`, `sign-receipt`, `vault-unseal` |
+| `security` | `cve-audit`, `vuln-triage`, `vuln-advisory`, `least-privilege`, `audit-receipt`, `redact-pii`, `sandbox-harden`, `sign-receipt`, `vault-unseal` |
 
 Graph stages, harness fixtures, context-only packages, and provider bindings are
 not listed here unless they are meant to be run as catalog packages. Their

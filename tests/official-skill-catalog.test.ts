@@ -102,7 +102,7 @@ const harnessedShowcasePackages = [
   "content-pipeline",
   "deep-research",
   "ghostwrite",
-  "ecosystem-vuln-scan",
+  "vuln-advisory",
   "evolve",
   "issue-intake",
   "issue-triage",
@@ -121,7 +121,7 @@ const harnessedShowcasePackages = [
   "research",
   "skill-testing",
   "sourcey",
-  "vuln-scan",
+  "vuln-triage",
 ] as const;
 
 const workspaceRoot = process.cwd();
