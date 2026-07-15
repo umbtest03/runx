@@ -4,7 +4,7 @@ harness:
     - name: agent-boundary
       runner: default
       expect:
-        status: sealed
+        status: needs_agent
 runners:
   default:
     type: agent

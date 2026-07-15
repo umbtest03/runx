@@ -264,7 +264,7 @@ pub(super) fn run_publish_harness(
     let request = runx_runtime::PackageHarnessRequest {
         skill_path: harness_path.to_path_buf(),
         receipt_dir: Some(receipt_dir.clone()),
-        env: Some(publish_harness_env()),
+        env: Some(publish_harness_env(&receipt_dir.join("home"))),
     };
     let report = crate::runtime::local_orchestrator().run_package_harness(&request);
     let _ignored = fs::remove_dir_all(&receipt_dir);
@@ -318,9 +318,16 @@ const PUBLISH_HARNESS_SIGNING_KID: &str = "runx-publish-harness-local";
 const PUBLISH_HARNESS_SIGNING_SEED_BASE64: &str = "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=";
 const PUBLISH_HARNESS_SIGNING_ISSUER_TYPE: &str = "ci";
 
-fn publish_harness_env() -> BTreeMap<String, String> {
+fn publish_harness_env(runx_home: &Path) -> BTreeMap<String, String> {
     let mut env = runx_runtime::RuntimeOptions::safe_process_env();
     strip_hosted_publish_env(&mut env);
+    env.remove("RUNX_AGENT_PROVIDER");
+    env.remove("RUNX_AGENT_MODEL");
+    env.remove("RUNX_AGENT_API_KEY");
+    env.insert(
+        "RUNX_HOME".to_owned(),
+        runx_home.to_string_lossy().into_owned(),
+    );
     ensure_publish_harness_signing_env(&mut env);
     env
 }
@@ -1091,8 +1098,8 @@ mod tests {
     use super::{
         PUBLISH_HARNESS_SIGNING_ISSUER_TYPE, PUBLISH_HARNESS_SIGNING_KID,
         collect_publish_harness_package_files, collect_publish_package_files,
-        ensure_publish_harness_signing_env, read_skill_package, should_reject_remote_publish_file,
-        strip_hosted_publish_env, unique_temp_dir,
+        ensure_publish_harness_signing_env, publish_harness_env, read_skill_package,
+        should_reject_remote_publish_file, strip_hosted_publish_env, unique_temp_dir,
     };
     use std::fs;
 
@@ -1158,6 +1165,18 @@ mod tests {
         assert_eq!(env.get("PATH").map(String::as_str), Some("/bin"));
         assert!(!env.contains_key("RUNX_HOSTED_REGISTRY_PUBLISH_TOKEN"));
         assert!(!env.contains_key("RUNX_HOSTED_PUBLIC_HARNESS_OWNERS"));
+    }
+
+    #[test]
+    fn publish_harness_uses_isolated_agent_config() {
+        let runx_home = std::path::Path::new("/tmp/runx-publish-harness-home");
+
+        let env = publish_harness_env(runx_home);
+
+        assert_eq!(env.get("RUNX_HOME").map(String::as_str), runx_home.to_str());
+        assert!(!env.contains_key("RUNX_AGENT_PROVIDER"));
+        assert!(!env.contains_key("RUNX_AGENT_MODEL"));
+        assert!(!env.contains_key("RUNX_AGENT_API_KEY"));
     }
 
     #[test]

@@ -84,6 +84,7 @@ expect:
     )?;
 
     let output = unsigned_runx_command()?
+        .env("RUNX_SANDBOX_ALLOW_DECLARED_POLICY_ONLY", "local")
         .args([
             "harness",
             skill_dir.to_str().ok_or("non-utf8 skill dir")?,
