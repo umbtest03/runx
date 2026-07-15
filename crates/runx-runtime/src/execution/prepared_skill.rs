@@ -300,14 +300,7 @@ pub fn prepare_skill_run(
     let runner = selected_runner(&manifest, selected_runner_name)?.clone();
     super::skill_front::apply_runner_input_defaults(&mut request.inputs, &runner);
     let request_summary = request_summary(&request, &skill_dir, &runner.name, entry);
-    let missing = runner
-        .inputs
-        .iter()
-        .filter(|(name, input)| {
-            input.required && input.default.is_none() && !request.inputs.contains_key(*name)
-        })
-        .map(|(name, _)| name.clone())
-        .collect::<Vec<_>>();
+    let missing = missing_required_inputs(&runner, &request.inputs);
 
     let mut trace = vec![PreparedTraceEntry {
         node_path: "entry".to_owned(),
@@ -514,6 +507,23 @@ fn credential_summary(value: &LocalCredentialDescriptor) -> PreparedCredentialSu
         material_ref_sha256: sha256_prefixed(value.material_ref.as_bytes()),
         scopes: value.scopes.clone(),
     }
+}
+
+/// Required inputs the runner declares that are absent (and carry no default).
+/// The single source of truth for the required-input contract, shared by the
+/// prepare stage and the inline harness so both enforce it identically.
+pub(crate) fn missing_required_inputs(
+    runner: &SkillRunnerDefinition,
+    inputs: &BTreeMap<String, JsonValue>,
+) -> Vec<String> {
+    runner
+        .inputs
+        .iter()
+        .filter(|(name, input)| {
+            input.required && input.default.is_none() && !inputs.contains_key(*name)
+        })
+        .map(|(name, _)| name.clone())
+        .collect()
 }
 
 fn json_type(value: &JsonValue) -> &'static str {

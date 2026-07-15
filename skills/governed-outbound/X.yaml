@@ -104,7 +104,7 @@ harness:
     - name: governed-outbound-needs-target
       inputs: {}
       expect:
-        status: needs_agent
+        status: failure
 
 runners:
   governed-outbound:

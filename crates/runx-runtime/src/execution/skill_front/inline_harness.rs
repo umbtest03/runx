@@ -12,6 +12,7 @@ use runx_parser::{HarnessCallerFixture, RunnerHarnessCase, SkillRunnerManifest};
 use crate::RuntimeError;
 use crate::effects::RuntimeEffectRegistry;
 use crate::execution::orchestrator::SkillRunRequest;
+use crate::execution::prepared_skill::missing_required_inputs;
 
 use super::runner_manifest::{load_runner_manifest, resolve_skill_dir, selected_runner};
 
@@ -175,10 +176,24 @@ fn run_inline_harness_case(
     cwd: &Path,
     effects: &RuntimeEffectRegistry,
 ) -> InlineHarnessCaseOutcome {
-    let is_graph = match selected_runner(manifest, case.runner.as_deref()) {
-        Ok(runner) => runner.source.source_type == runx_parser::SourceKind::Graph,
+    let runner = match selected_runner(manifest, case.runner.as_deref()) {
+        Ok(runner) => runner,
         Err(error) => return inline_harness_case_error(&case.name, error),
     };
+    let is_graph = runner.source.source_type == runx_parser::SourceKind::Graph;
+
+    // Enforce the required-input contract the real `runx skill` prepare stage
+    // applies. The harness executes directly, so without this a missing required
+    // input would seal an empty run instead of blocking, masking the failure.
+    let missing = missing_required_inputs(runner, &case.inputs);
+    if !missing.is_empty() {
+        return InlineHarnessCaseOutcome {
+            is_graph,
+            receipt_id: None,
+            assertion_error: inline_harness_status_error(case, "failure"),
+        };
+    }
+
     let request = inline_harness_case_request(skill_dir, receipt_dir, env, case, cwd);
     let overrides = SkillRunOverrides {
         runner: case.runner.clone(),
@@ -243,8 +258,11 @@ fn inline_harness_expectation_error(
     case: &RunnerHarnessCase,
     output: &JsonValue,
 ) -> Option<String> {
+    inline_harness_status_error(case, inline_harness_actual_status(output))
+}
+
+fn inline_harness_status_error(case: &RunnerHarnessCase, actual: &str) -> Option<String> {
     let expected = case.expect.status.as_deref()?;
-    let actual = inline_harness_actual_status(output);
     (actual != expected).then(|| format!("{}: expected status {expected}, got {actual}", case.name))
 }
 

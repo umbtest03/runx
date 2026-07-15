@@ -63,7 +63,7 @@ harness:
     - name: skill-testing-needs-required-inputs
       inputs: {}
       expect:
-        status: needs_agent
+        status: failure
 
 runners:
   skill-testing:

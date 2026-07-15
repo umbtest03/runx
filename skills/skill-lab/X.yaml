@@ -204,7 +204,7 @@ harness:
     - name: skill-lab-needs-objective
       inputs: {}
       expect:
-        status: needs_agent
+        status: failure
 
 runners:
   skill-lab:

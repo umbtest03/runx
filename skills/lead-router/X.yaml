@@ -70,7 +70,7 @@ harness:
     - name: lead-router-needs-lead
       inputs: {}
       expect:
-        status: needs_agent
+        status: failure
 
 runners:
   lead-router:

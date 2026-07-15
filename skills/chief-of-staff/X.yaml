@@ -56,7 +56,7 @@ harness:
       inputs:
         objective: Tell me what to do next.
       expect:
-        status: needs_agent
+        status: failure
 
 runners:
   exec:

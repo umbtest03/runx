@@ -61,7 +61,7 @@ harness:
     - name: content-pipeline-needs-objective
       inputs: {}
       expect:
-        status: needs_agent
+        status: failure
 
 
 runners:
