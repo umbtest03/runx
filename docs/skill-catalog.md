@@ -44,12 +44,24 @@ The command shape is deliberate:
 Do not combine the install and execution verbs. Installation is `runx add`;
 execution is `runx skill`.
 
-## Renaming an official skill
+## Naming a skill
 
-Renaming a `runx/*` skill is a governed operator procedure: it moves the hosted
-registry row wholesale (preserving `created_at`, version history, and metadata),
-not just a repo `git mv`. Follow [rename-official-skill.md](rename-official-skill.md)
-for the naming principle and the exact repo, registry, and deploy steps.
+Name a skill so an agent instinctively reaches for the right one:
+
+- Name the **job**, not the mechanism. Drop `-auditor`, `-generator`,
+  `-analyst`, `-pipeline` suffixes.
+- One distinct **verb per pipeline layer** so sibling skills never blur. The
+  security trio is the model: `cve-audit` (detect, deterministic) ->
+  `vuln-triage` (assess, agent) -> `vuln-disclosure` (publish, governed).
+- Keep provider rails and integrations descriptive (`stripe-pay`, `web-fetch`).
+- Retrieval beats cleverness: the searchable term wins, and keywords the name
+  drops go in the `description`.
+
+Renaming an existing skill is a `git mv`, a token sweep, and a regenerate
+(`packet-schemas`, `official-lock`) plus `verify:fast` and the harness. For a
+maintained `runx/*` skill the hosted registry row is preserved (its
+`created_at` and version history carry across) during the operator deploy, so a
+rename never resets the row.
 
 ## Canonical category slugs
 
