@@ -21,7 +21,7 @@ workspace = true
 
 [features]
 default = []
-async-http = ["dep:reqwest", "dep:tokio", "dep:rustls"]
+async-http = ["dep:reqwest", "dep:tokio", "dep:rustls", "tokio/rt-multi-thread"]
 cli-tool = ["async-http"]
 mcp = ["dep:rmcp", "dep:tokio", "tokio/process", "tokio/io-util", "tokio/sync", "tokio/rt-multi-thread"]
 # Expose the governed MCP server over streamable HTTP/SSE (rmcp's tower service

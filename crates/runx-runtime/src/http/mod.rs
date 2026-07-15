@@ -12,6 +12,8 @@ use std::net::SocketAddr;
 #[cfg(any(feature = "async-http", test))]
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 #[cfg(feature = "async-http")]
+use std::sync::OnceLock;
+#[cfg(feature = "async-http")]
 use std::time::Duration;
 
 #[cfg(any(feature = "async-http", test))]
@@ -30,6 +32,8 @@ const DEFAULT_HTTP_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const DEFAULT_HTTP_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 #[cfg(feature = "async-http")]
 const MANAGED_AGENT_REQUEST_TIMEOUT: Duration = Duration::from_secs(180);
+#[cfg(feature = "async-http")]
+static HTTP_CLIENT_RUNTIME: OnceLock<Result<tokio::runtime::Runtime, String>> = OnceLock::new();
 
 /// The default browser User-Agent the governed fetch transport presents (current
 /// stable Chrome). Overridable per run with `RUNX_HTTP_USER_AGENT`, opt-out with
@@ -630,13 +634,24 @@ where
     if tokio::runtime::Handle::try_current().is_ok() {
         return Err(RuntimeHttpError::BlockingHttpInsideAsyncRuntime);
     }
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|error| RuntimeHttpError::AsyncRuntimeUnavailable {
-            message: error.to_string(),
-        })?;
-    runtime.block_on(future)
+    http_runtime()?.block_on(future)
+}
+
+#[cfg(feature = "async-http")]
+fn http_runtime() -> Result<&'static tokio::runtime::Runtime, RuntimeHttpError> {
+    match HTTP_CLIENT_RUNTIME.get_or_init(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .thread_name("runx-http")
+            .enable_all()
+            .build()
+            .map_err(|error| error.to_string())
+    }) {
+        Ok(runtime) => Ok(runtime),
+        Err(message) => Err(RuntimeHttpError::AsyncRuntimeUnavailable {
+            message: message.clone(),
+        }),
+    }
 }
 
 #[cfg(feature = "async-http")]
@@ -675,7 +690,10 @@ mod tests {
     use std::time::Duration;
 
     #[cfg(feature = "async-http")]
-    use super::{GuardedDnsResolver, MAX_HTTP_RESPONSE_BYTES, ReqwestHttpTransport, block_on_http};
+    use super::{
+        GuardedDnsResolver, MAX_HTTP_RESPONSE_BYTES, ReqwestHttpTransport, block_on_http,
+        http_runtime,
+    };
     use super::{
         HttpMethod, RuntimeHttpClient, RuntimeHttpError, RuntimeHttpHeader, RuntimeHttpRequest,
         RuntimeHttpResponse, RuntimeHttpTransport,
@@ -816,6 +834,42 @@ mod tests {
         RuntimeHttpClient::with_transport("https://api.example", &MockTransport::default())?;
         RuntimeHttpClient::with_transport("http://8.8.8.8", &MockTransport::default())?;
         RuntimeHttpClient::with_transport("http://[64:ff9b::808:808]", &MockTransport::default())?;
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "async-http")]
+    fn synchronous_http_reuses_one_runtime() -> Result<(), RuntimeHttpTestError> {
+        let first = http_runtime()?;
+        let second = http_runtime()?;
+        assert!(std::ptr::eq(first, second));
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "async-http")]
+    fn shared_http_runtime_supports_concurrent_sync_callers() -> Result<(), RuntimeHttpTestError> {
+        let callers = (0..8)
+            .map(|value| {
+                std::thread::spawn(move || {
+                    block_on_http(async move {
+                        tokio::task::yield_now().await;
+                        Ok(value)
+                    })
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let mut values = Vec::new();
+        for caller in callers {
+            values.push(
+                caller
+                    .join()
+                    .map_err(|_| RuntimeHttpTestError::ServerThread)??,
+            );
+        }
+        values.sort_unstable();
+        assert_eq!(values, (0..8).collect::<Vec<_>>());
         Ok(())
     }
 
