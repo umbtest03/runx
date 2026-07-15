@@ -31,6 +31,7 @@ pub const COMMAND_SPECS: &[CommandSpec] = &[
             "--receipt <path|->",
             "--notary <path|->",
             "--notary-key trusted.pem",
+            "--allow-local-development-signatures  Accept local fixture signatures only; never for production verification",
             "-j, --json",
         ],
     },
@@ -38,7 +39,7 @@ pub const COMMAND_SPECS: &[CommandSpec] = &[
         name: "history",
         top_level_usage: &[],
         usage: &[
-            "runx history [query] [--skill s] [--status s] [--source s] [--actor a] [--artifact-type t] [--since iso] [--until iso] [--receipt-dir dir] [--json]",
+            "runx history [query] [--skill s] [--status s] [--source s] [--actor a] [--artifact-type t] [--since iso] [--until iso] [--limit n] [--receipt-dir dir] [--json]",
         ],
         notes: &[],
         options: &[
@@ -49,6 +50,7 @@ pub const COMMAND_SPECS: &[CommandSpec] = &[
             "--artifact-type t",
             "--since iso",
             "--until iso",
+            "--limit n",
             "--receipt-dir dir",
             "-j, --json",
         ],
@@ -56,9 +58,14 @@ pub const COMMAND_SPECS: &[CommandSpec] = &[
     CommandSpec {
         name: "resume",
         top_level_usage: &[],
-        usage: &["runx resume <run-id> <answers.json> [-R dir] [-j|--json]"],
+        usage: &["runx resume <run-id> <answers.json> [-R dir] [--non-interactive] [-j|--json]"],
         notes: &[],
-        options: &["-R, --receipts dir", "--receipt-dir dir", "-j, --json"],
+        options: &[
+            "-R, --receipts dir",
+            "--receipt-dir dir",
+            "--non-interactive  Accepted for automation; resume never prompts",
+            "-j, --json",
+        ],
     },
     CommandSpec {
         name: "list",
@@ -211,11 +218,13 @@ pub const COMMAND_SPECS: &[CommandSpec] = &[
         notes: &[],
         options: &[
             "-p, --profile name       Use a local credential profile from .runx/credentials.json",
+            "--credential-profile name  Alias for --profile",
             "-i, --input key=value    Set a structured input; repeat for multiple inputs",
             "--input-json key=json    Set an input that must parse as JSON",
             "--approve-operator-context digest",
             "                          Run only when the prepared context matches this digest",
             "--full-operator-context  Print the complete prepared context before approval",
+            "--non-interactive        Never prompt; return approval instructions instead",
             "--skip-operator-context  Run without context preparation, approval, drift checks, or receipt binding",
             "-R, --receipts dir       Write receipts under dir",
             "--receipt-dir dir        Alias for --receipts",

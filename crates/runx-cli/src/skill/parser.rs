@@ -345,6 +345,16 @@ fn parse_skill_arg(
     mut index: usize,
     state: &mut SkillParseState,
 ) -> Result<usize, String> {
+    if args
+        .get(index)
+        .is_some_and(|value| value.to_str().is_none())
+    {
+        if state.skill_path.is_none() {
+            state.skill_path = Some(PathBuf::from(args[index].clone()));
+            return Ok(index);
+        }
+        return Err("runx skill runner names and option values must be UTF-8".to_owned());
+    }
     let token = string_arg(args, index)?;
     if is_retired_skill_option(&token) {
         return Err(
@@ -363,15 +373,15 @@ fn parse_skill_arg(
         }
         "--receipt-dir" => {
             index += 1;
-            state.receipt_dir = Some(PathBuf::from(string_arg(args, index)?));
+            state.receipt_dir = Some(PathBuf::from(path_arg(args, index, "--receipt-dir")?));
         }
         "--receipts" => {
             index += 1;
-            state.receipt_dir = Some(PathBuf::from(string_arg(args, index)?));
+            state.receipt_dir = Some(PathBuf::from(path_arg(args, index, "--receipts")?));
         }
         "-R" => {
             index += 1;
-            state.receipt_dir = Some(PathBuf::from(string_arg(args, index)?));
+            state.receipt_dir = Some(PathBuf::from(path_arg(args, index, "-R")?));
         }
         value if value.starts_with("--run-id=") || value == "--run-id" => {
             return Err(skill_resume_flag_error());
@@ -585,6 +595,12 @@ fn string_arg(args: &[OsString], index: usize) -> Result<String, String> {
         .to_str()
         .map(ToOwned::to_owned)
         .ok_or_else(|| "runx skill arguments must be UTF-8".to_owned())
+}
+
+fn path_arg(args: &[OsString], index: usize, flag: &str) -> Result<OsString, String> {
+    args.get(index)
+        .cloned()
+        .ok_or_else(|| format!("runx skill {flag} requires a path"))
 }
 
 #[cfg(test)]

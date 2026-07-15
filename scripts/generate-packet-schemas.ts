@@ -12,17 +12,60 @@ interface PacketContract {
   readonly schema: JsonObject;
 }
 
+interface ExistingPacketSchema {
+  readonly path: string;
+  readonly generated: boolean;
+  readonly schema: JsonObject;
+}
+
 const workspaceRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const skillsRoot = path.join(workspaceRoot, "skills");
 const packetRoot = path.join(workspaceRoot, "dist", "packets");
 const check = process.argv.includes("--check");
 const contracts = new Map<string, PacketContract>();
+const manualContracts: PacketContract[] = [];
 const declarations = new Map<string, string>();
 const existingById = await existingSchemas();
 
 for (const profilePath of await findProfiles(skillsRoot)) {
   const profile = YAML.parse(await readFile(profilePath, "utf8")) as unknown;
   collectContracts(profile, path.relative(workspaceRoot, profilePath), "root");
+}
+
+const manualSchemaFindings: string[] = [];
+for (const contract of manualContracts) {
+  const existing = existingById.get(contract.packetId);
+  if (!existing) throw new Error(`manual packet schema '${contract.packetId}' was not found`);
+  manualSchemaFindings.push(
+    ...structuralFloorFindings(existing.schema, contract.schema, contract.packetId, contract.source),
+  );
+}
+const manualContractsByPacket = new Map<string, PacketContract[]>();
+for (const contract of manualContracts) {
+  const packetContracts = manualContractsByPacket.get(contract.packetId) ?? [];
+  packetContracts.push(contract);
+  manualContractsByPacket.set(contract.packetId, packetContracts);
+}
+for (const [packetId, packetContracts] of manualContractsByPacket) {
+  const requiredSets = packetContracts.map((contract) => new Set(stringArray(contract.schema.required)));
+  const shapes = new Set(requiredSets.map((required) => [...required].sort().join("\u0000")));
+  if (shapes.size < 2) continue;
+  const commonRequired = requiredSets.slice(1).reduce(
+    (common, required) => new Set([...common].filter((field) => required.has(field))),
+    new Set(requiredSets[0] ?? []),
+  );
+  const existing = existingById.get(packetId);
+  if (!existing) throw new Error(`manual packet schema '${packetId}' was not found`);
+  for (const field of schemaView(existing.schema, existing.schema, new Set()).required) {
+    if (!commonRequired.has(field)) {
+      manualSchemaFindings.push(
+        `manual packet schema '${packetId}' unconditionally requires root property '${field}', but its X.yaml bindings use incompatible envelope shapes`,
+      );
+    }
+  }
+}
+if (manualSchemaFindings.length > 0) {
+  throw new Error(`manual packet schemas conflict with X.yaml output contracts:\n${manualSchemaFindings.join("\n")}`);
 }
 
 for (const contract of [...contracts.values()].sort((left, right) => left.packetId.localeCompare(right.packetId))) {
@@ -131,6 +174,7 @@ function collectArtifactContracts(
 
 function register(contract: PacketContract): void {
   if (existingById.get(contract.packetId)?.generated === false) {
+    manualContracts.push(contract);
     if (!contracts.has(contract.packetId)) contracts.set(contract.packetId, contract);
     return;
   }
@@ -139,6 +183,93 @@ function register(contract: PacketContract): void {
     throw new Error(`packet '${contract.packetId}' has conflicting X.yaml output contracts`);
   }
   if (!existing) contracts.set(contract.packetId, contract);
+}
+
+function structuralFloorFindings(
+  actual: JsonObject,
+  floor: JsonObject,
+  packetId: string,
+  source: string,
+): readonly string[] {
+  const findings: string[] = [];
+  const actualView = schemaView(actual, actual, new Set());
+  const floorType = nonEmptyString(floor.type);
+  if (floorType && actualView.type !== floorType) {
+    findings.push(
+      `manual packet schema '${packetId}' for ${source} must constrain the root to type '${floorType}'`,
+    );
+  }
+  const required = stringArray(floor.required);
+  for (const field of required) {
+    const expected = isRecord(floor.properties) ? floor.properties[field] : undefined;
+    const declaredType = isRecord(expected) ? nonEmptyString(expected.type) : undefined;
+    const actualProperty = actualView.properties.get(field);
+    if (!actualProperty) {
+      findings.push(
+        `manual packet schema '${packetId}' for ${source} must declare root property '${field}'`,
+      );
+      continue;
+    }
+    const actualType = schemaView(actualProperty, actual, new Set()).type;
+    if (declaredType && actualType !== declaredType) {
+      findings.push(
+        `manual packet schema '${packetId}' for ${source} must type root property '${field}' as '${declaredType}'`,
+      );
+    }
+  }
+  return findings;
+}
+
+function schemaView(
+  schema: JsonObject,
+  root: JsonObject,
+  visitedRefs: Set<string>,
+): {
+  readonly type?: string;
+  readonly required: Set<string>;
+  readonly properties: Map<string, JsonObject>;
+} {
+  let type = nonEmptyString(schema.type);
+  const required = new Set(stringArray(schema.required));
+  const properties = new Map<string, JsonObject>();
+  if (isRecord(schema.properties)) {
+    for (const [name, value] of Object.entries(schema.properties)) {
+      if (isRecord(value)) properties.set(name, value);
+    }
+  }
+  const branches: JsonObject[] = [];
+  const ref = nonEmptyString(schema.$ref);
+  if (ref?.startsWith("#/") && !visitedRefs.has(ref)) {
+    const resolved = resolveLocalRef(root, ref);
+    if (resolved) {
+      visitedRefs.add(ref);
+      branches.push(resolved);
+    }
+  }
+  if (Array.isArray(schema.allOf)) {
+    branches.push(...schema.allOf.filter(isRecord));
+  }
+  for (const branch of branches) {
+    const view = schemaView(branch, root, new Set(visitedRefs));
+    type ??= view.type;
+    for (const field of view.required) required.add(field);
+    for (const [name, value] of view.properties) properties.set(name, value);
+  }
+  return { type, required, properties };
+}
+
+function resolveLocalRef(root: JsonObject, ref: string): JsonObject | undefined {
+  let value: unknown = root;
+  for (const encoded of ref.slice(2).split("/")) {
+    if (!isRecord(value)) return undefined;
+    const segment = encoded.replace(/~1/gu, "/").replace(/~0/gu, "~");
+    value = value[segment];
+  }
+  return isRecord(value) ? value : undefined;
+}
+
+function stringArray(value: unknown): readonly string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
 function objectSchema(outputs: JsonObject): JsonObject {
@@ -180,8 +311,8 @@ function outputSchema(declaration: unknown): JsonObject {
   }
 }
 
-async function existingSchemas(): Promise<Map<string, { readonly path: string; readonly generated: boolean }>> {
-  const schemas = new Map<string, { readonly path: string; readonly generated: boolean }>();
+async function existingSchemas(): Promise<Map<string, ExistingPacketSchema>> {
+  const schemas = new Map<string, ExistingPacketSchema>();
   for (const entry of (await readdir(packetRoot)).filter((name) => name.endsWith(".json")).sort()) {
     const filePath = path.join(packetRoot, entry);
     const value = JSON.parse(await readFile(filePath, "utf8")) as JsonObject;
@@ -191,6 +322,7 @@ async function existingSchemas(): Promise<Map<string, { readonly path: string; r
     schemas.set(packetId, {
       path: filePath,
       generated: typeof value["x-runx-generated-from"] === "string",
+      schema: value,
     });
   }
   return schemas;

@@ -2,7 +2,7 @@
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
-use crate::cli_args::{flag_value, optional_flag_value, os_arg, split_flag};
+use crate::cli_args::{flag_value, optional_flag_value, os_arg, os_flag_value, split_flag};
 use crate::config::ConfigPlan;
 use crate::connect::ConnectPlan;
 use crate::export::ExportPlan;
@@ -181,69 +181,83 @@ pub fn route_args(args: Vec<OsString>) -> RouterAction {
     }
 
     if first_arg_is(&args, "harness") {
-        return native_harness_plan(&args);
+        return normalize_json_error(&args, native_harness_plan(&args));
     }
 
     if first_arg_is(&args, "config") {
-        return crate::config::parse_config_plan(&args)
-            .map_or_else(RouterAction::Error, RouterAction::RunConfig);
+        return route_parse(
+            &args,
+            crate::config::parse_config_plan(&args),
+            RouterAction::RunConfig,
+        );
     }
 
     if first_arg_is(&args, "login") {
-        return crate::login::parse_login_plan(&args)
-            .map_or_else(RouterAction::Error, RouterAction::RunLogin);
+        return route_parse(
+            &args,
+            crate::login::parse_login_plan(&args),
+            RouterAction::RunLogin,
+        );
     }
 
     if first_arg_is(&args, "connect") {
-        return crate::connect::parse_connect_plan(&args)
-            .map_or_else(RouterAction::Error, RouterAction::RunConnect);
+        return route_parse(
+            &args,
+            crate::connect::parse_connect_plan(&args),
+            RouterAction::RunConnect,
+        );
     }
 
     if first_arg_is(&args, "policy") {
-        return parse_policy_plan(&args).map_or_else(RouterAction::Error, RouterAction::RunPolicy);
+        return route_parse(&args, parse_policy_plan(&args), RouterAction::RunPolicy);
     }
 
     if first_arg_is(&args, "publish") {
-        return crate::publish::parse_publish_plan(&args)
-            .map_or_else(RouterAction::Error, RouterAction::RunPublish);
+        return route_parse(
+            &args,
+            crate::publish::parse_publish_plan(&args),
+            RouterAction::RunPublish,
+        );
     }
 
     if first_arg_is(&args, "kernel") {
-        return parse_kernel_plan(&args).map_or_else(RouterAction::Error, RouterAction::RunKernel);
+        return route_parse(&args, parse_kernel_plan(&args), RouterAction::RunKernel);
     }
 
     if first_arg_is(&args, "payment") {
-        return parse_payment_plan(&args)
-            .map_or_else(RouterAction::Error, RouterAction::RunPayment);
+        return route_parse(&args, parse_payment_plan(&args), RouterAction::RunPayment);
     }
 
     if first_arg_is(&args, "parser") {
-        return parse_parser_plan(&args).map_or_else(RouterAction::Error, RouterAction::RunParser);
+        return route_parse(&args, parse_parser_plan(&args), RouterAction::RunParser);
     }
 
     if first_arg_is(&args, "doctor") {
-        return parse_doctor_plan(&args).map_or_else(RouterAction::Error, RouterAction::RunDoctor);
+        return route_parse(&args, parse_doctor_plan(&args), RouterAction::RunDoctor);
     }
 
     if first_arg_is(&args, "dev") {
-        return parse_dev_plan(&args).map_or_else(RouterAction::Error, RouterAction::RunDev);
+        return route_parse(&args, parse_dev_plan(&args), RouterAction::RunDev);
     }
 
     if first_arg_is(&args, "export") {
-        return crate::export::parse_export_plan(&args)
-            .map_or_else(RouterAction::Error, RouterAction::RunExport);
+        return route_parse(
+            &args,
+            crate::export::parse_export_plan(&args),
+            RouterAction::RunExport,
+        );
     }
 
     if first_arg_is(&args, "list") {
-        return parse_list_plan(&args).map_or_else(RouterAction::Error, RouterAction::RunList);
+        return route_parse(&args, parse_list_plan(&args), RouterAction::RunList);
     }
 
     if first_arg_is(&args, "new") {
-        return parse_new_plan(&args).map_or_else(RouterAction::Error, RouterAction::RunNew);
+        return route_parse(&args, parse_new_plan(&args), RouterAction::RunNew);
     }
 
     if first_arg_is(&args, "init") {
-        return parse_init_plan(&args).map_or_else(RouterAction::Error, RouterAction::RunInit);
+        return route_parse(&args, parse_init_plan(&args), RouterAction::RunInit);
     }
 
     if first_arg_is(&args, "history") {
@@ -272,7 +286,7 @@ pub fn route_args(args: Vec<OsString>) -> RouterAction {
     }
 
     if first_arg_is(&args, "tool") {
-        return parse_tool_plan(&args).map_or_else(RouterAction::Error, RouterAction::RunTool);
+        return route_parse(&args, parse_tool_plan(&args), RouterAction::RunTool);
     }
 
     if first_arg_is(&args, "registry") {
@@ -302,12 +316,15 @@ pub fn route_args(args: Vec<OsString>) -> RouterAction {
         );
     }
 
-    RouterAction::Error(format!(
-        "unknown command {}",
-        args.first()
-            .and_then(|arg| arg.to_str())
-            .unwrap_or("<non-utf8>")
-    ))
+    json_or_human_error(
+        &args,
+        format!(
+            "unknown command {}",
+            args.first()
+                .and_then(|arg| arg.to_str())
+                .unwrap_or("<non-utf8>")
+        ),
+    )
 }
 
 pub fn help_text() -> String {
@@ -373,8 +390,23 @@ pub fn json_failure_output(message: &str, code: &str) -> String {
 pub fn json_requested(args: &[OsString]) -> bool {
     args.iter().any(|arg| {
         arg.to_str()
-            .is_some_and(|token| token == "--json" || token.starts_with("--json="))
+            .is_some_and(|token| token == "--json" || token == "-j" || token.starts_with("--json="))
     })
+}
+
+fn route_parse<T>(
+    args: &[OsString],
+    result: Result<T, String>,
+    success: fn(T) -> RouterAction,
+) -> RouterAction {
+    result.map_or_else(|message| json_or_human_error(args, message), success)
+}
+
+fn normalize_json_error(args: &[OsString], action: RouterAction) -> RouterAction {
+    match action {
+        RouterAction::Error(message) => json_or_human_error(args, message),
+        action => action,
+    }
 }
 
 fn single_arg_is(args: &[OsString], expected: &str) -> bool {
@@ -501,7 +533,17 @@ fn parse_new_plan(args: &[OsString]) -> Result<NewPlan, String> {
     let mut index = 1;
 
     while index < args.len() {
-        let token = os_arg(args, index, "new")?;
+        let Some(token) = args[index].to_str() else {
+            if name.is_none() {
+                return Err("runx new package name must be UTF-8".to_owned());
+            }
+            if positional_directory.is_none() {
+                positional_directory = Some(PathBuf::from(args[index].clone()));
+                index += 1;
+                continue;
+            }
+            return Err("runx new accepts at most one directory argument".to_owned());
+        };
         if !token.starts_with("--") {
             if name.is_none() {
                 name = Some(token.to_owned());
@@ -524,7 +566,7 @@ fn parse_new_plan(args: &[OsString]) -> Result<NewPlan, String> {
                 index += 1;
             }
             "--directory" | "--dir" => {
-                let (value, next_index) = flag_value(args, index, flag, inline_value, "new")?;
+                let (value, next_index) = os_flag_value(args, index, flag, inline_value)?;
                 directory = Some(PathBuf::from(value));
                 index = next_index;
             }
@@ -606,7 +648,7 @@ fn parse_add_flag(
         "--ref" => set_add_string(args, index, flag, inline_value, &mut parsed.repo_ref),
         "--digest" => set_add_string(args, index, flag, inline_value, &mut parsed.expected_digest),
         "--to" => {
-            let (value, next_index) = flag_value(args, index, flag, inline_value, "add")?;
+            let (value, next_index) = os_flag_value(args, index, flag, inline_value)?;
             parsed.destination = Some(PathBuf::from(value));
             Ok(next_index)
         }
@@ -753,7 +795,14 @@ fn parse_dev_plan(args: &[OsString]) -> Result<DevPlan, String> {
     let mut index = 1;
 
     while index < args.len() {
-        let token = os_arg(args, index, "dev")?;
+        let Some(token) = args[index].to_str() else {
+            if root.is_some() {
+                return Err("runx dev accepts at most one root path".to_owned());
+            }
+            root = Some(PathBuf::from(args[index].clone()));
+            index += 1;
+            continue;
+        };
         if !token.starts_with("--") {
             if root.is_some() {
                 return Err("runx dev accepts at most one root path".to_owned());
@@ -787,6 +836,7 @@ fn parse_dev_plan(args: &[OsString]) -> Result<DevPlan, String> {
     Ok(DevPlan { root, lane, json })
 }
 
+// rust-style-allow: long-function - doctor parsing keeps mode selection and native path handling in one fail-closed pass.
 fn parse_doctor_plan(args: &[OsString]) -> Result<DoctorPlan, String> {
     let mut mode = DoctorMode::Workspace;
     let mut path = None;
@@ -794,7 +844,20 @@ fn parse_doctor_plan(args: &[OsString]) -> Result<DoctorPlan, String> {
     let mut index = 1;
 
     while index < args.len() {
-        let token = os_arg(args, index, "doctor")?;
+        let Some(token) = args[index].to_str() else {
+            if mode != DoctorMode::Workspace {
+                return Err(format!(
+                    "runx doctor {} does not accept a path",
+                    doctor_mode_name(&mode)
+                ));
+            }
+            if path.is_some() {
+                return Err("runx doctor accepts at most one path".to_owned());
+            }
+            path = Some(PathBuf::from(args[index].clone()));
+            index += 1;
+            continue;
+        };
         if !token.starts_with('-') {
             if matches!(token, "authority" | "registry")
                 && path.is_none()
@@ -1043,9 +1106,8 @@ fn parse_json_eval_input(
                 if input.is_some() {
                     return Err(command.duplicate_input.to_owned());
                 }
-                let (value, next_index) =
-                    flag_value(args, index, flag, inline_value, command.command)?;
-                input = Some(if value == "-" {
+                let (value, next_index) = os_flag_value(args, index, flag, inline_value)?;
+                input = Some(if value == OsStr::new("-") {
                     JsonEvalInput::Stdin
                 } else {
                     JsonEvalInput::Path(PathBuf::from(value))
@@ -1075,7 +1137,11 @@ fn parse_policy_plan(args: &[OsString]) -> Result<PolicyPlan, String> {
     let mut index = 2;
 
     while index < args.len() {
-        let token = os_arg(args, index, "policy")?;
+        let Some(token) = args[index].to_str() else {
+            positionals.push(PathBuf::from(args[index].clone()));
+            index += 1;
+            continue;
+        };
         if !token.starts_with("--") {
             positionals.push(PathBuf::from(token));
             index += 1;
@@ -1116,13 +1182,20 @@ fn parse_tool_plan(args: &[OsString]) -> Result<ToolPlan, String> {
     let mut json = false;
     let mut all = false;
     let mut source = None;
-    let mut positionals = Vec::new();
+    let mut positionals = Vec::<OsString>::new();
     let mut index = 2;
 
     while index < args.len() {
-        let token = os_arg(args, index, "tool")?;
+        let Some(token) = args[index].to_str() else {
+            if action != ToolAction::Build {
+                return Err("runx tool search and inspect arguments must be UTF-8".to_owned());
+            }
+            positionals.push(args[index].clone());
+            index += 1;
+            continue;
+        };
         if !token.starts_with("--") {
-            positionals.push(token.to_owned());
+            positionals.push(OsString::from(token));
             index += 1;
             continue;
         }
@@ -1160,7 +1233,7 @@ fn parse_tool_plan(args: &[OsString]) -> Result<ToolPlan, String> {
 }
 
 fn build_tool_plan(
-    positionals: Vec<String>,
+    positionals: Vec<OsString>,
     all: bool,
     source: Option<String>,
     json: bool,
@@ -1177,7 +1250,7 @@ fn build_tool_plan(
 
     Ok(ToolPlan {
         action: ToolAction::Build,
-        path: positionals.first().map(PathBuf::from),
+        path: positionals.first().cloned().map(PathBuf::from),
         ref_or_query: None,
         all,
         source: None,
@@ -1186,7 +1259,7 @@ fn build_tool_plan(
 }
 
 fn search_tool_plan(
-    positionals: Vec<String>,
+    positionals: Vec<OsString>,
     all: bool,
     source: Option<String>,
     json: bool,
@@ -1194,7 +1267,7 @@ fn search_tool_plan(
     if all {
         return Err("runx tool search does not accept --all".to_owned());
     }
-    let query = positionals.join(" ");
+    let query = utf8_tool_positionals(positionals)?.join(" ");
     if query.is_empty() {
         return Err("runx tool search requires a query".to_owned());
     }
@@ -1210,7 +1283,7 @@ fn search_tool_plan(
 }
 
 fn inspect_tool_plan(
-    positionals: Vec<String>,
+    positionals: Vec<OsString>,
     all: bool,
     source: Option<String>,
     json: bool,
@@ -1218,7 +1291,7 @@ fn inspect_tool_plan(
     if all {
         return Err("runx tool inspect does not accept --all".to_owned());
     }
-    let tool_ref = positionals.join(" ");
+    let tool_ref = utf8_tool_positionals(positionals)?.join(" ");
     if tool_ref.is_empty() {
         return Err("runx tool inspect requires a tool reference".to_owned());
     }
@@ -1231,6 +1304,17 @@ fn inspect_tool_plan(
         source,
         json,
     })
+}
+
+fn utf8_tool_positionals(positionals: Vec<OsString>) -> Result<Vec<String>, String> {
+    positionals
+        .into_iter()
+        .map(|value| {
+            value
+                .into_string()
+                .map_err(|_| "runx tool search and inspect arguments must be UTF-8".to_owned())
+        })
+        .collect()
 }
 
 fn parse_registry_plan(args: &[OsString]) -> Result<RegistryPlan, String> {
@@ -1387,7 +1471,7 @@ fn set_registry_path_flag(
     inline_value: Option<&str>,
     target: &mut Option<PathBuf>,
 ) -> Result<usize, String> {
-    let (value, next_index) = flag_value(args, index, flag, inline_value, "registry")?;
+    let (value, next_index) = os_flag_value(args, index, flag, inline_value)?;
     *target = Some(PathBuf::from(value));
     Ok(next_index)
 }

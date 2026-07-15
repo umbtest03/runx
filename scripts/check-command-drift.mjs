@@ -72,6 +72,35 @@ function checkCommandRegistryParity(output) {
       output.push(`CLI parity command '${name}' has no crates/runx-cli command registry entry`);
     }
   }
+
+  const registryFlags = new Map(
+    [...registrySource.matchAll(/CommandSpec \{([\s\S]*?)\n    \},/gu)].map((match) => {
+      const name = match[1].match(/\bname: "([a-z][a-z0-9-]*)"/u)?.[1];
+      const flags = new Set(
+        [...match[1].matchAll(/(?:^|[\s"[,|])(--[a-z][a-z0-9-]*|-[A-Za-z])(?=[\s",|\]=]|$)/gmu)]
+          .map((flagMatch) => flagMatch[1]),
+      );
+      return [name, flags];
+    }).filter(([name]) => name),
+  );
+  const parityFlags = new Map();
+  for (const command of matrix.commands) {
+    if (command.id === "cli.help") continue;
+    const name = command.id.split(".")[0];
+    const flags = parityFlags.get(name) ?? new Set();
+    for (const flag of command.flags) {
+      if (flag !== "--help" && flag !== "-h") flags.add(flag);
+    }
+    parityFlags.set(name, flags);
+  }
+  for (const [name, flags] of parityFlags) {
+    const documented = registryFlags.get(name) ?? new Set();
+    for (const flag of flags) {
+      if (!documented.has(flag)) {
+        output.push(`CLI parity flag '${name} ${flag}' is missing from native command help`);
+      }
+    }
+  }
 }
 
 function textFiles(relativePath) {

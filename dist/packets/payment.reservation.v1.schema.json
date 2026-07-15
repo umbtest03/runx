@@ -19,7 +19,9 @@
       "additionalProperties": true
     },
     "approval": { "type": "object" },
-    "recovery_plan": { "type": "object" }
+    "recovery_plan": { "type": "object" },
+    "core_requirements": { "type": "array" },
+    "open_questions": { "type": "array" }
   },
   "additionalProperties": true
 }

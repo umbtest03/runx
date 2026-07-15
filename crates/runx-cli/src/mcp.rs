@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::{collections::BTreeMap, env};
 
-use crate::cli_args::{flag_value, optional_flag_value_or, os_arg, split_flag};
+use crate::cli_args::{flag_value, optional_flag_value_or, os_arg, os_flag_value, split_flag};
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct McpPlan {
@@ -31,7 +31,11 @@ pub fn parse_mcp_plan(args: &[OsString]) -> Result<McpPlan, String> {
     let mut http_allow_non_loopback = false;
     let mut index = 2;
     while index < args.len() {
-        let token = os_arg(args, index, "mcp")?;
+        let Some(token) = args[index].to_str() else {
+            refs.push(PathBuf::from(args[index].clone()));
+            index += 1;
+            continue;
+        };
         if !token.starts_with("--") {
             refs.push(PathBuf::from(token));
             index += 1;
@@ -40,7 +44,7 @@ pub fn parse_mcp_plan(args: &[OsString]) -> Result<McpPlan, String> {
         let (flag, inline_value) = split_flag(token);
         match flag {
             "--receipt-dir" => {
-                let (value, next_index) = flag_value(args, index, flag, inline_value, "mcp")?;
+                let (value, next_index) = os_flag_value(args, index, flag, inline_value)?;
                 receipt_dir = Some(PathBuf::from(value));
                 index = next_index;
             }

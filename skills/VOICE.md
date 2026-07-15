@@ -96,9 +96,3 @@ When the voice contract cannot be met honestly, stop rather than soften:
   draft with the mismatch named.
 - `evidence_too_thin_for_voice`: the voice contract requires claim-weight
   that the evidence cannot support. Return `needs_more_evidence`.
-
-## Reference
-
-The voice this contract targets is derived from the published 0state writing
-(essay collection, 2026). When calibration is unclear, the authoritative
-examples are the opening paragraphs of those essays, not generic style guides.

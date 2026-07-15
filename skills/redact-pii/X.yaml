@@ -1,11 +1,15 @@
 skill: redact-pii
-version: "0.1.0"
+version: "0.1.1"
 
 catalog:
   kind: skill
   audience: public
   visibility: public
   role: canonical
+  execution: execute
+  completion: runtime_receipt
+  requires_adapter: false
+  approval: none
 
 runners:
   redact-pii:

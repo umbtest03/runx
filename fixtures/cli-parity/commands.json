@@ -115,6 +115,7 @@
         "--artifact-type",
         "--since",
         "--until",
+        "--limit",
         "--receipt-dir",
         "--json"
       ],
@@ -183,6 +184,9 @@
       "flags": [
         "--receipt-dir",
         "--receipt",
+        "--notary",
+        "--notary-key",
+        "--allow-local-development-signatures",
         "--json"
       ],
       "exitCodes": [
@@ -698,7 +702,10 @@
         "<skill-ref...>"
       ],
       "flags": [
-        "--receipt-dir"
+        "--receipt-dir",
+        "--runner",
+        "--http-listen",
+        "--http-allow-non-loopback"
       ],
       "exitCodes": [
         0,
@@ -729,9 +736,15 @@
         "<skill-ref|owner/name@version|skill-dir|SKILL.md>"
       ],
       "flags": [
+        "--profile",
+        "--credential-profile",
+        "--input",
+        "--input-json",
+        "--approve-operator-context",
+        "--full-operator-context",
+        "--skip-operator-context",
         "--registry",
         "--digest",
-        "--input",
         "--receipt-dir",
         "--credential",
         "--credential-scope",
@@ -808,6 +821,7 @@
         "<skill-dir|fixture.yaml...>"
       ],
       "flags": [
+        "--receipt-dir",
         "--json",
         "--help",
         "-h"

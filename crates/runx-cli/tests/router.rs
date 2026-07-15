@@ -49,7 +49,7 @@ fn top_level_help_and_version_are_native() {
     );
     assert_help_line(
         &help,
-        "runx resume <run-id> <answers.json> [-R dir] [-j|--json]",
+        "runx resume <run-id> <answers.json> [-R dir] [--non-interactive] [-j|--json]",
     );
     assert_help_line(
         &help,
@@ -152,12 +152,16 @@ fn nested_skill_history_verify_and_publish_help_are_native() {
     );
     assert_help_line(
         &history_help_text(),
-        "runx history [query] [--skill s] [--status s] [--source s] [--actor a] [--artifact-type t] [--since iso] [--until iso] [--receipt-dir dir] [--json]",
+        "runx history [query] [--skill s] [--status s] [--source s] [--actor a] [--artifact-type t] [--since iso] [--until iso] [--limit n] [--receipt-dir dir] [--json]",
     );
     assert_help_line(
         &verify_help_text(),
         "runx verify [receipt-id] [--receipt-dir dir] [--receipt <path|->] [--notary <path|-> --notary-key trusted.pem] [-j|--json]",
     );
+    assert!(verify_help_text().contains("--allow-local-development-signatures"));
+    assert!(history_help_text().contains("--limit n"));
+    assert!(skill_help_text().contains("--credential-profile name"));
+    assert!(skill_help_text().contains("--non-interactive"));
     assert_help_line(
         &publish_help_text(),
         "runx publish <receipt.json> [--api-base-url url] [--token token] [--allow-local-api] [-j|--json]",
@@ -167,6 +171,74 @@ fn nested_skill_history_verify_and_publish_help_are_native() {
         "runx harness <fixture.yaml...|skill-dir|SKILL.md> [-R dir] [-j|--json]",
     );
     assert!(harness_help_text().contains("inline harness.cases and sorted fixtures/*.yaml"));
+}
+
+#[test]
+fn json_flags_make_argument_failures_machine_readable() {
+    for args in [
+        &["config", "set", "--json"][..],
+        &["tool", "build", "--json"][..],
+        &["new", "--json"][..],
+        &["export", "nope", "--json"][..],
+        &["doctor", "registry", "extra", "-j"][..],
+    ] {
+        let action = plan(args);
+        assert!(
+            matches!(action, RouterAction::JsonError(_)),
+            "expected JSON error for {args:?}, got {action:?}"
+        );
+        if let RouterAction::JsonError(error) = action {
+            assert_eq!(error.code, "invalid_args", "{args:?}");
+            assert_eq!(error.exit_code, 64, "{args:?}");
+            assert!(!error.message.is_empty(), "{args:?}");
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn filesystem_paths_do_not_require_utf8() {
+    use std::ffi::OsString;
+    use std::os::unix::ffi::OsStringExt;
+
+    let path = OsString::from_vec(b"skill-\xff".to_vec());
+    let path_buf = PathBuf::from(path.clone());
+
+    assert_eq!(
+        route_args(vec!["mcp".into(), "serve".into(), path.clone()]),
+        RouterAction::RunMcp(McpPlan {
+            refs: vec![path_buf.clone()],
+            receipt_dir: None,
+            runner: None,
+            http_listen: None,
+            http_allow_non_loopback: false,
+        })
+    );
+    assert_eq!(
+        route_args(vec!["resume".into(), "gx_test".into(), path.clone(),]),
+        RouterAction::RunResume(ResumePlan {
+            run_id: "gx_test".to_owned(),
+            answers_path: path_buf.clone(),
+            receipt_dir: None,
+            json: false,
+        })
+    );
+    let action = route_args(vec!["skill".into(), path.clone()]);
+    assert!(matches!(action, RouterAction::RunSkill(_)));
+    if let RouterAction::RunSkill(skill) = action {
+        assert_eq!(skill.skill_path, path_buf);
+    }
+    assert_eq!(
+        route_args(vec!["tool".into(), "build".into(), path.clone()]),
+        RouterAction::RunTool(ToolPlan {
+            action: ToolAction::Build,
+            path: Some(PathBuf::from(path)),
+            ref_or_query: None,
+            all: false,
+            source: None,
+            json: false,
+        })
+    );
 }
 
 #[test]
@@ -919,10 +991,13 @@ fn native_router_argument_errors_exit_with_usage_code() -> Result<(), Box<dyn st
         .output()?;
 
     assert_eq!(output.status.code(), Some(64));
-    assert!(
-        String::from_utf8(output.stderr)?
-            .contains("runx policy inspect|lint requires exactly one policy path")
-    );
+    assert_eq!(String::from_utf8(output.stderr)?, "");
+    let value = serde_json::from_slice::<serde_json::Value>(&output.stdout)?;
+    assert_eq!(value["status"], "failure");
+    assert_eq!(value["error"]["code"], "invalid_args");
+    assert!(value["error"]["message"].as_str().is_some_and(|message| {
+        message.contains("runx policy inspect|lint requires exactly one policy path")
+    }));
     Ok(())
 }
 

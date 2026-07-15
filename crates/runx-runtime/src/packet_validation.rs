@@ -237,6 +237,16 @@ mod tests {
         }
     }
 
+    fn wrapped_artifacts() -> SkillArtifactContract {
+        SkillArtifactContract {
+            emits: None,
+            named_emits: None,
+            packets: None,
+            wrap_as: Some("plan_packet".to_owned()),
+            packet: Some("runx.test.wrapped-plan.v1".to_owned()),
+        }
+    }
+
     fn payload(value: JsonValue) -> JsonValue {
         JsonValue::Object(BTreeMap::from([("plan".to_owned(), value)]))
     }
@@ -250,6 +260,29 @@ mod tests {
   "type": "object",
   "required": ["decision"],
   "properties": {"decision": {"type": "string"}},
+  "additionalProperties": false
+}
+"#,
+        )?;
+        Ok(())
+    }
+
+    fn write_wrapped_schema(skill: &std::path::Path) -> Result<(), std::io::Error> {
+        fs::write(
+            skill.join("packets/wrapped-plan.schema.json"),
+            r#"{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "x-runx-packet-id": "runx.test.wrapped-plan.v1",
+  "type": "object",
+  "required": ["plan"],
+  "properties": {
+    "plan": {
+      "type": "object",
+      "required": ["decision"],
+      "properties": {"decision": {"type": "string"}},
+      "additionalProperties": false
+    }
+  },
   "additionalProperties": false
 }
 "#,
@@ -302,6 +335,29 @@ mod tests {
             verify_declared_packets(
                 &value,
                 Some(&artifacts()),
+                None,
+                skill.path(),
+                &BTreeMap::new(),
+            )
+            .is_err()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn wrapped_packet_schema_validates_the_declared_output_envelope()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let skill = temp_skill()?;
+        write_wrapped_schema(skill.path())?;
+        let value = payload(JsonValue::Object(BTreeMap::from([(
+            "decision".to_owned(),
+            JsonValue::Bool(true),
+        )])));
+
+        assert!(
+            verify_declared_packets(
+                &value,
+                Some(&wrapped_artifacts()),
                 None,
                 skill.path(),
                 &BTreeMap::new(),

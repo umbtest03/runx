@@ -1,7 +1,7 @@
 // rust-style-allow: large-file because native list discovery intentionally keeps
 // tool, skill, graph, packet, and overlay projection in one audited cutover
 // surface until the TypeScript list command is fully retired.
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -183,6 +183,8 @@ fn discover_skill_and_graph_list_items(root: &Path) -> Result<Vec<RunxListItem>,
                     })
                     .collect::<Vec<_>>();
                 let is_graph = !graph_steps.is_empty();
+                let scopes = skill_scopes(&manifest);
+                let emits = skill_emits(&manifest);
                 items.push(RunxListItem {
                     kind: if is_graph {
                         RunxListItemKind::Graph
@@ -194,8 +196,8 @@ fn discover_skill_and_graph_list_items(root: &Path) -> Result<Vec<RunxListItem>,
                     path: relative_path,
                     status: RunxListStatus::Ok,
                     diagnostics: None,
-                    scopes: None,
-                    emits: None,
+                    scopes,
+                    emits,
                     fixtures: Some(count_yaml_files(&skill_dir.join("fixtures"))?),
                     harness_cases: Some(
                         manifest
@@ -216,6 +218,88 @@ fn discover_skill_and_graph_list_items(root: &Path) -> Result<Vec<RunxListItem>,
         }
     }
     Ok(items)
+}
+
+fn skill_scopes(manifest: &runx_parser::SkillRunnerManifest) -> Option<Vec<String>> {
+    let mut scopes = BTreeSet::new();
+    for runner in manifest.runners.values() {
+        if let Some(values) = runner
+            .raw
+            .get("scopes")
+            .and_then(runx_contracts::JsonValue::as_array)
+        {
+            scopes.extend(
+                values
+                    .iter()
+                    .filter_map(runx_contracts::JsonValue::as_str)
+                    .map(str::to_owned),
+            );
+        }
+        if let Some(graph) = &runner.source.graph {
+            for step in &graph.steps {
+                scopes.extend(step.scopes.iter().cloned());
+            }
+        }
+    }
+    (!scopes.is_empty()).then(|| scopes.into_iter().collect())
+}
+
+fn skill_emits(manifest: &runx_parser::SkillRunnerManifest) -> Option<Vec<RunxListEmit>> {
+    let mut emits = BTreeSet::<(String, Option<String>)>::new();
+    for runner in manifest.runners.values() {
+        if let Some(artifacts) = &runner.artifacts {
+            emits.extend(
+                tool_emits(artifacts)
+                    .into_iter()
+                    .map(|emit| (emit.name, emit.packet)),
+            );
+        }
+        if let Some(graph) = &runner.source.graph {
+            for step in &graph.steps {
+                if let Some(artifacts) = step.artifacts.as_ref() {
+                    emits.extend(json_artifact_emits(artifacts));
+                }
+            }
+        }
+    }
+    (!emits.is_empty()).then(|| {
+        emits
+            .into_iter()
+            .map(|(name, packet)| RunxListEmit { name, packet })
+            .collect()
+    })
+}
+
+fn json_artifact_emits(artifacts: &runx_contracts::JsonObject) -> Vec<(String, Option<String>)> {
+    if let Some(named) = artifacts
+        .get("named_emits")
+        .and_then(runx_contracts::JsonValue::as_object)
+    {
+        let packets = artifacts
+            .get("packets")
+            .and_then(runx_contracts::JsonValue::as_object);
+        return named
+            .keys()
+            .map(|name| {
+                let packet = packets
+                    .and_then(|packets| packets.get(name))
+                    .and_then(runx_contracts::JsonValue::as_str)
+                    .map(str::to_owned);
+                (name.clone(), packet)
+            })
+            .collect();
+    }
+    artifacts
+        .get("wrap_as")
+        .and_then(runx_contracts::JsonValue::as_str)
+        .map(|name| {
+            let packet = artifacts
+                .get("packet")
+                .and_then(runx_contracts::JsonValue::as_str)
+                .map(str::to_owned);
+            vec![(name.to_owned(), packet)]
+        })
+        .unwrap_or_default()
 }
 
 fn read_validated_runner_manifest(
