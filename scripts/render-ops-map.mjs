@@ -164,17 +164,15 @@ const render = (theme) => {
       const ring = node.interchange
         ? `<circle cx="${node.x}" cy="${node.y}" r="9.5" fill="${t.bg}" stroke="${c}" stroke-width="2.4"/>
   <circle cx="${node.x}" cy="${node.y}" r="3.4" fill="${c}"/>`
-        : `<circle cx="${node.x}" cy="${node.y}" r="5.5" fill="${t.bg}" stroke="${c}" stroke-width="2.2"/>`;
-      const gate = node.held
-        ? `<path d="M${node.x} ${node.y - 12} L${node.x + 7} ${node.y - 5} L${node.x} ${node.y + 2} L${node.x - 7} ${node.y - 5} Z" fill="${t.hues.amber}" transform="translate(0,-9)"/>`
-        : '';
+        : node.held
+          ? `<path d="M${node.x} ${node.y - 8.5} L${node.x + 8.5} ${node.y} L${node.x} ${node.y + 8.5} L${node.x - 8.5} ${node.y} Z" fill="${t.bg}" stroke="${t.hues.amber}" stroke-width="2.2"/>`
+          : `<circle cx="${node.x}" cy="${node.y}" r="5.5" fill="${t.bg}" stroke="${c}" stroke-width="2.2"/>`;
       const loop = node.loop
         ? `<path d="${loopPath(node)}" stroke="${c}" stroke-opacity=".55" stroke-width="1.4" fill="none" stroke-dasharray="3 5"/>
   <circle r="2.2" fill="${c}"><animateMotion dur="3.2s" repeatCount="indefinite" path="${loopPath(node)}"/></circle>`
         : '';
       return `
   ${ring}
-  ${gate}
   ${loop}
   <text class="name" x="${x}" y="${nameY}" text-anchor="${anchor}">${esc(node.label)}</text>
   <text class="mono ${node.held ? 'amber' : 'faint'}" x="${x}" y="${subY}" text-anchor="${anchor}">${esc(node.sub)}</text>`;
