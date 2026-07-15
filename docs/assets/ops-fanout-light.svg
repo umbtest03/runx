@@ -14,7 +14,7 @@
       .rx-light .seal-ring { animation: rx-light-turn 14s linear infinite; transform-origin: 990px 225px; }
       .rx-light .replay { stroke-dasharray: 2 9; animation: rx-light-flow 1.4s linear infinite; }
       @keyframes rx-light-turn { to { transform: rotate(360deg); } }
-      @keyframes rx-light-flow { to { stroke-dashoffset: 11; } }
+      @keyframes rx-light-flow { to { stroke-dashoffset: -11; } }
       @media (prefers-reduced-motion: reduce) { .rx-light * { animation: none !important; } }
     </style>
   </defs>
@@ -83,8 +83,8 @@
   <circle cx="812" cy="225" r="5.5" fill="#fdfcfa" stroke="#2f9e44" stroke-width="2.2"/>
   
   
-  <text class="name" x="828" y="231" text-anchor="start">ledger</text>
-  <text class="mono faint" x="828" y="248" text-anchor="start">run appended to record</text>
+  <text class="name" x="806" y="191" text-anchor="start">ledger</text>
+  <text class="mono faint" x="806" y="208" text-anchor="start">run appended to record</text>
 
   <circle cx="796" cy="364" r="5.5" fill="#fdfcfa" stroke="#e0186f" stroke-width="2.2"/>
   <path d="M796 352 L803 359 L796 366 L789 359 Z" fill="#c47d10" transform="translate(0,-9)"/>
@@ -109,12 +109,13 @@
   </g>
   <circle cx="990" cy="225" r="15" fill="none" stroke="#2563c4" stroke-opacity=".55" stroke-width="1.2"/>
   <circle cx="990" cy="225" r="7" fill="#2563c4"/>
-  <text class="small muted" x="1024" y="223">one sealed receipt tree</text>
-  <text class="mono seal-text" x="1024" y="243">$ runx verify → ok</text>
+  <text class="name" x="990" y="267" text-anchor="middle">sealed</text>
+  <text class="mono seal-text" x="990" y="285" text-anchor="middle">$ runx verify → ok</text>
 
-  <path class="replay" d="M986 255 C 900 462, 422 462, 322 241" stroke="#2563c4" stroke-opacity=".45" stroke-width="1.4" fill="none"/>
+  <path class="replay" d="M990 287 C 930 460, 412 458, 322 241" stroke="#2563c4" stroke-opacity=".45" stroke-width="1.4" fill="none"/>
   <circle r="2.6" fill="#2563c4" opacity=".8">
-    <animateMotion dur="5s" repeatCount="indefinite" path="M986 255 C 900 462, 422 462, 322 241"/>
+    <animateMotion dur="5s" repeatCount="indefinite" path="M990 287 C 930 460, 412 458, 322 241"/>
   </circle>
-  <text class="small faint" x="656" y="452" text-anchor="middle">receipts feed the next run</text>
+  <path id="rx-light-replay-guide" d="M322 241 C 412 458, 930 460, 990 287" fill="none" stroke="none"/>
+  <text class="small faint" dy="-6"><textPath href="#rx-light-replay-guide" startOffset="42%">receipts feed the next run</textPath></text>
 </svg>

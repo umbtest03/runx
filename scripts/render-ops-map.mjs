@@ -65,7 +65,7 @@ const SCENE = {
     { hue: 'magenta', via: ['origin', 'scout', 'ghostwrite', 'send', 'seal'] },
     { hue: 'green', via: ['origin', 'scout', 'triage', 'ledger', 'seal'] },
   ],
-  sealCaption: ['one sealed receipt tree', '$ runx verify → ok'],
+  sealLabel: { name: 'sealed', sub: '$ runx verify → ok' },
   replayLabel: 'receipts feed the next run',
 };
 
@@ -190,7 +190,10 @@ const render = (theme) => {
     )
     .join('\n');
 
-  const replayD = `M${SCENE.seal.x - 4} ${SCENE.seal.y + 30} C ${SCENE.seal.x - 90} ${HEIGHT - 8}, ${SCENE.origin.x + 100} ${HEIGHT - 8}, ${SCENE.origin.x} ${SCENE.origin.y + 16}`;
+  // the replay arc departs beneath the seal's label; a hidden left-to-right
+  // twin carries the textPath so the sentence reads upright along the curve
+  const replayD = `M${SCENE.seal.x} ${SCENE.seal.y + 62} C ${SCENE.seal.x - 60} ${HEIGHT - 10}, ${SCENE.origin.x + 90} ${HEIGHT - 12}, ${SCENE.origin.x} ${SCENE.origin.y + 16}`;
+  const replayGuideD = `M${SCENE.origin.x} ${SCENE.origin.y + 16} C ${SCENE.origin.x + 90} ${HEIGHT - 12}, ${SCENE.seal.x - 60} ${HEIGHT - 10}, ${SCENE.seal.x} ${SCENE.seal.y + 62}`;
 
   const promptLines = SCENE.prompt.lines
     .map((line, i) => `<text class="mono ${line.tone}" x="${SCENE.prompt.x}" y="${SCENE.prompt.y + i * 24}">${esc(line.text)}</text>`)
@@ -212,7 +215,7 @@ const render = (theme) => {
       .${ns} .seal-ring { animation: ${ns}-turn 14s linear infinite; transform-origin: ${SCENE.seal.x}px ${SCENE.seal.y}px; }
       .${ns} .replay { stroke-dasharray: 2 9; animation: ${ns}-flow 1.4s linear infinite; }
       @keyframes ${ns}-turn { to { transform: rotate(360deg); } }
-      @keyframes ${ns}-flow { to { stroke-dashoffset: 11; } }
+      @keyframes ${ns}-flow { to { stroke-dashoffset: -11; } }
       @media (prefers-reduced-motion: reduce) { .${ns} * { animation: none !important; } }
     </style>
   </defs>
@@ -231,14 +234,15 @@ ${pulses}
   </g>
   <circle cx="${SCENE.seal.x}" cy="${SCENE.seal.y}" r="15" fill="none" stroke="${t.seal}" stroke-opacity=".55" stroke-width="1.2"/>
   <circle cx="${SCENE.seal.x}" cy="${SCENE.seal.y}" r="7" fill="${t.seal}"/>
-  <text class="small muted" x="1056" y="${HEIGHT - 46}" text-anchor="end">${esc(SCENE.sealCaption[0])}</text>
-  <text class="mono seal-text" x="1056" y="${HEIGHT - 24}" text-anchor="end">${esc(SCENE.sealCaption[1])}</text>
+  <text class="name" x="${SCENE.seal.x}" y="${SCENE.seal.y + 42}" text-anchor="middle">${esc(SCENE.sealLabel.name)}</text>
+  <text class="mono seal-text" x="${SCENE.seal.x}" y="${SCENE.seal.y + 60}" text-anchor="middle">${esc(SCENE.sealLabel.sub)}</text>
 
   <path class="replay" d="${replayD}" stroke="${t.seal}" stroke-opacity=".45" stroke-width="1.4" fill="none"/>
   <circle r="2.6" fill="${t.seal}" opacity=".8">
     <animateMotion dur="5s" repeatCount="indefinite" path="${replayD}"/>
   </circle>
-  <text class="small faint" x="${(SCENE.origin.x + SCENE.seal.x) / 2}" y="${HEIGHT - 18}" text-anchor="middle">${esc(SCENE.replayLabel)}</text>
+  <path id="${ns}-replay-guide" d="${replayGuideD}" fill="none" stroke="none"/>
+  <text class="small faint" dy="-6"><textPath href="#${ns}-replay-guide" startOffset="42%">${esc(SCENE.replayLabel)}</textPath></text>
 </svg>
 `;
 };
