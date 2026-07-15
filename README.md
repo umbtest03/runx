@@ -49,7 +49,7 @@ Hand the agent a goal and let it drive the runtime:
 
 ```text
 Use runx to plan and execute end-to-end business ops for my company.
-Goal: prepare API v2 for launch.
+Signal: acme.com signed up 40 seats yesterday.
 Stop before sends, spend, merges, deploys, or publishing. Return receipts.
 ```
 
@@ -61,11 +61,11 @@ Run any catalog skill directly:
 runx skill <skill-name> -i key=value --json
 ```
 
-`business-ops` is one prebuilt skill for managing a business goal:
+`business-ops` is one prebuilt skill for handling a business signal end to end:
 
 ```bash
 runx skill business-ops \
-  -i signal="prepare API v2 for launch: docs, release, customer comms, issue-to-PR, spend review, and audit" \
+  -i signal="acme.com signed up 40 seats yesterday: enrich the account, triage it, draft the outreach, brief the team, record the run" \
   --json
 ```
 
@@ -214,7 +214,7 @@ These demos are runnable from this repo and produce receipts:
 | Demo | What it proves | Run |
 | --- | --- | --- |
 | `examples/hello-world` | Native CLI skill path, sealed receipt baseline | `runx harness examples/hello-world` |
-| `skills/business-ops` | One business signal fans out through governed ops lanes and seals a graph receipt | `runx harness skills/business-ops` |
+| `skills/business-ops` | One business signal chains through governed ops lanes, holds at approval gates, and seals a graph receipt | `runx harness skills/business-ops` |
 | `examples/github-mcp-hero` | Governed GitHub read succeeds, out-of-scope write is refused, denial receipt verifies | `sh examples/github-mcp-hero/run.sh` |
 | `examples/http-graph` | Governed HTTP front call against a local fixture seals a receipt tree | `sh examples/http-graph/run.sh` |
 | `examples/openapi-graph` | OpenAPI operation runs through the external-adapter lane and seals | `sh examples/openapi-graph/run.sh` |
