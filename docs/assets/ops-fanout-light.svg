@@ -24,11 +24,11 @@
   <text class="mono ink" x="64" y="200">$ runx skill business-ops</text>
   <text class="mono muted" x="64" y="224">signal: acme.com signed up 40 seats</text>
   <text class="mono amber" x="64" y="248">approved · actor=kam</text>
-  <circle cx="322" cy="225" r="5.5" fill="#e0186f"/>
+  <circle cx="344" cy="225" r="5.5" fill="#e0186f"/>
 
 
-  <path d="M322 225 C 388 225, 376 225, 442 225" stroke="#e0186f" stroke-opacity="0.05" stroke-width="7" fill="none"/>
-  <path d="M322 225 C 388 225, 376 225, 442 225" stroke="#e0186f" stroke-opacity="0.92" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <path d="M344 225 C 397.9 225, 388.1 225, 442 225" stroke="#e0186f" stroke-opacity="0.05" stroke-width="7" fill="none"/>
+  <path d="M344 225 C 397.9 225, 388.1 225, 442 225" stroke="#e0186f" stroke-opacity="0.92" stroke-width="2.4" fill="none" stroke-linecap="round"/>
 
   <path d="M442 225 C 528.9 225, 513.1 128, 600 128" stroke="#0f9d8f" stroke-opacity="0.05" stroke-width="7" fill="none"/>
   <path d="M442 225 C 528.9 225, 513.1 128, 600 128" stroke="#0f9d8f" stroke-opacity="0.92" stroke-width="2" fill="none" stroke-linecap="round"/>
@@ -87,15 +87,15 @@
   <text class="mono amber" x="790" y="409" text-anchor="start">held · needs approval</text>
 
   <circle r="3.1" fill="#c47d10">
-    <animateMotion dur="7s" begin="0.0s" repeatCount="indefinite" path="M322 225 C 388 225, 376 225, 442 225 C 528.9 225, 513.1 128, 600 128 C 707.8 128, 688.2 86, 796 86 C 902.7 86, 883.3 225, 990 225"/>
+    <animateMotion dur="7s" begin="0.0s" repeatCount="indefinite" path="M344 225 C 397.9 225, 388.1 225, 442 225 C 528.9 225, 513.1 128, 600 128 C 707.8 128, 688.2 86, 796 86 C 902.7 86, 883.3 225, 990 225"/>
   </circle>
 
   <circle r="3.1" fill="#e0186f">
-    <animateMotion dur="7s" begin="2.2s" repeatCount="indefinite" path="M322 225 C 388 225, 376 225, 442 225 C 528.9 225, 513.1 322, 600 322 C 707.8 322, 688.2 364, 796 364 C 902.7 364, 883.3 225, 990 225"/>
+    <animateMotion dur="7s" begin="2.2s" repeatCount="indefinite" path="M344 225 C 397.9 225, 388.1 225, 442 225 C 528.9 225, 513.1 322, 600 322 C 707.8 322, 688.2 364, 796 364 C 902.7 364, 883.3 225, 990 225"/>
   </circle>
 
   <circle r="3.1" fill="#2f9e44">
-    <animateMotion dur="7s" begin="4.4s" repeatCount="indefinite" path="M322 225 C 388 225, 376 225, 442 225 C 528.9 225, 513.1 128, 600 128 C 716.6 128, 695.4 225, 812 225 C 909.9 225, 892.1 225, 990 225"/>
+    <animateMotion dur="7s" begin="4.4s" repeatCount="indefinite" path="M344 225 C 397.9 225, 388.1 225, 442 225 C 528.9 225, 513.1 128, 600 128 C 716.6 128, 695.4 225, 812 225 C 909.9 225, 892.1 225, 990 225"/>
   </circle>
 
   <g class="seal-ring">
@@ -106,10 +106,10 @@
   <text class="name" x="990" y="267" text-anchor="middle">sealed</text>
   <text class="mono seal-text" x="990" y="285" text-anchor="middle">$ runx verify → ok</text>
 
-  <path class="replay" d="M990 287 C 930 460, 412 458, 322 241" stroke="#2563c4" stroke-opacity=".45" stroke-width="1.4" fill="none"/>
+  <path class="replay" d="M990 287 C 930 460, 434 458, 344 241" stroke="#2563c4" stroke-opacity=".45" stroke-width="1.4" fill="none"/>
   <circle r="2.6" fill="#2563c4" opacity=".8">
-    <animateMotion dur="5s" repeatCount="indefinite" path="M990 287 C 930 460, 412 458, 322 241"/>
+    <animateMotion dur="5s" repeatCount="indefinite" path="M990 287 C 930 460, 434 458, 344 241"/>
   </circle>
-  <path id="rx-light-replay-guide" d="M322 241 C 412 458, 930 460, 990 287" fill="none" stroke="none"/>
+  <path id="rx-light-replay-guide" d="M344 241 C 434 458, 930 460, 990 287" fill="none" stroke="none"/>
   <text class="small faint" dy="-6"><textPath href="#rx-light-replay-guide" startOffset="42%">receipts feed the next run</textPath></text>
 </svg>

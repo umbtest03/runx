@@ -72,12 +72,13 @@ runx skill business-ops \
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/ops-fanout-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/ops-fanout-light.svg">
-  <img alt="runx governed business operations map" src="docs/assets/ops-fanout-light.svg">
+  <img alt="one goal chaining through governed skill lanes into a sealed receipt" src="docs/assets/ops-fanout-light.svg">
 </picture>
 
-The graph is the core shape: goal in, governed lanes out, receipts and approval
-gates back. Real teams replace the demo lanes with private context, policies,
-tools, and readbacks.
+The graph is the core shape. One signal enters, skills chain under governed
+authority, consequential lanes hold at approval gates, and every act seals into
+one receipt tree that feeds the next run. The demo lanes are stand-ins; real
+teams swap in private context, policies, tools, and readbacks.
 
 Some other examples:
 

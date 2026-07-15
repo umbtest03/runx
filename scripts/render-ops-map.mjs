@@ -38,7 +38,7 @@ const SCENE = {
       { text: 'approved · actor=kam', tone: 'amber' },
     ],
   },
-  origin: { x: 322, y: 225 },
+  origin: { x: 344, y: 225 },
   nodes: {
     scout: { x: 442, y: 225, hue: 'pink', label: 'scout', sub: 'account enriched', interchange: true, labelSide: 'below' },
     triage: { x: 600, y: 128, hue: 'teal', label: 'triage', sub: 'routed · p1 to gtm', labelSide: 'above' },
