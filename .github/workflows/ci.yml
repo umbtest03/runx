@@ -185,7 +185,7 @@ jobs:
     # `runx new` native scaffold breaks (broken templates, harness regressions),
     # so the authoring path can never silently rot. Skills carry no per-package
     # install or build step; the shared repository tool catalog consumes the
-    # workspace authoring package installed once below.
+    # compiled workspace authoring package prepared once below.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -208,6 +208,8 @@ jobs:
           workspaces: crates
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Build shared packages
+        run: node scripts/build-workspace.mjs
       - name: Build runx
         working-directory: crates
         run: cargo build -p runx-cli
