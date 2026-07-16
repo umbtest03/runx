@@ -13,7 +13,7 @@
       "network": true,
       "writable_paths": [],
       "require_enforcement": false,
-      "env_allowlist": ["TWITTER_USER_AUTH"]
+      "env_allowlist": []
     }
   },
   "inputs": {

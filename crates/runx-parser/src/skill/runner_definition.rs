@@ -21,6 +21,7 @@ const RUNNER_FIELDS: &[&str] = &[
     "auth",
     "catalog_ref",
     "command",
+    "credential",
     "context",
     "context_skills",
     "cwd",
@@ -87,6 +88,10 @@ pub(crate) fn validate_runner_definition(
             FIELDS
                 .optional_object(runner.get("inputs"), &format!("runners.{name}.inputs"))?
                 .unwrap_or_default(),
+        )?,
+        credential: FIELDS.optional_non_empty_string(
+            runner.get("credential"),
+            &format!("runners.{name}.credential"),
         )?,
         auth: runner.get("auth").cloned(),
         risk: risk.clone(),

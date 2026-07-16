@@ -26,10 +26,12 @@ Credential material is represented by hashed opaque handles such as
 passed through the receipt redactor before signing. Hosted workers and local
 runners use the same `authority_proof` schema name; consuming repos add policy
 for source channels, assignees, and target repositories outside the core proof.
-Runtime secret handoff is owned by `credential-broker-delivery-contract-v1`:
-secret values may cross only the trusted broker/supervisor delivery channel, not
-authority proofs, receipts, invocation metadata, adapter observations, or public
-provider evidence.
+Local secret handoff is owned by the declared skill-credential contract and the
+Rust `CredentialDelivery` boundary. Hosted provider execution continues to use
+the credential-broker contract and opaque handles. In both paths, secret values
+may cross only the trusted adapter/supervisor delivery channel, not authority
+proofs, receipts, invocation metadata, adapter observations, or public provider
+evidence. See [Credential Resolution](./credentials.md).
 
 ## Ownership Boundary
 
@@ -41,14 +43,17 @@ schema checks in `runx-contracts`. Future contract-spine work should treat this
 as an explicit exception unless it can move the full boundary without changing
 the `runx.authority-proof.v1` JSON shape.
 
-The local kernel resolves authority in this order:
+The local runner applies authority in this order:
 
-1. Structural policy admission runs before connected auth resolution.
-2. Grant resolution returns only grant descriptors.
-3. Sandbox approval gates run before execution.
-4. Credential resolution returns an opaque credential envelope only after
-   admission.
-5. The signed receipt records the proof, hashes outputs, and omits raw secrets.
+1. Manifest validation identifies the selected runner and its declared
+   credential requirement.
+2. The credential resolver selects one profile, project binding, hosted handle,
+   or declared workspace source and constructs a redacted delivery.
+3. Structural policy admission and sandbox approval gate process execution.
+4. The adapter injects only the declared delivery name at the execution
+   boundary and redacts captured output.
+5. The signed receipt records public observations and hashes outputs without raw
+   material.
 
 ## Provider-Permission Grants
 

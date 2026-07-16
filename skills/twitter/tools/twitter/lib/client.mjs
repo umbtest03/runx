@@ -65,9 +65,8 @@ export function canonicalDigest(value) {
 
 // User-context credentials arrive as one delivered secret: TWITTER_USER_AUTH,
 // a JSON object {consumer_key, consumer_secret, access_token, access_secret}.
-// One env var means the whole OAuth 1.0a material fits a single runx
-// credential envelope (--credential twitter:oauth1_user:<ref>
-// --credential-scope twitter:write --secret-env TWITTER_USER_AUTH).
+// One env var means the whole OAuth 1.0a material fits the declared
+// `oauth1_user` delivery in the twitter runner contract.
 export function userCredentials() {
   const packed = process.env.TWITTER_USER_AUTH;
   if (typeof packed !== "string" || packed.length === 0) return null;
@@ -89,7 +88,7 @@ export function userCredentials() {
 }
 
 export const USER_AUTH_BLOCKER =
-  "user-context credential is missing: deliver TWITTER_USER_AUTH (JSON with consumer_key, consumer_secret, access_token, access_secret) via runx skill --credential twitter:oauth1_user:<material_ref> --credential-scope twitter:write --secret-env TWITTER_USER_AUTH";
+  "user-context credential is missing: configure a twitter profile with auth mode oauth1_user via runx credential set --from-stdin";
 
 export function bearerToken() {
   const token = process.env.TWITTER_BEARER_TOKEN;

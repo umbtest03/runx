@@ -1,18 +1,17 @@
-//! End-to-end proof that the OSS CLI fails closed for local process-env
-//! credential delivery.
-//!
-//! Drives the real `runx skill` binary with `--credential` and `--secret-env`.
-//! `cli-tool` runners must reject that process-env delivery path before spawn
-//! so local secrets cannot enter an unbounded child process.
+//! End-to-end proof for declared installed-skill credentials, workspace
+//! environment fallback, encrypted local profiles, CLI-tool delivery, and
+//! output redaction.
 
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
 const SECRET: &str = "ghs_cli_local_provision_secret_value";
+const ROTATED_SECRET: &str = "ghs_cli_rotated_profile_secret_value";
 
 #[test]
 fn workspace_env_does_not_block_native_help() -> Result<(), Box<dyn std::error::Error>> {
@@ -209,44 +208,111 @@ fn process_env_takes_precedence_over_workspace_env() -> Result<(), Box<dyn std::
 }
 
 #[test]
-fn credential_profile_resolves_secret_from_workspace_env() -> Result<(), Box<dyn std::error::Error>>
-{
+fn stored_credential_profile_delivers_to_cli_tool_and_redacts_output()
+-> Result<(), Box<dyn std::error::Error>> {
     let temp = crate::support::temp_root("runx-cli-workspace-profile");
-    let runx_dir = temp.join(".runx");
-    fs::create_dir_all(&runx_dir)?;
+    let runx_home = temp.join("home");
+    fs::create_dir_all(&temp)?;
     let skill_dir = write_echo_token_skill(&temp)?;
-    fs::write(temp.join(".env"), format!("GITHUB_TOKEN={SECRET}\n"))?;
-    fs::write(
-        runx_dir.join("credentials.json"),
-        r#"{
-  "profiles": {
-    "github": {
-      "credential": "github:bearer:local://github/main",
-      "secret_env": "GITHUB_TOKEN",
-      "scopes": ["repo:read"]
-    }
-  }
-}"#,
-    )?;
+
+    let mut set = native_command()?;
+    set.current_dir(&temp).env("RUNX_HOME", &runx_home).args([
+        "credential",
+        "set",
+        "github",
+        "--auth-mode",
+        "bearer",
+        "--from-stdin",
+        "--json",
+    ]);
+    let set = run_with_stdin(set, SECRET)?;
+    assert!(
+        set.status.success(),
+        "credential setup failed: {}",
+        String::from_utf8_lossy(&set.stderr)
+    );
+    assert!(!String::from_utf8(set.stdout)?.contains(SECRET));
 
     let output = native_command()?
         .current_dir(&temp)
+        .env("RUNX_HOME", &runx_home)
         .arg("skill")
         .arg(&skill_dir)
-        .arg("--credential-profile")
+        .arg("--profile")
         .arg("github")
         .arg("--json")
         .arg("--skip-operator-context")
         .output()?;
 
-    assert!(!output.status.success());
-    let message = json_failure_message(&output.stdout)?;
     let stdout = String::from_utf8(output.stdout)?;
     let stderr = String::from_utf8(output.stderr)?;
     assert!(
-        message.contains("local credential process-env delivery is not supported for cli-tool")
+        output.status.success(),
+        "credentialed CLI tool failed: {stderr}\n{stdout}"
     );
+    assert!(stdout.contains("[redacted-credential]"));
     assert!(!stdout.contains(SECRET) && !stderr.contains(SECRET));
+    Ok(())
+}
+
+#[test]
+fn official_nitrosend_contract_delivers_fake_profile_to_fixture_without_leak()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = crate::support::temp_root("runx-nitrosend-credential-dogfood");
+    let runx_home = temp.join("home");
+    let receipt_dir = temp.join("receipts");
+    let skill_dir = temp.join("nitrosend");
+    let tool_root = temp.join("tools");
+    fs::create_dir_all(&skill_dir)?;
+    fs::copy(
+        repo_root()?.join("skills/nitrosend/SKILL.md"),
+        skill_dir.join("SKILL.md"),
+    )?;
+    fs::copy(
+        repo_root()?.join("skills/nitrosend/X.yaml"),
+        skill_dir.join("X.yaml"),
+    )?;
+    write_nitrosend_fixture_tool(&tool_root)?;
+
+    let mut set = native_command()?;
+    set.current_dir(&temp).env("RUNX_HOME", &runx_home).args([
+        "credential",
+        "set",
+        "nitrosend",
+        "--profile",
+        "account-one",
+        "--from-stdin",
+        "--json",
+    ]);
+    let set = run_with_stdin(set, SECRET)?;
+    assert!(set.status.success());
+
+    let output = native_command()?
+        .current_dir(&temp)
+        .env("RUNX_HOME", &runx_home)
+        .env("RUNX_TOOL_ROOTS", &tool_root)
+        .args([
+            "skill",
+            skill_dir.to_str().ok_or("invalid skill path")?,
+            "status",
+            "--profile",
+            "account-one",
+            "--receipt-dir",
+            receipt_dir.to_str().ok_or("invalid receipt path")?,
+            "--skip-operator-context",
+            "--json",
+        ])
+        .output()?;
+    let stdout = String::from_utf8(output.stdout)?;
+    let stderr = String::from_utf8(output.stderr)?;
+    assert!(
+        output.status.success(),
+        "Nitrosend credential dogfood failed: {stderr}\n{stdout}"
+    );
+    assert!(stdout.contains("[redacted-credential]"));
+    assert!(!stdout.contains(SECRET) && !stderr.contains(SECRET));
+    let receipts = directory_text(&receipt_dir)?;
+    assert!(!receipts.contains(SECRET));
     Ok(())
 }
 
@@ -317,6 +383,99 @@ fn resume_loads_workspace_env_from_discovered_project_root()
 }
 
 #[test]
+fn resume_persists_only_profile_selector_and_resolves_rotated_material()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = crate::support::temp_root("runx-cli-credential-resume");
+    let runx_home = temp.join("home");
+    let receipt_dir = temp.join("receipts");
+    fs::create_dir_all(&temp)?;
+    let skill_dir = write_resume_credential_skill(&temp)?;
+
+    let mut set = native_command()?;
+    set.current_dir(&temp).env("RUNX_HOME", &runx_home).args([
+        "credential",
+        "set",
+        "github",
+        "--auth-mode",
+        "bearer",
+        "--from-stdin",
+        "--json",
+    ]);
+    assert!(run_with_stdin(set, SECRET)?.status.success());
+
+    let pause = native_command()?
+        .current_dir(&temp)
+        .env("RUNX_HOME", &runx_home)
+        .arg("skill")
+        .arg(&skill_dir)
+        .arg("--profile")
+        .arg("github")
+        .arg("--receipt-dir")
+        .arg(&receipt_dir)
+        .arg("--json")
+        .arg("--non-interactive")
+        .arg("--skip-operator-context")
+        .output()?;
+    assert_eq!(pause.status.code(), Some(2));
+    let pause_json = serde_json::from_slice::<Value>(&pause.stdout)?;
+    let run_id = pause_json["run_id"].as_str().ok_or("missing run id")?;
+    let checkpoint =
+        fs::read_to_string(receipt_dir.join("ledgers").join(format!("{run_id}.jsonl")))?;
+    assert!(checkpoint.contains(r#""credential_profile":"github""#));
+    assert!(!checkpoint.contains(SECRET));
+
+    let mut rotate = native_command()?;
+    rotate
+        .current_dir(&temp)
+        .env("RUNX_HOME", &runx_home)
+        .args([
+            "credential",
+            "set",
+            "github",
+            "--auth-mode",
+            "bearer",
+            "--from-stdin",
+            "--json",
+        ]);
+    assert!(run_with_stdin(rotate, ROTATED_SECRET)?.status.success());
+
+    let answers_path = temp.join("answers.json");
+    fs::write(
+        &answers_path,
+        serde_json::json!({
+            "answers": {
+                "agent_task.approve-credential-resume.output": { "approved": true }
+            }
+        })
+        .to_string(),
+    )?;
+    let resume = native_command()?
+        .current_dir(&temp)
+        .env("RUNX_HOME", &runx_home)
+        .arg("resume")
+        .arg(run_id)
+        .arg(&answers_path)
+        .arg("--receipt-dir")
+        .arg(&receipt_dir)
+        .arg("--json")
+        .output()?;
+    assert!(
+        resume.status.success(),
+        "resume failed: {}\n{}",
+        String::from_utf8_lossy(&resume.stderr),
+        String::from_utf8_lossy(&resume.stdout)
+    );
+    let combined = format!(
+        "{}{}",
+        String::from_utf8(resume.stdout)?,
+        String::from_utf8(resume.stderr)?
+    );
+    assert!(!combined.contains(SECRET));
+    assert!(!combined.contains(ROTATED_SECRET));
+    Ok(())
+}
+
+#[test]
 fn inline_graph_cli_tool_preserves_timeout_policy() -> Result<(), Box<dyn std::error::Error>> {
     let temp = crate::support::temp_root("runx-cli-inline-graph-timeout");
     fs::create_dir_all(&temp)?;
@@ -346,67 +505,43 @@ fn inline_graph_cli_tool_preserves_timeout_policy() -> Result<(), Box<dyn std::e
 }
 
 #[test]
-fn cli_rejects_local_credential_for_cli_tool_before_spawn() -> Result<(), Box<dyn std::error::Error>>
-{
-    let temp = crate::support::temp_root("runx-cli-local-credential");
+fn missing_declared_credential_returns_structured_setup_action()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = crate::support::temp_root("runx-cli-missing-credential");
     fs::create_dir_all(&temp)?;
     let skill_dir = write_echo_token_skill(&temp)?;
-    let receipt_dir = temp.join("receipts");
 
     let output = native_command()?
+        .current_dir(&temp)
         .arg("skill")
         .arg(&skill_dir)
-        .arg("--receipt-dir")
-        .arg(&receipt_dir)
-        .arg("--credential")
-        .arg("github:bearer:local://github/main")
-        .arg("--credential-scope")
-        .arg("repo:read")
-        .arg("--secret-env")
-        .arg("GITHUB_TOKEN")
         .arg("--json")
         .arg("--skip-operator-context")
-        .env("GITHUB_TOKEN", SECRET)
         .output()?;
 
-    assert!(
-        !output.status.success(),
-        "expected local credential delivery to fail closed"
+    assert_eq!(output.status.code(), Some(2));
+    let value = serde_json::from_slice::<Value>(&output.stdout)?;
+    assert_eq!(value["status"], "needs_credential");
+    assert_eq!(value["requirements"][0]["provider"], "github");
+    assert_eq!(
+        value["requirements"][0]["setup"][0],
+        "runx credential set github --auth-mode bearer --from-stdin"
     );
-    let message = json_failure_message(&output.stdout)?;
-    let stdout = String::from_utf8(output.stdout)?;
-    let stderr = String::from_utf8(output.stderr)?;
-    assert!(
-        message.contains("local credential process-env delivery is not supported for cli-tool"),
-        "unexpected failure message: {message}",
-    );
-    assert!(
-        stderr.is_empty(),
-        "json failures should keep stderr clean, got: {stderr}"
-    );
-    assert!(
-        !stdout.contains(SECRET) && !stderr.contains(SECRET),
-        "raw secret leaked into the error output"
-    );
-    assert!(
-        !receipt_dir.exists(),
-        "rejected credential run must not write receipts"
-    );
-
+    assert!(output.stderr.is_empty());
     Ok(())
 }
 
 #[test]
-fn cli_rejects_secret_env_without_credential() -> Result<(), Box<dyn std::error::Error>> {
-    let temp = crate::support::temp_root("runx-cli-local-credential-bad");
+fn cli_rejects_retired_one_shot_credential_flags() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = crate::support::temp_root("runx-cli-retired-credential-flags");
     fs::create_dir_all(&temp)?;
     let skill_dir = write_echo_token_skill(&temp)?;
 
     let output = native_command()?
         .arg("skill")
         .arg(&skill_dir)
-        .arg("--secret-env")
-        .arg("GITHUB_TOKEN")
+        .arg("--credential")
+        .arg("github:bearer:local")
         .arg("--json")
         .arg("--skip-operator-context")
         .env("GITHUB_TOKEN", SECRET)
@@ -414,13 +549,13 @@ fn cli_rejects_secret_env_without_credential() -> Result<(), Box<dyn std::error:
 
     assert!(
         !output.status.success(),
-        "expected provisioning without --credential to fail"
+        "expected retired one-shot credential flags to fail"
     );
     let message = json_failure_message(&output.stdout)?;
     let stderr = String::from_utf8(output.stderr)?;
     assert!(
-        message.contains("--credential"),
-        "expected an error pointing at --credential, got: {message}"
+        message.contains("one-shot credential flags are retired"),
+        "expected a migration error, got: {message}"
     );
     assert!(
         stderr.is_empty(),
@@ -438,29 +573,19 @@ fn cli_rejects_secret_env_without_credential() -> Result<(), Box<dyn std::error:
 fn cli_rejects_empty_secret_value() -> Result<(), Box<dyn std::error::Error>> {
     let temp = crate::support::temp_root("runx-cli-local-credential-empty");
     fs::create_dir_all(&temp)?;
-    let skill_dir = write_echo_token_skill(&temp)?;
-
-    let output = native_command()?
-        .arg("skill")
-        .arg(&skill_dir)
-        .arg("--credential")
-        .arg("github:bearer:local://github/main")
-        .arg("--credential-scope")
-        .arg("repo:read")
-        .arg("--secret-env")
-        .arg("GITHUB_TOKEN")
-        .arg("--json")
-        .arg("--skip-operator-context")
-        .env("GITHUB_TOKEN", "")
-        .output()?;
+    let mut command = native_command()?;
+    command
+        .current_dir(&temp)
+        .args(["credential", "set", "github", "--from-stdin", "--json"]);
+    let output = run_with_stdin(command, "")?;
 
     assert!(
         !output.status.success(),
-        "expected an empty --secret-env value to be rejected at parse time"
+        "expected an empty stdin credential to be rejected"
     );
     let message = json_failure_message(&output.stdout)?;
     assert!(
-        message.contains("non-empty secret value"),
+        message.contains("must not be empty"),
         "expected an error about the empty secret value, got: {message}"
     );
 
@@ -471,19 +596,14 @@ fn cli_rejects_empty_secret_value() -> Result<(), Box<dyn std::error::Error>> {
 fn cli_rejects_secret_env_value_on_argv() -> Result<(), Box<dyn std::error::Error>> {
     let temp = crate::support::temp_root("runx-cli-local-credential-argv-secret");
     fs::create_dir_all(&temp)?;
-    let skill_dir = write_echo_token_skill(&temp)?;
-
     let output = native_command()?
-        .arg("skill")
-        .arg(&skill_dir)
-        .arg("--credential")
-        .arg("github:bearer:local://github/main")
-        .arg("--credential-scope")
-        .arg("repo:read")
-        .arg("--secret-env")
-        .arg(format!("GITHUB_TOKEN={SECRET}"))
+        .current_dir(&temp)
+        .arg("credential")
+        .arg("set")
+        .arg("github")
+        .arg(SECRET)
+        .arg("--from-stdin")
         .arg("--json")
-        .arg("--skip-operator-context")
         .output()?;
 
     assert!(
@@ -494,7 +614,7 @@ fn cli_rejects_secret_env_value_on_argv() -> Result<(), Box<dyn std::error::Erro
     let stdout = String::from_utf8(output.stdout)?;
     let stderr = String::from_utf8(output.stderr)?;
     assert!(
-        message.contains("not an inline value"),
+        message.contains("must be provided through --from-stdin"),
         "expected an error about argv secret material, got: {message}"
     );
     assert!(
@@ -515,6 +635,23 @@ fn native_command() -> Result<Command, Box<dyn std::error::Error>> {
     ))
 }
 
+fn run_with_stdin(
+    mut command: Command,
+    value: &str,
+) -> Result<std::process::Output, Box<dyn std::error::Error>> {
+    let mut child = command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    child
+        .stdin
+        .take()
+        .ok_or("credential command stdin was not piped")?
+        .write_all(value.as_bytes())?;
+    Ok(child.wait_with_output()?)
+}
+
 fn valid_project_state() -> &'static str {
     r#"{"version":1,"project_id":"proj_workspace_env_test","created_at":"2026-07-16T00:00:00Z"}"#
 }
@@ -526,6 +663,67 @@ fn json_failure_message(stdout: &[u8]) -> Result<String, Box<dyn std::error::Err
         .as_str()
         .ok_or("missing failure message")?
         .to_owned())
+}
+
+fn repo_root() -> Result<PathBuf, std::io::Error> {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+}
+
+fn write_nitrosend_fixture_tool(root: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let tool_dir = root.join("nitrosend/read");
+    fs::create_dir_all(&tool_dir)?;
+    fs::write(
+        tool_dir.join("manifest.json"),
+        r#"{
+  "schema": "runx.tool.manifest.v1",
+  "name": "nitrosend.read",
+  "description": "Non-network Nitrosend credential delivery fixture.",
+  "source": {
+    "type": "cli-tool",
+    "command": "sh",
+    "args": ["run.sh"],
+    "input_mode": "stdin",
+    "sandbox": {
+      "profile": "readonly",
+      "cwd_policy": "skill-directory",
+      "network": false,
+      "writable_paths": [],
+      "require_enforcement": false,
+      "env_allowlist": []
+    }
+  },
+  "inputs": {
+    "operation": { "type": "string", "required": true },
+    "arguments": { "type": "json", "required": false },
+    "brand_sid": { "type": "string", "required": false }
+  }
+}
+"#,
+    )?;
+    fs::write(
+        tool_dir.join("run.sh"),
+        "test -n \"$NITROSEND_API_KEY\" && printf '{\"credential\":\"%s\",\"fixture\":\"nitrosend-read\"}' \"$NITROSEND_API_KEY\"\n",
+    )?;
+    Ok(())
+}
+
+fn directory_text(root: &Path) -> Result<String, std::io::Error> {
+    let mut text = String::new();
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(path) = pending.pop() {
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            if entry.file_type()?.is_dir() {
+                pending.push(entry.path());
+            } else {
+                text.push_str(&fs::read_to_string(entry.path()).unwrap_or_default());
+                text.push('\n');
+            }
+        }
+    }
+    Ok(text)
 }
 
 /// A cli-tool skill that echoes the delivered `$GITHUB_TOKEN`. The command is a
@@ -541,11 +739,20 @@ fn write_echo_token_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Er
         skill_dir.join("X.yaml"),
         r#"
 skill: echo-token
+credentials:
+  github:
+    provider: github
+    auth:
+      bearer:
+        delivery:
+          env: GITHUB_TOKEN
 runners:
   echo:
     default: true
     type: cli-tool
     command: sh
+    credential: github
+    scopes: [repo:read]
     args:
       - "-c"
       - "printf '%s' \"$GITHUB_TOKEN\""
@@ -567,11 +774,19 @@ fn write_env_probe_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Err
         skill_dir.join("X.yaml"),
         r#"
 skill: env-probe
+credentials:
+  github:
+    provider: github
+    auth:
+      bearer:
+        delivery:
+          env: GITHUB_TOKEN
 runners:
   probe:
     default: true
     type: cli-tool
     command: sh
+    credential: github
     args:
       - "-c"
       - 'test -n "$GITHUB_TOKEN" && { test -z "$EXPECTED_TOKEN" || test "$GITHUB_TOKEN" = "$EXPECTED_TOKEN"; } && printf ''{"configured":true}'''
@@ -579,7 +794,6 @@ runners:
       profile: readonly
       cwd_policy: skill-directory
       env_allowlist:
-        - GITHUB_TOKEN
         - EXPECTED_TOKEN
       require_enforcement: false
 "#,
@@ -656,6 +870,57 @@ runners:
                 - RESUME_PROBE_TOKEN
               require_enforcement: false
 "#,
+    )?;
+    Ok(skill_dir)
+}
+
+fn write_resume_credential_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let skill_dir = root.join("resume-credential");
+    fs::create_dir_all(&skill_dir)?;
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: resume-credential\n---\n# Resume Credential\n",
+    )?;
+    fs::write(
+        skill_dir.join("X.yaml"),
+        format!(
+            r#"
+skill: resume-credential
+credentials:
+  github:
+    provider: github
+    auth:
+      bearer:
+        delivery:
+          env: GITHUB_TOKEN
+runners:
+  resume-credential:
+    default: true
+    type: graph
+    credential: github
+    graph:
+      name: resume-credential
+      steps:
+        - id: approve
+          run:
+            type: agent-task
+            agent: reviewer
+            task: approve-credential-resume
+            outputs:
+              approved: boolean
+        - id: probe
+          run:
+            type: cli-tool
+            command: sh
+            args:
+              - "-c"
+              - 'test "$GITHUB_TOKEN" = "{ROTATED_SECRET}"'
+            sandbox:
+              profile: readonly
+              cwd_policy: skill-directory
+              require_enforcement: false
+"#
+        ),
     )?;
     Ok(skill_dir)
 }

@@ -1,10 +1,17 @@
 skill: n8n-handoff
-version: "0.1.0"
+version: "0.1.1"
 catalog:
   kind: graph
   audience: operator
   visibility: public
   role: context
+credentials:
+  n8n:
+    provider: n8n
+    auth:
+      bearer:
+        delivery:
+          env: N8N_WEBHOOK_TOKEN
 harness:
   cases:
     - name: n8n-handoff-preflight-ready
@@ -83,6 +90,7 @@ runners:
   send:
     default: true
     type: graph
+    credential: n8n
     inputs:
       webhook_host:
         type: string

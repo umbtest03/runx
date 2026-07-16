@@ -8,7 +8,7 @@
     "url": "https://{webhook_host}/webhook/{workflow_slug}",
     "method": "POST",
     "headers": {
-      "authorization": "Bearer ${secret:RUNX_N8N_WEBHOOK_TOKEN}",
+      "authorization": "Bearer ${secret:N8N_WEBHOOK_TOKEN}",
       "content-type": "application/json",
       "x-runx-handoff-scope": "orchestrator.n8n.workflow.invoke"
     }

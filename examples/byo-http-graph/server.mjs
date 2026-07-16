@@ -3,7 +3,7 @@
 import { createServer } from "node:http";
 
 const port = Number(process.env.PORT || 8734);
-const expected = `Bearer ${process.env.RUNX_EXAMPLE_CRM_TOKEN || "crm_demo_secret"}`;
+const expected = `Bearer ${process.env.EXAMPLE_CRM_TOKEN || "crm_demo_secret"}`;
 
 const server = createServer((req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${port}`);

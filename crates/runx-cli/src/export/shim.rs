@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use runx_runtime::export::{RunxExportSkill, RunxExportSkillInput};
+use runx_runtime::export::{RunxExportMode, RunxExportSkill, RunxExportSkillInput};
 
 use super::{GeneratedFile, Target, display_path};
 
@@ -40,6 +40,9 @@ fn render_shim(
     command_target: &str,
     runx_bin: &Path,
 ) -> String {
+    if let RunxExportMode::NativeInstructions { body } = &skill.mode {
+        return render_native_instructions(target, skill, body, runx_bin);
+    }
     let mut output = String::new();
     output.push_str("---\n");
     output.push_str(&format!("name: {}\n", yaml_plain_or_quoted(&skill.name)));
@@ -74,6 +77,34 @@ runx fails closed. Never invent, copy, or print signing keys.\n\n",
     output.push_str(&render_inputs(&skill.inputs));
     output.push('\n');
     output.push_str(&render_continuation(&display_path(runx_bin)));
+    output.push_str(&format!(
+        "<!-- {} source={} - generated, do not edit -->\n",
+        target.marker(),
+        display_path(&skill.abs_dir)
+    ));
+    output
+}
+
+fn render_native_instructions(
+    target: Target,
+    skill: &RunxExportSkill,
+    body: &str,
+    runx_bin: &Path,
+) -> String {
+    let mut output = String::new();
+    output.push_str("---\n");
+    output.push_str(&format!("name: {}\n", yaml_plain_or_quoted(&skill.name)));
+    output.push_str("description: |-\n");
+    output.push_str(&indent_block(&skill.description));
+    if target == Target::Claude {
+        output.push_str(&format!(
+            "allowed-tools: Bash({} *)\n",
+            shell_quote(&display_path(runx_bin))
+        ));
+    }
+    output.push_str("---\n");
+    output.push_str(body.trim());
+    output.push_str("\n\n");
     output.push_str(&format!(
         "<!-- {} source={} - generated, do not edit -->\n",
         target.marker(),

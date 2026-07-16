@@ -7,7 +7,7 @@ source:
   method: GET
   allow_private_network: true
   headers:
-    authorization: "Bearer ${secret:RUNX_EXAMPLE_CRM_TOKEN}"
+    authorization: "Bearer ${secret:EXAMPLE_CRM_TOKEN}"
 inputs:
   account_id:
     type: string
@@ -15,8 +15,8 @@ inputs:
     description: Example CRM account id to fetch.
 ---
 A non-GitHub provider read over the first-class `http` front. The bearer token is
-not stored in the skill or passed on argv; `runx skill --credential ... --secret-env
-RUNX_EXAMPLE_CRM_TOKEN` delivers it for one run, the HTTP adapter resolves the
+not stored in the skill or passed on argv; the parent runner declares and resolves
+`EXAMPLE_CRM_TOKEN`, the HTTP adapter resolves the
 `${secret:...}` header reference, and the sealed receipt records only the
 non-secret credential observation.
 

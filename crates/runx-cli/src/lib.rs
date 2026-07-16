@@ -5,6 +5,7 @@ pub(crate) mod cli_io;
 pub mod command_spec;
 pub mod config;
 pub mod connect;
+pub mod credential;
 pub mod dev;
 pub mod doctor;
 pub mod export;

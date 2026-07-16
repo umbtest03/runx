@@ -6,7 +6,7 @@ use crate::RuntimeError;
 use crate::adapter::{
     FanoutExecutionMode, InvocationStatus, SkillAdapter, SkillInvocation, SkillOutput,
 };
-use crate::adapter_pipeline::{AdapterCapture, AdapterInvocationPlan, AdapterProjection};
+use crate::adapter_pipeline::{AdapterCapture, AdapterProjection};
 use crate::credentials::CredentialDelivery;
 use crate::process::{CapturedOutput, ProcessOutcome, ProcessSpec, ProcessStdin, run_process};
 use crate::services::SandboxServices;
@@ -26,15 +26,16 @@ impl SkillAdapter for CliToolAdapter {
     }
 
     fn invoke(&self, request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
-        let plan = AdapterInvocationPlan::from_invocation(self.adapter_type(), &request);
         let credential_delivery = request.credential_delivery.clone();
-        credential_delivery.reject_process_env_boundary(plan.adapter_type())?;
-        let sandbox = SandboxServices.process_plan(
+        let mut sandbox = SandboxServices.process_plan(
             &request.source,
             &request.skill_directory,
             &request.inputs,
             &request.env,
         )?;
+        for (name, value) in credential_delivery.secret_env().iter() {
+            sandbox.env.insert(name.to_owned(), value.to_owned());
+        }
         let stdin = cli_tool_stdin(&request)?;
         let sandbox = sandbox.into_process_plan();
         let mut outcome = run_process(

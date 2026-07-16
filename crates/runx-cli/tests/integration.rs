@@ -8,6 +8,7 @@
 //! See .scafld/specs/active/test-surface-build-consolidation.md.
 
 mod connect;
+mod credential;
 mod doctor;
 mod export;
 mod harness;

@@ -1,5 +1,5 @@
 skill: nitrosend
-version: "0.2.0"
+version: "0.2.1"
 catalog:
   kind: skill
   audience: public
@@ -12,10 +12,19 @@ catalog:
   completion: provider_readback
   requires_adapter: true
   approval: required
+credentials:
+  nitrosend:
+    provider: nitrosend
+    audience: https://api.nitrosend.com
+    auth:
+      api_key:
+        delivery:
+          env: NITROSEND_API_KEY
 runners:
   status:
     default: true
     type: graph
+    credential: nitrosend
     inputs:
       brand_sid:
         type: string
@@ -34,6 +43,7 @@ runners:
             brand_sid: "$input.brand_sid"
   review-delivery:
     type: graph
+    credential: nitrosend
     inputs:
       target_type:
         type: string
@@ -62,6 +72,7 @@ runners:
             brand_sid: "$input.brand_sid"
   import-status:
     type: graph
+    credential: nitrosend
     inputs:
       import_id:
         type: number
@@ -85,6 +96,7 @@ runners:
             brand_sid: "$input.brand_sid"
   approve-delivery:
     type: graph
+    credential: nitrosend
     act:
       purpose: Approve one reviewed Nitrosend campaign or flow without sending it.
     inputs:
@@ -141,6 +153,7 @@ runners:
           equals: true
   send-campaign:
     type: graph
+    credential: nitrosend
     act:
       purpose: Deliver one already-approved Nitrosend campaign after fresh review and explicit approval.
     inputs:
@@ -216,6 +229,7 @@ runners:
           equals: true
   activate-flow:
     type: graph
+    credential: nitrosend
     act:
       purpose: Activate one already-approved Nitrosend flow after fresh review and explicit approval.
     inputs:
@@ -271,6 +285,7 @@ runners:
           equals: true
   apply-draft:
     type: graph
+    credential: nitrosend
     act:
       purpose: Apply one reviewed Nitrosend campaign, flow, template, or segment draft request.
     inputs:
@@ -402,6 +417,7 @@ runners:
         description: Extra operator guardrails.
   send-transactional:
     type: graph
+    credential: nitrosend
     act:
       purpose: Send or dry-run one idempotent transactional message to one recipient.
     inputs:
@@ -502,6 +518,7 @@ runners:
         description: Extra operator guardrails.
   analytics:
     type: graph
+    credential: nitrosend
     inputs:
       objective:
         type: string
@@ -570,6 +587,7 @@ runners:
         description: Extra operator guardrails.
   import-contacts:
     type: graph
+    credential: nitrosend
     act:
       purpose: Import one consented inline contact batch after explicit approval.
     inputs:
@@ -635,6 +653,7 @@ runners:
           equals: true
   import-contacts-csv:
     type: graph
+    credential: nitrosend
     act:
       purpose: Upload and start one consented CSV contact import without putting file bytes or signed URLs in the agent packet.
     inputs:

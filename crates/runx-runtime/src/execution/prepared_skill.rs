@@ -801,6 +801,7 @@ mod tests {
         let sentinel = "SECRET-SENTINEL-DO-NOT-PRINT";
         let mut request = request(temp.path());
         request.local_credential = Some(LocalCredentialDescriptor {
+            profile: Some("example-main".to_owned()),
             provider: "example".to_owned(),
             auth_mode: "token".to_owned(),
             env_var: "EXAMPLE_TOKEN".to_owned(),

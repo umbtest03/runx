@@ -181,21 +181,20 @@ as inputs and never as receipt material. Two materials exist:
 
 - `TWITTER_USER_AUTH`: one JSON object holding `consumer_key`,
   `consumer_secret`, `access_token`, `access_secret` (OAuth 1.0a user
-  context). Required for every mutation and for own-account reads. Deliver it
-  with `runx skill . <runner> --credential twitter:oauth1_user:<material_ref>
-  --credential-scope twitter:write --secret-env TWITTER_USER_AUTH` for
-  mutations, or `--credential-scope twitter:read` for reads.
+  context). Required for every mutation and for own-account reads. Store it
+  with `runx credential set twitter --profile twitter-user --auth-mode
+  oauth1_user --from-stdin`.
 - `TWITTER_BEARER_TOKEN`: the app-context bearer token, enough for `search`
-  and public reads. Deliver with `--credential twitter:bearer:<material_ref>
-  --credential-scope twitter:read --secret-env TWITTER_BEARER_TOKEN`.
-  Read-only runs should be handed only this material.
+  and public reads. Store it with `runx credential set twitter --profile
+  twitter-app --auth-mode bearer --from-stdin`. Read-only app runs should use
+  only this profile.
 
-The invocation binds a non-secret credential envelope (provider, auth mode,
-material ref, scopes) and the secret lives in the named environment variable
-for the lifetime of the run only. The tool manifest's `env_allowlist` is the
-second gate: only listed variables cross into the tool process, delivered or
-not. Setting the variable directly in the environment also works for local
-development.
+Use `--profile twitter-user` with `read --auth user` and every `execute` run;
+use `--profile twitter-app` with `read --auth app`. The runner contract maps the
+selected profile's auth mode to exactly one delivery variable. Tool sandbox
+allowlists do not carry credentials. For local development, the same declared
+variable can come from the process or workspace `.env`; if both Twitter
+variables are set, Runx refuses the ambiguous selection.
 
 The X API bills per request on current plans and a post containing a link
 costs a large multiple of a plain one, so prefer archive exports for bulk

@@ -759,6 +759,7 @@ fn mcp_server_execution_options(
         runner: None,
         receipt_dir,
         env,
+        credential_deliveries: Default::default(),
     })
 }
 

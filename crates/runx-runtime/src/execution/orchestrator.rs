@@ -28,7 +28,7 @@ pub struct SkillRunRequest {
     pub inputs: BTreeMap<String, JsonValue>,
     pub env: BTreeMap<String, String>,
     pub cwd: PathBuf,
-    /// Optional one-shot, per-run local credential supplied at invocation.
+    /// Optional resolved local credential supplied for this run.
     ///
     /// When present, the runtime derives a `CredentialDelivery` from it for this
     /// single run. The secret value is never persisted and is redacted from
@@ -37,15 +37,18 @@ pub struct SkillRunRequest {
     pub local_credential: Option<LocalCredentialDescriptor>,
 }
 
-/// Structured per-run credential provision request.
+/// Structured per-run credential delivery descriptor.
 ///
 /// This is the local, no-network establishment surface for the OSS CLI: the
-/// caller supplies the non-secret binding fields plus the raw secret value, and
+/// resolver supplies the non-secret binding fields plus the raw secret value, and
 /// the runtime turns it into a `CredentialDelivery` through the existing opaque
 /// `MaterialResolver`. No secret state is persisted; the descriptor lives only
 /// for the duration of a single run.
 #[derive(Clone, PartialEq, Eq)]
 pub struct LocalCredentialDescriptor {
+    /// Stored profile selector. This is non-secret and may be checkpointed so a
+    /// resumed run re-resolves current material instead of persisting a secret.
+    pub profile: Option<String>,
     /// Provider the credential authenticates against (for example `github`).
     pub provider: String,
     /// Authentication mode label carried on the delivery profile/envelope.
@@ -66,6 +69,7 @@ impl std::fmt::Debug for LocalCredentialDescriptor {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("LocalCredentialDescriptor")
+            .field("profile", &self.profile)
             .field("provider", &self.provider)
             .field("auth_mode", &self.auth_mode)
             .field("env_var", &self.env_var)

@@ -27,7 +27,8 @@ use crate::services::{ReceiptServices, WorkspaceEnv};
 #[cfg(feature = "cli-tool")]
 use runx_contracts::ClosureDisposition;
 
-const RUNX_HOSTED_CREDENTIAL_HANDLES_JSON_ENV: &str = "RUNX_HOSTED_CREDENTIAL_HANDLES_JSON";
+#[cfg(test)]
+mod credential_tests;
 
 pub(crate) fn resolve_skill_dir(path: &Path) -> Result<PathBuf, SkillRunError> {
     if path.is_dir() {
@@ -117,13 +118,19 @@ pub(super) fn credential_delivery_from_invocation(
     local_credential: Option<&crate::execution::orchestrator::LocalCredentialDescriptor>,
 ) -> Result<crate::credentials::CredentialDelivery, SkillRunError> {
     let hosted_handles = env
-        .get(RUNX_HOSTED_CREDENTIAL_HANDLES_JSON_ENV)
+        .get(crate::credentials::RUNX_HOSTED_CREDENTIAL_HANDLES_JSON_ENV)
         .map(String::as_str)
         .filter(|value| !value.trim().is_empty());
-    if hosted_handles.is_some() && local_credential.is_some() {
-        return Err(invalid(format!(
-            "{RUNX_HOSTED_CREDENTIAL_HANDLES_JSON_ENV} cannot be combined with local credential provision"
-        )));
+    if let Some(descriptor) = local_credential {
+        return crate::credentials::CredentialDelivery::from_local_descriptor(
+            descriptor.provider.clone(),
+            descriptor.auth_mode.clone(),
+            descriptor.env_var.clone(),
+            descriptor.material_ref.clone(),
+            descriptor.scopes.clone(),
+            descriptor.secret.clone(),
+        )
+        .map_err(|error| invalid(format!("local credential provision failed: {error}")));
     }
     if let Some(raw) = hosted_handles {
         return crate::credentials::CredentialDelivery::from_hosted_handles_json(raw).map_err(
@@ -134,18 +141,7 @@ pub(super) fn credential_delivery_from_invocation(
             },
         );
     }
-    Ok(match local_credential {
-        Some(descriptor) => crate::credentials::CredentialDelivery::from_local_descriptor(
-            descriptor.provider.clone(),
-            descriptor.auth_mode.clone(),
-            descriptor.env_var.clone(),
-            descriptor.material_ref.clone(),
-            descriptor.scopes.clone(),
-            descriptor.secret.clone(),
-        )
-        .map_err(|error| invalid(format!("local credential provision failed: {error}")))?,
-        None => crate::credentials::CredentialDelivery::none(),
-    })
+    Ok(crate::credentials::CredentialDelivery::none())
 }
 
 #[cfg(feature = "cli-tool")]

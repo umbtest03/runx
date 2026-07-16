@@ -29,13 +29,13 @@ skills admit through `admit_local_skill` in the core policy crate
 
 ### 2. Deliver credentials (adapter contract)
 
-The adapter receives a `CredentialDelivery` and must (a) refuse ambient
-process-env credential delivery and (b) redact secret material out of captured
-output. The cli-tool front does both:
-`credential_delivery.reject_process_env_boundary(...)`
-(`crates/runx-runtime/src/adapters/cli_tool.rs:27`) and `redacted_capture(...)` over
-captured stdout/stderr (`cli_tool.rs:83` for the helper, called at `:104-105`).
-Credentials are delivered as structured refs, never as inherited child environment.
+The resolver turns a runner's declared requirement into `CredentialDelivery`.
+Adapters receive that delivery separately from ambient configuration, inject
+only its declared secret environment bindings into the child boundary, and
+redact material from captured output before projection. The cli-tool front does
+this in `crates/runx-runtime/src/adapters/cli_tool.rs`; HTTP substitutes only
+`${secret:NAME}` header references. Sandbox `env_allowlist` is not a credential
+transport.
 
 ### 3. Sandbox (adapter contract)
 

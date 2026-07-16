@@ -82,6 +82,9 @@ crates/target/debug/runx history <receipt-id> --json
   installing runx first, run `npx @runxhq/cli new docs-demo`; it downloads the
   launcher and runs the same native scaffold.
 - Compose the example into a graph with [Skill To Graph](./skill-to-graph.md).
+- Configure provider-backed skills once with
+  [Credential Resolution](./credentials.md); agents and MCP use the same
+  readiness path automatically.
 - Publish a ready skill from a public repo at https://runx.ai/x/publish, or run
   `crates/target/debug/runx login --for publish` followed by
   `crates/target/debug/runx registry publish ... --registry https://api.runx.ai`.

@@ -1,10 +1,17 @@
 skill: zapier-handoff
-version: "0.1.0"
+version: "0.1.1"
 catalog:
   kind: graph
   audience: operator
   visibility: public
   role: context
+credentials:
+  zapier:
+    provider: zapier
+    auth:
+      bearer:
+        delivery:
+          env: ZAPIER_WEBHOOK_TOKEN
 harness:
   cases:
     - name: zapier-handoff-preflight-ready
@@ -83,6 +90,7 @@ runners:
   send:
     default: true
     type: graph
+    credential: zapier
     inputs:
       zapier_account_id:
         type: string

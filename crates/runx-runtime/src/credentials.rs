@@ -14,6 +14,7 @@ use serde::Deserialize;
 use thiserror::Error;
 
 const REDACTED_CREDENTIAL: &str = "[redacted-credential]";
+pub const RUNX_HOSTED_CREDENTIAL_HANDLES_JSON_ENV: &str = "RUNX_HOSTED_CREDENTIAL_HANDLES_JSON";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CredentialDeliveryProfile {
@@ -309,10 +310,11 @@ impl CredentialDelivery {
         }
     }
 
-    /// Build a delivery from a one-shot, per-run local credential descriptor.
+    /// Build a delivery from a resolved, per-run local credential descriptor.
     ///
-    /// This is the OSS local-provision path: no network, no persistence, no
-    /// brokerage. It derives a delivery profile, a credential envelope, and an
+    /// This is the OSS local-delivery path: no network and no brokerage. The
+    /// resolver may have loaded encrypted profile material or a declared
+    /// workspace value. This derives a delivery profile, a credential envelope, and an
     /// allowed binding decision purely from the supplied descriptor, resolves
     /// the secret in-memory, and routes it through the same
     /// [`Self::from_allowed_binding`] seam so policy checks and redaction stay
@@ -364,6 +366,16 @@ impl CredentialDelivery {
             }
         })?;
         Self::from_hosted_handles(&handles)
+    }
+
+    pub fn hosted_handles_provider(raw: &str) -> Result<Option<String>, CredentialDeliveryError> {
+        let handles: Vec<HostedCredentialHandle> = serde_json::from_str(raw).map_err(|error| {
+            CredentialDeliveryError::HostedCredentialHandlesInvalid {
+                reason: error.to_string(),
+            }
+        })?;
+        Self::from_hosted_handles(&handles)?;
+        Ok(handles.first().map(|handle| handle.provider.clone()))
     }
 
     // rust-style-allow: long-function because hosted handle delivery validates

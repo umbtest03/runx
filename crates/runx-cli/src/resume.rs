@@ -166,7 +166,7 @@ pub fn run_native_resume_with_workspace(plan: ResumePlan, workspace: &WorkspaceE
         full_operator_context: false,
         approve_operator_context: None,
         inputs: BTreeMap::new(),
-        local_credential: None,
+        credential_profile: pending.credential_profile.clone(),
     };
     crate::skill::run_native_skill_with_workspace(skill_plan, workspace)
 }

@@ -1,7 +1,7 @@
 //! Local, no-network per-run credential provision boundary.
 //!
-//! `cli-tool` execution no longer accepts process-env local credentials. This
-//! keeps the secret boundary fail-closed until a non-env delivery channel exists.
+//! Declared credentials are delivered only to the selected runner and are
+//! redacted from outputs and receipts.
 
 #![cfg(feature = "cli-tool")]
 
@@ -31,8 +31,8 @@ const RUNX_SANDBOX_ALLOW_DECLARED_POLICY_ONLY_VALUE: &str = "local";
 #[cfg(feature = "http")]
 type HttpFixtureHandle = thread::JoinHandle<Result<String, std::io::Error>>;
 #[test]
-fn local_credential_for_cli_tool_is_rejected_before_spawn() -> Result<(), Box<dyn std::error::Error>>
-{
+fn local_credential_for_cli_tool_is_delivered_and_redacted()
+-> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
     let skill_dir = write_echo_token_skill(temp.path())?;
     let receipt_dir = temp.path().join("receipts");
@@ -43,9 +43,10 @@ fn local_credential_for_cli_tool_is_rejected_before_spawn() -> Result<(), Box<dy
         run_id: None,
         answers_path: None,
         inputs: BTreeMap::new(),
-        env: BTreeMap::new(),
+        env: local_sandbox_fallback_env(),
         cwd: temp.path().to_path_buf(),
         local_credential: Some(LocalCredentialDescriptor {
+            profile: Some("github-main".to_owned()),
             provider: "github".to_owned(),
             auth_mode: "bearer".to_owned(),
             env_var: "GITHUB_TOKEN".to_owned(),
@@ -55,33 +56,19 @@ fn local_credential_for_cli_tool_is_rejected_before_spawn() -> Result<(), Box<dy
         }),
     };
 
-    let error = match run_skill(request) {
-        Ok(_) => {
-            return Err(
-                std::io::Error::other("cli-tool local credential unexpectedly succeeded").into(),
-            );
-        }
-        Err(error) => error,
-    };
-    let message = error.to_string();
-    assert!(
-        message.contains("local credential process-env delivery is not supported for cli-tool"),
-        "unexpected error: {message}",
-    );
-    assert!(
-        !message.contains(SECRET),
-        "raw secret leaked into the error output",
-    );
-    assert!(
-        !receipt_dir.exists(),
-        "rejected credential run must not write receipts",
-    );
+    let result = run_skill(request)?;
+    let serialized = serde_json::to_string(&result.output)?;
+    assert_eq!(result.status, RunStatus::Sealed);
+    assert!(serialized.contains("[redacted-credential]"));
+    assert!(!serialized.contains(SECRET));
+    assert!(receipt_dir.exists());
 
     Ok(())
 }
 
 #[test]
-fn run_without_descriptor_delivers_no_credential() -> Result<(), Box<dyn std::error::Error>> {
+fn declared_credential_without_descriptor_fails_without_leak()
+-> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
     let skill_dir = write_echo_token_skill(temp.path())?;
 
@@ -96,12 +83,12 @@ fn run_without_descriptor_delivers_no_credential() -> Result<(), Box<dyn std::er
         local_credential: None,
     };
 
-    let result = run_skill(request)?;
-    let serialized = serde_json::to_string(&result.output)?;
-    assert!(
-        !serialized.contains(SECRET),
-        "no credential was provided, the secret must not appear anywhere",
-    );
+    let error = match run_skill(request) {
+        Ok(_) => return Err("declared credential unexpectedly ran without material".into()),
+        Err(error) => error,
+    };
+    assert!(error.to_string().contains("requires credential"));
+    assert!(!error.to_string().contains(SECRET));
     Ok(())
 }
 
@@ -128,9 +115,10 @@ fn graph_http_step_uses_local_credential_without_exposing_secret()
         env: http_private_network_grant_env(),
         cwd: temp.path().to_path_buf(),
         local_credential: Some(LocalCredentialDescriptor {
+            profile: Some("example-crm-main".to_owned()),
             provider: "example-crm".to_owned(),
             auth_mode: "api_key".to_owned(),
-            env_var: "RUNX_EXAMPLE_CRM_TOKEN".to_owned(),
+            env_var: "EXAMPLE_CRM_TOKEN".to_owned(),
             material_ref: "local-demo".to_owned(),
             scopes: vec!["crm.account.read".to_owned()],
             secret: SECRET.to_owned(),
@@ -161,7 +149,7 @@ fn graph_http_step_uses_local_credential_without_exposing_secret()
 
 #[cfg(feature = "http")]
 #[test]
-fn graph_http_credential_does_not_break_local_cli_tool_steps()
+fn graph_credential_is_delivered_to_http_and_cli_steps_without_leaking()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempdir()?;
     let (base_url, server) = start_one_shot_http_server(format!("Bearer {SECRET}"))?;
@@ -181,9 +169,10 @@ fn graph_http_credential_does_not_break_local_cli_tool_steps()
         env: mixed_http_cli_graph_env(),
         cwd: temp.path().to_path_buf(),
         local_credential: Some(LocalCredentialDescriptor {
+            profile: Some("example-crm-main".to_owned()),
             provider: "example-crm".to_owned(),
             auth_mode: "api_key".to_owned(),
-            env_var: "RUNX_EXAMPLE_CRM_TOKEN".to_owned(),
+            env_var: "EXAMPLE_CRM_TOKEN".to_owned(),
             material_ref: "local-demo".to_owned(),
             scopes: vec!["crm.account.read".to_owned()],
             secret: SECRET.to_owned(),
@@ -199,9 +188,10 @@ fn graph_http_credential_does_not_break_local_cli_tool_steps()
     assert_eq!(result.status, RunStatus::Sealed);
     assert_eq!(observed_auth, format!("Bearer {SECRET}"));
     assert!(serialized.contains("cli-tool-completed"));
+    assert!(serialized.contains("[redacted-credential]"));
     assert!(
         !serialized.contains(SECRET),
-        "graph-local cli-tool steps must not receive the graph HTTP credential"
+        "graph-local cli-tool steps must redact the delivered credential"
     );
     Ok(())
 }
@@ -246,11 +236,19 @@ fn write_echo_token_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Er
         skill_dir.join("X.yaml"),
         r#"
 skill: echo-token
+credentials:
+  github:
+    provider: github
+    auth:
+      bearer:
+        delivery:
+          env: GITHUB_TOKEN
 runners:
   echo:
     default: true
     type: cli-tool
     command: sh
+    credential: github
     args:
       - "-c"
       - "printf '%s' \"$GITHUB_TOKEN\""
@@ -277,10 +275,18 @@ fn write_credentialed_http_graph(
         skill_dir.join("X.yaml"),
         r#"
 skill: credentialed-http-graph
+credentials:
+  example-crm:
+    provider: example-crm
+    auth:
+      api_key:
+        delivery:
+          env: EXAMPLE_CRM_TOKEN
 runners:
   main:
     default: true
     type: graph
+    credential: example-crm
     inputs:
       account_id:
         type: string
@@ -305,7 +311,7 @@ source:
   method: GET
   allow_private_network: true
   headers:
-    authorization: "Bearer ${{secret:RUNX_EXAMPLE_CRM_TOKEN}}"
+    authorization: "Bearer ${{secret:EXAMPLE_CRM_TOKEN}}"
 inputs:
   account_id:
     type: string
@@ -336,10 +342,18 @@ fn write_mixed_http_and_cli_graph(
         skill_dir.join("X.yaml"),
         r#"
 skill: mixed-http-cli-graph
+credentials:
+  example-crm:
+    provider: example-crm
+    auth:
+      api_key:
+        delivery:
+          env: EXAMPLE_CRM_TOKEN
 runners:
   main:
     default: true
     type: graph
+    credential: example-crm
     inputs:
       account_id:
         type: string
@@ -368,7 +382,7 @@ source:
   method: GET
   allow_private_network: true
   headers:
-    authorization: "Bearer ${{secret:RUNX_EXAMPLE_CRM_TOKEN}}"
+    authorization: "Bearer ${{secret:EXAMPLE_CRM_TOKEN}}"
 inputs:
   account_id:
     type: string
@@ -387,7 +401,7 @@ source:
   command: sh
   args:
     - "-c"
-    - "printf '{\"status\":\"cli-tool-completed\",\"message\":\"%s\",\"credential\":\"%s\"}' \"$RUNX_INPUT_MESSAGE\" \"$RUNX_EXAMPLE_CRM_TOKEN\""
+    - "printf '{\"status\":\"cli-tool-completed\",\"message\":\"%s\",\"credential\":\"%s\"}' \"$RUNX_INPUT_MESSAGE\" \"$EXAMPLE_CRM_TOKEN\""
   sandbox:
     profile: readonly
     cwd_policy: skill-directory

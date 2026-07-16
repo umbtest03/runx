@@ -41,7 +41,7 @@ fn top_level_help_and_version_are_native() {
     );
     assert_help_line(
         &help,
-        "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [-j] [--approve-operator-context digest] [--full-operator-context] [--skip-operator-context] [--registry url|path] [--digest sha256] [--flag value] [--credential descriptor --credential-scope scope --secret-env NAME] [-R dir]",
+        "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [-j] [--approve-operator-context digest] [--full-operator-context] [--skip-operator-context] [--registry url|path] [--digest sha256] [--flag value] [-R dir]",
     );
     assert_help_line(
         &help,
@@ -140,7 +140,7 @@ fn nested_skill_history_verify_and_publish_help_are_native() {
 
     assert_help_line(
         &skill_help_text(),
-        "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [-j] [--approve-operator-context digest] [--full-operator-context] [--skip-operator-context] [--registry url|path] [--digest sha256] [--flag value] [--credential descriptor --credential-scope scope --secret-env NAME] [-R dir]",
+        "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [-j] [--approve-operator-context digest] [--full-operator-context] [--skip-operator-context] [--registry url|path] [--digest sha256] [--flag value] [-R dir]",
     );
     assert_help_line(
         &skill_help_text(),
@@ -148,7 +148,7 @@ fn nested_skill_history_verify_and_publish_help_are_native() {
     );
     assert_help_line(
         &skill_help_text(),
-        "-p, --profile name       Use a local credential profile from .runx/credentials.json",
+        "-p, --profile name       Use a stored local credential profile",
     );
     assert_help_line(
         &history_help_text(),
@@ -523,7 +523,7 @@ fn routes_canonical_skill_run_to_native_plan() {
             ]
             .into_iter()
             .collect(),
-            local_credential: None,
+            credential_profile: None,
         })
     );
 }
@@ -656,6 +656,7 @@ fn routes_config_to_native_plan() {
             action: ConfigAction::Set,
             key: Some("agent.model".to_owned()),
             value: Some("gpt-test".to_owned()),
+            value_from_stdin: false,
             json: true,
         })
     );

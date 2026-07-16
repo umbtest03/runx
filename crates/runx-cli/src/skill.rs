@@ -6,18 +6,23 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use runx_contracts::{JsonObject, JsonValue};
-use runx_runtime::orchestrator::LocalCredentialDescriptor;
 use runx_runtime::skill_front::{
     PreparedEntryProvenance, PreparedSkillRunApproval, PreparedSkillRunStatus,
 };
-use runx_runtime::{SkillRunRequest, WorkspaceEnv};
+use runx_runtime::{
+    SkillCredentialContext, SkillRunRequest, WorkspaceEnv, resolve_skill_credential_for_path,
+};
 
+mod credential;
 mod inputs;
 mod operator_context;
 mod output;
 mod parser;
 mod resolver;
 
+use credential::{
+    inspect_context as inspect_credential_context, write_required as write_needs_credential,
+};
 use operator_context::write_operator_context;
 use output::{SkillOutputResume, skill_result_exit_code, write_skill_output};
 pub use parser::{parse_skill_plan, parse_skill_plan_with_workspace};
@@ -39,13 +44,9 @@ pub struct SkillPlan {
     pub full_operator_context: bool,
     pub approve_operator_context: Option<String>,
     pub inputs: BTreeMap<String, JsonValue>,
-    /// One-shot, per-run local credential descriptor supplied via
-    /// `--credential`, repeatable `--credential-scope`, and `--secret-env`.
-    /// The secret is read from the named process environment variable so raw
-    /// secret material never appears on argv. Runner-specific execution
-    /// validates whether that delivery channel is supported before any child
-    /// process starts.
-    pub local_credential: Option<LocalCredentialDescriptor>,
+    /// Optional stored profile selector. Secret resolution happens only after
+    /// the selected runner's manifest credential requirement is known.
+    pub credential_profile: Option<String>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -86,13 +87,36 @@ pub fn run_native_skill_with_workspace(plan: SkillPlan, workspace: &WorkspaceEnv
         }
     };
     let skill_path = resolved.runnable_path.clone();
+    let credential = match resolve_skill_credential_for_path(
+        &skill_path,
+        plan.runner.as_deref(),
+        plan.credential_profile.as_deref(),
+        workspace,
+    ) {
+        Ok(credential) => credential,
+        Err(error) => {
+            return write_skill_failure(
+                &error.to_string(),
+                plan.json,
+                "credential_error",
+                1,
+                registry_provenance(&resolved),
+            );
+        }
+    };
     if plan.action == SkillAction::Inspect {
         return write_skill_inspection(
             &skill_path,
             plan.runner.as_deref(),
             plan.json,
             registry_provenance(&resolved),
+            credential.as_ref(),
         );
+    }
+    if let Some(context) = credential.as_ref()
+        && !context.resolution.is_ready()
+    {
+        return write_needs_credential(&context.request, plan.json);
     }
     let resume = SkillOutputResume {
         skill_ref: Some(&resume_skill_ref),
@@ -108,7 +132,9 @@ pub fn run_native_skill_with_workspace(plan: SkillPlan, workspace: &WorkspaceEnv
         inputs: plan.inputs.clone(),
         env,
         cwd,
-        local_credential: plan.local_credential.clone(),
+        local_credential: credential
+            .as_ref()
+            .and_then(|context| context.resolution.descriptor().cloned()),
     };
     let orchestrator = crate::runtime::local_orchestrator();
     let result = if plan.skip_operator_context {
@@ -315,8 +341,9 @@ fn write_skill_inspection(
     runner: Option<&str>,
     json: bool,
     provenance: Option<JsonObject>,
+    credential: Option<&SkillCredentialContext>,
 ) -> ExitCode {
-    match inspect_skill(skill_path, runner, provenance) {
+    match inspect_skill(skill_path, runner, provenance, credential) {
         Ok(value) if json => crate::cli_io::write_stdout_code(
             &format!(
                 "{}\n",
@@ -334,6 +361,7 @@ fn inspect_skill(
     skill_path: &Path,
     selected_runner: Option<&str>,
     provenance: Option<JsonObject>,
+    credential: Option<&SkillCredentialContext>,
 ) -> Result<JsonValue, String> {
     let skill_dir = skill_directory(skill_path);
     let skill_md = fs::read_to_string(skill_dir.join("SKILL.md")).map_err(|error| {
@@ -389,12 +417,37 @@ fn inspect_skill(
                 .collect(),
         ),
     );
+    let selected_runner = selected_runner.or_else(|| default_runner_name(&runners));
     if let Some(runner) = selected_runner {
         let runner_def = runners
             .get(runner)
             .and_then(JsonValue::as_object)
             .ok_or_else(|| format!("skill has no runner '{runner}'"))?;
         output.insert("runner".to_owned(), inspect_runner(runner, runner_def));
+        if let Some(credential) = credential {
+            let credential = inspect_credential_context(credential);
+            let ready = credential
+                .as_object()
+                .and_then(|value| value.get("status"))
+                .and_then(JsonValue::as_str)
+                == Some("ready");
+            output.insert("credential".to_owned(), credential);
+            output.insert(
+                "readiness".to_owned(),
+                JsonValue::Object(JsonObject::from([(
+                    "status".to_owned(),
+                    JsonValue::String(if ready { "ready" } else { "needs_credential" }.to_owned()),
+                )])),
+            );
+        } else {
+            output.insert(
+                "readiness".to_owned(),
+                JsonValue::Object(JsonObject::from([(
+                    "status".to_owned(),
+                    JsonValue::String("ready".to_owned()),
+                )])),
+            );
+        }
         output.insert(
             "examples".to_owned(),
             JsonValue::Array(fixture_examples(&skill_dir, runner)),
@@ -439,6 +492,18 @@ fn write_inspection_text(value: &JsonValue) -> ExitCode {
         ));
         if let Some(kind) = object_string(runner, "type") {
             out.push_str(&format!("type: {kind}\n"));
+        }
+        if let Some(readiness) = object.get("readiness").and_then(JsonValue::as_object)
+            && let Some(status) = object_string(readiness, "status")
+        {
+            out.push_str(&format!("readiness: {status}\n"));
+        }
+        if let Some(credential) = object.get("credential").and_then(JsonValue::as_object) {
+            out.push_str(&format!(
+                "credential: {} ({})\n",
+                object_string(credential, "provider").unwrap_or("<unknown>"),
+                object_string(credential, "status").unwrap_or("unknown")
+            ));
         }
         if let Some(capabilities) = object.get("capabilities").and_then(JsonValue::as_object) {
             for key in ["execution", "completion", "requires_adapter", "approval"] {
@@ -590,6 +655,19 @@ fn inspect_runner(name: &str, runner: &JsonObject) -> JsonValue {
         output.insert("mutating".to_owned(), JsonValue::Bool(value));
     }
     JsonValue::Object(output)
+}
+
+fn default_runner_name(runners: &JsonObject) -> Option<&str> {
+    let mut defaults = runners.iter().filter_map(|(name, runner)| {
+        runner
+            .as_object()
+            .and_then(|runner| runner.get("default"))
+            .and_then(JsonValue::as_bool)
+            .is_some_and(|default| default)
+            .then_some(name.as_str())
+    });
+    let selected = defaults.next()?;
+    defaults.next().is_none().then_some(selected)
 }
 
 fn inspect_catalog_capabilities(profile: &JsonObject) -> Option<JsonValue> {

@@ -17,6 +17,13 @@ pub struct RunxExportSkill {
     pub description: String,
     pub inputs: BTreeMap<String, RunxExportSkillInput>,
     pub abs_dir: PathBuf,
+    pub mode: RunxExportMode,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RunxExportMode {
+    Delegated,
+    NativeInstructions { body: String },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -85,6 +92,7 @@ pub fn load_export_skills_with_options(
             continue;
         }
         let skill = read_validated_skill(&skill_dir)?;
+        let mode = export_mode(&skill);
         let inputs = export_skill_inputs(&skill, manifest.as_ref());
         let export_name = export_skill_name(&skill.name)?;
         validate_export_skill_inputs(&inputs)?;
@@ -106,6 +114,7 @@ pub fn load_export_skills_with_options(
                 })
                 .collect(),
             abs_dir: skill_dir,
+            mode,
         });
     }
     skills.sort_by(|left, right| left.name.cmp(&right.name));
@@ -118,6 +127,23 @@ pub fn load_export_skills_with_options(
         }
     }
     Ok(skills)
+}
+
+fn export_mode(skill: &ValidatedSkill) -> RunxExportMode {
+    let is_runtime_guide = skill.name == "runx"
+        && skill.source.source_type == runx_parser::SourceKind::CliTool
+        && skill
+            .source
+            .command
+            .as_deref()
+            .and_then(|command| Path::new(command).file_name())
+            .is_some_and(|command| command == "runx");
+    if is_runtime_guide {
+        return RunxExportMode::NativeInstructions {
+            body: skill.body.clone(),
+        };
+    }
+    RunxExportMode::Delegated
 }
 
 fn export_skill_inputs(

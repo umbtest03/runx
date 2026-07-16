@@ -290,10 +290,9 @@ fn delivery_profile_rejects_empty_material() -> Result<(), Box<dyn std::error::E
 }
 
 #[test]
-fn cli_tool_rejects_process_env_credential_delivery_before_spawn()
--> Result<(), Box<dyn std::error::Error>> {
+fn cli_tool_delivers_and_redacts_declared_credential() -> Result<(), Box<dyn std::error::Error>> {
     let delivery = allowed_delivery()?;
-    let result = CliToolAdapter.invoke(SkillInvocation {
+    let output = CliToolAdapter.invoke(SkillInvocation {
         skill_name: "credential.echo".to_owned(),
         source: cli_source(),
         inputs: Default::default(),
@@ -302,14 +301,11 @@ fn cli_tool_rejects_process_env_credential_delivery_before_spawn()
         skill_directory: std::env::current_dir()?,
         env: process_env(),
         credential_delivery: delivery,
-    });
+    })?;
 
-    assert!(matches!(
-        result,
-        Err(RuntimeError::CredentialDelivery(
-            CredentialDeliveryError::ProcessEnvBoundaryUnsupported { boundary },
-        )) if boundary == "cli-tool"
-    ));
+    assert_eq!(output.status, InvocationStatus::Success);
+    assert_eq!(output.stdout.trim(), "[redacted-credential]");
+    assert!(!output.stdout.contains("ghs_secret_token"));
     Ok(())
 }
 

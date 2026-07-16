@@ -126,6 +126,7 @@ fn config_loads_and_writes_supported_keys_only() -> Result<(), Box<dyn std::erro
             api_key_ref: None,
         }),
         public: None,
+        credentials: None,
     };
     write_runx_config_file(&config_path, &config)?;
     assert_private_file(&config_path)?;
@@ -217,6 +218,7 @@ fn config_loads_managed_agent_env_precedence_and_local_key_fallback()
                 api_key_ref: None,
             }),
             public: None,
+            credentials: None,
         },
         ConfigKey::AgentApiKey,
         "local-secret",
@@ -258,6 +260,7 @@ fn config_matches_blank_env_overlay_edges() -> Result<(), Box<dyn std::error::Er
                 api_key_ref: None,
             }),
             public: None,
+            credentials: None,
         },
         ConfigKey::AgentApiKey,
         "local-secret",

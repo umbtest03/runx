@@ -142,6 +142,10 @@ fn write_paused_agent_checkpoint(
         started_at: Some(crate::time::now_iso8601()),
         resume_skill_ref: Some(request.skill_path.to_string_lossy().into_owned()),
         selected_runner: Some(runner.name.clone()),
+        credential_profile: request
+            .local_credential
+            .as_ref()
+            .and_then(|credential| credential.profile.clone()),
         step_ids: vec![request_id.to_owned()],
         step_labels: vec![runner.name.clone()],
     };

@@ -166,9 +166,10 @@
       "coveredBy": [
         "config.set",
         "config.get",
-        "config.list"
+        "config.list",
+        "credential"
       ],
-      "notes": "RUNX_HOME and local config file behavior are part of CLI parity."
+      "notes": "RUNX_HOME, encrypted local profiles, and config file behavior are part of CLI parity."
     },
     {
       "id": "public-api",

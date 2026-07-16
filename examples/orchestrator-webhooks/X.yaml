@@ -7,10 +7,19 @@ catalog:
   visibility: public
   role: example
 
+credentials:
+  n8n:
+    provider: n8n
+    auth:
+      bearer:
+        delivery:
+          env: N8N_WEBHOOK_TOKEN
+
 runners:
   n8n:
     default: true
     type: graph
+    credential: n8n
     inputs:
       handoff_scope:
         type: string

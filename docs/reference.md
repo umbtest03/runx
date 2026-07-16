@@ -113,12 +113,17 @@ runx skill ./skills/design-skill --objective "build github review skill"
 runx harness ./fixtures/harness/echo-skill.yaml
 runx config set agent.provider openai
 runx config set agent.model gpt-5.1
-runx config set agent.api_key "$OPENAI_API_KEY"
+printf '%s' "$OPENAI_API_KEY" | runx config set agent.api_key --from-stdin
 ```
 
 With `agent.provider`, `agent.model`, and `agent.api_key` configured, the CLI
 can now resolve managed agent work directly. Deterministic tools, approvals,
 and required human inputs keep their existing local behavior.
+
+Provider-backed skills declare requirements in `X.yaml`; configure them with
+`runx credential` or an ignored workspace `.env`. See
+[Credential Resolution](credentials.md) for the exact precedence and storage
+contract.
 
 The global link points at `oss/packages/cli` in this checkout. Rebuild with
 `pnpm --dir oss build`; do not reinstall.

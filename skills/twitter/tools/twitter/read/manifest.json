@@ -15,10 +15,7 @@
       "network": true,
       "writable_paths": [],
       "require_enforcement": false,
-      "env_allowlist": [
-        "TWITTER_USER_AUTH",
-        "TWITTER_BEARER_TOKEN"
-      ]
+      "env_allowlist": []
     }
   },
   "inputs": {

@@ -8,7 +8,7 @@
     "url": "https://n8n.example.test/webhook/runx-governed-effect",
     "method": "POST",
     "headers": {
-      "authorization": "Bearer ${secret:RUNX_N8N_WEBHOOK_TOKEN}",
+      "authorization": "Bearer ${secret:N8N_WEBHOOK_TOKEN}",
       "content-type": "application/json",
       "x-runx-handoff-scope": "orchestrator.n8n.workflow.invoke",
       "x-runx-handoff-audience": "n8n:workflow:runx-governed-effect"

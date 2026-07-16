@@ -9,5 +9,6 @@ the BYO portfolio seam: a locally supplied credential reaches a graph-step HTTP
 front as a scoped secret header, the provider read executes, and the receipt
 seals the response plus non-secret credential-delivery observation.
 
-Run `examples/byo-http-graph/run.sh` to start the local example CRM fixture and
-execute the graph with `runx skill --credential ... --secret-env ...`.
+Run `examples/byo-http-graph/run.sh` to store an isolated demo profile through
+stdin, start the local example CRM fixture, and execute the graph with
+`runx skill --profile demo`.

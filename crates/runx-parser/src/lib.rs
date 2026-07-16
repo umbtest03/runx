@@ -24,12 +24,12 @@ pub use runner::{
 };
 pub use skill::{
     ActDeclaration, CatalogApproval, CatalogAudience, CatalogCompletion, CatalogExecution,
-    CatalogKind, CatalogMetadata, CatalogRole, CatalogVisibility, HarnessCallerFixture,
-    HarnessExpectation, InputMode, RawSkillIr, ReceiptExpectation, RunnerHarnessCase,
-    RunnerHarnessManifest, SkillArtifactContract, SkillHttpSource, SkillIdempotencyPolicy,
-    SkillInput, SkillMcpServer, SkillRetryPolicy, SkillRunnerDefinition, SkillSandbox, SkillSource,
-    SourceKind, ValidateSkillMode, ValidateSkillOptions, ValidatedSkill, parse_skill_markdown,
-    validate_skill, validate_skill_artifact_contract, validate_skill_source,
+    CatalogKind, CatalogMetadata, CatalogRole, CatalogVisibility, CredentialRequirement,
+    HarnessCallerFixture, HarnessExpectation, InputMode, RawSkillIr, ReceiptExpectation,
+    RunnerHarnessCase, RunnerHarnessManifest, SkillArtifactContract, SkillHttpSource,
+    SkillIdempotencyPolicy, SkillInput, SkillMcpServer, SkillRetryPolicy, SkillRunnerDefinition,
+    SkillSandbox, SkillSource, SourceKind, ValidateSkillMode, ValidateSkillOptions, ValidatedSkill,
+    parse_skill_markdown, validate_skill, validate_skill_artifact_contract, validate_skill_source,
     validate_skill_with_options,
 };
 pub use tool::{

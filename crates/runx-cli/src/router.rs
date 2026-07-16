@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use crate::cli_args::{flag_value, optional_flag_value, os_arg, os_flag_value, split_flag};
 use crate::config::ConfigPlan;
 use crate::connect::ConnectPlan;
+use crate::credential::CredentialPlan;
 use crate::export::ExportPlan;
 use crate::kernel::{KernelInputSource, KernelPlan};
 use crate::login::LoginPlan;
@@ -39,6 +40,7 @@ pub enum RouterAction {
     RunPayment(PaymentPlan),
     RunConfig(ConfigPlan),
     RunConnect(ConnectPlan),
+    RunCredential(CredentialPlan),
     RunPolicy(PolicyPlan),
     RunPublish(PublishPlan),
     RunRegistry(RegistryPlan),
@@ -203,6 +205,14 @@ fn route_args_with_optional_workspace(
             &args,
             crate::config::parse_config_plan(&args),
             RouterAction::RunConfig,
+        );
+    }
+
+    if first_arg_is(&args, "credential") {
+        return route_parse(
+            &args,
+            crate::credential::parse_credential_plan(&args),
+            RouterAction::RunCredential,
         );
     }
 

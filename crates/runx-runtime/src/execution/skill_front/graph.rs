@@ -296,6 +296,11 @@ fn write_paused_graph_checkpoint(input: PausedGraphCheckpoint<'_>) -> Result<(),
         started_at: Some(crate::time::now_iso8601()),
         resume_skill_ref: Some(input.request.skill_path.to_string_lossy().into_owned()),
         selected_runner: Some(input.runner.name.clone()),
+        credential_profile: input
+            .request
+            .local_credential
+            .as_ref()
+            .and_then(|credential| credential.profile.clone()),
         step_ids: vec![input.request_id.to_owned()],
         step_labels: vec![input.request_id.to_owned()],
     };
@@ -499,9 +504,8 @@ impl crate::adapter::SkillAdapter for SkillRunGraphAdapter {
 }
 
 #[cfg(feature = "cli-tool")]
-fn invoke_graph_cli_tool(mut request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
+fn invoke_graph_cli_tool(request: SkillInvocation) -> Result<SkillOutput, RuntimeError> {
     let credential_observation = request.credential_delivery.public_observation().cloned();
-    request.credential_delivery = CredentialDelivery::none();
     let mut output = CliToolAdapter.invoke(request)?;
     if let Some(observation) = &credential_observation {
         output.record_credential_observation(observation)?;
@@ -1060,7 +1064,7 @@ mod tests {
 
     #[cfg(feature = "cli-tool")]
     #[test]
-    fn graph_cli_tool_receipt_binds_credential_observation_without_secret_delivery()
+    fn graph_cli_tool_receipt_binds_credential_observation_and_redacts_secret_delivery()
     -> Result<(), Box<dyn std::error::Error>> {
         let secret = "credential-secret-must-not-cross-cli-boundary";
         let delivery = crate::credentials::CredentialDelivery::from_local_descriptor(
@@ -1077,7 +1081,7 @@ mod tests {
                 act: None,
                 source_type: SourceKind::CliTool,
                 command: Some("/bin/sh".to_owned()),
-                args: vec!["-c".to_owned(), "true".to_owned()],
+                args: vec!["-c".to_owned(), "printf '%s' \"$TWITTER_TOKEN\"".to_owned()],
                 cwd: None,
                 timeout_seconds: Some(5),
                 input_mode: None,
@@ -1107,6 +1111,7 @@ mod tests {
         let output = invoke_graph_cli_tool(invocation)?;
 
         assert!(output.succeeded());
+        assert_eq!(output.stdout, "[redacted-credential]");
         let metadata = serde_json::to_string(&output.metadata)?;
         assert!(metadata.contains("credential_delivery_observations"));
         assert!(metadata.contains("runx:credential:local:"));

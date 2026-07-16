@@ -9,7 +9,7 @@ use runx_contracts::{
     ExecutionEvent, JsonObject, JsonValue, Question, ResolutionRequest, ResolutionResponse,
 };
 use runx_core::state_machine::GraphStatus;
-use runx_parser::{SkillInput, ValidatedSkill};
+use runx_parser::{SkillInput, SkillRunnerDefinition, ValidatedSkill};
 
 use crate::adapter::{SkillAdapter, SkillInvocation, SkillOutput};
 use crate::host::Host;
@@ -45,11 +45,6 @@ impl McpServerOptions {
         package_version: impl Into<String>,
         execution: McpServerExecutionOptions,
     ) -> Result<Self, RuntimeError> {
-        if let Some(runner) = &execution.runner {
-            return Err(RuntimeError::UnsupportedRunnerSelection {
-                runner: runner.clone(),
-            });
-        }
         let tools = skill_paths
             .iter()
             .map(|path| load_mcp_server_tool(path, &execution))
@@ -67,7 +62,12 @@ pub(super) fn load_mcp_server_tool(
     execution: &McpServerExecutionOptions,
 ) -> Result<McpServerTool, RuntimeError> {
     let skill_path = canonical_skill_path(skill_path)?;
-    let skill = load_skill_for_mcp(&skill_path)?;
+    let skill = load_skill_for_mcp(&skill_path, execution.runner.as_deref())?;
+    let credential_delivery = execution
+        .credential_deliveries
+        .get(&skill_path)
+        .cloned()
+        .unwrap_or_default();
     let required_scopes =
         required_scopes_from_skill(&skill).map_err(|error| RuntimeError::SkillFailed {
             skill_name: skill.name.clone(),
@@ -86,6 +86,7 @@ pub(super) fn load_mcp_server_tool(
             skill,
             receipt_dir: execution.receipt_dir.clone(),
             env: execution.env.clone(),
+            credential_delivery,
         })),
     })
 }
@@ -106,7 +107,10 @@ fn canonical_skill_path(skill_path: &Path) -> Result<PathBuf, RuntimeError> {
         .map_err(|source| RuntimeError::io("canonicalizing skill path", source))
 }
 
-fn load_skill_for_mcp(skill_path: &Path) -> Result<ValidatedSkill, RuntimeError> {
+fn load_skill_for_mcp(
+    skill_path: &Path,
+    requested_runner: Option<&str>,
+) -> Result<ValidatedSkill, RuntimeError> {
     let manifest_path = if skill_path.is_dir() {
         skill_path.join("SKILL.md")
     } else {
@@ -120,7 +124,74 @@ fn load_skill_for_mcp(skill_path: &Path) -> Result<ValidatedSkill, RuntimeError>
     let source = fs::read_to_string(&manifest_path)
         .map_err(|source| RuntimeError::io("reading skill markdown", source))?;
     let raw = runx_parser::parse_skill_markdown(&source)?;
-    runx_parser::validate_skill(raw).map_err(RuntimeError::from)
+    let skill = runx_parser::validate_skill(raw).map_err(RuntimeError::from)?;
+    selected_mcp_runner(skill_path, skill, requested_runner)
+}
+
+fn selected_mcp_runner(
+    skill_path: &Path,
+    skill: ValidatedSkill,
+    requested_runner: Option<&str>,
+) -> Result<ValidatedSkill, RuntimeError> {
+    let skill_dir = crate::execution::skill_front::runner_manifest::resolve_skill_dir(skill_path)
+        .map_err(|error| mcp_runner_error(&skill.name, error))?;
+    if !skill_dir.join("X.yaml").exists() {
+        return match requested_runner {
+            Some(runner) => Err(RuntimeError::UnsupportedRunnerSelection {
+                runner: runner.to_owned(),
+            }),
+            None => Ok(skill),
+        };
+    }
+    let manifest = crate::execution::skill_front::runner_manifest::load_runner_manifest(&skill_dir)
+        .map_err(|error| mcp_runner_error(&skill.name, error))?;
+    let runner = crate::execution::skill_front::runner_manifest::selected_runner(
+        &manifest,
+        requested_runner,
+    )
+    .map_err(|error| mcp_runner_error(&skill.name, error))?;
+    Ok(apply_mcp_runner(skill, runner))
+}
+
+fn apply_mcp_runner(mut skill: ValidatedSkill, runner: &SkillRunnerDefinition) -> ValidatedSkill {
+    let SkillRunnerDefinition {
+        name: _,
+        default: _,
+        source,
+        inputs,
+        credential: _,
+        auth,
+        risk,
+        runtime,
+        retry,
+        idempotency,
+        mutating,
+        artifacts,
+        allowed_tools,
+        execution,
+        runx,
+        raw: _,
+    } = runner.clone();
+    skill.source = source;
+    skill.inputs = inputs;
+    skill.auth = auth;
+    skill.risk = risk;
+    skill.runtime = runtime;
+    skill.retry = retry;
+    skill.idempotency = idempotency;
+    skill.mutating = mutating;
+    skill.artifacts = artifacts;
+    skill.allowed_tools = allowed_tools;
+    skill.execution = execution;
+    skill.runx = runx;
+    skill
+}
+
+fn mcp_runner_error(skill_name: &str, error: impl std::fmt::Display) -> RuntimeError {
+    RuntimeError::SkillFailed {
+        skill_name: skill_name.to_owned(),
+        message: error.to_string(),
+    }
 }
 
 fn skill_inputs_to_json_schema(inputs: &BTreeMap<String, SkillInput>) -> JsonObject {
@@ -218,7 +289,7 @@ fn execute_mcp_server_graph(
             env,
             receipt_signature: receipts.signature_config().clone(),
             effects: Default::default(),
-            credential_delivery: Default::default(),
+            credential_delivery: execution.credential_delivery.clone(),
         },
     );
     let mut host = McpServerHost::default();
@@ -340,7 +411,7 @@ fn invoke_mcp_server_skill(
         current_context: Vec::new(),
         skill_directory: skill_directory_for_execution(&execution.skill_path),
         env: execution.env.clone(),
-        credential_delivery: crate::credentials::CredentialDelivery::none(),
+        credential_delivery: execution.credential_delivery.clone(),
     };
     match execution.skill.source.source_type.as_str() {
         "mcp" => McpAdapter::default().invoke(invocation),

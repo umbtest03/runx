@@ -29,6 +29,8 @@ use crate::receipts::{
 use crate::services::{ReceiptServices, WorkspaceEnv};
 
 mod agent;
+#[cfg(test)]
+mod credential_tests;
 mod graph;
 mod graph_state;
 mod inline_harness;
@@ -161,13 +163,12 @@ fn execute_skill_run_with_resolved_trust(
     }
     let workspace = WorkspaceEnv::new(runtime_env, request.cwd.clone());
     let skill_env = workspace.skill_env_for_skill(skill_dir);
-    if runner.source.source_type == runx_parser::SourceKind::CliTool
-        && request.local_credential.is_some()
-    {
-        return Err(invalid(
-            "local credential process-env delivery is not supported for cli-tool runners",
-        ));
-    }
+    validate_declared_credential(
+        manifest,
+        runner,
+        request.local_credential.as_ref(),
+        &skill_env,
+    )?;
     let invocation = runner_invocation(
         skill_dir,
         runner,
@@ -189,6 +190,79 @@ fn execute_skill_run_with_resolved_trust(
     execute_agent_skill_run(
         request, overrides, &workspace, &receipts, manifest, runner, invocation,
     )
+}
+
+fn validate_declared_credential(
+    manifest: &SkillRunnerManifest,
+    runner: &SkillRunnerDefinition,
+    local: Option<&crate::execution::orchestrator::LocalCredentialDescriptor>,
+    env: &std::collections::BTreeMap<String, String>,
+) -> Result<(), SkillRunError> {
+    let hosted = env
+        .get(crate::credentials::RUNX_HOSTED_CREDENTIAL_HANDLES_JSON_ENV)
+        .filter(|value| !value.trim().is_empty());
+    let Some(requirement_name) = runner.credential.as_ref() else {
+        if local.is_some() || hosted.is_some() {
+            return Err(invalid(format!(
+                "runner '{}' received a credential but declares no credential requirement",
+                runner.name
+            )));
+        }
+        return Ok(());
+    };
+    let requirement = manifest.credentials.get(requirement_name).ok_or_else(|| {
+        invalid(format!(
+            "runner '{}' references undeclared credential '{}'",
+            runner.name, requirement_name
+        ))
+    })?;
+    if let Some(local) = local {
+        return validate_local_credential(local, requirement, runner, requirement_name);
+    }
+    if let Some(hosted) = hosted {
+        return validate_hosted_credential(hosted, &requirement.provider, runner);
+    }
+    Err(invalid(format!(
+        "runner '{}' requires credential '{}' for provider '{}'",
+        runner.name, requirement_name, requirement.provider
+    )))
+}
+
+fn validate_local_credential(
+    local: &crate::execution::orchestrator::LocalCredentialDescriptor,
+    requirement: &runx_parser::CredentialRequirement,
+    runner: &SkillRunnerDefinition,
+    requirement_name: &str,
+) -> Result<(), SkillRunError> {
+    if local.provider == requirement.provider
+        && requirement.deliveries.get(&local.auth_mode) == Some(&local.env_var)
+    {
+        return Ok(());
+    }
+    Err(invalid(format!(
+        "credential provision does not satisfy runner '{}' requirement '{}'",
+        runner.name, requirement_name
+    )))
+}
+
+fn validate_hosted_credential(
+    hosted: &str,
+    required_provider: &str,
+    runner: &SkillRunnerDefinition,
+) -> Result<(), SkillRunError> {
+    let provider = crate::credentials::CredentialDelivery::hosted_handles_provider(hosted)
+        .map_err(|error| {
+            invalid(format!(
+                "hosted credential handle admission failed: {error}"
+            ))
+        })?;
+    if provider.as_deref() == Some(required_provider) {
+        return Ok(());
+    }
+    Err(invalid(format!(
+        "hosted credential does not satisfy runner '{}' provider '{}'",
+        runner.name, required_provider
+    )))
 }
 
 pub(super) fn apply_runner_input_defaults(

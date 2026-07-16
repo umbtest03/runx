@@ -117,13 +117,37 @@ pub const COMMAND_SPECS: &[CommandSpec] = &[
         ],
         usage: &[
             "runx config set <key> <value> [-j|--json]",
+            "runx config set api-key|public-token --from-stdin [-j|--json]",
             "runx config get <key> [-j|--json]",
             "runx config list [-j|--json]",
         ],
         notes: &[
-            "Short keys: provider, model, api-key, and public-token. Fully qualified config keys are also accepted.",
+            "Short keys: provider, model, api-key, and public-token. Fully qualified config keys are also accepted. Secret values are accepted only on stdin.",
         ],
-        options: &["-j, --json"],
+        options: &["--from-stdin", "-j, --json"],
+    },
+    CommandSpec {
+        name: "credential",
+        top_level_usage: &["runx credential set|list|remove|bind ... [-j|--json]"],
+        usage: &[
+            "runx credential set <provider> [--profile name] [--auth-mode mode] --from-stdin [-j|--json]",
+            "runx credential list [-j|--json]",
+            "runx credential remove <profile> [-j|--json]",
+            "runx credential bind <profile> --provider <provider> [-j|--json]",
+            "runx credential bind <profile> --skill <skill> --credential <name> [-j|--json]",
+        ],
+        notes: &[
+            "Secret material is accepted only on stdin. Profiles are stored locally with encrypted-at-rest private files; project bindings contain names only.",
+        ],
+        options: &[
+            "--from-stdin",
+            "--profile name",
+            "--auth-mode mode",
+            "--provider provider",
+            "--skill skill",
+            "--credential name",
+            "-j, --json",
+        ],
     },
     CommandSpec {
         name: "policy",
@@ -212,12 +236,12 @@ pub const COMMAND_SPECS: &[CommandSpec] = &[
         name: "skill",
         top_level_usage: &[],
         usage: &[
-            "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [-j] [--approve-operator-context digest] [--full-operator-context] [--skip-operator-context] [--registry url|path] [--digest sha256] [--flag value] [--credential descriptor --credential-scope scope --secret-env NAME] [-R dir]",
+            "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [-j] [--approve-operator-context digest] [--full-operator-context] [--skip-operator-context] [--registry url|path] [--digest sha256] [--flag value] [-R dir]",
             "runx skill inspect <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-j] [--registry url|path] [--digest sha256]",
         ],
         notes: &[],
         options: &[
-            "-p, --profile name       Use a local credential profile from .runx/credentials.json",
+            "-p, --profile name       Use a stored local credential profile",
             "--credential-profile name  Alias for --profile",
             "-i, --input key=value    Set a structured input; repeat for multiple inputs",
             "--input-json key=json    Set an input that must parse as JSON",
@@ -232,9 +256,6 @@ pub const COMMAND_SPECS: &[CommandSpec] = &[
             "--registry url|path",
             "--digest sha256",
             "--flag value",
-            "--credential descriptor  One-shot local credential descriptor",
-            "--credential-scope scope One granted scope; repeat for multiple scopes",
-            "--secret-env NAME        Env var holding the one-shot credential secret",
         ],
     },
     CommandSpec {

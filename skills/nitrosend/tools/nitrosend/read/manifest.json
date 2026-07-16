@@ -13,7 +13,7 @@
       "network": true,
       "writable_paths": [],
       "require_enforcement": false,
-      "env_allowlist": ["NITROSEND_API_KEY"]
+      "env_allowlist": []
     }
   },
   "inputs": {

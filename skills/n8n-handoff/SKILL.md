@@ -21,7 +21,7 @@ its workflow webhook, canvas, branching, fan-out, and downstream notifications.
 - `send`: validates the context and posts the payload to the n8n webhook.
 
 Use `preflight` for reviews, CI, and local harnesses. Use `send` only after the
-n8n webhook URL and `RUNX_N8N_WEBHOOK_TOKEN` have been configured.
+n8n webhook URL and a `N8N_WEBHOOK_TOKEN` credential profile have been configured.
 
 ## Execution context
 

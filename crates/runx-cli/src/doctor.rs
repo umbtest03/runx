@@ -229,7 +229,7 @@ fn managed_agent_config_diagnostic(
                 ),
                 patch: None,
                 command: Some(
-                    "runx config set agent.provider anthropic && runx config set agent.model <model> && runx config set agent.api_key <key>".to_owned(),
+                    "runx config set agent.provider anthropic && runx config set agent.model <model> && printf '%s' \"$ANTHROPIC_API_KEY\" | runx config set agent.api_key --from-stdin".to_owned(),
                 ),
                 requires_human_review: false,
             }]

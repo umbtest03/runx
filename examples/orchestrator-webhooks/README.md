@@ -20,16 +20,15 @@ receipt expectations.
 
 ## Secret Delivery
 
-The templates use `${secret:RUNX_N8N_WEBHOOK_TOKEN}` and
-`${secret:RUNX_ZAPIER_WEBHOOK_TOKEN}` in HTTP headers. Deliver those with the
-existing local credential flags:
+The templates use `${secret:N8N_WEBHOOK_TOKEN}` and
+`${secret:ZAPIER_WEBHOOK_TOKEN}` in HTTP headers. The n8n runner declares
+its credential requirement in `X.yaml`; store a local profile through stdin:
 
 ```bash
-RUNX_N8N_WEBHOOK_TOKEN=replace-me \
-  runx skill ./examples/orchestrator-webhooks --json \
-  --credential orchestrator:bearer:RUNX_N8N_WEBHOOK_TOKEN \
-  --credential-scope orchestrator.n8n.workflow.invoke \
-  --secret-env RUNX_N8N_WEBHOOK_TOKEN \
+printf '%s' "$N8N_WEBHOOK_TOKEN" | \
+  runx credential set n8n --auth-mode bearer --profile workflow --from-stdin
+
+runx skill ./examples/orchestrator-webhooks --profile workflow --json \
   --event-id n8n-demo-001 \
   --source runx \
   --payload '{"hello":"workflow"}'

@@ -194,7 +194,7 @@ async function main() {
       blockers: [
         auth === "user"
           ? USER_AUTH_BLOCKER
-          : "app-context credential is missing: deliver TWITTER_BEARER_TOKEN via runx skill --credential twitter:bearer:<material_ref> --credential-scope twitter:read --secret-env TWITTER_BEARER_TOKEN",
+          : "app-context credential is missing: configure a twitter profile with auth mode bearer via runx credential set --from-stdin",
       ],
       stop_conditions: ["needs_authority"],
     }));

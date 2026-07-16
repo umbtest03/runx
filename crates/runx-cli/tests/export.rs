@@ -167,6 +167,49 @@ fn codex_global_writes_shim_and_idempotent_permission_block()
 }
 
 #[test]
+fn codex_exports_runtime_self_skill_as_native_instructions()
+-> Result<(), Box<dyn std::error::Error>> {
+    let fixture = ExportFixture::new("runx-export-native-runtime-guide")?;
+    fs::write(
+        fixture.project.join("SKILL.md"),
+        r#"---
+name: runx
+description: Use the Runx runtime.
+source:
+  type: cli-tool
+  command: runx
+inputs:
+  prompt:
+    type: string
+    required: true
+---
+# Runx operator guide
+
+Choose the smallest governed skill and invoke it with `runx skill`.
+"#,
+    )?;
+
+    run_export_command(
+        &ExportPlan {
+            target: Target::Codex,
+            refs: Vec::new(),
+            project: false,
+            json: false,
+        },
+        &fixture.project,
+        &fixture.env,
+    )?;
+
+    let shim = fixture.read_home_file(".codex/skills/runx/SKILL.md")?;
+    assert!(shim.contains("# Runx operator guide"));
+    assert!(shim.contains("Choose the smallest governed skill"));
+    assert!(shim.contains("runx-export:codex"));
+    assert!(!shim.contains("/opt/runx/bin/runx skill"));
+    assert!(!shim.contains("--prompt \"<prompt>\""));
+    Ok(())
+}
+
+#[test]
 fn exports_namespaced_repo_skills_with_codex_safe_names() -> Result<(), Box<dyn std::error::Error>>
 {
     let fixture = ExportFixture::new("runx-export-namespaced")?;

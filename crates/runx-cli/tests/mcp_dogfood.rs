@@ -198,6 +198,105 @@ fn mcp_native_binary_uses_one_workspace_env_snapshot_per_session()
     Ok(())
 }
 
+#[test]
+fn mcp_credential_readiness_fails_at_startup_with_setup_action()
+-> Result<(), Box<dyn std::error::Error>> {
+    let workspace = TestTempDir::new("runx-mcp-missing-credential")?;
+    let skill_dir = write_credential_mcp_skill(workspace.path())?;
+    let mut server =
+        spawn_mcp_server_at(&[skill_dir.display().to_string()], workspace.path(), None)?;
+    let status = server.wait_timeout(Duration::from_secs(10))?;
+    assert!(!status.success());
+    let stderr = server.stderr_string()?;
+    assert!(stderr.contains("needs a example credential"));
+    assert!(stderr.contains("runx credential set example --from-stdin"));
+    Ok(())
+}
+
+#[test]
+fn mcp_credential_readiness_uses_startup_workspace_snapshot()
+-> Result<(), Box<dyn std::error::Error>> {
+    let workspace = TestTempDir::new("runx-mcp-ready-credential")?;
+    fs::write(
+        workspace.path().join(".env"),
+        "MCP_DOGFOOD_CREDENTIAL=credential-snapshot\n",
+    )?;
+    let skill_dir = write_credential_mcp_skill(workspace.path())?;
+    let mut server =
+        spawn_mcp_server_at(&[skill_dir.display().to_string()], workspace.path(), None)?;
+    write_frame(server.stdin_mut()?, &initialize_request(1))?;
+    let initialize = server.read_response("initialize", MCP_INITIALIZE_TIMEOUT)?;
+    assert_eq!(
+        path_text(&initialize, &["result", "protocolVersion"])?,
+        "2025-06-18"
+    );
+    write_frame(server.stdin_mut()?, &initialized_notification())?;
+    write_frame(
+        server.stdin_mut()?,
+        &request(
+            2,
+            "tools/call",
+            json!({"name": "mcp-credential", "arguments": {}}),
+        ),
+    )?;
+    let response = server.read_response("default credential runner", MCP_REQUEST_TIMEOUT)?;
+    assert_eq!(
+        path_text(&response, &["result", "content", "0", "text"])?,
+        "default:[redacted-credential]"
+    );
+    assert!(!response.to_string().contains("credential-snapshot"));
+    server.close_stdin();
+    assert!(server.wait_timeout(Duration::from_secs(10))?.success());
+    assert!(!server.stderr_string()?.contains("credential-snapshot"));
+    Ok(())
+}
+
+#[test]
+fn mcp_selected_runner_matches_its_credential_snapshot() -> Result<(), Box<dyn std::error::Error>> {
+    let workspace = TestTempDir::new("runx-mcp-selected-credential")?;
+    fs::write(
+        workspace.path().join(".env"),
+        "MCP_DOGFOOD_CREDENTIAL=selected-runner-secret\n",
+    )?;
+    let skill_dir = write_credential_mcp_skill(workspace.path())?;
+    let mut server = spawn_mcp_server_at(
+        &[
+            skill_dir.display().to_string(),
+            "--runner".to_owned(),
+            "alternate".to_owned(),
+        ],
+        workspace.path(),
+        None,
+    )?;
+
+    write_frame(server.stdin_mut()?, &initialize_request(1))?;
+    let initialize = server.read_response("initialize", MCP_INITIALIZE_TIMEOUT)?;
+    assert_eq!(
+        path_text(&initialize, &["result", "protocolVersion"])?,
+        "2025-06-18"
+    );
+    write_frame(server.stdin_mut()?, &initialized_notification())?;
+    write_frame(
+        server.stdin_mut()?,
+        &request(
+            2,
+            "tools/call",
+            json!({"name": "mcp-credential", "arguments": {}}),
+        ),
+    )?;
+    let response = server.read_response("alternate credential runner", MCP_REQUEST_TIMEOUT)?;
+    assert_eq!(
+        path_text(&response, &["result", "content", "0", "text"])?,
+        "alternate:[redacted-credential]"
+    );
+    assert!(!response.to_string().contains("selected-runner-secret"));
+
+    server.close_stdin();
+    assert!(server.wait_timeout(Duration::from_secs(10))?.success());
+    assert!(!server.stderr_string()?.contains("selected-runner-secret"));
+    Ok(())
+}
+
 fn spawn_mcp_server(args: &[String]) -> Result<McpProcess, Box<dyn std::error::Error>> {
     let repo_root = repo_root()?;
     spawn_mcp_server_at(args, &repo_root, Some(&repo_root))
@@ -511,6 +610,84 @@ source:
 Return the allowlisted workspace marker.
 "#
         ),
+    )?;
+    Ok(skill_dir)
+}
+
+fn write_credential_mcp_skill(workspace: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let skill_dir = workspace.join("mcp-credential");
+    fs::create_dir_all(&skill_dir)?;
+    let server_path = repo_root()?.join("fixtures/runtime/adapters/mcp/stdio-server.py");
+    let server_arg = serde_json::to_string(&server_path.display().to_string())?;
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        format!(
+            r#"---
+name: mcp-credential
+description: Credential readiness fixture.
+source:
+  type: mcp
+  server:
+    command: python3
+    args:
+      - {server_arg}
+  tool: echo
+  arguments:
+    message: ready
+  sandbox:
+    profile: readonly
+    cwd_policy: workspace
+    require_enforcement: false
+---
+
+Credential readiness fixture.
+"#
+        ),
+    )?;
+    fs::write(
+        skill_dir.join("X.yaml"),
+        r#"
+skill: mcp-credential
+credentials:
+  example:
+    provider: example
+    auth:
+      api_key:
+        delivery:
+          env: MCP_DOGFOOD_CREDENTIAL
+runners:
+  default:
+    default: true
+    type: cli-tool
+    command: sh
+    args:
+      - ./default.sh
+    input_mode: none
+    sandbox:
+      profile: readonly
+      cwd_policy: skill-directory
+      require_enforcement: false
+    credential: example
+  alternate:
+    type: cli-tool
+    command: sh
+    args:
+      - ./alternate.sh
+    input_mode: none
+    sandbox:
+      profile: readonly
+      cwd_policy: skill-directory
+      require_enforcement: false
+    credential: example
+"#,
+    )?;
+    fs::write(
+        skill_dir.join("default.sh"),
+        "printf 'default:%s' \"$MCP_DOGFOOD_CREDENTIAL\"\n",
+    )?;
+    fs::write(
+        skill_dir.join("alternate.sh"),
+        "printf 'alternate:%s' \"$MCP_DOGFOOD_CREDENTIAL\"\n",
     )?;
     Ok(skill_dir)
 }

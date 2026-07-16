@@ -243,13 +243,14 @@
     },
     {
       "id": "config.set",
-      "usage": "runx config set <key> <value>",
+      "usage": "runx config set <key> <value>|--from-stdin",
       "aliases": [],
       "requiredPositionals": [
         "<key>",
         "<value>"
       ],
       "flags": [
+        "--from-stdin",
         "--json"
       ],
       "exitCodes": [
@@ -331,6 +332,42 @@
       },
       "cases": [
         "config.list.execute"
+      ]
+    },
+    {
+      "id": "credential",
+      "usage": "runx credential set|list|remove|bind ...",
+      "aliases": [],
+      "requiredPositionals": [],
+      "flags": [
+        "--from-stdin",
+        "--profile",
+        "--auth-mode",
+        "--provider",
+        "--skill",
+        "--credential",
+        "--json"
+      ],
+      "exitCodes": [
+        0,
+        1,
+        2,
+        3,
+        64
+      ],
+      "parity": {
+        "humanOutput": "semantic",
+        "jsonOutput": "schema-exact",
+        "receipt": "none",
+        "sideEffect": "filesystem",
+        "surfaces": [
+          "config",
+          "skill-resolution",
+          "cli-presentation"
+        ]
+      },
+      "cases": [
+        "credential.validate"
       ]
     },
     {
@@ -746,9 +783,6 @@
         "--registry",
         "--digest",
         "--receipt-dir",
-        "--credential",
-        "--credential-scope",
-        "--secret-env",
         "--non-interactive",
         "--json"
       ],

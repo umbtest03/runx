@@ -201,10 +201,9 @@ keys, so an exported process value always wins. Runx parses the file as data; it
 does not source a shell or mutate the process environment.
 
 Keep `.env` local and ignored by version control. Loading a key makes it
-available to Runx credential/profile resolution, but does not automatically
-expose it to a child process. CLI-tool and MCP subprocesses remain
-deny-by-default and receive only variables admitted by their declared sandbox
-`env_allowlist` (plus runtime-authored `RUNX_*` values).
+available to declared credential resolution, but does not make it ambient child
+configuration. Credential delivery is a separate runtime channel; sandbox
+`env_allowlist` remains for non-secret configuration.
 
 A graph step, or a top-level skill source, can be a governed HTTP call: declare
 `source.type: http` with the `url`, `method`, and `headers`. A **header** value
@@ -216,44 +215,27 @@ step's inputs. A `tool: ns.name` step resolves an `http` tool manifest from
 `RUNX_TOOL_ROOTS`; the namespaced ref is required and is handled correctly when
 offered to an inline agent.
 
-Secrets are delivered per run, never baked into the skill or passed on argv:
+Declare the provider contract on the runner:
 
-```bash
-runx skill <skill> \
-  --credential <provider>:<auth_mode>:<material_ref> \
-  --credential-scope <scope> \
-  --secret-env NAME
+```yaml
+credentials:
+  example-crm:
+    provider: example-crm
+    auth:
+      api_key:
+        delivery:
+          env: EXAMPLE_CRM_TOKEN
+runners:
+  main:
+    type: graph
+    credential: example-crm
 ```
 
-`--secret-env NAME` names an environment variable to deliver as the secret;
-repeat `--credential-scope` for each granted scope. Scopes may use the same
-colon-namespaced vocabulary as tool declarations, such as `twitter:read` or
-`runx:data:append`. The descriptor's entire third segment is the material ref;
-runx never guesses where that reference ends. Each explicit scope must match the
-tool's declared `scopes`. See `examples/byo-http-tool` and
-`examples/http-tool-catalog`.
-
-For repeated local operator runs, keep the secret in project env and put only the
-non-secret descriptor in `.runx/credentials.json`:
-
-```json
-{
-  "profiles": {
-    "operator": {
-      "credential": "frantic:bearer:local://frantic/internal",
-      "secret_env": "INTERNAL_SYNC_SECRET",
-      "scopes": ["frantic:review"]
-    }
-  }
-}
-```
-
-Then run with `-p operator` (or `--profile operator`). If
-`RUNX_CREDENTIAL_PROFILES` is set, runx reads that JSON file instead; otherwise
-it checks the project `.runx/credentials.json` and then the global runx home.
-The profile file never contains the secret value. Its `secret_env` name may
-resolve from the command's process environment or the workspace `.env` using
-the precedence above.
+For durable local use, pipe material into `runx credential set` and select it
+with `--profile`; an ignored `.env` remains the low-friction fallback. See
+[Credential Resolution](./credentials.md) for the manifest contract, resolution
+order, project bindings, multi-auth providers, resume behavior, and MCP startup
+readiness. `examples/byo-http-graph` dogfoods this path end to end.
 
 ## Governed Data Steps
 

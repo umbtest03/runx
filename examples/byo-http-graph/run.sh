@@ -13,13 +13,27 @@ RUNX="${RUNX_BIN:-$OSS/crates/target/debug/runx}"
 export RUNX_RECEIPT_SIGN_KID="${RUNX_RECEIPT_SIGN_KID:-runx-demo-key}"
 export RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64="${RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64:-QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=}"
 export RUNX_RECEIPT_SIGN_ISSUER_TYPE="${RUNX_RECEIPT_SIGN_ISSUER_TYPE:-hosted}"
+export RUNX_HTTP_ALLOW_PRIVATE_NETWORK=1
 
-# Local, one-run credential. This value is passed through --secret-env, never on argv.
-export RUNX_EXAMPLE_CRM_TOKEN="${RUNX_EXAMPLE_CRM_TOKEN:-crm_demo_secret}"
+# Isolate the demo profile from the operator's real Runx home. The value crosses
+# the CLI boundary only on stdin and is removed from the child environment.
+export RUNX_HOME="$(mktemp -d 2>/dev/null || echo /tmp/runx-byo-http-home)"
+CRM_TOKEN="${EXAMPLE_CRM_TOKEN:-crm_demo_secret}"
+unset EXAMPLE_CRM_TOKEN
+printf '%s' "$CRM_TOKEN" | "$RUNX" credential set example-crm \
+  --profile demo \
+  --auth-mode api_key \
+  --from-stdin >/dev/null
 
-node "$HERE/server.mjs" &
+EXAMPLE_CRM_TOKEN="$CRM_TOKEN" node "$HERE/server.mjs" &
 SERVER=$!
-trap 'kill $SERVER 2>/dev/null || true' EXIT
+unset CRM_TOKEN
+cleanup() {
+  kill "$SERVER" 2>/dev/null || true
+  wait "$SERVER" 2>/dev/null || true
+  rm -rf "$RUNX_HOME"
+}
+trap cleanup EXIT
 sleep 1
 kill -0 "$SERVER" 2>/dev/null || { echo "BYO HTTP fixture server did not start." >&2; exit 1; }
 
@@ -27,9 +41,8 @@ RDIR="$(mktemp -d 2>/dev/null || echo /tmp/runx-byo-http-demo)"
 OUT="$(mktemp 2>/dev/null || echo /tmp/runx-byo-http-output)"
 "$RUNX" skill "$OSS/examples/byo-http-graph" \
   --account-id acct-42 \
-  --credential example-crm:api_key:local-demo \
-  --credential-scope crm.account.read \
-  --secret-env RUNX_EXAMPLE_CRM_TOKEN \
+  --profile demo \
+  --skip-operator-context \
   --receipt-dir "$RDIR" \
   --json > "$OUT"
 
@@ -41,7 +54,7 @@ const path = require("node:path");
 const root = process.argv[2];
 const expectedCredentialRef = `runx:credential:local:${crypto
   .createHash("sha256")
-  .update("local-demo")
+  .update("local:example-crm:demo")
   .digest("hex")}`;
 const statesRoot = path.join(root, "runs");
 const stateFiles = fs.existsSync(statesRoot)

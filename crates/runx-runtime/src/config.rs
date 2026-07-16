@@ -24,6 +24,25 @@ pub struct RunxConfigFile {
     pub agent: Option<RunxAgentConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub public: Option<RunxPublicConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credentials: Option<RunxCredentialsConfig>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RunxCredentialsConfig {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub profiles: BTreeMap<String, RunxCredentialProfile>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub defaults: BTreeMap<String, String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RunxCredentialProfile {
+    pub provider: String,
+    pub auth_mode: String,
+    pub secret_ref: String,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -273,6 +292,11 @@ pub fn mask_runx_config_file(config: &RunxConfigFile) -> RunxConfigFile {
     {
         public.api_token_ref = Some("[encrypted]".to_owned());
     }
+    if let Some(credentials) = masked.credentials.as_mut() {
+        for profile in credentials.profiles.values_mut() {
+            profile.secret_ref = "[encrypted]".to_owned();
+        }
+    }
     masked
 }
 
@@ -285,6 +309,32 @@ pub fn load_local_public_api_token(
     token_ref: &str,
 ) -> Result<String, ConfigError> {
     load_local_config_secret_value(config_dir, token_ref)
+}
+
+pub fn store_local_credential_secret(
+    config_dir: &Path,
+    value: &str,
+) -> Result<String, ConfigError> {
+    store_local_config_secret_value(config_dir, value, "local_credential")
+}
+
+pub fn load_local_credential_secret(
+    config_dir: &Path,
+    secret_ref: &str,
+) -> Result<String, ConfigError> {
+    load_local_config_secret_value(config_dir, secret_ref)
+}
+
+pub fn remove_local_credential_secret(
+    config_dir: &Path,
+    secret_ref: &str,
+) -> Result<(), ConfigError> {
+    let path = config_dir.join("keys").join(format!("{secret_ref}.json"));
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(ConfigError::Io(error)),
+    }
 }
 
 fn load_local_config_secret_value(config_dir: &Path, key_ref: &str) -> Result<String, ConfigError> {

@@ -288,6 +288,16 @@ pub struct SkillArtifactContract {
     pub packet: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CredentialRequirement {
+    pub provider: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audience: Option<String>,
+    /// Supported authentication modes mapped to their process delivery name.
+    pub deliveries: BTreeMap<String, String>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ValidateSkillMode {
     Strict,
@@ -365,6 +375,8 @@ pub struct SkillRunnerDefinition {
     pub default: bool,
     pub source: SkillSource,
     pub inputs: BTreeMap<String, SkillInput>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credential: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auth: Option<JsonValue>,
     #[serde(skip_serializing_if = "Option::is_none")]

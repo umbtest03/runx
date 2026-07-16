@@ -1,5 +1,5 @@
 skill: twitter
-version: "0.1.0"
+version: "0.1.1"
 catalog:
   kind: skill
   audience: public
@@ -8,10 +8,29 @@ catalog:
   canonical_skill: runx/send-as
   provider: twitter
   runtime_path: twitter
+credentials:
+  twitter-read:
+    provider: twitter
+    audience: https://api.x.com
+    auth:
+      oauth1_user:
+        delivery:
+          env: TWITTER_USER_AUTH
+      bearer:
+        delivery:
+          env: TWITTER_BEARER_TOKEN
+  twitter-user:
+    provider: twitter
+    audience: https://api.x.com
+    auth:
+      oauth1_user:
+        delivery:
+          env: TWITTER_USER_AUTH
 runners:
   read:
     default: true
     type: graph
+    credential: twitter-read
     runx:
       category: growth
     inputs:
@@ -86,6 +105,7 @@ runners:
         description: Extra operator guardrails.
   execute:
     type: graph
+    credential: twitter-user
     act:
       purpose: Execute one approved twitter act plan, act by act, and nothing beyond it.
     inputs:

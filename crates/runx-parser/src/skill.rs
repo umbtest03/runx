@@ -3,6 +3,7 @@ use runx_contracts::{ExecutionSemantics, JsonObject, JsonValue};
 use crate::{ValidationError, json_fields::JsonFieldReader};
 
 mod catalog;
+mod credential;
 mod execution_semantics;
 mod fixtures;
 mod governance;
@@ -24,12 +25,16 @@ pub use governance::validate_skill_artifact_contract;
 pub use markdown::parse_skill_markdown;
 pub use source::validate_skill_source;
 pub use types::{
-    ActDeclaration, InputMode, RawSkillIr, SkillArtifactContract, SkillHttpSource,
-    SkillIdempotencyPolicy, SkillInput, SkillMcpServer, SkillRetryPolicy, SkillRunnerDefinition,
-    SkillSandbox, SkillSource, SourceKind, ValidateSkillMode, ValidateSkillOptions, ValidatedSkill,
+    ActDeclaration, CredentialRequirement, InputMode, RawSkillIr, SkillArtifactContract,
+    SkillHttpSource, SkillIdempotencyPolicy, SkillInput, SkillMcpServer, SkillRetryPolicy,
+    SkillRunnerDefinition, SkillSandbox, SkillSource, SourceKind, ValidateSkillMode,
+    ValidateSkillOptions, ValidatedSkill,
 };
 
 pub(crate) use catalog::validate_catalog_metadata;
+pub(crate) use credential::{
+    validate_credential_requirements, validate_runner_credential_references,
+};
 pub(crate) use fixtures::validate_harness_manifest;
 pub(crate) use runner_definition::validate_runner_definition;
 

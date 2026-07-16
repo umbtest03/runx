@@ -185,6 +185,7 @@ fn unauthenticated_environment_does_not_load_stored_credentials()
                 api_token_ref: Some("missing-encrypted-token".to_owned()),
                 principal_id: Some("stored-principal".to_owned()),
             }),
+            credentials: None,
         },
     )?;
 

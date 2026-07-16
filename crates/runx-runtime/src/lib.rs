@@ -23,6 +23,7 @@ mod agent_contract;
 mod agent_invocation;
 pub mod approval;
 pub mod config;
+pub mod credential_resolver;
 pub mod credentials;
 pub mod dev;
 pub mod doctor;
@@ -75,11 +76,20 @@ pub use adapter::{
 pub use approval::{ApprovalError, LocalApprovalGateResolver, request_approval};
 pub use config::{
     ConfigError, ConfigKey, LocalProfileSource, ManagedAgentConfig, RunxAgentConfig,
-    RunxConfigFile, RunxPublicConfig, load_local_agent_api_key, load_local_public_api_token,
+    RunxConfigFile, RunxCredentialProfile, RunxCredentialsConfig, RunxPublicConfig,
+    load_local_agent_api_key, load_local_credential_secret, load_local_public_api_token,
     load_managed_agent_config, load_runx_config_file, lookup_runx_config_value,
-    managed_agent_provider, mask_runx_config_file, parse_config_key, resolve_local_skill_profile,
-    resolve_path_from_user_input, resolve_runx_global_home_dir, resolve_runx_home_dir,
-    resolve_runx_workspace_base, update_runx_config_value, write_runx_config_file,
+    managed_agent_provider, mask_runx_config_file, parse_config_key,
+    remove_local_credential_secret, resolve_local_skill_profile, resolve_path_from_user_input,
+    resolve_runx_global_home_dir, resolve_runx_home_dir, resolve_runx_workspace_base,
+    store_local_credential_secret, update_runx_config_value, write_runx_config_file,
+};
+pub use credential_resolver::{
+    CredentialBindingsFile, CredentialProfileSummary, ResolvedSkillCredential,
+    SkillCredentialContext, SkillCredentialError, SkillCredentialRequest,
+    SkillCredentialResolution, SkillCredentialSource, bind_project_credential,
+    list_local_credential_profiles, load_project_bindings, remove_local_credential_profile,
+    resolve_skill_credential, resolve_skill_credential_for_path, set_local_credential_profile,
 };
 pub use credentials::{
     CredentialDelivery, CredentialDeliveryError, CredentialDeliveryProfile, CredentialMaterialRole,
@@ -151,7 +161,10 @@ pub use runner::{
     RuntimeOptions, StepRun,
 };
 pub use runx_core::kernel_eval;
-pub use runx_parser::{SkillSource, parse_runner_manifest_yaml, validate_runner_manifest};
+pub use runx_parser::{
+    CredentialRequirement, SkillRunnerDefinition, SkillRunnerManifest, SkillSource,
+    parse_runner_manifest_yaml, validate_runner_manifest,
+};
 pub use runx_receipts::ReceiptTreeConfig;
 pub use scaffold::{
     InitAction, InitGeneratedValues, RunxInitOptions, RunxInitResult, RunxNewOptions,

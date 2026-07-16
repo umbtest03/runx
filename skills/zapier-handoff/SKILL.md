@@ -22,7 +22,7 @@ operator-owned Zap that receives governed effects from runx.
 - `send`: validates the context and posts the payload to the Zapier Catch Hook.
 
 Use `preflight` for reviews, CI, and local harnesses. Use `send` only after the
-Zapier Catch Hook path and `RUNX_ZAPIER_WEBHOOK_TOKEN` have been configured.
+Zapier Catch Hook path and a `ZAPIER_WEBHOOK_TOKEN` credential profile have been configured.
 
 ## Execution context
 

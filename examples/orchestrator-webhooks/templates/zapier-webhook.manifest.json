@@ -8,7 +8,7 @@
     "url": "https://hooks.zapier.com/hooks/catch/000000/runx-governed-effect/",
     "method": "POST",
     "headers": {
-      "authorization": "Bearer ${secret:RUNX_ZAPIER_WEBHOOK_TOKEN}",
+      "authorization": "Bearer ${secret:ZAPIER_WEBHOOK_TOKEN}",
       "content-type": "application/json",
       "x-runx-handoff-scope": "orchestrator.zapier.workflow.invoke",
       "x-runx-handoff-audience": "zapier:zap:runx-governed-effect"

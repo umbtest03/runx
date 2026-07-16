@@ -223,6 +223,48 @@ fn native_skill_positional_runner_selects_non_default_runner()
 }
 
 #[test]
+fn native_skill_inspect_reports_declared_credential_readiness()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = crate::support::temp_root("runx-skill-credential-inspect");
+    let skill_dir = write_credential_skill(&root)?;
+
+    let missing = runx_command()
+        .current_dir(&root)
+        .env_remove("EXAMPLE_API_KEY")
+        .args([
+            "skill",
+            "inspect",
+            skill_dir.to_str().ok_or("non-utf8 skill dir")?,
+            "--json",
+        ])
+        .output()?;
+    let missing_json = assert_json(&missing, Some(0))?;
+    assert_eq!(missing_json["readiness"]["status"], "needs_credential");
+    assert_eq!(missing_json["credential"]["provider"], "example");
+    assert_eq!(missing_json["credential"]["status"], "missing");
+    assert_eq!(
+        missing_json["credential"]["setup"][0],
+        "runx credential set example --from-stdin"
+    );
+
+    let ready = runx_command()
+        .current_dir(&root)
+        .env("EXAMPLE_API_KEY", "inspect-secret-sentinel")
+        .args([
+            "skill",
+            "inspect",
+            skill_dir.to_str().ok_or("non-utf8 skill dir")?,
+            "--json",
+        ])
+        .output()?;
+    let ready_json = assert_json(&ready, Some(0))?;
+    assert_eq!(ready_json["readiness"]["status"], "ready");
+    assert_eq!(ready_json["credential"]["status"], "ready");
+    assert!(!String::from_utf8(ready.stdout)?.contains("inspect-secret-sentinel"));
+    Ok(())
+}
+
+#[test]
 fn native_skill_exported_shim_resolves_to_source_skill() -> Result<(), Box<dyn std::error::Error>> {
     let root = crate::support::temp_root("runx-skill-exported-shim");
     let source_dir = write_agent_task_skill(&root.join("source with spaces"))?;
@@ -830,6 +872,36 @@ runners:
     task: second-task
     outputs:
       result: object
+"#,
+    )?;
+    Ok(skill_dir)
+}
+
+fn write_credential_skill(root: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let skill_dir = root.join("credential-skill");
+    fs::create_dir_all(&skill_dir)?;
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: credential-skill\n---\n# Credential Skill\n",
+    )?;
+    fs::write(
+        skill_dir.join("X.yaml"),
+        r#"
+skill: credential-skill
+credentials:
+  example:
+    provider: example
+    audience: https://api.example.com
+    auth:
+      api_key:
+        delivery:
+          env: EXAMPLE_API_KEY
+runners:
+  status:
+    default: true
+    type: cli-tool
+    command: example-status
+    credential: example
 "#,
     )?;
     Ok(skill_dir)

@@ -4,8 +4,9 @@ use runx_contracts::{JsonObject, JsonValue};
 use serde::{Deserialize, Serialize};
 
 use crate::skill::{
-    CatalogMetadata, RunnerHarnessManifest, SkillRunnerDefinition, validate_catalog_metadata,
-    validate_harness_manifest, validate_runner_definition,
+    CatalogMetadata, CredentialRequirement, RunnerHarnessManifest, SkillRunnerDefinition,
+    validate_catalog_metadata, validate_credential_requirements, validate_harness_manifest,
+    validate_runner_credential_references, validate_runner_definition,
 };
 use crate::{
     ParseError, ValidationError, assert_execution_profile_yaml_subset,
@@ -14,7 +15,15 @@ use crate::{
 
 const FIELDS: JsonFieldReader = JsonFieldReader::new("runner_manifest");
 const MANIFEST_FIELDS: &[&str] = &[
-    "skill", "version", "runx", "policy", "emits", "catalog", "runners", "harness",
+    "skill",
+    "version",
+    "runx",
+    "policy",
+    "emits",
+    "catalog",
+    "credentials",
+    "runners",
+    "harness",
 ];
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -37,6 +46,8 @@ pub struct SkillRunnerManifest {
     pub emits: Option<runx_contracts::JsonValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub catalog: Option<CatalogMetadata>,
+    #[serde(default)]
+    pub credentials: BTreeMap<String, CredentialRequirement>,
     pub runners: BTreeMap<String, SkillRunnerDefinition>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub harness: Option<RunnerHarnessManifest>,
@@ -78,6 +89,9 @@ pub fn validate_runner_manifest(
         );
     }
 
+    let credentials = validate_credential_requirements(raw.document.get("credentials"))?;
+    validate_runner_credential_references(&runners, &credentials)?;
+
     let harness = validate_harness_manifest(
         FIELDS.optional_object(raw.document.get("harness"), "harness")?,
         "harness",
@@ -95,6 +109,7 @@ pub fn validate_runner_manifest(
         policy: raw.document.get("policy").cloned(),
         emits: raw.document.get("emits").cloned(),
         catalog,
+        credentials,
         runners,
         harness,
         raw,

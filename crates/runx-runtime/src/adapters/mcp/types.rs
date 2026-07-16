@@ -45,6 +45,9 @@ pub struct McpServerExecutionOptions {
     pub runner: Option<String>,
     pub receipt_dir: Option<PathBuf>,
     pub env: BTreeMap<String, String>,
+    /// Credential deliveries resolved once at server startup, keyed by the
+    /// canonical skill path they may serve.
+    pub credential_deliveries: BTreeMap<PathBuf, crate::credentials::CredentialDelivery>,
 }
 
 impl Default for McpServerExecutionOptions {
@@ -53,6 +56,7 @@ impl Default for McpServerExecutionOptions {
             runner: None,
             receipt_dir: None,
             env: process_env_snapshot(),
+            credential_deliveries: BTreeMap::new(),
         }
     }
 }
@@ -78,6 +82,7 @@ pub struct McpServerSkillExecution {
     pub skill: ValidatedSkill,
     pub receipt_dir: Option<PathBuf>,
     pub env: BTreeMap<String, String>,
+    pub credential_delivery: crate::credentials::CredentialDelivery,
 }
 
 #[derive(Clone, Debug, PartialEq)]

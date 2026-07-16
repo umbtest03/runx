@@ -2,13 +2,10 @@
 // option finalization in one module until the native parser surface stabilizes.
 use std::collections::BTreeMap;
 use std::ffi::OsString;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use runx_contracts::JsonValue;
-use runx_runtime::orchestrator::LocalCredentialDescriptor;
-use runx_runtime::{WorkspaceEnv, resolve_path_from_user_input, resolve_runx_home_dir};
-use serde::Deserialize;
+use runx_runtime::WorkspaceEnv;
 
 use super::inputs::{parse_direct_input_arg, parse_input_arg, parse_json_input_arg};
 use super::{SkillAction, SkillPlan};
@@ -21,7 +18,7 @@ pub fn parse_skill_plan(args: &[OsString]) -> Result<SkillPlan, String> {
 
 pub fn parse_skill_plan_with_workspace(
     args: &[OsString],
-    workspace: &WorkspaceEnv,
+    _workspace: &WorkspaceEnv,
 ) -> Result<SkillPlan, String> {
     let mut state = SkillParseState::default();
     let mut index = 1;
@@ -30,8 +27,6 @@ pub fn parse_skill_plan_with_workspace(
         index = parse_skill_arg(args, index, &mut state)?;
         index += 1;
     }
-
-    let local_credential = finalize_local_credential(&state, workspace.env(), workspace.cwd())?;
 
     let Some(skill_path) = state.skill_path.as_ref() else {
         return Err("runx skill requires a skill package path".to_owned());
@@ -59,7 +54,7 @@ pub fn parse_skill_plan_with_workspace(
         full_operator_context: state.full_operator_context,
         approve_operator_context: state.approve_operator_context,
         inputs: state.inputs,
-        local_credential,
+        credential_profile: state.credential_profile,
     })
 }
 
@@ -80,245 +75,7 @@ struct SkillParseState {
     inspect: bool,
     force_run: bool,
     inputs: BTreeMap<String, JsonValue>,
-    credential: Option<CredentialBinding>,
-    credential_scopes: Vec<String>,
     credential_profile: Option<String>,
-    secret_env: Option<String>,
-}
-
-struct CredentialBinding {
-    provider: String,
-    auth_mode: String,
-    material_ref: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct CredentialProfilesFile {
-    profiles: BTreeMap<String, CredentialProfile>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct CredentialProfile {
-    credential: String,
-    secret_env: String,
-    scopes: Vec<String>,
-}
-
-fn parse_credential_binding(value: &str) -> Result<CredentialBinding, String> {
-    let (provider, rest) = value.split_once(':').ok_or_else(credential_usage_error)?;
-    let provider = non_empty_credential_part(provider)?;
-    let (auth_mode, rest) = rest.split_once(':').ok_or_else(credential_usage_error)?;
-    let auth_mode = non_empty_credential_part(auth_mode)?;
-    let material_ref = non_empty_credential_part(rest)?;
-    Ok(CredentialBinding {
-        provider: provider.to_owned(),
-        auth_mode: auth_mode.to_owned(),
-        material_ref: material_ref.to_owned(),
-    })
-}
-
-fn parse_credential_scope(value: &str) -> Result<String, String> {
-    let value = value.trim();
-    if value.is_empty() {
-        return Err("runx skill --credential-scope requires a non-empty scope".to_owned());
-    }
-    Ok(value.to_owned())
-}
-
-fn normalized_credential_scopes(scopes: &[String]) -> Result<Vec<String>, String> {
-    if scopes.is_empty() {
-        return Err(
-            "runx skill credential binding requires at least one --credential-scope <scope>"
-                .to_owned(),
-        );
-    }
-    let mut normalized = scopes
-        .iter()
-        .map(|scope| parse_credential_scope(scope))
-        .collect::<Result<Vec<_>, _>>()?;
-    normalized.sort();
-    normalized.dedup();
-    Ok(normalized)
-}
-
-fn non_empty_credential_part(value: &str) -> Result<&str, String> {
-    let value = value.trim();
-    if value.is_empty() {
-        return Err(credential_usage_error());
-    }
-    Ok(value)
-}
-
-fn credential_usage_error() -> String {
-    "runx skill --credential requires <provider>:<auth_mode>:<material_ref>".to_owned()
-}
-
-fn parse_secret_env_name(value: &str) -> Result<String, String> {
-    if value.contains('=') {
-        return Err(
-            "runx skill --secret-env accepts an environment variable name, not an inline value"
-                .to_owned(),
-        );
-    }
-    let name = value.trim();
-    if name.is_empty() {
-        return Err("runx skill --secret-env requires a non-empty env var name".to_owned());
-    }
-    Ok(name.to_owned())
-}
-
-fn resolve_secret_env(
-    name: &str,
-    lookup: impl Fn(&str) -> Option<String>,
-) -> Result<(String, String), String> {
-    let secret = lookup(name)
-        .ok_or_else(|| format!("runx skill --secret-env env var '{name}' is not set"))?;
-    if secret.trim().is_empty() {
-        return Err("runx skill --secret-env requires a non-empty secret value".to_owned());
-    }
-    Ok((name.to_owned(), secret.to_owned()))
-}
-
-fn finalize_local_credential(
-    state: &SkillParseState,
-    env: &BTreeMap<String, String>,
-    cwd: &Path,
-) -> Result<Option<LocalCredentialDescriptor>, String> {
-    if let Some(profile_name) = state.credential_profile.as_ref() {
-        if state.credential.is_some()
-            || state.secret_env.is_some()
-            || !state.credential_scopes.is_empty()
-        {
-            return Err(
-                "runx skill --credential-profile cannot be combined with --credential, --credential-scope, or --secret-env"
-                    .to_owned(),
-            );
-        }
-        let profile = load_credential_profile(profile_name, env, cwd)?;
-        let credential = parse_credential_binding(&profile.credential)?;
-        let scopes = normalized_credential_scopes(&profile.scopes).map_err(|error| {
-            format!("runx skill credential profile '{profile_name}' is invalid: {error}")
-        })?;
-        let secret_env = resolve_secret_env(&profile.secret_env, |name| env.get(name).cloned())?;
-        return Ok(Some(local_credential_descriptor(
-            &credential,
-            &scopes,
-            &secret_env,
-        )));
-    }
-    let Some(binding) = state.credential.as_ref() else {
-        if !state.credential_scopes.is_empty() {
-            return Err("runx skill --credential-scope requires --credential".to_owned());
-        }
-        return match &state.secret_env {
-            None => Ok(None),
-            Some(_) => Err(
-                "runx skill --secret-env requires --credential <provider>:<auth_mode>:<material_ref>"
-                    .to_owned(),
-            ),
-        };
-    };
-    let Some(env_var) = state.secret_env.as_ref() else {
-        return Err("runx skill --credential requires --secret-env <ENV_VAR>".to_owned());
-    };
-    let scopes = normalized_credential_scopes(&state.credential_scopes)?;
-    let secret_env = resolve_secret_env(env_var, |name| env.get(name).cloned())?;
-    Ok(Some(local_credential_descriptor(
-        binding,
-        &scopes,
-        &secret_env,
-    )))
-}
-
-fn local_credential_descriptor(
-    binding: &CredentialBinding,
-    scopes: &[String],
-    secret_env: &(String, String),
-) -> LocalCredentialDescriptor {
-    LocalCredentialDescriptor {
-        provider: binding.provider.clone(),
-        auth_mode: binding.auth_mode.clone(),
-        env_var: secret_env.0.clone(),
-        material_ref: binding.material_ref.clone(),
-        scopes: scopes.to_vec(),
-        secret: secret_env.1.clone(),
-    }
-}
-
-fn load_credential_profile(
-    profile_name: &str,
-    env: &BTreeMap<String, String>,
-    cwd: &Path,
-) -> Result<CredentialProfile, String> {
-    let profile_name = profile_name.trim();
-    if profile_name.is_empty() {
-        return Err("runx skill --credential-profile requires a non-empty name".to_owned());
-    }
-    let paths = credential_profile_paths(env, cwd);
-    for path in &paths {
-        let contents = match fs::read_to_string(path) {
-            Ok(contents) => contents,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
-            Err(error) => {
-                return Err(format!(
-                    "runx skill could not read credential profile file {}: {error}",
-                    path.display()
-                ));
-            }
-        };
-        let parsed: CredentialProfilesFile = serde_json::from_str(&contents).map_err(|error| {
-            format!(
-                "runx skill credential profile file {} is invalid JSON: {error}",
-                path.display()
-            )
-        })?;
-        if let Some(profile) = parsed.profiles.into_iter().find_map(|(name, profile)| {
-            if name == profile_name {
-                Some(profile)
-            } else {
-                None
-            }
-        }) {
-            return Ok(profile);
-        }
-    }
-    let searched = paths
-        .iter()
-        .map(|path| path.display().to_string())
-        .collect::<Vec<_>>()
-        .join(", ");
-    Err(format!(
-        "runx skill credential profile '{profile_name}' was not found; searched {searched}"
-    ))
-}
-
-fn credential_profile_paths(env: &BTreeMap<String, String>, cwd: &Path) -> Vec<PathBuf> {
-    if let Some(path) = env
-        .get("RUNX_CREDENTIAL_PROFILES")
-        .filter(|value| !value.trim().is_empty())
-    {
-        return vec![resolve_path_from_user_input(path, env, cwd, true)];
-    }
-    let mut paths = Vec::new();
-    if let Some(project_dir) = env
-        .get("RUNX_PROJECT_DIR")
-        .filter(|value| !value.trim().is_empty())
-        .map(|value| resolve_path_from_user_input(value, env, cwd, true))
-        .or_else(|| nearest_project_runx_dir(cwd))
-    {
-        paths.push(project_dir.join("credentials.json"));
-    }
-    paths.push(resolve_runx_home_dir(env, cwd).join("credentials.json"));
-    paths.dedup();
-    paths
-}
-
-fn nearest_project_runx_dir(cwd: &Path) -> Option<PathBuf> {
-    cwd.ancestors()
-        .map(|ancestor| ancestor.join(".runx"))
-        .find(|candidate| candidate.is_dir())
 }
 
 fn reject_resolver_flags_for_skill_management_action(
@@ -345,7 +102,7 @@ fn is_skill_management_action(skill_path: &Path) -> bool {
 }
 
 // rust-style-allow: long-function because this is the single skill-flag dispatch
-// match (--receipt-dir/--json/--credential and positionals); splitting the
+// match (--receipt-dir/--json/--profile and positionals); splitting the
 // arms would scatter the CLI parse contract.
 fn parse_skill_arg(
     args: &[OsString],
@@ -454,25 +211,18 @@ fn parse_skill_arg(
         "--input-json" => index = parse_json_input_arg(args, index, None, &mut state.inputs)?,
         "-i" => index = parse_input_arg(args, index, None, &mut state.inputs)?,
         "--run" => state.force_run = true,
-        value if value.starts_with("--credential=") => {
-            state.credential = Some(parse_credential_binding(
-                value.trim_start_matches("--credential="),
-            )?);
-        }
-        "--credential" => {
-            index += 1;
-            state.credential = Some(parse_credential_binding(&string_arg(args, index)?)?);
-        }
-        value if value.starts_with("--credential-scope=") => {
-            state.credential_scopes.push(parse_credential_scope(
-                value.trim_start_matches("--credential-scope="),
-            )?);
-        }
-        "--credential-scope" => {
-            index += 1;
-            state
-                .credential_scopes
-                .push(parse_credential_scope(&string_arg(args, index)?)?);
+        value
+            if value == "--credential"
+                || value.starts_with("--credential=")
+                || value == "--credential-scope"
+                || value.starts_with("--credential-scope=")
+                || value == "--secret-env"
+                || value.starts_with("--secret-env=") =>
+        {
+            return Err(
+                "one-shot credential flags are retired; declare the runner credential and use `runx credential set <provider> --from-stdin`"
+                    .to_owned(),
+            );
         }
         value if value.starts_with("--credential-profile=") => {
             state.credential_profile = Some(non_empty_flag_value(
@@ -499,15 +249,6 @@ fn parse_skill_arg(
                 "--profile",
                 &string_arg(args, index)?,
             )?);
-        }
-        value if value.starts_with("--secret-env=") => {
-            state.secret_env = Some(parse_secret_env_name(
-                value.trim_start_matches("--secret-env="),
-            )?);
-        }
-        "--secret-env" => {
-            index += 1;
-            state.secret_env = Some(parse_secret_env_name(&string_arg(args, index)?)?);
         }
         "--json" | "-j" => state.json = true,
         value if value.starts_with("--approve-operator-context=") => {
@@ -614,115 +355,7 @@ fn path_arg(args: &[OsString], index: usize, flag: &str) -> Result<OsString, Str
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    use super::{
-        SkillAction, SkillParseState, finalize_local_credential, parse_credential_binding,
-    };
-
-    #[test]
-    fn credential_profile_resolves_project_descriptor_and_env_secret() -> Result<(), String> {
-        let root = unique_temp_dir("runx-credential-profile")?;
-        let runx_dir = root.join(".runx");
-        fs::create_dir_all(&runx_dir).map_err(|error| error.to_string())?;
-        fs::write(
-            runx_dir.join("credentials.json"),
-            r#"{
-  "profiles": {
-    "example": {
-      "credential": "example:bearer:local://example/internal",
-      "secret_env": "INTERNAL_SYNC_SECRET",
-      "scopes": ["example:review"]
-    }
-  }
-}
-"#,
-        )
-        .map_err(|error| error.to_string())?;
-
-        let state = SkillParseState {
-            credential_profile: Some("example".to_owned()),
-            ..Default::default()
-        };
-        let env = [
-            (
-                "RUNX_PROJECT_DIR".to_owned(),
-                runx_dir.to_string_lossy().into_owned(),
-            ),
-            ("INTERNAL_SYNC_SECRET".to_owned(), "secret-value".to_owned()),
-        ]
-        .into_iter()
-        .collect();
-        let credential = finalize_local_credential(&state, &env, &root)?
-            .ok_or_else(|| "credential profile did not resolve".to_owned())?;
-
-        assert_eq!(credential.provider, "example");
-        assert_eq!(credential.auth_mode, "bearer");
-        assert_eq!(credential.material_ref, "local://example/internal");
-        assert_eq!(credential.env_var, "INTERNAL_SYNC_SECRET");
-        assert_eq!(credential.secret, "secret-value");
-        assert_eq!(credential.scopes, vec!["example:review"]);
-
-        fs::remove_dir_all(root).map_err(|error| error.to_string())?;
-        Ok(())
-    }
-
-    #[test]
-    fn credential_descriptor_preserves_colons_and_scopes_are_explicit() -> Result<(), String> {
-        let binding = parse_credential_binding("twitter:oauth1_user:ref:twitter:primary")?;
-        let state = SkillParseState {
-            credential: Some(binding),
-            credential_scopes: vec![
-                "twitter:write".to_owned(),
-                "twitter:read".to_owned(),
-                "twitter:read".to_owned(),
-            ],
-            secret_env: Some("TWITTER_TOKEN".to_owned()),
-            ..Default::default()
-        };
-        let env = [("TWITTER_TOKEN".to_owned(), "secret-value".to_owned())]
-            .into_iter()
-            .collect();
-
-        let credential = finalize_local_credential(&state, &env, &std::env::temp_dir())?
-            .ok_or_else(|| "credential did not resolve".to_owned())?;
-
-        assert_eq!(credential.material_ref, "ref:twitter:primary");
-        assert_eq!(credential.scopes, vec!["twitter:read", "twitter:write"]);
-        Ok(())
-    }
-
-    #[test]
-    fn credential_descriptor_does_not_infer_a_trailing_scope() -> Result<(), String> {
-        let binding = parse_credential_binding("twitter:oauth1_user:ref:twitter:read")?;
-        let state = SkillParseState {
-            credential: Some(binding),
-            secret_env: Some("TWITTER_TOKEN".to_owned()),
-            ..Default::default()
-        };
-
-        let error = finalize_local_credential(&state, &Default::default(), &std::env::temp_dir())
-            .err()
-            .ok_or_else(|| "descriptor-embedded scope unexpectedly resolved".to_owned())?;
-
-        assert!(error.contains("--credential-scope"));
-        Ok(())
-    }
-
-    #[test]
-    fn credential_profile_rejects_manual_credential_flags() -> Result<(), String> {
-        let state = SkillParseState {
-            credential_profile: Some("example".to_owned()),
-            secret_env: Some("TOKEN".to_owned()),
-            ..Default::default()
-        };
-        let error = finalize_local_credential(&state, &Default::default(), &std::env::temp_dir())
-            .err()
-            .ok_or_else(|| "profile unexpectedly combined with manual flags".to_owned())?;
-        assert!(error.contains("cannot be combined"));
-        Ok(())
-    }
+    use super::{SkillAction, SkillParseState};
 
     #[test]
     fn short_human_flags_parse_for_skill_runs() -> Result<(), String> {
@@ -987,25 +620,5 @@ mod tests {
 
         assert!(error.contains("--input-json event is invalid JSON"));
         Ok(())
-    }
-
-    #[test]
-    fn credential_parser_keeps_uri_material_ref_intact() -> Result<(), String> {
-        let binding =
-            super::parse_credential_binding("frantic:bearer:local://frantic/internal:primary")?;
-        assert_eq!(binding.provider, "frantic");
-        assert_eq!(binding.auth_mode, "bearer");
-        assert_eq!(binding.material_ref, "local://frantic/internal:primary");
-        Ok(())
-    }
-
-    fn unique_temp_dir(name: &str) -> Result<std::path::PathBuf, String> {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|error| error.to_string())?
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("{name}-{}-{nanos}", std::process::id()));
-        fs::create_dir_all(&path).map_err(|error| error.to_string())?;
-        Ok(path)
     }
 }

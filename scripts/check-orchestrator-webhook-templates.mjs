@@ -10,14 +10,14 @@ const templates = [
   {
     file: "oss/examples/orchestrator-webhooks/templates/n8n-webhook.manifest.json",
     name: "orchestrators.n8n_webhook_post",
-    secret: "RUNX_N8N_WEBHOOK_TOKEN",
+    secret: "N8N_WEBHOOK_TOKEN",
     scope: "orchestrator.n8n.workflow.invoke",
     audience: "n8n:workflow:runx-governed-effect",
   },
   {
     file: "oss/examples/orchestrator-webhooks/templates/zapier-webhook.manifest.json",
     name: "orchestrators.zapier_webhook_post",
-    secret: "RUNX_ZAPIER_WEBHOOK_TOKEN",
+    secret: "ZAPIER_WEBHOOK_TOKEN",
     scope: "orchestrator.zapier.workflow.invoke",
     audience: "zapier:zap:runx-governed-effect",
   },
@@ -64,9 +64,10 @@ const readme = readText("oss/examples/orchestrator-webhooks/README.md");
 assert(readme.includes("templates, not live endpoints"), "example README must state templates are not live endpoints");
 assert(readme.includes("Do not paste bearer tokens into the manifest file."), "example README must warn against raw bearer tokens");
 assert(
-  readme.includes("--credential orchestrator:bearer:RUNX_N8N_WEBHOOK_TOKEN") &&
-    readme.includes("--credential-scope orchestrator.n8n.workflow.invoke"),
-  "example README must request the n8n handoff scope",
+  readme.includes("runx credential set n8n") &&
+    readme.includes("--auth-mode bearer") &&
+    readme.includes("--from-stdin"),
+  "example README must use the declared stdin credential path",
 );
 assert(readme.includes("Professional n8n Handoff Contract"), "example README must describe the n8n handoff contract");
 
