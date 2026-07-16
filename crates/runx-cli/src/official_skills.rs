@@ -47,8 +47,8 @@ pub(crate) const OFFICIAL_SKILLS: &[OfficialSkillLockEntry] = &[
     },
     OfficialSkillLockEntry {
         skill_id: "runx/cve-audit",
-        version: "sha-554ff63d248e",
-        digest: "07bb8a36ab55908c284910317350083e5ca5403891c34536294d44ee0566dc6c",
+        version: "sha-3da827c37cd2",
+        digest: "0054bd38ef971562ac257d358a74c9f9e1c474c343eb885403e0a4fdbbdfe62f",
     },
     OfficialSkillLockEntry {
         skill_id: "runx/data-store",
@@ -212,7 +212,7 @@ pub(crate) const OFFICIAL_SKILLS: &[OfficialSkillLockEntry] = &[
     },
     OfficialSkillLockEntry {
         skill_id: "runx/overlay",
-        version: "sha-39ed1b750ed9",
+        version: "sha-fb14b3a052a4",
         digest: "a137ad65ff73714d98fd5b52b08edecda381e55dff20b77dfa3ab120fb424113",
     },
     OfficialSkillLockEntry {

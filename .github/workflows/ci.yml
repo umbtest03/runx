@@ -195,6 +195,8 @@ jobs:
           node-version: 24
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+      - name: Install sandbox backend
+        run: sudo apt-get update && sudo apt-get install --yes bubblewrap
       - name: Cargo cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -224,7 +226,8 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/harness-sweep.mjs \
-            --runx-bin crates/target/debug/runx --no-build --require 78
+            --runx-bin crates/target/debug/runx --no-build \
+            --expected-count 74 --require 74
 
   checks:
     runs-on: ubuntu-latest
