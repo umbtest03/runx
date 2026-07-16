@@ -45,7 +45,7 @@ pub(super) fn execute_agent_skill_run(
         Some(answer) => (answer, None),
         None => match &request.answers_path {
             Some(answers_path) => (read_answer(answers_path, &request_id)?, None),
-            None => match try_inline_agent_resolution(&invocation)? {
+            None => match try_inline_agent_resolution(&invocation, &request.managed_agent)? {
                 #[cfg(feature = "agent")]
                 InlineAgentOutcome::Resolved { payload, effect } => (payload, effect),
                 InlineAgentOutcome::HostDrives => {
@@ -175,14 +175,13 @@ enum InlineAgentOutcome {
     HostDrives,
 }
 
-/// Optionally run the managed-agent loop in-process. This is opt-in: only when a
-/// managed-agent provider (currently Anthropic) is configured does the runtime
-/// drive the agent itself; otherwise it yields to the host (`needs_agent`), the
-/// default shipped behavior. Per-call governance and receipt sealing are the same
-/// either way; the loop only adds the bounded autonomous run.
+/// Optionally run the managed-agent loop in-process. This requires explicit
+/// per-run consent as well as a configured provider; credentials alone never
+/// activate it. Otherwise the runtime yields to the host (`needs_agent`).
 #[cfg(feature = "agent")]
 fn try_inline_agent_resolution(
     invocation: &SkillInvocation,
+    policy: &crate::execution::orchestrator::ManagedAgentPolicy,
 ) -> Result<InlineAgentOutcome, SkillRunError> {
     use crate::adapters::agent::{
         AgentAdapterSourceType, AgentResolver, build_managed_agent_act_invocation,
@@ -191,6 +190,9 @@ fn try_inline_agent_resolution(
     use crate::http::ReqwestHttpTransport;
     use runx_contracts::ResolutionRequest;
 
+    let Some(max_rounds) = policy.max_rounds() else {
+        return Ok(InlineAgentOutcome::HostDrives);
+    };
     let source_type = if invocation.source.source_type == runx_parser::SourceKind::Agent {
         AgentAdapterSourceType::Agent
     } else if invocation.source.source_type == runx_parser::SourceKind::AgentStep {
@@ -224,6 +226,7 @@ fn try_inline_agent_resolution(
         invocation.env.clone(),
         invocation.skill_directory.clone(),
         invocation.credential_delivery.clone(),
+        max_rounds,
     );
     let resolution = resolver
         .resolve(request)
@@ -237,6 +240,7 @@ fn try_inline_agent_resolution(
 #[cfg(not(feature = "agent"))]
 fn try_inline_agent_resolution(
     _invocation: &SkillInvocation,
+    _policy: &crate::execution::orchestrator::ManagedAgentPolicy,
 ) -> Result<InlineAgentOutcome, SkillRunError> {
     Ok(InlineAgentOutcome::HostDrives)
 }

@@ -5,7 +5,7 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use runx_contracts::JsonValue;
-use runx_runtime::WorkspaceEnv;
+use runx_runtime::{DEFAULT_MANAGED_AGENT_MAX_ROUNDS, ManagedAgentPolicy, WorkspaceEnv};
 
 use super::inputs::{parse_direct_input_arg, parse_input_arg, parse_json_input_arg};
 use super::{SkillAction, SkillPlan};
@@ -38,6 +38,7 @@ pub fn parse_skill_plan_with_workspace(
     } else {
         SkillAction::Run
     };
+    let managed_agent = managed_agent_policy(state.managed_agent, state.managed_agent_rounds)?;
 
     Ok(SkillPlan {
         action,
@@ -55,6 +56,7 @@ pub fn parse_skill_plan_with_workspace(
         approve_operator_context: state.approve_operator_context,
         inputs: state.inputs,
         credential_profile: state.credential_profile,
+        managed_agent,
     })
 }
 
@@ -76,6 +78,8 @@ struct SkillParseState {
     force_run: bool,
     inputs: BTreeMap<String, JsonValue>,
     credential_profile: Option<String>,
+    managed_agent: bool,
+    managed_agent_rounds: Option<u32>,
 }
 
 fn reject_resolver_flags_for_skill_management_action(
@@ -286,6 +290,23 @@ fn parse_skill_arg(
             )?;
         }
         "--full-operator-context" => state.full_operator_context = true,
+        value if value.starts_with("--managed-agent=") => {
+            state.managed_agent = parse_boolean_flag(
+                "--managed-agent",
+                value.trim_start_matches("--managed-agent="),
+            )?;
+        }
+        "--managed-agent" => state.managed_agent = true,
+        value if value.starts_with("--managed-agent-rounds=") => {
+            state.managed_agent_rounds = Some(parse_managed_agent_rounds(
+                value.trim_start_matches("--managed-agent-rounds="),
+            )?);
+        }
+        "--managed-agent-rounds" => {
+            index += 1;
+            state.managed_agent_rounds =
+                Some(parse_managed_agent_rounds(&string_arg(args, index)?)?);
+        }
         "--non-interactive" => state.non_interactive = true,
         value if value.starts_with("--") => {
             index = parse_direct_input_arg(args, index, value, &mut state.inputs)?;
@@ -319,6 +340,27 @@ fn parse_boolean_flag(flag: &str, value: &str) -> Result<bool, String> {
         "false" | "0" => Ok(false),
         _ => Err(format!("runx skill {flag} expects true or false")),
     }
+}
+
+fn managed_agent_policy(
+    enabled: bool,
+    max_rounds: Option<u32>,
+) -> Result<ManagedAgentPolicy, String> {
+    if !enabled {
+        if max_rounds.is_some() {
+            return Err("runx skill --managed-agent-rounds requires --managed-agent".to_owned());
+        }
+        return Ok(ManagedAgentPolicy::HostDriven);
+    }
+    ManagedAgentPolicy::inline(max_rounds.unwrap_or(DEFAULT_MANAGED_AGENT_MAX_ROUNDS))
+        .map_err(|error| format!("runx skill {error}"))
+}
+
+fn parse_managed_agent_rounds(value: &str) -> Result<u32, String> {
+    value
+        .trim()
+        .parse::<u32>()
+        .map_err(|_| "runx skill --managed-agent-rounds expects a positive integer".to_owned())
 }
 
 fn skill_resume_flag_error() -> String {
@@ -356,6 +398,35 @@ fn path_arg(args: &[OsString], index: usize, flag: &str) -> Result<OsString, Str
 #[cfg(test)]
 mod tests {
     use super::{SkillAction, SkillParseState};
+
+    #[test]
+    fn managed_agent_requires_explicit_consent_and_binds_round_budget() -> Result<(), String> {
+        let plan = super::parse_skill_plan(
+            &[
+                "skill",
+                "skills/release",
+                "--managed-agent",
+                "--managed-agent-rounds=3",
+            ]
+            .into_iter()
+            .map(std::ffi::OsString::from)
+            .collect::<Vec<_>>(),
+        )?;
+        assert_eq!(
+            plan.managed_agent,
+            runx_runtime::ManagedAgentPolicy::Inline { max_rounds: 3 }
+        );
+
+        let error = super::parse_skill_plan(
+            &["skill", "skills/release", "--managed-agent-rounds=3"]
+                .into_iter()
+                .map(std::ffi::OsString::from)
+                .collect::<Vec<_>>(),
+        )
+        .expect_err("round budget without consent should fail");
+        assert!(error.contains("requires --managed-agent"));
+        Ok(())
+    }
 
     #[test]
     fn short_human_flags_parse_for_skill_runs() -> Result<(), String> {

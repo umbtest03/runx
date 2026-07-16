@@ -95,7 +95,7 @@ The gates are intentionally narrow:
 - Duplicate context refs are rejected.
 - Every context artifact is digest-bound and labeled
   `security_boundary: untrusted-agent-context`.
-- Native managed-agent execution passes the artifacts to the provider with an
+- Explicitly enabled native managed-agent execution passes the artifacts to the provider with an
   explicit instruction that context artifacts are advisory data, not system
   instructions or authority to change tools, reveal secrets, or bypass policy.
 
@@ -114,10 +114,12 @@ steps `first`, then `second`.
 
 ## When To Use A Graph
 
-A single `agent-task` runner is one bounded managed-agent act. It carries its own
-`instructions` and `allowed_tools`, runs the configured provider, and seals one
-receipt; not everything needs a graph. Reach for one when a single model run
-produces the result.
+A single `agent-task` runner is one bounded agent act. It carries its own
+`instructions` and `allowed_tools` and normally yields `needs_agent` to the
+calling agent. `--managed-agent` explicitly delegates that act to the configured
+in-process provider for the current run; credentials alone never enable it. The
+round cap is shown in prepared context and defaults to four. Not everything
+needs a graph. Reach for one when a single judgment step produces the result.
 
 Reach for a graph when the work has explicit phases, when a later step consumes
 an earlier step's receipt-backed output, or when approval and revision boundaries
@@ -130,9 +132,9 @@ claimed it") instead of calling it. So an action that *must* happen, a mutation,
 an API call, a payment, belongs in a deterministic step (`tool:`, `http:`, or
 `skill:`), not in an agent's `allowed_tools` where the call is optional. The
 governed shape is a graph where an agent step authors or decides and the next
-deterministic step performs the act; one receipt seals both. An agent step inside
-a graph runs the configured provider inline, the same as a top-level `agent-task`
-runner (with no provider configured it yields `needs_agent` to the host instead).
+deterministic step performs the act; one receipt seals both. Agent steps yield
+`needs_agent` unless the current invocation explicitly supplies
+`--managed-agent`; provider configuration alone does not change execution.
 
 Graphs should stay small enough to review. If the graph is carrying hidden
 policy decisions, split the policy into the skill profile or a separate

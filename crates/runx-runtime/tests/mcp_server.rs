@@ -430,6 +430,54 @@ fn mcp_server_missing_required_skill_input_pauses_with_request()
 
 #[test]
 #[cfg(feature = "mcp")]
+fn mcp_server_never_treats_configured_model_credentials_as_managed_agent_consent()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut execution = mcp_server_execution_options(None)?;
+    execution.env.extend([
+        ("RUNX_AGENT_PROVIDER".to_owned(), "anthropic".to_owned()),
+        ("RUNX_AGENT_MODEL".to_owned(), "claude-test".to_owned()),
+        ("RUNX_AGENT_API_KEY".to_owned(), "test-secret".to_owned()),
+    ]);
+    let options = McpServerOptions::from_skill_paths_with_execution(
+        &[repo_root()?.join("fixtures/skills/agent-task")],
+        "runx-cli",
+        "0.0.0",
+        execution,
+    )?;
+    let responses = run_server_with_options(
+        vec![request(
+            1,
+            "tools/call",
+            [
+                (
+                    "name".to_owned(),
+                    JsonValue::String("reviewer-boundary".to_owned()),
+                ),
+                (
+                    "arguments".to_owned(),
+                    JsonValue::Object(
+                        [("prompt".to_owned(), JsonValue::String("review".to_owned()))].into(),
+                    ),
+                ),
+            ]
+            .into(),
+        )],
+        options,
+    )?;
+
+    assert_no_json_rpc_error(&responses[0]);
+    assert_eq!(
+        path(
+            &responses[0],
+            &["result", "structuredContent", "runx", "status"]
+        ),
+        Some(&JsonValue::String("needs_agent".to_owned()))
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(feature = "mcp")]
 fn mcp_server_graph_approval_pauses_with_request() -> Result<(), Box<dyn std::error::Error>> {
     let responses = run_server_with_options(
         vec![request(

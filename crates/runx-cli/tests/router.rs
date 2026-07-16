@@ -41,7 +41,7 @@ fn top_level_help_and_version_are_native() {
     );
     assert_help_line(
         &help,
-        "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [-j] [--approve-operator-context digest] [--full-operator-context] [--skip-operator-context] [--registry url|path] [--digest sha256] [--flag value] [-R dir]",
+        "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [-j] [--managed-agent [--managed-agent-rounds n]] [--approve-operator-context digest] [--full-operator-context] [--skip-operator-context] [--registry url|path] [--digest sha256] [--flag value] [-R dir]",
     );
     assert_help_line(
         &help,
@@ -49,7 +49,7 @@ fn top_level_help_and_version_are_native() {
     );
     assert_help_line(
         &help,
-        "runx resume <run-id> <answers.json> [-R dir] [--non-interactive] [-j|--json]",
+        "runx resume <run-id> <answers.json> [-R dir] [--managed-agent [--managed-agent-rounds n]] [--non-interactive] [-j|--json]",
     );
     assert_help_line(
         &help,
@@ -140,7 +140,7 @@ fn nested_skill_history_verify_and_publish_help_are_native() {
 
     assert_help_line(
         &skill_help_text(),
-        "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [-j] [--approve-operator-context digest] [--full-operator-context] [--skip-operator-context] [--registry url|path] [--digest sha256] [--flag value] [-R dir]",
+        "runx skill <skill-ref|owner/name@version|skill-dir|SKILL.md> [runner] [-p profile] [-i key=value] [--input-json key=json] [-j] [--managed-agent [--managed-agent-rounds n]] [--approve-operator-context digest] [--full-operator-context] [--skip-operator-context] [--registry url|path] [--digest sha256] [--flag value] [-R dir]",
     );
     assert_help_line(
         &skill_help_text(),
@@ -221,6 +221,7 @@ fn filesystem_paths_do_not_require_utf8() {
             answers_path: path_buf.clone(),
             receipt_dir: None,
             json: false,
+            managed_agent: Default::default(),
         })
     );
     let action = route_args(vec!["skill".into(), path.clone()]);
@@ -524,6 +525,7 @@ fn routes_canonical_skill_run_to_native_plan() {
             .into_iter()
             .collect(),
             credential_profile: None,
+            managed_agent: Default::default(),
         })
     );
 }
@@ -748,6 +750,7 @@ fn routes_doctor_history_list_new_and_init_to_native_plans() {
             answers_path: PathBuf::from("answers.json"),
             receipt_dir: Some(PathBuf::from("receipts")),
             json: true,
+            managed_agent: Default::default(),
         })
     );
     assert_eq!(

@@ -222,6 +222,7 @@ fn native_skill_run_pauses_with_agent_act_request() -> Result<(), Box<dyn std::e
         .collect(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -258,6 +259,33 @@ fn native_skill_run_pauses_with_agent_act_request() -> Result<(), Box<dyn std::e
 }
 
 #[test]
+fn configured_model_credentials_do_not_enable_managed_agent_without_run_consent()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let skill_dir = write_agent_task_skill(temp.path())?;
+    let env = BTreeMap::from([
+        ("RUNX_AGENT_PROVIDER".to_owned(), "anthropic".to_owned()),
+        ("RUNX_AGENT_MODEL".to_owned(), "claude-test".to_owned()),
+        ("RUNX_AGENT_API_KEY".to_owned(), "test-secret".to_owned()),
+    ]);
+    let result = run_skill(SkillRunRequest {
+        skill_path: skill_dir,
+        receipt_dir: None,
+        run_id: None,
+        answers_path: None,
+        inputs: BTreeMap::new(),
+        env,
+        cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
+        local_credential: None,
+    })?;
+
+    let output = object(&result.output, "configured no-consent result")?;
+    assert_eq!(string_field(output, "status"), Some("needs_agent"));
+    Ok(())
+}
+
+#[test]
 fn native_agent_task_skill_run_infers_bundled_tool_roots() -> Result<(), Box<dyn std::error::Error>>
 {
     let temp = tempdir()?;
@@ -273,6 +301,7 @@ fn native_agent_task_skill_run_infers_bundled_tool_roots() -> Result<(), Box<dyn
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -330,6 +359,7 @@ fn native_skill_run_resumes_and_seals_receipt() -> Result<(), Box<dyn std::error
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -415,6 +445,7 @@ fn native_skill_run_treats_structured_stdout_as_claim_not_receipt_proof()
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -477,6 +508,7 @@ fn native_skill_run_preserves_deferred_closure_disposition()
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -530,6 +562,7 @@ fn native_skill_run_uses_runtime_receipt_path_resolution() -> Result<(), Box<dyn
         .into_iter()
         .collect(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -577,6 +610,7 @@ fn native_skill_run_uses_production_receipt_signing_env() -> Result<(), Box<dyn 
         inputs: BTreeMap::new(),
         env: env.clone(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -622,6 +656,7 @@ fn native_skill_run_uses_local_development_without_production_receipt_signing_en
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
     assert_eq!(result.status, runx_runtime::RunStatus::Sealed);
@@ -650,6 +685,7 @@ fn native_graph_skill_run_pauses_and_resumes_agent_task() -> Result<(), Box<dyn 
         inputs: inputs.clone(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -696,6 +732,7 @@ fn native_graph_skill_run_pauses_and_resumes_agent_task() -> Result<(), Box<dyn 
         inputs: inputs.clone(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     }) {
         Ok(_) => return Err("malformed graph state should fail".into()),
@@ -727,6 +764,7 @@ fn native_graph_skill_run_pauses_and_resumes_agent_task() -> Result<(), Box<dyn 
         inputs: inputs.clone(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     }) {
         Ok(_) => return Err("mismatched graph state should fail".into()),
@@ -764,6 +802,7 @@ fn native_graph_skill_run_pauses_and_resumes_agent_task() -> Result<(), Box<dyn 
         inputs,
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -801,6 +840,7 @@ fn native_graph_transition_gate_allows_declared_agent_output()
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
     let output = object(&initial.output, "gated graph result")?;
@@ -830,6 +870,7 @@ fn native_graph_transition_gate_allows_declared_agent_output()
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -860,6 +901,7 @@ fn native_graph_guard_rejects_skill_claim_as_fact() -> Result<(), Box<dyn std::e
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
     let output = object(&initial.output, "gated graph result")?;
@@ -889,6 +931,7 @@ fn native_graph_guard_rejects_skill_claim_as_fact() -> Result<(), Box<dyn std::e
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
     let output = object(&blocked.output, "blocked graph result")?;
@@ -927,6 +970,7 @@ fn native_graph_skill_run_pauses_and_resumes_nested_agent_skill()
         inputs: inputs.clone(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -968,6 +1012,7 @@ fn native_graph_skill_run_pauses_and_resumes_nested_agent_skill()
         inputs,
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -1001,6 +1046,7 @@ fn native_graph_skill_run_pauses_and_resumes_nested_agent_task_skill()
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -1042,6 +1088,7 @@ fn native_graph_skill_run_pauses_and_resumes_nested_agent_task_skill()
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -1105,6 +1152,7 @@ weak contrast, and interaction states that feel bolted on.
         inputs: BTreeMap::new(),
         env,
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -1155,6 +1203,7 @@ fn graph_agent_task_rejects_parent_path_context_skill() -> Result<(), Box<dyn st
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     }) {
         Ok(_) => return Err("parent-path context skill should fail".into()),
@@ -1214,6 +1263,7 @@ runners:
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     }) {
         Ok(_) => return Err("graph stage context skill should fail".into()),
@@ -1290,6 +1340,7 @@ runners:
         inputs: BTreeMap::new(),
         env,
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     }) {
         Ok(_) => return Err("registry runtime-path context skill should fail".into()),
@@ -1333,6 +1384,7 @@ fn native_graph_skill_run_executes_local_tool_step() -> Result<(), Box<dyn std::
         inputs,
         env,
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -1343,6 +1395,34 @@ fn native_graph_skill_run_executes_local_tool_step() -> Result<(), Box<dyn std::
     let echo = object_field(echo_claim, "echo").ok_or("missing echo")?;
     assert_eq!(string_field(echo, "message"), Some("Graph tool bug"));
 
+    Ok(())
+}
+
+#[cfg(feature = "catalog")]
+#[test]
+fn configured_model_credentials_do_not_enable_graph_agent_without_run_consent()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempdir()?;
+    let skill_dir = write_graph_agent_task_skill(temp.path())?;
+    let env = BTreeMap::from([
+        ("RUNX_AGENT_PROVIDER".to_owned(), "anthropic".to_owned()),
+        ("RUNX_AGENT_MODEL".to_owned(), "claude-test".to_owned()),
+        ("RUNX_AGENT_API_KEY".to_owned(), "test-secret".to_owned()),
+    ]);
+    let result = run_skill(SkillRunRequest {
+        skill_path: skill_dir,
+        receipt_dir: Some(temp.path().join("receipts")),
+        run_id: None,
+        answers_path: None,
+        inputs: BTreeMap::new(),
+        env,
+        cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
+        local_credential: None,
+    })?;
+
+    let output = object(&result.output, "configured graph no-consent result")?;
+    assert_eq!(string_field(output, "status"), Some("needs_agent"));
     Ok(())
 }
 
@@ -1386,6 +1466,7 @@ fn native_graph_skill_run_resolves_agent_task_named_emit_context()
         inputs: BTreeMap::new(),
         env: env.clone(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
     let pending_output = object(&pending.output, "pending graph agent artifact result")?;
@@ -1402,6 +1483,7 @@ fn native_graph_skill_run_resolves_agent_task_named_emit_context()
         inputs: BTreeMap::new(),
         env,
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -1462,6 +1544,7 @@ fn native_graph_skill_resume_preserves_initial_inputs_for_later_tool_steps()
         inputs: initial_inputs,
         env: env.clone(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
     let pending_output = object(&pending.output, "pending graph input resume result")?;
@@ -1478,6 +1561,7 @@ fn native_graph_skill_resume_preserves_initial_inputs_for_later_tool_steps()
         inputs: BTreeMap::new(),
         env,
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -1533,6 +1617,7 @@ fn native_graph_skill_run_resolves_agent_task_output_envelope_named_emit_context
         inputs: BTreeMap::new(),
         env: env.clone(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
     let pending_output = object(
@@ -1552,6 +1637,7 @@ fn native_graph_skill_run_resolves_agent_task_output_envelope_named_emit_context
         inputs: BTreeMap::new(),
         env,
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -1595,6 +1681,7 @@ fn native_graph_skill_run_rejects_reserved_artifact_output_names()
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
     let pending_output = object(&pending.output, "pending reserved artifact result")?;
@@ -1610,6 +1697,7 @@ fn native_graph_skill_run_rejects_reserved_artifact_output_names()
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     }) {
         Ok(_) => return Err("reserved artifact output name unexpectedly succeeded".into()),
@@ -1655,6 +1743,7 @@ fn native_graph_skill_run_omits_missing_optional_graph_input_references()
         inputs,
         env,
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -1686,6 +1775,7 @@ fn native_graph_skill_run_requires_declared_graph_inputs() -> Result<(), Box<dyn
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -1734,6 +1824,7 @@ fn native_graph_skill_resume_applies_approval_before_completing_step()
             inputs: BTreeMap::new(),
             env: BTreeMap::new(),
             cwd: temp.path().to_path_buf(),
+            managed_agent: Default::default(),
             local_credential: None,
         })?;
         let pending_output = object(&pending.output, "pending approval result")?;
@@ -1750,6 +1841,7 @@ fn native_graph_skill_resume_applies_approval_before_completing_step()
             inputs: BTreeMap::new(),
             env: BTreeMap::new(),
             cwd: temp.path().to_path_buf(),
+            managed_agent: Default::default(),
             local_credential: None,
         })?;
         let resumed_output = object(&resumed.output, "resumed approval result")?;
@@ -1794,6 +1886,7 @@ fn native_graph_skill_run_uses_canonical_tool_root() -> Result<(), Box<dyn std::
         inputs,
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -1829,6 +1922,7 @@ fn native_graph_skill_run_merges_imported_graph_skill_tool_roots()
         inputs,
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -1871,6 +1965,7 @@ fn native_graph_skill_run_executes_nested_cli_tool_skill() -> Result<(), Box<dyn
         inputs,
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -1965,6 +2060,7 @@ fn native_graph_skill_run_executes_nested_registry_skill() -> Result<(), Box<dyn
         inputs: BTreeMap::new(),
         env,
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -2017,6 +2113,7 @@ fn native_graph_skill_run_rejects_env_promoted_official_nested_registry_skill()
         inputs: BTreeMap::new(),
         env,
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     }) {
         Ok(_) => {
@@ -2072,6 +2169,7 @@ fn native_graph_skill_run_rejects_unsigned_nested_registry_skill()
         inputs: BTreeMap::new(),
         env,
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     }) {
         Ok(_) => return Err("unsigned nested registry skill unexpectedly succeeded".into()),
@@ -2121,6 +2219,7 @@ fn native_graph_skill_run_rejects_tampered_nested_registry_skill()
         inputs: BTreeMap::new(),
         env,
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     }) {
         Ok(_) => return Err("tampered nested registry skill unexpectedly succeeded".into()),
@@ -2150,6 +2249,7 @@ fn native_graph_skill_run_rejects_nested_registry_skill_without_registry_dir()
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     }) {
         Ok(_) => return Err("nested registry skill unexpectedly succeeded".into()),
@@ -2187,6 +2287,7 @@ fn native_graph_skill_run_does_not_rerun_final_step() -> Result<(), Box<dyn std:
         inputs,
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -2219,6 +2320,7 @@ fn native_graph_skill_run_executes_graph_stage_cli_tool_skill()
         inputs,
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -2260,6 +2362,7 @@ fn native_graph_skill_run_executes_nested_x_yaml_runner_skill()
         inputs,
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
 
@@ -2286,6 +2389,7 @@ fn native_skill_run_rejects_partial_continuation_shape() -> Result<(), Box<dyn s
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     }) {
         Ok(_) => return Err("run-id without answers should fail".into()),
@@ -2305,6 +2409,7 @@ fn native_skill_run_rejects_partial_continuation_shape() -> Result<(), Box<dyn s
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     }) {
         Ok(_) => return Err("answers without run-id should fail".into()),
@@ -3337,6 +3442,7 @@ fn native_graph_when_skips_unselected_branch() -> Result<(), Box<dyn std::error:
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
     let output = object(&initial.output, "when graph result")?;
@@ -3374,6 +3480,7 @@ fn native_graph_when_skips_unselected_branch() -> Result<(), Box<dyn std::error:
         inputs: BTreeMap::new(),
         env: BTreeMap::new(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     })?;
     let output = object(&sealed.output, "sealed when graph result")?;

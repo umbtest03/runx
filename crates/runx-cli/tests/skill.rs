@@ -121,7 +121,8 @@ fn native_skill_resolves_bare_local_skill_and_documented_input_flags()
 }
 
 #[test]
-fn native_skill_prints_operator_context_by_default() -> Result<(), Box<dyn std::error::Error>> {
+fn native_skill_prints_operator_context_and_admits_safe_run_by_default()
+-> Result<(), Box<dyn std::error::Error>> {
     let root = crate::support::temp_root("runx-skill-operator-context");
     let skill_dir = write_operator_context_skill(&root)?;
 
@@ -149,14 +150,8 @@ fn native_skill_prints_operator_context_by_default() -> Result<(), Box<dyn std::
     assert!(!stderr.contains("--- root skill ---"));
     assert!(!stderr.contains("# Operator Context Fixture"));
     let stdout = serde_json::from_slice::<serde_json::Value>(&output.stdout)?;
-    assert_eq!(stdout["status"], "needs_operator_approval");
-    let digest = stdout["digest"].as_str().ok_or("missing digest")?;
-    assert!(digest.starts_with("sha256:"));
-    assert_eq!(
-        stdout["approval_flag"],
-        format!("--approve-operator-context {digest}")
-    );
-    assert!(stdout.get("retry_command").is_none());
+    assert_eq!(stdout["status"], "needs_agent");
+    assert!(stdout.get("approval_flag").is_none());
 
     let full = runx_command()
         .args([
@@ -175,6 +170,42 @@ fn native_skill_prints_operator_context_by_default() -> Result<(), Box<dyn std::
     assert!(full_stderr.contains("--- skill node: entry.review ---"));
     assert!(full_stderr.contains("context skill: ./context/review-rubric"));
     assert!(full_stderr.contains("tool manifest: example.record at entry.review"));
+    let full_stdout = serde_json::from_slice::<serde_json::Value>(&full.stdout)?;
+    assert_eq!(full_stdout["status"], "needs_agent");
+
+    Ok(())
+}
+
+#[test]
+fn native_mutating_skill_requires_digest_bound_operator_approval()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = crate::support::temp_root("runx-skill-mutating-operator-context");
+    let skill_dir = write_operator_context_skill(&root)?;
+    let child_profile = skill_dir.join("nested-review/X.yaml");
+    let profile = fs::read_to_string(&child_profile)?;
+    fs::write(
+        &child_profile,
+        profile.replace(
+            "          tool: example.record\n",
+            "          tool: example.record\n          mutation: true\n",
+        ),
+    )?;
+
+    let output = runx_command()
+        .args([
+            "skill",
+            skill_dir.to_str().ok_or("non-utf8 skill dir")?,
+            "--json",
+            "--non-interactive",
+        ])
+        .output()?;
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8(output.stderr)?;
+    assert!(stderr.contains("1 mutating"));
+    let stdout = serde_json::from_slice::<serde_json::Value>(&output.stdout)?;
+    assert_eq!(stdout["status"], "needs_operator_approval");
+    let digest = stdout["digest"].as_str().ok_or("missing digest")?;
+    assert!(digest.starts_with("sha256:"));
 
     let approved = runx_command()
         .args([

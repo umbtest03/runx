@@ -16,8 +16,52 @@ use super::harness::{HarnessReplayError, HarnessReplayOutput};
 use super::prepared_skill::{PreparedEntryProvenance, PreparedSkillRun, prepare_skill_run};
 #[cfg(feature = "cli-tool")]
 use super::runner::GraphRun;
-use super::skill_front::{PackageHarnessReport, SkillRunError};
+#[cfg(feature = "cli-tool")]
+use super::skill_front::PackageHarnessReport;
+use super::skill_front::SkillRunError;
 use crate::effects::RuntimeEffectRegistry;
+
+pub const DEFAULT_MANAGED_AGENT_MAX_ROUNDS: u32 = 4;
+pub const MANAGED_AGENT_MAX_ROUNDS_LIMIT: u32 = 32;
+
+/// Per-run consent for in-process model execution.
+///
+/// Model credentials configure availability; they never grant consent. The
+/// default remains caller-mediated `needs_agent` resolution.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "mode", rename_all = "snake_case")]
+pub enum ManagedAgentPolicy {
+    #[default]
+    HostDriven,
+    Inline {
+        max_rounds: u32,
+    },
+}
+
+impl ManagedAgentPolicy {
+    #[must_use]
+    pub fn inline(max_rounds: u32) -> Result<Self, String> {
+        if !(1..=MANAGED_AGENT_MAX_ROUNDS_LIMIT).contains(&max_rounds) {
+            return Err(format!(
+                "managed-agent rounds must be between 1 and {MANAGED_AGENT_MAX_ROUNDS_LIMIT}"
+            ));
+        }
+        Ok(Self::Inline { max_rounds })
+    }
+
+    #[must_use]
+    pub const fn max_rounds(&self) -> Option<u32> {
+        match self {
+            Self::HostDriven => None,
+            Self::Inline { max_rounds } => Some(*max_rounds),
+        }
+    }
+
+    #[must_use]
+    pub const fn is_inline(&self) -> bool {
+        matches!(self, Self::Inline { .. })
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SkillRunRequest {
@@ -28,6 +72,9 @@ pub struct SkillRunRequest {
     pub inputs: BTreeMap<String, JsonValue>,
     pub env: BTreeMap<String, String>,
     pub cwd: PathBuf,
+    /// Explicit consent for an in-process managed-agent loop. The default is
+    /// host-driven resolution even when model credentials are configured.
+    pub managed_agent: ManagedAgentPolicy,
     /// Optional resolved local credential supplied for this run.
     ///
     /// When present, the runtime derives a `CredentialDelivery` from it for this
@@ -209,9 +256,10 @@ impl LocalOrchestrator {
             )
             .into());
         }
-        if prepared.approval().is_none() {
+        if !prepared.is_admitted() {
             return Err(SkillRunError::Invalid(
-                "prepared skill run requires digest-bound operator approval".to_owned(),
+                "prepared skill run requires admission or digest-bound operator approval"
+                    .to_owned(),
             )
             .into());
         }

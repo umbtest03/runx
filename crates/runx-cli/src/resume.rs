@@ -6,7 +6,8 @@ use std::process::ExitCode;
 
 use runx_runtime::journal::list_local_history;
 use runx_runtime::{
-    LocalReceiptStore, ReceiptPathInputs, RuntimeReceiptConfig, WorkspaceEnv, resolve_receipt_path,
+    DEFAULT_MANAGED_AGENT_MAX_ROUNDS, LocalReceiptStore, ManagedAgentPolicy, ReceiptPathInputs,
+    RuntimeReceiptConfig, WorkspaceEnv, resolve_receipt_path,
 };
 
 use crate::skill::{SkillAction, SkillPlan};
@@ -17,6 +18,7 @@ pub struct ResumePlan {
     pub answers_path: PathBuf,
     pub receipt_dir: Option<PathBuf>,
     pub json: bool,
+    pub managed_agent: ManagedAgentPolicy,
 }
 
 pub(crate) struct SkillResumeCommand<'a> {
@@ -34,6 +36,8 @@ pub fn parse_resume_plan(args: &[OsString]) -> Result<ResumePlan, String> {
     }
     let mut receipt_dir = None;
     let mut json = false;
+    let mut managed_agent = false;
+    let mut managed_agent_rounds = None;
     let mut positionals = Vec::<OsString>::new();
     let mut index = 1;
     while index < args.len() {
@@ -48,6 +52,32 @@ pub fn parse_resume_plan(args: &[OsString]) -> Result<ResumePlan, String> {
                 index += 1;
             }
             "--non-interactive" => {
+                index += 1;
+            }
+            "--managed-agent" => {
+                managed_agent = true;
+                index += 1;
+            }
+            value if value.starts_with("--managed-agent=") => {
+                managed_agent = parse_boolean_flag(
+                    "--managed-agent",
+                    value.trim_start_matches("--managed-agent="),
+                )?;
+                index += 1;
+            }
+            value if value.starts_with("--managed-agent-rounds=") => {
+                managed_agent_rounds = Some(parse_managed_agent_rounds(
+                    value.trim_start_matches("--managed-agent-rounds="),
+                )?);
+                index += 1;
+            }
+            "--managed-agent-rounds" => {
+                index += 1;
+                managed_agent_rounds = Some(parse_managed_agent_rounds(
+                    args.get(index)
+                        .and_then(|value| value.to_str())
+                        .ok_or_else(|| "--managed-agent-rounds requires a value".to_owned())?,
+                )?);
                 index += 1;
             }
             value if value.starts_with("--receipt-dir=") => {
@@ -91,6 +121,7 @@ pub fn parse_resume_plan(args: &[OsString]) -> Result<ResumePlan, String> {
         answers_path: PathBuf::from(positionals.remove(0)),
         receipt_dir,
         json,
+        managed_agent: managed_agent_policy(managed_agent, managed_agent_rounds)?,
     })
 }
 
@@ -167,8 +198,38 @@ pub fn run_native_resume_with_workspace(plan: ResumePlan, workspace: &WorkspaceE
         approve_operator_context: None,
         inputs: BTreeMap::new(),
         credential_profile: pending.credential_profile.clone(),
+        managed_agent: plan.managed_agent,
     };
     crate::skill::run_native_skill_with_workspace(skill_plan, workspace)
+}
+
+fn managed_agent_policy(
+    enabled: bool,
+    max_rounds: Option<u32>,
+) -> Result<ManagedAgentPolicy, String> {
+    if !enabled {
+        if max_rounds.is_some() {
+            return Err("runx resume --managed-agent-rounds requires --managed-agent".to_owned());
+        }
+        return Ok(ManagedAgentPolicy::HostDriven);
+    }
+    ManagedAgentPolicy::inline(max_rounds.unwrap_or(DEFAULT_MANAGED_AGENT_MAX_ROUNDS))
+        .map_err(|error| format!("runx resume {error}"))
+}
+
+fn parse_managed_agent_rounds(value: &str) -> Result<u32, String> {
+    value
+        .trim()
+        .parse::<u32>()
+        .map_err(|_| "runx resume --managed-agent-rounds expects a positive integer".to_owned())
+}
+
+fn parse_boolean_flag(flag: &str, value: &str) -> Result<bool, String> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "true" | "1" => Ok(true),
+        "false" | "0" => Ok(false),
+        _ => Err(format!("runx resume {flag} expects true or false")),
+    }
 }
 
 pub(crate) fn render_skill_resume_command(command: SkillResumeCommand<'_>) -> String {
@@ -223,9 +284,31 @@ fn write_resume_failure(message: &str, json: bool, exit_code: u8) -> ExitCode {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsString;
     use std::path::Path;
 
     use super::{SkillResumeCommand, render_skill_resume_command};
+
+    #[test]
+    fn resume_managed_agent_requires_fresh_explicit_consent() -> Result<(), String> {
+        let plan = super::parse_resume_plan(
+            &[
+                "resume",
+                "run_123",
+                "answers.json",
+                "--managed-agent",
+                "--managed-agent-rounds=2",
+            ]
+            .into_iter()
+            .map(OsString::from)
+            .collect::<Vec<_>>(),
+        )?;
+        assert_eq!(
+            plan.managed_agent,
+            runx_runtime::ManagedAgentPolicy::Inline { max_rounds: 2 }
+        );
+        Ok(())
+    }
 
     #[test]
     fn resume_command_quotes_operator_supplied_tokens() {

@@ -78,6 +78,7 @@ pub(super) fn execute_graph_skill_run(
         skill_directory: skill_dir.clone(),
         env: env.clone(),
         credential_delivery: credential_delivery.clone(),
+        policy: request.managed_agent.clone(),
     };
     let created_at = crate::time::now_iso8601();
     let runtime = Runtime::new(
@@ -544,11 +545,8 @@ fn invoke_graph_thread_outbox_provider(
 #[derive(Default)]
 /// In-process managed-agent resolver for graph agent steps. An agent step inside
 /// a graph that has no seeded answer would otherwise host-drive (yield
-/// `needs_agent`); when a provider is configured this resolves it inline, exactly
-/// as the top-level agent path does, so the agent step authors its result and the
-/// graph's later deterministic steps (e.g. a governed http action) still run as
-/// one sealed turn. With no provider configured `try_resolve` returns `None`, so
-/// graphs host-drive precisely as before; behavior changes only opt-in.
+/// `needs_agent`); explicit per-run consent plus a configured provider resolves
+/// it inline. Provider configuration alone never enables managed execution.
 struct InlineResolver {
     // Both fields feed the agent resolver path in `try_resolve` under the `agent`
     // feature; without it `try_resolve` is a no-op, so they are written at
@@ -559,6 +557,8 @@ struct InlineResolver {
     env: BTreeMap<String, String>,
     #[cfg_attr(not(feature = "agent"), allow(dead_code))]
     credential_delivery: CredentialDelivery,
+    #[cfg_attr(not(feature = "agent"), allow(dead_code))]
+    policy: crate::execution::orchestrator::ManagedAgentPolicy,
 }
 
 impl InlineResolver {
@@ -568,6 +568,9 @@ impl InlineResolver {
         use crate::adapters::agent_resolver::AnthropicAgentResolver;
         use crate::http::ReqwestHttpTransport;
 
+        let Some(max_rounds) = self.policy.max_rounds() else {
+            return Ok(None);
+        };
         let fail = |message: String| RuntimeError::SkillFailed {
             skill_name: "managed-agent".to_owned(),
             message,
@@ -590,6 +593,7 @@ impl InlineResolver {
             self.env.clone(),
             self.skill_directory.clone(),
             self.credential_delivery.clone(),
+            max_rounds,
         );
         let resolution = resolver
             .resolve(request.clone())

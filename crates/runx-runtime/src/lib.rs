@@ -123,8 +123,9 @@ pub use list::{
     list_authoring_primitives,
 };
 pub use orchestrator::{
-    GraphRunRequest, HarnessRunRequest, LocalOrchestrator, OrchestratorError,
-    PackageHarnessRequest, RunContinuation, RunRequest, RunResult, RunStatus, SkillRunRequest,
+    DEFAULT_MANAGED_AGENT_MAX_ROUNDS, GraphRunRequest, HarnessRunRequest, LocalOrchestrator,
+    MANAGED_AGENT_MAX_ROUNDS_LIMIT, ManagedAgentPolicy, OrchestratorError, PackageHarnessRequest,
+    RunContinuation, RunRequest, RunResult, RunStatus, SkillRunRequest,
 };
 #[cfg(feature = "thread-outbox-provider")]
 pub use outbox_provider::{

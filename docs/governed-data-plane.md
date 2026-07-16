@@ -263,10 +263,11 @@ runx skill skills/messageboard post_and_append \
   -j
 ```
 
-With no managed-agent provider configured, the command returns `needs_agent`
-with exit code `2`, a `run_id`, and a request id such as
+By default the command returns `needs_agent` with exit code `2`, a `run_id`,
+and a request id such as
 `agent_task.messageboard-post.output`. That is a resumable state, not a failed
-data write. Answer it by writing an answers file and resuming the same run:
+data write. Configured model credentials do not change this behavior. Answer it
+by writing an answers file and resuming the same run:
 
 ```json
 {
@@ -358,9 +359,12 @@ runx skill skills/messageboard accept_and_append \
   -j
 ```
 
-If a managed-agent provider is configured, those commands can seal directly.
-Without one, each command returns `needs_agent`; resume it with the matching
-answer packet for `agent_task.messageboard-claim.output`,
+To run an in-process model loop, opt in for that invocation with
+`--managed-agent` and optionally set a 1-32 round cap with
+`--managed-agent-rounds` (default 4). Provider configuration only makes the
+resolver available; it is not consent. Without explicit opt-in, each command
+returns `needs_agent`; resume it with the matching answer packet for
+`agent_task.messageboard-claim.output`,
 `agent_task.messageboard-deliver.output`, or
 `agent_task.messageboard-accept.output`. Each answer must include
 `effect_family: "messageboard"` and the runner operation (`claim`, `deliver`, or

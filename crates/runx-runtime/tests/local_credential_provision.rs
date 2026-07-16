@@ -45,6 +45,7 @@ fn local_credential_for_cli_tool_is_delivered_and_redacted()
         inputs: BTreeMap::new(),
         env: local_sandbox_fallback_env(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: Some(LocalCredentialDescriptor {
             profile: Some("github-main".to_owned()),
             provider: "github".to_owned(),
@@ -80,6 +81,7 @@ fn declared_credential_without_descriptor_fails_without_leak()
         inputs: BTreeMap::new(),
         env: local_sandbox_fallback_env(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: None,
     };
 
@@ -114,6 +116,7 @@ fn graph_http_step_uses_local_credential_without_exposing_secret()
         .collect(),
         env: http_private_network_grant_env(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: Some(LocalCredentialDescriptor {
             profile: Some("example-crm-main".to_owned()),
             provider: "example-crm".to_owned(),
@@ -168,6 +171,7 @@ fn graph_credential_is_delivered_to_http_and_cli_steps_without_leaking()
         .collect(),
         env: mixed_http_cli_graph_env(),
         cwd: temp.path().to_path_buf(),
+        managed_agent: Default::default(),
         local_credential: Some(LocalCredentialDescriptor {
             profile: Some("example-crm-main".to_owned()),
             provider: "example-crm".to_owned(),

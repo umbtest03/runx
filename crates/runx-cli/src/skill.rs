@@ -10,7 +10,8 @@ use runx_runtime::skill_front::{
     PreparedEntryProvenance, PreparedSkillRunApproval, PreparedSkillRunStatus,
 };
 use runx_runtime::{
-    SkillCredentialContext, SkillRunRequest, WorkspaceEnv, resolve_skill_credential_for_path,
+    ManagedAgentPolicy, SkillCredentialContext, SkillRunRequest, WorkspaceEnv,
+    resolve_skill_credential_for_path,
 };
 
 mod credential;
@@ -47,6 +48,7 @@ pub struct SkillPlan {
     /// Optional stored profile selector. Secret resolution happens only after
     /// the selected runner's manifest credential requirement is known.
     pub credential_profile: Option<String>,
+    pub managed_agent: ManagedAgentPolicy,
 }
 
 #[derive(Debug, PartialEq)]
@@ -132,6 +134,7 @@ pub fn run_native_skill_with_workspace(plan: SkillPlan, workspace: &WorkspaceEnv
         inputs: plan.inputs.clone(),
         env,
         cwd,
+        managed_agent: plan.managed_agent.clone(),
         local_credential: credential
             .as_ref()
             .and_then(|context| context.resolution.descriptor().cloned()),
@@ -181,35 +184,49 @@ pub fn run_native_skill_with_workspace(plan: SkillPlan, workspace: &WorkspaceEnv
                 registry_provenance(&resolved),
             );
         }
-        match authorize_operator_context(&plan, prepared.digest(), &resume_skill_ref) {
-            OperatorAuthorization::Approved(mode) => {
-                let actor = workspace
-                    .env()
-                    .get("USER")
-                    .cloned()
-                    .unwrap_or_else(|| "local_operator".to_owned());
-                if let Err(error) = prepared.approve(PreparedSkillRunApproval::now(actor, mode)) {
+        if !prepared.requires_operator_approval() && plan.approve_operator_context.is_none() {
+            if let Err(error) = prepared.admit_safe() {
+                return write_skill_failure(
+                    &error.to_string(),
+                    plan.json,
+                    "operator_context_admission_error",
+                    1,
+                    registry_provenance(&resolved),
+                );
+            }
+            orchestrator.run_prepared_skill(&prepared)
+        } else {
+            match authorize_operator_context(&plan, prepared.digest(), &resume_skill_ref) {
+                OperatorAuthorization::Approved(mode) => {
+                    let actor = workspace
+                        .env()
+                        .get("USER")
+                        .cloned()
+                        .unwrap_or_else(|| "local_operator".to_owned());
+                    if let Err(error) = prepared.approve(PreparedSkillRunApproval::now(actor, mode))
+                    {
+                        return write_skill_failure(
+                            &error.to_string(),
+                            plan.json,
+                            "operator_context_approval_error",
+                            1,
+                            registry_provenance(&resolved),
+                        );
+                    }
+                    orchestrator.run_prepared_skill(&prepared)
+                }
+                OperatorAuthorization::NeedsApproval => {
+                    return write_operator_approval_required(prepared.digest(), plan.json);
+                }
+                OperatorAuthorization::Denied { message, code } => {
                     return write_skill_failure(
-                        &error.to_string(),
+                        &message,
                         plan.json,
-                        "operator_context_approval_error",
+                        code,
                         1,
                         registry_provenance(&resolved),
                     );
                 }
-                orchestrator.run_prepared_skill(&prepared)
-            }
-            OperatorAuthorization::NeedsApproval => {
-                return write_operator_approval_required(prepared.digest(), plan.json);
-            }
-            OperatorAuthorization::Denied { message, code } => {
-                return write_skill_failure(
-                    &message,
-                    plan.json,
-                    code,
-                    1,
-                    registry_provenance(&resolved),
-                );
             }
         }
     };

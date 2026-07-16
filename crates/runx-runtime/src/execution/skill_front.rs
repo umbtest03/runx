@@ -33,6 +33,7 @@ mod agent;
 mod credential_tests;
 mod graph;
 mod graph_state;
+#[cfg(feature = "cli-tool")]
 mod inline_harness;
 pub(crate) mod runner_manifest;
 
@@ -294,6 +295,7 @@ pub struct PackageHarnessReport {
 }
 
 impl PackageHarnessReport {
+    #[cfg(feature = "cli-tool")]
     fn not_declared() -> Self {
         Self {
             status: "not_declared",

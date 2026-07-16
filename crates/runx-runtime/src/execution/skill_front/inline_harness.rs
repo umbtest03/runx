@@ -231,6 +231,7 @@ fn inline_harness_case_request(
         inputs: case.inputs.clone(),
         env,
         cwd: cwd.to_path_buf(),
+        managed_agent: crate::execution::orchestrator::ManagedAgentPolicy::HostDriven,
         local_credential: None,
     }
 }

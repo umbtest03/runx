@@ -34,6 +34,14 @@ pub(super) fn write_operator_context(
         report.governance.conditional_steps,
         list_or_none(&report.governance.tool_refs),
     ));
+    out.push_str(&format!(
+        "  Managed agent: {} act(s), {}\n",
+        report.governance.managed_agent_acts,
+        match report.governance.managed_agent_max_rounds {
+            Some(rounds) => format!("enabled, max {rounds} round(s) per act"),
+            None => "off; caller resolves needs_agent".to_owned(),
+        },
+    ));
     out.push_str("  Inputs: ");
     if report.request.inputs.is_empty() {
         out.push_str("none\n");

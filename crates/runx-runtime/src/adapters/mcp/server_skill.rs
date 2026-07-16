@@ -12,6 +12,7 @@ use runx_core::state_machine::GraphStatus;
 use runx_parser::{SkillInput, SkillRunnerDefinition, ValidatedSkill};
 
 use crate::adapter::{SkillAdapter, SkillInvocation, SkillOutput};
+use crate::agent_invocation::{AgentActInvocationSourceType, agent_act_resolution_request};
 use crate::host::Host;
 use crate::receipts::step_receipt_with_signature_policy;
 use crate::registry::scopes::required_scopes_from_skill;
@@ -258,6 +259,14 @@ pub(super) fn execute_mcp_server_skill(
     if execution.skill.source.source_type == runx_parser::SourceKind::Graph {
         return execute_mcp_server_graph(run_id, execution, inputs);
     }
+    if let Some(source_type) = AgentActInvocationSourceType::from_contract_value(
+        execution.skill.source.source_type.as_str(),
+    ) {
+        let skill_name = execution.skill.name.clone();
+        let request =
+            agent_act_resolution_request(&mcp_skill_invocation(&execution, inputs), source_type)?;
+        return pending_mcp_resolution_result(run_id, &skill_name, &request);
+    }
     complete_mcp_server_skill(run_id, execution, inputs)
 }
 
@@ -297,18 +306,18 @@ fn execute_mcp_server_graph(
     {
         Ok(checkpoint) => checkpoint,
         Err(RuntimeError::GraphBlocked { .. }) if !host.requests.is_empty() => {
-            return pending_mcp_graph_result(run_id, &execution.skill.name, &host.requests[0]);
+            return pending_mcp_resolution_result(run_id, &execution.skill.name, &host.requests[0]);
         }
         Err(error) => return Err(error),
     };
     if let Some(request) = host.requests.first() {
-        return pending_mcp_graph_result(run_id, &execution.skill.name, request);
+        return pending_mcp_resolution_result(run_id, &execution.skill.name, request);
     }
     let run = runtime.resume_graph_with_host(&graph_dir, graph, checkpoint, &mut host)?;
     graph_run_mcp_result(&execution.skill.name, run_id, run)
 }
 
-fn pending_mcp_graph_result(
+fn pending_mcp_resolution_result(
     run_id: &str,
     skill_name: &str,
     request: &ResolutionRequest,
@@ -403,16 +412,7 @@ fn invoke_mcp_server_skill(
     execution: &McpServerSkillExecution,
     inputs: JsonObject,
 ) -> Result<SkillOutput, RuntimeError> {
-    let invocation = SkillInvocation {
-        skill_name: execution.skill.name.clone(),
-        source: execution.skill.source.clone(),
-        inputs,
-        resolved_inputs: JsonObject::new(),
-        current_context: Vec::new(),
-        skill_directory: skill_directory_for_execution(&execution.skill_path),
-        env: execution.env.clone(),
-        credential_delivery: execution.credential_delivery.clone(),
-    };
+    let invocation = mcp_skill_invocation(execution, inputs);
     match execution.skill.source.source_type.as_str() {
         "mcp" => McpAdapter::default().invoke(invocation),
         "cli-tool" => invoke_cli_tool_server_skill(invocation),
@@ -422,6 +422,22 @@ fn invoke_mcp_server_skill(
         other => Err(RuntimeError::UnsupportedAdapter {
             adapter_type: other.to_owned(),
         }),
+    }
+}
+
+fn mcp_skill_invocation(
+    execution: &McpServerSkillExecution,
+    inputs: JsonObject,
+) -> SkillInvocation {
+    SkillInvocation {
+        skill_name: execution.skill.name.clone(),
+        source: execution.skill.source.clone(),
+        inputs,
+        resolved_inputs: JsonObject::new(),
+        current_context: Vec::new(),
+        skill_directory: skill_directory_for_execution(&execution.skill_path),
+        env: execution.env.clone(),
+        credential_delivery: execution.credential_delivery.clone(),
     }
 }
 

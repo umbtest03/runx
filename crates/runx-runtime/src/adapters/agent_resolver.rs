@@ -4,7 +4,7 @@
 //! [`AnthropicModelCaller`], the [`RuntimeToolExecutor`], and [`run_agent_loop`].
 //! This is the OPTIONAL governance path. The default shipped agent behavior stays
 //! host-drives (the `needs_agent` yield in skill execution); this resolver is used
-//! only when a provider key is configured (the opt-in branch in the agent path).
+//! only when the run explicitly opts in and a provider is configured.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -23,7 +23,6 @@ use crate::credentials::{CredentialDelivery, SecretString};
 use crate::http::RuntimeHttpTransport;
 
 const FINAL_RESULT_TOOL: &str = "runx_final_result";
-const MAX_ROUNDS: u32 = 16;
 /// Extra model re-asks after an empty turn before the loop fails closed. Covers a
 /// transient text-only reply without letting a persistently silent model spin.
 const MAX_EMPTY_TURN_RESAMPLES: u32 = 3;
@@ -40,6 +39,7 @@ pub struct AnthropicAgentResolver<T> {
     env: BTreeMap<String, String>,
     skill_directory: PathBuf,
     credential_delivery: CredentialDelivery,
+    max_rounds: u32,
 }
 
 impl<T> AnthropicAgentResolver<T> {
@@ -51,6 +51,7 @@ impl<T> AnthropicAgentResolver<T> {
         env: BTreeMap<String, String>,
         skill_directory: PathBuf,
         credential_delivery: CredentialDelivery,
+        max_rounds: u32,
     ) -> Self {
         Self {
             transport,
@@ -59,6 +60,7 @@ impl<T> AnthropicAgentResolver<T> {
             env,
             skill_directory,
             credential_delivery,
+            max_rounds,
         }
     }
 }
@@ -168,7 +170,7 @@ impl<T: RuntimeHttpTransport + Clone> AgentResolver for AnthropicAgentResolver<T
                 .map(|tool| tool.as_str().to_owned()),
         );
         let config = AgentLoopConfig {
-            max_rounds: MAX_ROUNDS,
+            max_rounds: self.max_rounds,
             max_empty_turn_resamples: MAX_EMPTY_TURN_RESAMPLES,
             final_result_tool: FINAL_RESULT_TOOL.to_owned(),
         };
