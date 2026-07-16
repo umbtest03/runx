@@ -16,6 +16,7 @@ use crate::publish::PublishPlan;
 use crate::registry::{RegistryAction, RegistryPlan};
 use crate::resume::ResumePlan;
 use crate::skill::SkillPlan;
+use runx_runtime::WorkspaceEnv;
 use runx_runtime::registry::parse_registry_ref;
 
 #[derive(Debug, PartialEq)]
@@ -166,6 +167,19 @@ pub enum ToolAction {
 // rust-style-allow: long-function because router routing is the cutover gate:
 // every native command branch and fail-closed decision is reviewed here.
 pub fn route_args(args: Vec<OsString>) -> RouterAction {
+    route_args_with_optional_workspace(args, None)
+}
+
+pub fn route_args_with_workspace(args: Vec<OsString>, workspace: &WorkspaceEnv) -> RouterAction {
+    route_args_with_optional_workspace(args, Some(workspace))
+}
+
+// rust-style-allow: long-function because router routing is the cutover gate:
+// every native command branch and fail-closed decision is reviewed here.
+fn route_args_with_optional_workspace(
+    args: Vec<OsString>,
+    workspace: Option<&WorkspaceEnv>,
+) -> RouterAction {
     if args.is_empty() || single_arg_is(&args, "--help") || single_arg_is(&args, "-h") {
         return RouterAction::PrintHelp;
     }
@@ -310,7 +324,11 @@ pub fn route_args(args: Vec<OsString>) -> RouterAction {
                 "runx skill add has been removed; use runx add <ref>".to_owned(),
             );
         }
-        return crate::skill::parse_skill_plan(&args).map_or_else(
+        let parsed = workspace.map_or_else(
+            || crate::skill::parse_skill_plan(&args),
+            |workspace| crate::skill::parse_skill_plan_with_workspace(&args, workspace),
+        );
+        return parsed.map_or_else(
             |message| json_or_human_error(&args, message),
             RouterAction::RunSkill,
         );

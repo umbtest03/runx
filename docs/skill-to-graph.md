@@ -193,6 +193,19 @@ shape.
 
 ## HTTP Steps And Credentials
 
+Local operator commands (`runx skill`, `runx resume`, and `runx mcp serve`)
+capture one workspace environment when the command starts. Runx first resolves
+the workspace from the process environment and current directory, then parses
+the exact `<workspace>/.env` file when it exists. The file only fills missing
+keys, so an exported process value always wins. Runx parses the file as data; it
+does not source a shell or mutate the process environment.
+
+Keep `.env` local and ignored by version control. Loading a key makes it
+available to Runx credential/profile resolution, but does not automatically
+expose it to a child process. CLI-tool and MCP subprocesses remain
+deny-by-default and receive only variables admitted by their declared sandbox
+`env_allowlist` (plus runtime-authored `RUNX_*` values).
+
 A graph step, or a top-level skill source, can be a governed HTTP call: declare
 `source.type: http` with the `url`, `method`, and `headers`. A **header** value
 may reference a delivered secret with `${secret:NAME}`; it is injected at the
@@ -238,7 +251,9 @@ non-secret descriptor in `.runx/credentials.json`:
 Then run with `-p operator` (or `--profile operator`). If
 `RUNX_CREDENTIAL_PROFILES` is set, runx reads that JSON file instead; otherwise
 it checks the project `.runx/credentials.json` and then the global runx home.
-The profile file never contains the secret value.
+The profile file never contains the secret value. Its `secret_env` name may
+resolve from the command's process environment or the workspace `.env` using
+the precedence above.
 
 ## Governed Data Steps
 

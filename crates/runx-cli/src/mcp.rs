@@ -2,7 +2,8 @@ use std::ffi::OsString;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
-use std::{collections::BTreeMap, env};
+
+use runx_runtime::WorkspaceEnv;
 
 use crate::cli_args::{flag_value, optional_flag_value_or, os_arg, os_flag_value, split_flag};
 
@@ -89,6 +90,20 @@ pub fn parse_mcp_plan(args: &[OsString]) -> Result<McpPlan, String> {
 // rust-style-allow: long-function -- native MCP startup owns one cohesive
 // stdio-vs-HTTP transport selection and error presentation boundary.
 pub fn run_native_mcp(plan: McpPlan) -> ExitCode {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let workspace = match WorkspaceEnv::load_process(cwd) {
+        Ok(workspace) => workspace,
+        Err(error) => {
+            let _ignored = writeln!(std::io::stderr(), "runx: {error}");
+            return ExitCode::from(1);
+        }
+    };
+    run_native_mcp_with_workspace(plan, &workspace)
+}
+
+// rust-style-allow: long-function -- native MCP startup owns one cohesive
+// stdio-vs-HTTP transport selection and error presentation boundary.
+pub fn run_native_mcp_with_workspace(plan: McpPlan, workspace: &WorkspaceEnv) -> ExitCode {
     let options =
         match runx_runtime::adapters::mcp::McpServerOptions::from_skill_paths_with_execution(
             &plan.refs,
@@ -97,7 +112,7 @@ pub fn run_native_mcp(plan: McpPlan) -> ExitCode {
             runx_runtime::adapters::mcp::McpServerExecutionOptions {
                 runner: plan.runner,
                 receipt_dir: plan.receipt_dir,
-                env: mcp_execution_env(),
+                env: workspace.env().clone(),
             },
         ) {
             Ok(options) => options,
@@ -151,16 +166,4 @@ pub fn run_native_mcp(plan: McpPlan) -> ExitCode {
             ExitCode::from(1)
         }
     }
-}
-
-fn mcp_execution_env() -> BTreeMap<String, String> {
-    let mut env = env::vars().collect::<BTreeMap<_, _>>();
-    if let Ok(cwd) = env::current_dir() {
-        let workspace = runx_runtime::resolve_runx_workspace_base(&env, &cwd);
-        env.insert(
-            runx_runtime::RUNX_CWD_ENV.to_owned(),
-            workspace.to_string_lossy().into_owned(),
-        );
-    }
-    env
 }

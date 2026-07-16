@@ -157,6 +157,7 @@ pub use scaffold::{
     InitAction, InitGeneratedValues, RunxInitOptions, RunxInitResult, RunxNewOptions,
     RunxNewResult, ScaffoldError, runx_init, sanitize_runx_package_name, scaffold_runx_package,
 };
+pub use services::{WorkspaceEnv, WorkspaceEnvError};
 pub use skill_front::PackageHarnessReport;
 pub use tool_catalogs::{
     ToolBuildOptions, ToolCatalogError, ToolInspectOptions, ToolSearchOptions, build_tool_catalogs,

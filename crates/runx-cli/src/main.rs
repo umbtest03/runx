@@ -13,8 +13,39 @@ const PACKAGE_HARNESS_STALE_RECEIPT_STORE_HINT: &str = "runx: hint: the receipt 
 
 fn main() -> ExitCode {
     let args: Vec<OsString> = env::args_os().skip(1).collect();
+    let workspace = if command_uses_workspace_env(&args) {
+        let cwd = match env::current_dir() {
+            Ok(cwd) => cwd,
+            Err(error) => {
+                let message = format!("failed to resolve cwd: {error}");
+                return if runx_cli::router::json_requested(&args) {
+                    write_json_failure(&message, "workspace_env_error", 1)
+                } else {
+                    let _ignored = write_stderr_line(&format!("runx: {message}"));
+                    ExitCode::from(1)
+                };
+            }
+        };
+        match runx_runtime::WorkspaceEnv::load_process(cwd) {
+            Ok(workspace) => Some(workspace),
+            Err(error) => {
+                return if runx_cli::router::json_requested(&args) {
+                    write_json_failure(&error.to_string(), "workspace_env_error", 1)
+                } else {
+                    let _ignored = write_stderr_line(&format!("runx: {error}"));
+                    ExitCode::from(1)
+                };
+            }
+        }
+    } else {
+        None
+    };
+    let action = match workspace.as_ref() {
+        Some(workspace) => runx_cli::router::route_args_with_workspace(args, workspace),
+        None => runx_cli::router::route_args(args),
+    };
 
-    match runx_cli::router::route_args(args) {
+    match action {
         RouterAction::Error(message) => {
             let _ignored = write_stderr_line(&format!("runx: {message}"));
             ExitCode::from(64)
@@ -40,7 +71,10 @@ fn main() -> ExitCode {
         RouterAction::RunVerify(plan) => run_native_verify(plan.args),
         RouterAction::RunList(plan) => run_native_list(plan),
         RouterAction::RunLogin(plan) => runx_cli::login::run_native_login(plan),
-        RouterAction::RunMcp(plan) => runx_cli::mcp::run_native_mcp(plan),
+        RouterAction::RunMcp(plan) => match workspace.as_ref() {
+            Some(workspace) => runx_cli::mcp::run_native_mcp_with_workspace(plan, workspace),
+            None => runx_cli::mcp::run_native_mcp(plan),
+        },
         RouterAction::RunHarness(plan) => run_native_harness(plan),
         RouterAction::RunKernel(plan) => runx_cli::kernel::run_native_kernel(plan),
         RouterAction::RunPayment(plan) => runx_cli::payment::run_native_payment(plan),
@@ -50,14 +84,34 @@ fn main() -> ExitCode {
         RouterAction::RunPolicy(plan) => runx_cli::policy::run_native_policy(plan),
         RouterAction::RunPublish(plan) => runx_cli::publish::run_native_publish(plan),
         RouterAction::RunRegistry(plan) => runx_cli::registry::run_native_registry(plan),
-        RouterAction::RunResume(plan) => runx_cli::resume::run_native_resume(plan),
-        RouterAction::RunSkill(plan) => runx_cli::skill::run_native_skill(plan),
+        RouterAction::RunResume(plan) => match workspace.as_ref() {
+            Some(workspace) => runx_cli::resume::run_native_resume_with_workspace(plan, workspace),
+            None => runx_cli::resume::run_native_resume(plan),
+        },
+        RouterAction::RunSkill(plan) => match workspace.as_ref() {
+            Some(workspace) => runx_cli::skill::run_native_skill_with_workspace(plan, workspace),
+            None => runx_cli::skill::run_native_skill(plan),
+        },
         RouterAction::RunDoctor(plan) => runx_cli::doctor::run_native_doctor(plan),
         RouterAction::RunDev(plan) => runx_cli::dev::run_native_dev(plan),
         RouterAction::RunExport(plan) => runx_cli::export::run_native_export(plan),
         RouterAction::RunTool(plan) => runx_cli::tool::run_native_tool(plan),
         RouterAction::RunAddUrl(plan) => runx_cli::add::run_native_add(plan),
     }
+}
+
+fn command_uses_workspace_env(args: &[OsString]) -> bool {
+    if args
+        .iter()
+        .skip(1)
+        .any(|arg| matches!(arg.to_str(), Some("--help" | "-h")))
+    {
+        return false;
+    }
+    matches!(
+        args.first().and_then(|arg| arg.to_str()),
+        Some("skill" | "resume" | "mcp")
+    )
 }
 
 fn run_native_history(args: Vec<OsString>) -> ExitCode {

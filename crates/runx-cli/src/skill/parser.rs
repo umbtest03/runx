@@ -1,20 +1,28 @@
 // rust-style-allow: large-file - skill CLI parsing keeps shared state and
 // option finalization in one module until the native parser surface stabilizes.
 use std::collections::BTreeMap;
-use std::env;
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use runx_contracts::JsonValue;
 use runx_runtime::orchestrator::LocalCredentialDescriptor;
-use runx_runtime::{resolve_path_from_user_input, resolve_runx_home_dir};
+use runx_runtime::{WorkspaceEnv, resolve_path_from_user_input, resolve_runx_home_dir};
 use serde::Deserialize;
 
 use super::inputs::{parse_direct_input_arg, parse_input_arg, parse_json_input_arg};
 use super::{SkillAction, SkillPlan};
 
 pub fn parse_skill_plan(args: &[OsString]) -> Result<SkillPlan, String> {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let workspace = WorkspaceEnv::load_process(cwd).map_err(|error| error.to_string())?;
+    parse_skill_plan_with_workspace(args, &workspace)
+}
+
+pub fn parse_skill_plan_with_workspace(
+    args: &[OsString],
+    workspace: &WorkspaceEnv,
+) -> Result<SkillPlan, String> {
     let mut state = SkillParseState::default();
     let mut index = 1;
 
@@ -23,9 +31,7 @@ pub fn parse_skill_plan(args: &[OsString]) -> Result<SkillPlan, String> {
         index += 1;
     }
 
-    let env = env::vars().collect();
-    let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let local_credential = finalize_local_credential(&state, &env, &cwd)?;
+    let local_credential = finalize_local_credential(&state, workspace.env(), workspace.cwd())?;
 
     let Some(skill_path) = state.skill_path.as_ref() else {
         return Err("runx skill requires a skill package path".to_owned());
@@ -77,7 +83,7 @@ struct SkillParseState {
     credential: Option<CredentialBinding>,
     credential_scopes: Vec<String>,
     credential_profile: Option<String>,
-    secret_env: Option<(String, String)>,
+    secret_env: Option<String>,
 }
 
 struct CredentialBinding {
@@ -149,14 +155,7 @@ fn credential_usage_error() -> String {
     "runx skill --credential requires <provider>:<auth_mode>:<material_ref>".to_owned()
 }
 
-fn parse_secret_env(value: &str) -> Result<(String, String), String> {
-    parse_secret_env_from(value, |name| env::var(name).ok())
-}
-
-fn parse_secret_env_from(
-    value: &str,
-    lookup: impl Fn(&str) -> Option<String>,
-) -> Result<(String, String), String> {
+fn parse_secret_env_name(value: &str) -> Result<String, String> {
     if value.contains('=') {
         return Err(
             "runx skill --secret-env accepts an environment variable name, not an inline value"
@@ -167,6 +166,13 @@ fn parse_secret_env_from(
     if name.is_empty() {
         return Err("runx skill --secret-env requires a non-empty env var name".to_owned());
     }
+    Ok(name.to_owned())
+}
+
+fn resolve_secret_env(
+    name: &str,
+    lookup: impl Fn(&str) -> Option<String>,
+) -> Result<(String, String), String> {
     let secret = lookup(name)
         .ok_or_else(|| format!("runx skill --secret-env env var '{name}' is not set"))?;
     if secret.trim().is_empty() {
@@ -195,7 +201,7 @@ fn finalize_local_credential(
         let scopes = normalized_credential_scopes(&profile.scopes).map_err(|error| {
             format!("runx skill credential profile '{profile_name}' is invalid: {error}")
         })?;
-        let secret_env = parse_secret_env_from(&profile.secret_env, |name| env.get(name).cloned())?;
+        let secret_env = resolve_secret_env(&profile.secret_env, |name| env.get(name).cloned())?;
         return Ok(Some(local_credential_descriptor(
             &credential,
             &scopes,
@@ -214,14 +220,15 @@ fn finalize_local_credential(
             ),
         };
     };
-    let Some((env_var, secret)) = state.secret_env.as_ref() else {
+    let Some(env_var) = state.secret_env.as_ref() else {
         return Err("runx skill --credential requires --secret-env <ENV_VAR>".to_owned());
     };
     let scopes = normalized_credential_scopes(&state.credential_scopes)?;
+    let secret_env = resolve_secret_env(env_var, |name| env.get(name).cloned())?;
     Ok(Some(local_credential_descriptor(
         binding,
         &scopes,
-        &(env_var.clone(), secret.clone()),
+        &secret_env,
     )))
 }
 
@@ -494,11 +501,13 @@ fn parse_skill_arg(
             )?);
         }
         value if value.starts_with("--secret-env=") => {
-            state.secret_env = Some(parse_secret_env(value.trim_start_matches("--secret-env="))?);
+            state.secret_env = Some(parse_secret_env_name(
+                value.trim_start_matches("--secret-env="),
+            )?);
         }
         "--secret-env" => {
             index += 1;
-            state.secret_env = Some(parse_secret_env(&string_arg(args, index)?)?);
+            state.secret_env = Some(parse_secret_env_name(&string_arg(args, index)?)?);
         }
         "--json" | "-j" => state.json = true,
         value if value.starts_with("--approve-operator-context=") => {
@@ -669,13 +678,15 @@ mod tests {
                 "twitter:read".to_owned(),
                 "twitter:read".to_owned(),
             ],
-            secret_env: Some(("TWITTER_TOKEN".to_owned(), "secret-value".to_owned())),
+            secret_env: Some("TWITTER_TOKEN".to_owned()),
             ..Default::default()
         };
+        let env = [("TWITTER_TOKEN".to_owned(), "secret-value".to_owned())]
+            .into_iter()
+            .collect();
 
-        let credential =
-            finalize_local_credential(&state, &Default::default(), &std::env::temp_dir())?
-                .ok_or_else(|| "credential did not resolve".to_owned())?;
+        let credential = finalize_local_credential(&state, &env, &std::env::temp_dir())?
+            .ok_or_else(|| "credential did not resolve".to_owned())?;
 
         assert_eq!(credential.material_ref, "ref:twitter:primary");
         assert_eq!(credential.scopes, vec!["twitter:read", "twitter:write"]);
@@ -687,7 +698,7 @@ mod tests {
         let binding = parse_credential_binding("twitter:oauth1_user:ref:twitter:read")?;
         let state = SkillParseState {
             credential: Some(binding),
-            secret_env: Some(("TWITTER_TOKEN".to_owned(), "secret-value".to_owned())),
+            secret_env: Some("TWITTER_TOKEN".to_owned()),
             ..Default::default()
         };
 
@@ -703,7 +714,7 @@ mod tests {
     fn credential_profile_rejects_manual_credential_flags() -> Result<(), String> {
         let state = SkillParseState {
             credential_profile: Some("example".to_owned()),
-            secret_env: Some(("TOKEN".to_owned(), "secret".to_owned())),
+            secret_env: Some("TOKEN".to_owned()),
             ..Default::default()
         };
         let error = finalize_local_credential(&state, &Default::default(), &std::env::temp_dir())

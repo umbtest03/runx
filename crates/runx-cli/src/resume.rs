@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::env;
 use std::ffi::OsString;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -7,7 +6,7 @@ use std::process::ExitCode;
 
 use runx_runtime::journal::list_local_history;
 use runx_runtime::{
-    LocalReceiptStore, ReceiptPathInputs, RuntimeReceiptConfig, resolve_receipt_path,
+    LocalReceiptStore, ReceiptPathInputs, RuntimeReceiptConfig, WorkspaceEnv, resolve_receipt_path,
 };
 
 use crate::skill::{SkillAction, SkillPlan};
@@ -98,13 +97,24 @@ pub fn parse_resume_plan(args: &[OsString]) -> Result<ResumePlan, String> {
 // rust-style-allow: long-function - resume reconstructs one guarded continuation
 // request and keeps its path, receipt, and output error handling in one transaction.
 pub fn run_native_resume(plan: ResumePlan) -> ExitCode {
-    let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let env = crate::cli_io::env_map();
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let workspace = match WorkspaceEnv::load_process(cwd) {
+        Ok(workspace) => workspace,
+        Err(error) => return write_resume_failure(&error.to_string(), plan.json, 1),
+    };
+    run_native_resume_with_workspace(plan, &workspace)
+}
+
+// rust-style-allow: long-function - resume reconstructs one guarded continuation
+// request and keeps its path, receipt, and output error handling in one transaction.
+pub fn run_native_resume_with_workspace(plan: ResumePlan, workspace: &WorkspaceEnv) -> ExitCode {
+    let cwd = workspace.cwd().to_path_buf();
+    let env = workspace.env();
     let receipt_config = RuntimeReceiptConfig::default();
     let resolved = resolve_receipt_path(ReceiptPathInputs {
         explicit_dir: plan.receipt_dir.as_deref(),
         runtime_config: Some(&receipt_config),
-        env: &env,
+        env,
         cwd: &cwd,
     });
     let store = LocalReceiptStore::new(&resolved.path);
@@ -158,7 +168,7 @@ pub fn run_native_resume(plan: ResumePlan) -> ExitCode {
         inputs: BTreeMap::new(),
         local_credential: None,
     };
-    crate::skill::run_native_skill(skill_plan)
+    crate::skill::run_native_skill_with_workspace(skill_plan, workspace)
 }
 
 pub(crate) fn render_skill_resume_command(command: SkillResumeCommand<'_>) -> String {

@@ -1,17 +1,16 @@
 // rust-style-allow: large-file - skill command keeps parse, inspect, registry provenance, and execution wiring together until the native skill UX settles.
 use std::collections::BTreeMap;
-use std::env;
 use std::fs;
 use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use runx_contracts::{JsonObject, JsonValue};
-use runx_runtime::SkillRunRequest;
 use runx_runtime::orchestrator::LocalCredentialDescriptor;
 use runx_runtime::skill_front::{
     PreparedEntryProvenance, PreparedSkillRunApproval, PreparedSkillRunStatus,
 };
+use runx_runtime::{SkillRunRequest, WorkspaceEnv};
 
 mod inputs;
 mod operator_context;
@@ -21,7 +20,7 @@ mod resolver;
 
 use operator_context::write_operator_context;
 use output::{SkillOutputResume, skill_result_exit_code, write_skill_output};
-pub use parser::parse_skill_plan;
+pub use parser::{parse_skill_plan, parse_skill_plan_with_workspace};
 use resolver::{RegistryTrustState, ResolvedSkillRef, resolve_skill_ref_details};
 
 #[derive(Debug, PartialEq)]
@@ -57,8 +56,20 @@ pub enum SkillAction {
 
 // rust-style-allow: long-function - the top-level command path owns resolve/inspect/run/failure presentation in one explicit dispatch.
 pub fn run_native_skill(plan: SkillPlan) -> ExitCode {
-    let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let env = env::vars().collect();
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let workspace = match WorkspaceEnv::load_process(cwd) {
+        Ok(workspace) => workspace,
+        Err(error) => {
+            return write_skill_failure(&error.to_string(), plan.json, "env_error", 1, None);
+        }
+    };
+    run_native_skill_with_workspace(plan, &workspace)
+}
+
+// rust-style-allow: long-function - the top-level command path owns resolve/inspect/run/failure presentation in one explicit dispatch.
+pub fn run_native_skill_with_workspace(plan: SkillPlan, workspace: &WorkspaceEnv) -> ExitCode {
+    let cwd = workspace.cwd().to_path_buf();
+    let env = workspace.env().clone();
     let resume_skill_ref = plan.skill_path.to_string_lossy().into_owned();
     let resolved = match resolve_skill_ref_details(
         &plan.skill_path,
@@ -146,7 +157,11 @@ pub fn run_native_skill(plan: SkillPlan) -> ExitCode {
         }
         match authorize_operator_context(&plan, prepared.digest(), &resume_skill_ref) {
             OperatorAuthorization::Approved(mode) => {
-                let actor = env::var("USER").unwrap_or_else(|_| "local_operator".to_owned());
+                let actor = workspace
+                    .env()
+                    .get("USER")
+                    .cloned()
+                    .unwrap_or_else(|| "local_operator".to_owned());
                 if let Err(error) = prepared.approve(PreparedSkillRunApproval::now(actor, mode)) {
                     return write_skill_failure(
                         &error.to_string(),
