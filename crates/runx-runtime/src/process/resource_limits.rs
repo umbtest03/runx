@@ -18,7 +18,11 @@ const CHILD_MAX_FILE_BYTES: u64 = 512 * 1024 * 1024;
 #[cfg(unix)]
 const CHILD_MAX_CPU_SECONDS: u64 = 60;
 #[cfg(any(target_os = "linux", target_os = "android"))]
-const CHILD_MAX_ADDRESS_SPACE_BYTES: u64 = 4 * 1024 * 1024 * 1024;
+// Node 24 reserves a 4 GiB V8 pointer-compression cage before its TypeScript
+// loader allocates WebAssembly memory. A 4 GiB address-space ceiling therefore
+// kills ordinary bounded tool processes before user code runs. This remains a
+// virtual-address limit; CPU, file, descriptor, and sandbox bounds still apply.
+const CHILD_MAX_ADDRESS_SPACE_BYTES: u64 = 8 * 1024 * 1024 * 1024;
 
 #[cfg(unix)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

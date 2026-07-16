@@ -39,7 +39,6 @@ pub enum ManagedAgentPolicy {
 }
 
 impl ManagedAgentPolicy {
-    #[must_use]
     pub fn inline(max_rounds: u32) -> Result<Self, String> {
         if !(1..=MANAGED_AGENT_MAX_ROUNDS_LIMIT).contains(&max_rounds) {
             return Err(format!(

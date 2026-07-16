@@ -1008,9 +1008,9 @@ mod tests {
             .push("entry.publish".to_owned());
 
         assert!(prepared.requires_operator_approval());
-        let error = prepared
-            .admit_safe()
-            .expect_err("mutating prepared runs must not use safe admission");
+        let Err(error) = prepared.admit_safe() else {
+            return Err("mutating prepared runs unexpectedly used safe admission".into());
+        };
         assert!(
             error
                 .to_string()

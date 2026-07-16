@@ -417,13 +417,14 @@ mod tests {
             runx_runtime::ManagedAgentPolicy::Inline { max_rounds: 3 }
         );
 
-        let error = super::parse_skill_plan(
+        let Err(error) = super::parse_skill_plan(
             &["skill", "skills/release", "--managed-agent-rounds=3"]
                 .into_iter()
                 .map(std::ffi::OsString::from)
                 .collect::<Vec<_>>(),
-        )
-        .expect_err("round budget without consent should fail");
+        ) else {
+            return Err("round budget without consent unexpectedly parsed".to_owned());
+        };
         assert!(error.contains("requires --managed-agent"));
         Ok(())
     }
