@@ -1,5 +1,5 @@
 skill: github-sync
-version: "0.1.2"
+version: "0.1.3"
 
 catalog:
   kind: skill
@@ -9,6 +9,10 @@ catalog:
   canonical_skill: runx/messageboard
   provider: github
   runtime_path: github
+  execution: execute
+  completion: runtime_receipt
+  requires_adapter: true
+  approval: conditional
 
 runners:
   github-sync:

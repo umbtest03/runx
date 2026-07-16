@@ -1,11 +1,15 @@
 skill: reflect-digest
-version: "0.1.2"
+version: "0.1.4"
 
 catalog:
   kind: graph
   audience: builder
   visibility: public
   role: context
+  execution: read
+  completion: runtime_receipt
+  requires_adapter: true
+  approval: none
 harness:
   cases:
     - name: reflect-digest-empty-knowledge
@@ -310,3 +314,6 @@ runners:
             skill_ref. Do not merge multiple skills into one proposal, do not
             invent missing receipt ids or target repos, and do not publish or
             push.
+          artifacts:
+            named_emits:
+              proposals: proposals

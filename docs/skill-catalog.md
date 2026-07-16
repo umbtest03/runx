@@ -94,7 +94,7 @@ evidence, not copied into the repo by default.
 
 | Category | Maintained packages |
 | --- | --- |
-| `authoring` | `design-skill`, `evolve`, `improve-skill`, `overlay`, `policy-author`, `review-receipt`, `skill-lab`, `skill-testing` |
+| `authoring` | `evolve`, `overlay`, `policy-author`, `prior-art`, `review-receipt`, `review-skill`, `skill-lab`, `work-plan` |
 | `code` | `release` |
 | `content` | `brand-voice`, `content-pipeline`, `ghostwrite`, `moltbook` |
 | `data` | `data-store`, `run-history`, `sql-analyst` |

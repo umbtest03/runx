@@ -51,7 +51,7 @@ and reports the diagnostics that decide whether it is safe to run.
 
 ## When not to use this skill
 
-- To author a first-party skill from scratch (use `design-skill`).
+- To author a first-party skill from scratch (use `skill-lab`).
 - To change the wrapped skill's behavior. Overlays bound; they do not patch.
 
 ## The overlay model

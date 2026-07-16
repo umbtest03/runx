@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.runx.ai/runx/skill_lab/authoring_context/v1.json",
+  "x-runx-packet-id": "runx.skill_lab.authoring_context.v1",
+  "x-runx-generated-from": "skills/skill-lab/X.yaml#root.runners.design.graph.steps.0",
+  "type": "object"
+}

@@ -1,14 +1,18 @@
 skill: open-meteo-weather-forecast
-version: "0.1.0"
+version: "0.1.1"
 
 catalog:
   kind: graph
   audience: public
-  visibility: internal
+  visibility: public
   role: branded
   canonical_skill: runx/weather-forecast
   provider: open-meteo
   runtime_path: http
+  execution: read
+  completion: provider_readback
+  requires_adapter: true
+  approval: none
 
 harness:
   cases:

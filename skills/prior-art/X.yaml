@@ -1,11 +1,15 @@
 skill: prior-art
-version: "0.1.1"
+version: "0.1.2"
 
 catalog:
   kind: skill
   audience: builder
   visibility: public
   role: context
+  execution: read
+  completion: runtime_receipt
+  requires_adapter: false
+  approval: none
 harness:
   cases:
     - name: prior-art-validates-proposed-flow

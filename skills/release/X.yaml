@@ -1,11 +1,15 @@
 skill: release
-version: "0.1.1"
+version: "0.1.2"
 
 catalog:
   kind: graph
   audience: public
   visibility: public
   role: context
+  execution: plan
+  completion: plan
+  requires_adapter: false
+  approval: required
 harness:
   cases:
     - name: release-approved-publish-end-to-end

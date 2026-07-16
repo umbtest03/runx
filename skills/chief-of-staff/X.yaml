@@ -1,11 +1,15 @@
 skill: chief-of-staff
-version: "0.1.0"
+version: "0.1.1"
 
 catalog:
   kind: skill
   audience: operator
   visibility: public
   role: context
+  execution: read
+  completion: runtime_receipt
+  requires_adapter: false
+  approval: none
 harness:
   cases:
     - name: inbox-calendar-exec-action-packet

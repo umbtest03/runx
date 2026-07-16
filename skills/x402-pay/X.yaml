@@ -1,5 +1,5 @@
 skill: x402-pay
-version: "0.1.1"
+version: "0.1.2"
 catalog:
   kind: graph
   audience: operator
@@ -8,6 +8,10 @@ catalog:
   canonical_skill: runx/spend
   provider: x402
   runtime_path: x402
+  execution: plan
+  completion: plan
+  requires_adapter: false
+  approval: required
 runners:
   x402:
     default: true

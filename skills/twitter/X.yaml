@@ -1,5 +1,5 @@
 skill: twitter
-version: "0.1.1"
+version: "0.1.2"
 catalog:
   kind: skill
   audience: public
@@ -8,6 +8,10 @@ catalog:
   canonical_skill: runx/send-as
   provider: twitter
   runtime_path: twitter
+  execution: execute
+  completion: provider_readback
+  requires_adapter: true
+  approval: required
 credentials:
   twitter-read:
     provider: twitter

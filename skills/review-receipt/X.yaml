@@ -1,31 +1,35 @@
 skill: review-receipt
-version: "0.1.2"
+version: "0.1.3"
 
 catalog:
   kind: skill
   audience: builder
   visibility: public
   role: context
+  execution: read
+  completion: runtime_receipt
+  requires_adapter: false
+  approval: none
 harness:
   cases:
     - name: review-receipt-diagnoses-context-flattening
       inputs:
         receipt_summary: Downstream step received JSON text instead of a structured object.
         harness_output: Context edge pointed at stdout and flattened the payload.
-        skill_path: skills/design-skill
+        skill_path: skills/skill-lab
       caller:
         answers:
           agent_task.review-receipt.output:
             verdict: needs_update
             failure_summary: Context edges are reading stdout instead of an artifact envelope, so structured data is flattened before the next step.
             improvement_proposals:
-              - target: skills/design-skill/X.yaml
+              - target: skills/skill-lab/X.yaml
                 change: Emit a wrapped artifact from the upstream step and consume <step>.<artifact>.data in downstream context.
                 rationale: Preserves structured objects across governed graph steps.
                 risk: Existing tests that parse stdout-shaped context will need updates.
             next_harness_checks:
-              - design-skill passes structured decomposition to prior-art
-              - improve-skill passes structured review data to write-harness
+              - skill-lab passes structured authoring context into the bounded author step
+              - skill-lab improve passes structured failure evidence into validation
       expect:
         status: sealed
         receipt:

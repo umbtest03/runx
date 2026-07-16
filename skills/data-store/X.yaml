@@ -1,5 +1,5 @@
 skill: data-store
-version: "0.2.0"
+version: "0.2.1"
 
 catalog:
   kind: skill
@@ -7,6 +7,10 @@ catalog:
   visibility: public
   role: canonical
   runtime_path: data-adapter
+  execution: execute
+  completion: runtime_receipt
+  requires_adapter: true
+  approval: conditional
 
 policy:
   allow:

@@ -1,11 +1,15 @@
 skill: ecosystem-brief
-version: "0.1.1"
+version: "0.1.2"
 
 catalog:
   kind: graph
   audience: public
   visibility: public
   role: context
+  execution: read
+  completion: runtime_receipt
+  requires_adapter: false
+  approval: required
 harness:
   cases:
     - name: ecosystem-brief-daily-brief

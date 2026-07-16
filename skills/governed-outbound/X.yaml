@@ -1,11 +1,15 @@
 skill: governed-outbound
-version: "0.1.2"
+version: "0.1.4"
 
 catalog:
   kind: graph
   audience: public
   visibility: public
   role: context
+  execution: read
+  completion: runtime_receipt
+  requires_adapter: false
+  approval: required
 harness:
   cases:
     - name: governed-outbound-approved-plan
@@ -86,14 +90,21 @@ harness:
                 description: Provider delivery and readback remain required after this plan.
           agent_task.sign-receipt.output:
             attestation:
+              decision: ready_to_seal
               action: governed outbound plan
               claim: A public incident update was gathered, scrubbed of personal data, and authorized for the incident channel.
               principal: account:ops-bot
               evidence_refs:
-                - "sha256:1f0a9c7e4b2d6a8f3c5e1b0d9a7c6e4f2b8d0a1c3e5f7a9b1d3f5a7c9e1b3d5f"
-                - "sha256:9b1d4c0e2af7b53c8e51a0d9f4c2b18e7a3d5c0f9e2b4a16d8c3f0a7b9e1d2c4"
-              signed: true
-              attestation_id: att_governed_outbound_demo
+                - ref: source:incident-update
+                  digest: "sha256:1f0a9c7e4b2d6a8f3c5e1b0d9a7c6e4f2b8d0a1c3e5f7a9b1d3f5a7c9e1b3d5f"
+                  proves: The allowlisted incident source was gathered.
+                - ref: redaction:incident-update
+                  digest: "sha256:9b1d4c0e2af7b53c8e51a0d9f4c2b18e7a3d5c0f9e2b4a16d8c3f0a7b9e1d2c4"
+                  proves: The approved outbound content is bound to the scrubbed artifact.
+              gaps: []
+              scope:
+                channel: "#incidents"
+                completion: plan_only
         approvals:
           governed-outbound.send.approval: true
       expect:

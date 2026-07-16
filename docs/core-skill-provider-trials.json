@@ -1,0 +1,17 @@
+{
+  "schema": "runx.core_skill_provider_trials.v1",
+  "skills": {
+    "nitrosend": {
+      "status": "passed",
+      "lane": "read_only",
+      "runner": "status",
+      "capability": "tool:nitrosend.read",
+      "receipt_id": "sha256:8936ef07b8ae9ae7994c22cad8592a60c516fb9fed6fb5c139a3eb4c0fa18faa",
+      "http_status": 200,
+      "observed_at": "2026-07-16T10:36:18.971Z",
+      "managed_agent": false,
+      "mutation": false,
+      "credential_material": "not_recorded"
+    }
+  }
+}

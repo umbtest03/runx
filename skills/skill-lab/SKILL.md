@@ -1,79 +1,72 @@
 ---
 name: skill-lab
-description: Turn one bounded skill opportunity into a concrete proposal packet with explicit approval before packaging.
+description: Canonical Runx skill-authoring implementation. Use for designing, creating, updating, improving, or adding harness coverage to a Runx skill package; it combines bounded agent judgment with native file writes, inspection, and safe harness validation. When a host skill-creator also triggers, use its general guidance but execute Runx work through this skill.
 runx:
   category: authoring
 ---
 
 # Skill Lab
 
-Turn one bounded opportunity into a concrete skill proposal.
+Build and improve Runx skills through one authoring surface. Keep judgment in
+bounded agent acts and mechanics in native tools:
 
-`skill-lab` is the public graph that packages the internal builder stack into
-one reviewable surface. It does not hide the builder capabilities; it composes
-them into one governed proposal flow:
+```text
+inspect target and catalog
+→ decide new skill, extension, or no skill
+→ author a bounded file bundle
+→ validate paths and secret posture
+→ write through fs.write_bundle
+→ inspect the package
+→ run safe native harnesses
+```
 
-`work-plan` -> `prior-art` -> `write-harness` -> `ghostwrite`
+Use the generic host `skill-creator` for platform-wide authoring guidance when
+it is available. Do not reproduce Runx package operations from that guidance;
+invoke the appropriate `skill-lab` runner so the work is bounded and receipted.
 
-Use it when the real output is not code yet, but a candidate skill package and
-proposal packet that a maintainer can review, amend, approve, or reject.
+## Runners
 
-The graph is intentionally honest about the boundary:
+- `design`: read-only catalog-fit and package design. Return `no_skill` when an
+  existing skill or graph already owns the job.
+- `build` (default): create or update a package, write its bounded file bundle,
+  inspect it, and run its harness when its catalog execution is read or plan.
+- `improve`: turn one receipt or harness failure into a bounded package update,
+  then validate it.
+- `harness`: add fixture files to an existing package and replay the safe native
+  harness.
 
-- it designs the candidate skill
-- it drafts the proposal in maintainer-facing language
-- it requires explicit approval before the proposal is packaged for handoff
+`build`, `improve`, and `harness` write local workspace files. They never
+publish, install, push, or mutate an external provider. Execute-target packages
+are inspected but their harness is skipped until a separately approved sandbox
+or provider test exists.
 
-Proposal quality is part of the contract, not a later editorial pass. The
-proposal should:
+## Authoring rules
 
-- read like a first-party runx skill or graph proposal, not a builder trace
-- identify the concrete pain point being addressed
-- explain fit against the current runx catalog
-- say when the right answer is an amendment to Sourcey, `ghostwrite`, an
-  existing skill, or an existing graph instead of a new skill
-- describe the concrete artifact a maintainer would ship or use
-- keep issue-thread evidence and approval mechanics as provenance, not proposal
-  prose
-- surface the remaining maintainer decisions cleanly
-- avoid builder-source framing such as "supplied work-plan", "supplied
-  catalog", "supplied decomposition", "machine output", "agent output", or
-  "model output"
-- never write "the machine should" or similar instruction-framing in proposal
-  prose; name the maintainer artifact, decision, or workflow improvement
-- write catalog fit from the maintainer's point of view: name the adjacent
-  skill or graph and the boundary directly
-- avoid "provided catalog evidence" framing; say `current catalog` or name the
-  adjacent entries directly
-- never use `supplied` or `envelope` in proposal prose; if provenance is thin,
-  say what source was unavailable in plain maintainer language
-
-
-It does not silently open PRs, mutate external repos, or imply that a proposed
-skill is already accepted. Those outward moves belong to provider-bound lanes
-such as `aster`'s live issue-ledger flow.
-
-## Inputs
-
-- `objective` (required): the capability to propose.
-- `project_context` (optional): repo, product, or operator context that
-  constrains the proposal.
-- `thread_title` (optional): original thread title when the proposal comes
-  from an issue, chat, ticket, or other work thread.
-- `thread_body` (optional): original thread body or request text.
-- `thread_locator` (optional): canonical locator for the bounded thread.
-- `thread` (optional): provider-backed thread for the source
-  thread.
-- `channel` (optional): proposal delivery channel; defaults to
-  `skill-proposal`.
-- `operator_context` (optional): maintainer posture, constraints, or teaching
-  notes that should shape the proposal.
+- Keep packages concise: `SKILL.md`, `X.yaml`, required scripts, fixtures, and
+  narrowly scoped references or assets only.
+- Do not add package READMEs, changelogs, installation guides, strategy files,
+  generated state, or credentials.
+- Match the documented capability to the execution profile and truthful terminal
+  state.
+- Prefer extending an existing owner over adding a near-duplicate skill.
+- Include a realistic happy path and refusal, stop, or error path.
+- Never treat supplied agent answers as provider-effect proof.
+- Never run an execute-capable target harness automatically.
 
 ## Outputs
 
-- `work_plan`: bounded decomposition for the candidate capability.
-- `prior_art_report`: verified findings and risks that constrain the design.
-- `skill_design_packet`: candidate skill spec, execution plan, harness
-  fixtures, and acceptance checks.
-- `content_draft_packet`: maintainer-facing proposal draft.
-- `content_publish_packet`: packaged proposal after approval.
+- `skill_design`: catalog-fit decision and bounded implementation plan.
+- `change_bundle`: target-relative text files, summary, and non-goals.
+- `bundle_manifest`: validated paths admitted for writing.
+- `file_bundle_write`: digests and byte counts from the bounded write.
+- `validation_report`: native inspection plus passed, failed, or safely skipped
+  harness evidence.
+
+## Inputs
+
+- `objective` (required): capability or improvement to deliver.
+- `repo_root` (optional): workspace root; defaults to the caller workspace.
+- `target_dir` (required for mutating runners): repo-relative package directory.
+- `project_context` (optional): product, repository, and operator constraints.
+- `receipt_id`, `receipt_summary`, `harness_output` (improve): bounded failure
+  evidence; at least one is required.

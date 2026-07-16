@@ -1,10 +1,14 @@
 skill: zapier-handoff
-version: "0.1.1"
+version: "0.1.2"
 catalog:
   kind: graph
   audience: operator
   visibility: public
   role: context
+  execution: execute
+  completion: provider_readback
+  requires_adapter: true
+  approval: required
 credentials:
   zapier:
     provider: zapier
@@ -149,6 +153,7 @@ runners:
             receiver: $input.receiver
         - id: post-to-zapier
           tool: orchestrators.zapier_handoff
+          mutation: true
           scopes:
             - orchestrator.zapier.workflow.invoke
           inputs:

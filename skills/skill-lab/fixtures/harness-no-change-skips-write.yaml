@@ -1,0 +1,29 @@
+name: skill-lab-harness-no-change-skips-write
+kind: skill
+target: ..
+runner: harness
+inputs:
+  objective: Decide whether a vague report justifies a new regression fixture
+  repo_root: .
+  target_dir: skills/example
+caller:
+  answers:
+    agent_task.skill-lab-harness.output:
+      change_bundle:
+        decision: no_change
+        summary: No reproducible behavior or harness output was supplied.
+        non_goals:
+          - Do not invent a regression case.
+        files: []
+expect:
+  status: sealed
+  receipt:
+    schema: runx.receipt.v1
+  steps:
+    - inspect
+    - author-fixtures
+    - prepare
+metadata:
+  public_skill: skill-lab
+  source_case: harness-no-change-skips-write
+  source: skills-fixture

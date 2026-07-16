@@ -1,0 +1,29 @@
+name: skill-lab-build-no-skill-skips-write
+kind: skill
+target: ..
+runner: build
+inputs:
+  objective: Add a second general-purpose release skill
+  repo_root: .
+  target_dir: skills/release-copy
+caller:
+  answers:
+    agent_task.skill-lab-build.output:
+      change_bundle:
+        decision: no_skill
+        summary: The existing release skill already owns the requested capability.
+        non_goals:
+          - Do not create a duplicate public package.
+        files: []
+expect:
+  status: sealed
+  receipt:
+    schema: runx.receipt.v1
+  steps:
+    - inspect
+    - author
+    - prepare
+metadata:
+  public_skill: skill-lab
+  source_case: build-no-skill-skips-write
+  source: skills-fixture

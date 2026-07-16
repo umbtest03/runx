@@ -1,0 +1,17 @@
+name: fetch-example-metadata
+kind: skill
+target: ..
+runner: web-fetch
+inputs:
+  url: https://example.com/
+  allowlist:
+    - example.com
+  extract: metadata
+  max_bytes: 100000
+expect:
+  status: sealed
+  receipt:
+    schema: runx.receipt.v1
+metadata:
+  public_skill: web-fetch
+  source_case: live-keyless-read

@@ -91,7 +91,7 @@ a runx workspace; bare skill names resolve from the current workspace's
 runx --help
 runx skill /path/to/runx/oss/fixtures/skills/echo --message hello --json
 cd /path/to/runx/oss
-runx skill ./skills/design-skill --objective "build sourcey docs skill" --json
+runx skill ./skills/skill-lab design --objective "build sourcey docs skill" --json
 ```
 
 Recommended flows:
@@ -109,7 +109,7 @@ runx resume <run-id> answers.json
 runx history <receipt-id> --json
 runx history
 runx mcp serve ./fixtures/skills/echo
-runx skill ./skills/design-skill --objective "build github review skill"
+runx skill ./skills/skill-lab design --objective "build github review skill"
 runx harness ./fixtures/harness/echo-skill.yaml
 runx config set agent.provider openai
 runx config set agent.model gpt-5.1
@@ -325,7 +325,7 @@ authored source. Do not hand-edit generated `manifest.json` or `run.mjs`.
 The official catalog is explicit about why each package is public:
 
 - canonical governed skills: `charge`, `dispute-respond`, `evolve`,
-  `improve-skill`, `least-privilege`, `overlay`,
+  `skill-lab`, `review-skill`, `least-privilege`, `overlay`,
   `policy-author`, `audit-receipt`, `refund`, `ops-desk`, `send-as`, `spend`,
   `weather-forecast`
 - branded provider skills: `nitrosend`, `nws-weather-forecast`, `stripe-pay`,

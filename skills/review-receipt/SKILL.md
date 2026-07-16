@@ -61,7 +61,7 @@ cause. Do not bundle unrelated improvements.
 The output shape is formalised as JSON Schema at
 [review-receipt-output.schema.json](../../schemas/review-receipt-output.schema.json).
 Agents should self-validate before returning, and downstream
-consumers (notably `write-harness`) may validate on receipt.
+consumers (notably the `skill-lab improve` runner) may validate on receipt.
 
 - `verdict`: `pass`, `needs_update`, or `blocked`.
 - `failure_summary`: which step, which failure class, what root cause.

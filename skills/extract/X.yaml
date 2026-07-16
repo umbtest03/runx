@@ -1,5 +1,5 @@
 skill: extract
-version: "0.1.0"
+version: "0.1.1"
 
 catalog:
   kind: skill
@@ -7,6 +7,10 @@ catalog:
   visibility: public
   role: canonical
   runtime_path: local
+  execution: read
+  completion: runtime_receipt
+  requires_adapter: false
+  approval: none
 
 policy:
   allow:

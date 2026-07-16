@@ -1,69 +1,157 @@
 skill: review-skill
-version: "0.1.1"
+version: "0.2.0"
 
 catalog:
-  kind: skill
+  kind: graph
   audience: builder
   visibility: public
-  role: context
+  role: canonical
+  execution: read
+  completion: runtime_receipt
+  requires_adapter: false
+  approval: none
+
 harness:
   cases:
-    - name: review-skill-produces-trust-audit
+    - name: review-skill-collects-native-evidence
+      runner: review
       inputs:
-        skill_ref: sourcey/sourcey
-        objective: Decide whether Sourcey is ready for evaluator-facing demos
-        evidence_pack:
-          receipts:
-            - kind: harness
-              status: sealed
-              note: Sourcey inline harness passes in OSS CI.
-          docs:
-            - path: docs/skill-profile-model.md
-              reason: Confirms the enforced package-only SKILL standard.
-        test_constraints: Keep the evaluation bounded to repo-visible evidence and local harness signals.
+        skill_ref: ../review-receipt
+        objective: Decide whether receipt diagnosis has bounded evidence and stop behavior
+        test_constraints: Run only local read-only harnesses.
       caller:
         answers:
-          agent_task.review-skill.output:
+          agent_task.review-skill-assess.output:
             capability_profile:
-              skill_ref: sourcey/sourcey
-              summary: Generates a bounded docs site with approval and verification steps.
+              skill_ref: ../review-receipt
+              summary: Diagnoses one receipt or harness failure into a bounded recommendation.
             trust_assessment:
-              tier: first_party
+              tier: local_harness
               caveats:
-                - Needs better path-contract documentation.
+                - Provider effects are outside this skill's claim.
             test_matrix:
-              - check: inline harness passes
-                status: required
-              - check: output directory contract documented
-                status: required
+              - check: native harness
+                status: passed
             recommendation_report:
               recommendation: adopt_with_caveats
-              rationale: Strong structure, but docs and public examples need tightening.
+              rationale: The bounded read-only contract and local harness are proven.
+      expect:
+        status: sealed
+        receipt:
+          schema: runx.receipt.v1
+        steps:
+          - collect-evidence
+          - assess
+
+    - name: review-skill-assesses-supplied-evidence
+      runner: assess
+      inputs:
+        skill_ref: example/skill
+        evidence_pack:
+          inspect:
+            status: ok
+          harness:
+            status: passed
+      caller:
+        answers:
+          agent_task.review-skill-assess.output:
+            capability_profile:
+              skill_ref: example/skill
+              summary: Bounded example capability.
+            trust_assessment:
+              tier: supplied_local_evidence
+              caveats: []
+            test_matrix:
+              - check: supplied harness
+                status: passed
+            recommendation_report:
+              recommendation: sandbox
+              rationale: Supplied evidence is useful but lacks independent provider proof.
       expect:
         status: sealed
         receipt:
           schema: runx.receipt.v1
 
-    - name: review-skill-needs-skill-ref
-      inputs: {}
+    - name: review-skill-assess-needs-evidence
+      runner: assess
+      inputs:
+        skill_ref: example/skill
       expect:
         status: failure
 
-
 runners:
-  evaluate:
+  review:
     default: true
+    type: graph
+    inputs:
+      skill_ref:
+        type: string
+        required: true
+        description: Skill package path, registry id, or marketplace id.
+      objective:
+        type: string
+        required: false
+        description: Specific decision the evaluation should support.
+      evidence_pack:
+        type: json
+        required: false
+        description: Additional receipts, docs, provider evidence, or source notes.
+      test_constraints:
+        type: string
+        required: false
+        description: Time, environment, or safety constraints on evaluation.
+    graph:
+      name: review-skill
+      steps:
+        - id: collect-evidence
+          label: inspect target and run safe native harness
+          inputs:
+            skill_ref: $input.skill_ref
+            evidence_pack: $input.evidence_pack
+            test_constraints: $input.test_constraints
+          run:
+            type: cli-tool
+            command: node
+            args:
+              - ./probe.mjs
+            outputs:
+              native_test_evidence: object
+          artifacts:
+            named_emits:
+              native_test_evidence: native_test_evidence
+            packets:
+              native_test_evidence: runx.skill.native_test_evidence.v1
+        - id: assess
+          skill: .
+          runner: assess
+          inputs:
+            skill_ref: $input.skill_ref
+            objective: $input.objective
+            test_constraints: $input.test_constraints
+          context:
+            evidence_pack: collect-evidence.native_test_evidence.data
+
+  assess:
     type: agent-task
     runx:
       post_run:
         reflect: never
     agent: reviewer
-    task: review-skill
+    task: review-skill-assess
     outputs:
       capability_profile: object
       trust_assessment: object
       test_matrix: array
       recommendation_report: object
+    instructions: >
+      Assess only the supplied evidence for one skill. Separate declared
+      capability, native inspection, harness evidence, provider readback,
+      supplied assertions, and unverified claims. Check the happy path, stop or
+      refusal path, authority, artifact or effect, provenance, and recovery
+      posture appropriate to the capability. Return needs_more_evidence when the
+      packet cannot support a decision. Never infer provider readiness from a
+      parse result, local supplied answer, or prose claim. Recommend adopt,
+      adopt_with_caveats, sandbox, improve, or reject with concrete blockers.
     artifacts:
       wrap_as: skill_evaluation_packet
       packet: runx.skill.evaluation.v1
@@ -71,16 +159,16 @@ runners:
       skill_ref:
         type: string
         required: true
-        description: "Skill package path, registry id, or marketplace id."
+        description: Skill package path, registry id, or marketplace id.
       objective:
         type: string
         required: false
-        description: "Specific decision the evaluation should support."
+        description: Specific decision the evaluation should support.
       evidence_pack:
         type: json
-        required: false
-        description: "Receipts, docs, harness outputs, or source notes."
+        required: true
+        description: Native inspection, harness, receipts, docs, or source notes.
       test_constraints:
         type: string
         required: false
-        description: "Time, environment, or safety constraints on evaluation."
+        description: Time, environment, or safety constraints on evaluation.

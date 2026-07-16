@@ -1,0 +1,30 @@
+name: skill-lab-no-change-skips-write
+kind: skill
+target: ..
+runner: improve
+inputs:
+  objective: Decide whether weak evidence warrants a package change
+  repo_root: .
+  target_dir: skills/not-present
+  receipt_summary: A caller reported a failure without a receipt or reproducible output.
+caller:
+  answers:
+    agent_task.skill-lab-improve.output:
+      change_bundle:
+        decision: no_change
+        summary: The supplied report does not justify a package mutation.
+        non_goals:
+          - Do not invent a regression.
+        files: []
+expect:
+  status: sealed
+  receipt:
+    schema: runx.receipt.v1
+  steps:
+    - inspect
+    - diagnose-and-author
+    - prepare
+metadata:
+  public_skill: skill-lab
+  source_case: no-change-skips-write
+  source: skills-fixture

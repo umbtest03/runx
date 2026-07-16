@@ -1,11 +1,15 @@
 skill: sql-analyst
-version: "0.1.0"
+version: "0.1.1"
 
 catalog:
   kind: skill
   audience: operator
   visibility: public
   role: context
+  execution: plan
+  completion: plan
+  requires_adapter: false
+  approval: none
 harness:
   cases:
     - name: sql-analyst-readonly-plan
@@ -97,4 +101,3 @@ runners:
         type: json
         required: false
         description: "Read limits, privacy rules, and allowed tables."
-

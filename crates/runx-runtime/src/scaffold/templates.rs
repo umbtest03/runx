@@ -1,4 +1,4 @@
-// Native cli-tool skill scaffold: SKILL.md + X.yaml + run.mjs + README + .gitignore.
+// Native cli-tool skill scaffold: SKILL.md + X.yaml + run.mjs + .gitignore.
 // The output has zero dependencies and no build step, so `runx new` produces a
 // skill that runs and harnesses immediately, with nothing pinned that can drift.
 
@@ -13,7 +13,6 @@ pub fn scaffold_package_files(name: &str) -> Vec<ScaffoldFile> {
         file("SKILL.md", skill_md(name)),
         file("X.yaml", x_yaml(name)),
         file("run.mjs", run_mjs()),
-        file("README.md", readme(name)),
         file(".gitignore", "node_modules/\n.runx/\n*.tgz\n".to_owned()),
     ]
 }
@@ -70,6 +69,10 @@ catalog:
   audience: public
   visibility: public
   role: canonical
+  execution: execute
+  completion: runtime_receipt
+  requires_adapter: false
+  approval: none
 
 harness:
   cases:
@@ -123,36 +126,4 @@ if (message.trim().length === 0) {
 process.stdout.write(`${message}\n`);
 "#
     .to_owned()
-}
-
-fn readme(name: &str) -> String {
-    format!(
-        r#"# {name}
-
-A native runx skill: a `SKILL.md` contract, an `X.yaml` execution profile, and a
-`run.mjs` script. No build step and no dependencies.
-
-## Develop
-
-For local development, `runx skill` and inline `runx harness` use
-local-development receipts when no production signing env is configured.
-Publishing and hosted verification still require real authority.
-
-```bash
-runx harness . --json                       # run the harness cases in X.yaml
-runx skill . --input message=hello --json   # run the skill once
-runx history                                # inspect the signed receipt
-```
-
-Edit `run.mjs` to do the real work, and keep both harness classes in `X.yaml`:
-one happy path and one stop, error, or refusal case.
-
-## Publish
-
-```bash
-runx login --provider github --for publish
-runx registry publish .   # the registry runs the harness as the publish gate
-```
-"#
-    )
 }

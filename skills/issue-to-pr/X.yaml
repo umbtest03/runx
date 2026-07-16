@@ -1,11 +1,15 @@
 skill: issue-to-pr
-version: "0.2.1"
+version: "0.2.2"
 
 catalog:
   kind: graph
   audience: public
   visibility: public
   role: context
+  execution: execute
+  completion: provider_readback
+  requires_adapter: true
+  approval: required
 harness:
   cases:
     - name: issue-to-pr-dispatches-first-step

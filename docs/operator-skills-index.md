@@ -42,9 +42,8 @@ Skills that enforce policy, audit receipts, or review skill quality.
 |---|---|
 | `audit-receipt/` | Audit a sealed runx receipt for governance, comparing the authority chain to the evidence. |
 | `run-history/` | Produce a read-only report over runx's own run history, summarizing sealed runs. |
-| `review-skill/` | Assess a skill package for capability, trust, and operator risk. |
+| `review-skill/` | Inspect, safely test, and assess a skill package for capability, trust, and operator risk. |
 | `review-receipt/` | Review receipts and harness failures to propose bounded skill improvements. |
-| `improve-skill/` | Turn a failed receipt or harness outcome into a bounded skill improvement. |
 | `least-privilege/` | Compare granted scopes against the scopes a subject actually used. |
 | `sign-receipt/` | Prepare an evidence-bound attestation of an off-runtime act. |
 | `reflect-digest/` | Aggregate projected reflect knowledge into bounded skill improvement proposals. |
@@ -136,10 +135,7 @@ Skills that model, charge, pay, or refund through payment providers. The `mock-*
 
 | Directory | Purpose |
 |---|---|
-| `skill-lab/` | Turn one bounded skill opportunity into a concrete proposal and scaffold. |
-| `skill-testing/` | Evaluate a skill, draft the trust audit, and package the approval. |
-| `write-harness/` | Draft replayable runx harness fixtures for a proposed skill. |
-| `design-skill/` | Turn a product or automation objective into a bounded runx skill design. |
+| `skill-lab/` | Design, build, improve, and add validated harness coverage to Runx skills. |
 | `overlay/` | Wrap a borrowed Anthropic SKILL.md under a governed runx overlay. |
 | `evolve/` | Governed repo evolution with fixed phase semantics and bounded changes. |
 | `moltbook/` | Scan for posting opportunities and prepare governed Moltbook entries. |
