@@ -1,5 +1,5 @@
 skill: nitrosend
-version: "0.1.1"
+version: "0.2.0"
 catalog:
   kind: skill
   audience: public
@@ -8,13 +8,309 @@ catalog:
   canonical_skill: runx/send-as
   provider: nitrosend
   runtime_path: mcp
-  execution: plan
-  completion: plan
+  execution: execute
+  completion: provider_readback
   requires_adapter: true
   approval: required
 runners:
-  send-campaign:
+  status:
     default: true
+    type: graph
+    inputs:
+      brand_sid:
+        type: string
+        required: false
+        description: Optional public Nitrosend brand SID.
+    graph:
+      name: nitrosend-status
+      steps:
+        - id: status
+          tool: nitrosend.read
+          scopes:
+            - nitrosend:read
+          inputs:
+            operation: status
+            arguments: {}
+            brand_sid: "$input.brand_sid"
+  review-delivery:
+    type: graph
+    inputs:
+      target_type:
+        type: string
+        required: true
+        description: template, flow, or campaign.
+      target_id:
+        type: number
+        required: true
+        description: Nitrosend entity ID.
+      brand_sid:
+        type: string
+        required: false
+        description: Optional public Nitrosend brand SID.
+    graph:
+      name: nitrosend-review-delivery
+      steps:
+        - id: review
+          tool: nitrosend.read
+          scopes:
+            - nitrosend:read
+          inputs:
+            operation: review_delivery
+            arguments:
+              target_type: "$input.target_type"
+              target_id: "$input.target_id"
+            brand_sid: "$input.brand_sid"
+  import-status:
+    type: graph
+    inputs:
+      import_id:
+        type: number
+        required: true
+        description: Nitrosend import ID returned by import-contacts or import-contacts-csv.
+      brand_sid:
+        type: string
+        required: false
+        description: Optional public Nitrosend brand SID.
+    graph:
+      name: nitrosend-import-status
+      steps:
+        - id: status
+          tool: nitrosend.read
+          scopes:
+            - nitrosend:read
+          inputs:
+            operation: import_status
+            arguments:
+              import_id: "$input.import_id"
+            brand_sid: "$input.brand_sid"
+  approve-delivery:
+    type: graph
+    act:
+      purpose: Approve one reviewed Nitrosend campaign or flow without sending it.
+    inputs:
+      target_type:
+        type: string
+        required: true
+        description: flow or campaign.
+      target_id:
+        type: number
+        required: true
+        description: Nitrosend entity ID.
+      brand_sid:
+        type: string
+        required: false
+        description: Optional public Nitrosend brand SID.
+    graph:
+      name: nitrosend-approve-delivery
+      steps:
+        - id: review
+          tool: nitrosend.read
+          scopes:
+            - nitrosend:read
+          inputs:
+            operation: review_delivery
+            arguments:
+              target_type: "$input.target_type"
+              target_id: "$input.target_id"
+            brand_sid: "$input.brand_sid"
+        - id: approve
+          run:
+            type: approval
+          inputs:
+            gate_id: nitrosend.approve_delivery.approval
+            reason: Approve this reviewed delivery configuration. This does not send or activate it.
+          context:
+            review: review.provider_evidence.data
+        - id: apply
+          tool: nitrosend.act
+          scopes:
+            - nitrosend:write
+          mutation: true
+          idempotency_key: nitrosend-approve-delivery
+          inputs:
+            operation: control_delivery
+            arguments:
+              target_type: "$input.target_type"
+              target_id: "$input.target_id"
+              operation: approve
+            brand_sid: "$input.brand_sid"
+    policy:
+      guards:
+        - step: apply
+          field: approve.approval_decision.data.approved
+          equals: true
+  send-campaign:
+    type: graph
+    act:
+      purpose: Deliver one already-approved Nitrosend campaign after fresh review and explicit approval.
+    inputs:
+      campaign_id:
+        type: number
+        required: true
+        description: Approved Nitrosend campaign ID.
+      operation:
+        type: string
+        required: true
+        description: live or schedule.
+      scheduled_at:
+        type: string
+        required: false
+        description: ISO 8601 time required for schedule.
+      confirm_send_to_all:
+        type: boolean
+        required: false
+        default: false
+        description: Explicit confirmation for an all-contacts audience.
+      idempotency_key:
+        type: string
+        required: true
+        description: Stable retry key for this campaign delivery.
+      brand_sid:
+        type: string
+        required: false
+        description: Optional public Nitrosend brand SID.
+    graph:
+      name: nitrosend-send-campaign
+      steps:
+        - id: review
+          tool: nitrosend.read
+          scopes:
+            - nitrosend:read
+          inputs:
+            operation: review_delivery
+            arguments:
+              target_type: campaign
+              target_id: "$input.campaign_id"
+            brand_sid: "$input.brand_sid"
+        - id: approve-send
+          run:
+            type: approval
+          inputs:
+            gate_id: nitrosend.send_campaign.approval
+            reason: Deliver this reviewed campaign to its configured live audience.
+          context:
+            review: review.provider_evidence.data
+        - id: deliver
+          tool: nitrosend.act
+          scopes:
+            - nitrosend:write
+          mutation: true
+          idempotency_key: nitrosend-send-campaign
+          inputs:
+            operation: control_delivery
+            arguments:
+              target_type: campaign
+              target_id: "$input.campaign_id"
+              operation: "$input.operation"
+              scheduled_at: "$input.scheduled_at"
+              confirm_send_to_all: "$input.confirm_send_to_all"
+              idempotency_key: "$input.idempotency_key"
+            brand_sid: "$input.brand_sid"
+    policy:
+      guards:
+        - step: approve-send
+          field: review.provider_evidence.data.decision
+          equals: ok
+        - step: deliver
+          field: approve-send.approval_decision.data.approved
+          equals: true
+  activate-flow:
+    type: graph
+    act:
+      purpose: Activate one already-approved Nitrosend flow after fresh review and explicit approval.
+    inputs:
+      flow_id:
+        type: number
+        required: true
+        description: Approved Nitrosend flow ID.
+      brand_sid:
+        type: string
+        required: false
+        description: Optional public Nitrosend brand SID.
+    graph:
+      name: nitrosend-activate-flow
+      steps:
+        - id: review
+          tool: nitrosend.read
+          scopes:
+            - nitrosend:read
+          inputs:
+            operation: review_delivery
+            arguments:
+              target_type: flow
+              target_id: "$input.flow_id"
+            brand_sid: "$input.brand_sid"
+        - id: approve-live
+          run:
+            type: approval
+          inputs:
+            gate_id: nitrosend.activate_flow.approval
+            reason: Activate this reviewed automation flow for live contacts.
+          context:
+            review: review.provider_evidence.data
+        - id: activate
+          tool: nitrosend.act
+          scopes:
+            - nitrosend:write
+          mutation: true
+          idempotency_key: nitrosend-activate-flow
+          inputs:
+            operation: control_delivery
+            arguments:
+              target_type: flow
+              target_id: "$input.flow_id"
+              operation: live
+            brand_sid: "$input.brand_sid"
+    policy:
+      guards:
+        - step: approve-live
+          field: review.provider_evidence.data.decision
+          equals: ok
+        - step: activate
+          field: approve-live.approval_decision.data.approved
+          equals: true
+  apply-draft:
+    type: graph
+    act:
+      purpose: Apply one reviewed Nitrosend campaign, flow, template, or segment draft request.
+    inputs:
+      operation:
+        type: string
+        required: true
+        description: compose_campaign, compose_flow, manage_template, or define_segment.
+      arguments:
+        type: json
+        required: true
+        description: Exact arguments produced by the matching planning runner and current Nitrosend schema.
+      brand_sid:
+        type: string
+        required: false
+        description: Optional public Nitrosend brand SID.
+    graph:
+      name: nitrosend-apply-draft
+      steps:
+        - id: approve-draft
+          run:
+            type: approval
+          inputs:
+            gate_id: nitrosend.apply_draft.approval
+            reason: Apply this reviewed draft to the live Nitrosend account. This does not deliver to recipients or activate a flow.
+        - id: apply
+          tool: nitrosend.act
+          scopes:
+            - nitrosend:write
+          mutation: true
+          idempotency_key: nitrosend-apply-draft
+          inputs:
+            operation: "$input.operation"
+            arguments: "$input.arguments"
+            brand_sid: "$input.brand_sid"
+    policy:
+      guards:
+        - step: apply
+          field: approve-draft.approval_decision.data.approved
+          equals: true
+  plan-campaign:
     type: agent-task
     agent: builder
     task: send-campaign
@@ -44,7 +340,7 @@ runners:
         type: string
         required: false
         description: Caller surface, usually runx_skill_cli or mcp_direct.
-  build-flow:
+  plan-flow:
     type: agent-task
     agent: builder
     task: build-flow-plan
@@ -74,7 +370,7 @@ runners:
         type: string
         required: false
         description: Caller surface, usually runx_skill_cli or mcp_direct.
-  send-transactional:
+  plan-transactional:
     type: agent-task
     agent: builder
     task: send-transactional-plan
@@ -104,6 +400,80 @@ runners:
         type: string
         required: false
         description: Extra operator guardrails.
+  send-transactional:
+    type: graph
+    act:
+      purpose: Send or dry-run one idempotent transactional message to one recipient.
+    inputs:
+      channel:
+        type: string
+        required: true
+        description: email or sms.
+      to:
+        type: string
+        required: true
+        description: One recipient email address or E.164 phone number.
+      subject:
+        type: string
+        required: false
+        description: Required for email.
+      body:
+        type: string
+        required: false
+        description: Plain-text body.
+      template_id:
+        type: number
+        required: false
+        description: Existing Nitrosend email template ID.
+      data:
+        type: json
+        required: false
+        description: Transactional merge variables.
+      dry_run:
+        type: boolean
+        required: false
+        default: true
+        description: Validate without sending when true.
+      idempotency_key:
+        type: string
+        required: true
+        description: Stable retry key; mandatory even for dry-run-to-live continuity.
+      brand_sid:
+        type: string
+        required: false
+        description: Optional public Nitrosend brand SID.
+    graph:
+      name: nitrosend-send-transactional
+      steps:
+        - id: approve-send
+          run:
+            type: approval
+          inputs:
+            gate_id: nitrosend.send_transactional.approval
+            reason: Send this transactional message to the named recipient. A dry run performs validation only.
+        - id: send
+          tool: nitrosend.act
+          scopes:
+            - nitrosend:write
+          mutation: true
+          idempotency_key: nitrosend-send-transactional
+          inputs:
+            operation: send_transactional
+            arguments:
+              channel: "$input.channel"
+              to: "$input.to"
+              subject: "$input.subject"
+              body: "$input.body"
+              template_id: "$input.template_id"
+              data: "$input.data"
+              dry_run: "$input.dry_run"
+              idempotency_key: "$input.idempotency_key"
+            brand_sid: "$input.brand_sid"
+    policy:
+      guards:
+        - step: send
+          field: approve-send.approval_decision.data.approved
+          equals: true
   compose-email:
     type: agent-task
     agent: builder
@@ -131,40 +501,44 @@ runners:
         required: false
         description: Extra operator guardrails.
   analytics:
-    type: agent-task
-    agent: researcher
-    task: analytics-report
-    outputs:
-      analytics_report: object
-    artifacts:
-      wrap_as: analytics_packet
-      packet: nitrosend.analytics.v1
+    type: graph
     inputs:
       objective:
         type: string
-        required: true
-        description: The analytics question.
+        required: false
+        description: Optional human-readable analytics objective retained in the receipt.
       scope:
         type: string
-        required: false
-        description: account, campaign, or flow.
+        required: true
+        description: account, campaign, flow, or message.
       entity_id:
-        type: string
+        type: number
         required: false
-        description: The campaign or flow id for scoped analysis.
+        description: Required for campaign, flow, or message scope.
       period:
         type: string
         required: false
-        description: e.g. 30d or 90d.
-      account_status_json:
+        default: 30d
+        description: 7d, 30d, or 90d.
+      brand_sid:
         type: string
         required: false
-        description: JSON string from nitro_get_status.
-      operator_context:
-        type: string
-        required: false
-        description: Extra operator guardrails.
-  import-contacts:
+        description: Optional public Nitrosend brand SID.
+    graph:
+      name: nitrosend-analytics
+      steps:
+        - id: insights
+          tool: nitrosend.read
+          scopes:
+            - nitrosend:read
+          inputs:
+            operation: insights
+            arguments:
+              scope: "$input.scope"
+              entity_id: "$input.entity_id"
+              period: "$input.period"
+            brand_sid: "$input.brand_sid"
+  plan-import:
     type: agent-task
     agent: builder
     task: import-contacts-plan
@@ -194,6 +568,141 @@ runners:
         type: string
         required: false
         description: Extra operator guardrails.
+  import-contacts:
+    type: graph
+    act:
+      purpose: Import one consented inline contact batch after explicit approval.
+    inputs:
+      records:
+        type: json
+        required: true
+        description: Up to 100 contact objects.
+      source_id:
+        type: string
+        required: true
+        description: Stable source identifier retained for audit.
+      consent_basis:
+        type: string
+        required: true
+        description: How these contacts consented; purchased or scraped lists are forbidden.
+      list_ids:
+        type: json
+        required: false
+        description: Optional Nitrosend list IDs.
+      dry_run:
+        type: boolean
+        required: false
+        default: true
+        description: Preview without persisting when true.
+      idempotency_key:
+        type: string
+        required: true
+        description: Stable retry key for the import.
+      brand_sid:
+        type: string
+        required: false
+        description: Optional public Nitrosend brand SID.
+    graph:
+      name: nitrosend-import-contacts
+      steps:
+        - id: approve-import
+          run:
+            type: approval
+          inputs:
+            gate_id: nitrosend.import_contacts.approval
+            reason: Import this consented contact batch into Nitrosend. A dry run only validates it.
+        - id: import
+          tool: nitrosend.act
+          scopes:
+            - nitrosend:write
+          mutation: true
+          idempotency_key: nitrosend-import-contacts
+          inputs:
+            operation: import_contacts
+            arguments:
+              records: "$input.records"
+              source_id: "$input.source_id"
+              consent_basis: "$input.consent_basis"
+              options:
+                list_ids: "$input.list_ids"
+              dry_run: "$input.dry_run"
+              idempotency_key: "$input.idempotency_key"
+            brand_sid: "$input.brand_sid"
+    policy:
+      guards:
+        - step: import
+          field: approve-import.approval_decision.data.approved
+          equals: true
+  import-contacts-csv:
+    type: graph
+    act:
+      purpose: Upload and start one consented CSV contact import without putting file bytes or signed URLs in the agent packet.
+    inputs:
+      csv_path:
+        type: string
+        required: true
+        description: Absolute local path to the CSV file.
+      source_id:
+        type: string
+        required: true
+        description: Stable source identifier retained for audit.
+      consent_basis:
+        type: string
+        required: true
+        description: How these contacts consented; purchased or scraped lists are forbidden.
+      columns:
+        type: json
+        required: false
+        description: Optional CSV column mapping.
+      list_ids:
+        type: json
+        required: false
+        description: Optional Nitrosend list IDs.
+      dry_run:
+        type: boolean
+        required: false
+        default: true
+        description: Validate file metadata without uploading when true.
+      idempotency_key:
+        type: string
+        required: true
+        description: Stable retry key for upload finalization.
+      brand_sid:
+        type: string
+        required: false
+        description: Optional public Nitrosend brand SID.
+    graph:
+      name: nitrosend-import-contacts-csv
+      steps:
+        - id: approve-import
+          run:
+            type: approval
+          inputs:
+            gate_id: nitrosend.import_contacts_csv.approval
+            reason: Upload and import this consented local CSV. A dry run only validates file metadata.
+        - id: import
+          tool: nitrosend.act
+          scopes:
+            - nitrosend:write
+          mutation: true
+          idempotency_key: nitrosend-import-contacts-csv
+          inputs:
+            operation: import_contacts_file
+            arguments:
+              csv_path: "$input.csv_path"
+              source_id: "$input.source_id"
+              consent_basis: "$input.consent_basis"
+              columns: "$input.columns"
+              options:
+                list_ids: "$input.list_ids"
+              dry_run: "$input.dry_run"
+              idempotency_key: "$input.idempotency_key"
+            brand_sid: "$input.brand_sid"
+    policy:
+      guards:
+        - step: import
+          field: approve-import.approval_decision.data.approved
+          equals: true
   segment-from-prose:
     type: agent-task
     agent: builder
