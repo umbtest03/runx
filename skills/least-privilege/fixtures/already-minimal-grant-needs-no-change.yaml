@@ -6,31 +6,27 @@ inputs:
   subject: code/governed-issue-to-pr
   granted_scopes:
     - repo:read
+  receipt_ids:
+    - rcpt_repo_read
+  receipt_rows:
+    - receipt_id: rcpt_repo_read
+      skill_ref: code/governed-issue-to-pr
+      status: closed
+      created_at: "2026-07-01T00:00:00Z"
+      verification_status: verified
   usage_summary:
-    repo:
-      verbs_observed:
-        - read
-      runs: 31
-  objective: Confirm the grant is minimal before promoting the skill to stable.
-caller:
-  answers:
-    agent_task.least-privilege.output:
-      audit_report:
-        subject: code/governed-issue-to-pr
-        scope_diff:
-          - scope: repo:read
-            status: exercised
-            evidence: 31 runs exercised read; the only granted scope is the only used scope.
-      attenuation_proposals: []
-      verdict: no_change
-      residual_risk: The grant already matches observed usage exactly. No narrower grant covers the 31 observed reads.
+    observed:
+      - scope: repo:read
+        count: 31
+        refs:
+          - rcpt_repo_read
+  objective: Confirm the grant is minimal.
 expect:
   status: sealed
   receipt:
     schema: runx.receipt.v1
-    state: sealed
-    disposition: closed
 metadata:
   public_skill: least-privilege
   source_case: already-minimal-grant-needs-no-change
   source: skills-fixture
+  runner_kind: graph

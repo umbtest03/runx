@@ -1,5 +1,5 @@
 skill: skill-lab
-version: "0.2.0"
+version: "0.2.1"
 
 catalog:
   kind: graph
@@ -211,6 +211,29 @@ runners:
               bundle_manifest: bundle_manifest
             packets:
               bundle_manifest: runx.skill_lab.bundle_manifest.v1
+        - id: preflight
+          label: validate staged package before writing
+          when:
+            field: prepare.bundle_manifest.data.decision
+            equals: write
+          inputs:
+            target_dir: $input.target_dir
+          context:
+            repo_root: inspect.authoring_context.data.repo_root
+            files: prepare.files
+          run:
+            type: cli-tool
+            command: node
+            args:
+              - ./preflight_bundle.mjs
+          mutation: true
+          outputs:
+            validation_report: object
+          artifacts:
+            named_emits:
+              validation_report: validation_report
+            packets:
+              validation_report: runx.skill_lab.validation.v1
         - id: write
           label: write bounded package files
           when:
@@ -273,6 +296,10 @@ runners:
         type: string
         required: false
         description: Sanitized harness output or assertion failure.
+      failure_packet:
+        type: json
+        required: false
+        description: Stable runx.review.receipt.v1 failure packet from review-receipt.
     graph:
       name: skill-lab-improve
       steps:
@@ -285,6 +312,7 @@ runners:
             receipt_id: $input.receipt_id
             receipt_summary: $input.receipt_summary
             harness_output: $input.harness_output
+            failure_packet: $input.failure_packet
           run:
             type: cli-tool
             command: node
@@ -344,6 +372,29 @@ runners:
               bundle_manifest: bundle_manifest
             packets:
               bundle_manifest: runx.skill_lab.bundle_manifest.v1
+        - id: preflight
+          label: validate staged improvement before writing
+          when:
+            field: prepare.bundle_manifest.data.decision
+            equals: write
+          inputs:
+            target_dir: $input.target_dir
+          context:
+            repo_root: inspect.authoring_context.data.repo_root
+            files: prepare.files
+          run:
+            type: cli-tool
+            command: node
+            args:
+              - ./preflight_bundle.mjs
+          mutation: true
+          outputs:
+            validation_report: object
+          artifacts:
+            named_emits:
+              validation_report: validation_report
+            packets:
+              validation_report: runx.skill_lab.validation.v1
         - id: write
           label: write bounded improvement
           when:
@@ -467,6 +518,29 @@ runners:
               bundle_manifest: bundle_manifest
             packets:
               bundle_manifest: runx.skill_lab.bundle_manifest.v1
+        - id: preflight
+          label: validate staged fixtures before writing
+          when:
+            field: prepare.bundle_manifest.data.decision
+            equals: write
+          inputs:
+            target_dir: $input.target_dir
+          context:
+            repo_root: inspect.authoring_context.data.repo_root
+            files: prepare.files
+          run:
+            type: cli-tool
+            command: node
+            args:
+              - ./preflight_bundle.mjs
+          mutation: true
+          outputs:
+            validation_report: object
+          artifacts:
+            named_emits:
+              validation_report: validation_report
+            packets:
+              validation_report: runx.skill_lab.validation.v1
         - id: write
           label: write fixture files
           when:

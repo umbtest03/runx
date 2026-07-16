@@ -13,9 +13,10 @@ const inputs = readInputs();
 const question = stringValue(inputs.question);
 const filter = readFilter(inputs.filter);
 const proofRequested = readProofRequested(inputs.proof);
-const overrideRows = Array.isArray(inputs.receipts) && inputs.receipts.length > 0
-  ? inputs.receipts
-  : undefined;
+const receiptIdsSupplied = Object.prototype.hasOwnProperty.call(inputs, "receipt_ids");
+const receiptIds = stringArray(inputs.receipt_ids);
+const overrideRowsSupplied = Array.isArray(inputs.receipts);
+const overrideRows = overrideRowsSupplied ? inputs.receipts : undefined;
 
 const query = {
   principal: filter.principal || "",
@@ -25,6 +26,7 @@ const query = {
     from: filter.from || "",
     to: filter.to || "",
   },
+  receipt_ids: receiptIds,
 };
 
 let packet;
@@ -42,18 +44,26 @@ if (!question) {
     summary: "No audit question was provided, so there is nothing to query against the ledger.",
   };
 } else {
-  const rows = overrideRows !== undefined ? overrideRows : historyRows(filter);
-  const matched = rows.map(projectIdStub).filter((stub) => matchesFilter(stub, filter));
+  const rows = overrideRowsSupplied
+    ? overrideRows
+    : receiptIdsSupplied
+      ? historyRowsById(filter, receiptIds)
+      : historyRows(filter);
+  const matched = rows
+    .map(projectIdStub)
+    .filter((stub) => matchesFilter(stub, filter))
+    .filter((stub) => !receiptIdsSupplied || receiptIds.includes(stub.receipt_id))
+    .slice(0, filter.limit);
 
   let chain;
   if (!proofRequested) {
     chain = { checked: false, intact: null, breaks: [] };
-  } else if (overrideRows !== undefined) {
+  } else if (overrideRowsSupplied) {
     // The override path replays a fixed ledger and does not consult the verify
     // engine, so the chain cannot be proven here. Fail closed: unverified.
     chain = { checked: true, intact: null, breaks: [] };
   } else {
-    chain = verifyChain();
+    chain = verifyChain(matched.map((receipt) => receipt.receipt_id));
   }
 
   const decision = matched.length === 0 ? "needs_more_evidence" : "answered";
@@ -80,7 +90,7 @@ function readInputs() {
 
 function readFilter(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { principal: null, skill_ref: null, status: [], from: null, to: null, source: null, actor: null };
+    return { principal: null, skill_ref: null, status: [], from: null, to: null, source: null, actor: null, limit: 500 };
   }
   const timeRange = value.time_range && typeof value.time_range === "object" ? value.time_range : {};
   const status = Array.isArray(value.status)
@@ -96,7 +106,25 @@ function readFilter(value) {
     to: stringValue(timeRange.to),
     source: stringValue(value.source),
     actor: stringValue(value.actor) || stringValue(value.principal),
+    limit: boundedLimit(value.limit),
   };
+}
+
+function stringArray(value) {
+  const values = Array.isArray(value)
+    ? [...new Set(value.filter((entry) => typeof entry === "string" && entry.trim()).map((entry) => entry.trim()))]
+    : [];
+  if (values.length > 100) throw new Error("receipt_ids may contain at most 100 exact ids");
+  return values;
+}
+
+function boundedLimit(value) {
+  if (value === undefined || value === null || value === "") return 500;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 5_000) {
+    throw new Error("filter.limit must be an integer from 1 to 5000");
+  }
+  return parsed;
 }
 
 function readProofRequested(value) {
@@ -110,13 +138,16 @@ function readProofRequested(value) {
 // and signature policy stay the one source of truth. Inherits RUNX_RECEIPT_DIR
 // from the sandbox env; never re-reads the store with a custom parser.
 function historyRows(filter) {
-  const args = ["history", "--json"];
+  const args = ["history"];
+  if (filter.query) args.push(filter.query);
+  args.push("--json");
   if (filter.skill_ref) args.push("--skill", filter.skill_ref);
   if (filter.status.length === 1) args.push("--status", filter.status[0]);
   if (filter.source) args.push("--source", filter.source);
   if (filter.actor) args.push("--actor", filter.actor);
   if (filter.from) args.push("--since", filter.from);
   if (filter.to) args.push("--until", filter.to);
+  args.push("--limit", String(filter.limit));
   const result = spawnSync("runx", args, { env: process.env, encoding: "utf8" });
   if (result.status !== 0) {
     throw new Error((result.stderr || "").trim() || "runx history failed");
@@ -125,42 +156,60 @@ function historyRows(filter) {
   return Array.isArray(projection.receipts) ? projection.receipts : [];
 }
 
+function historyRowsById(filter, receiptIds) {
+  const rows = new Map();
+  for (const receiptId of receiptIds) {
+    for (const row of historyRows({ ...filter, query: receiptId })) {
+      rows.set(String(row.id || row.receipt_id || ""), row);
+    }
+  }
+  return [...rows.values()];
+}
+
 // Shell the shipped `runx verify --json`, which is TREE-grouped, not a linear
 // link walk. Reconcile the tree verdict honestly: intact <- report.valid,
 // breaks <- each tree's parent_missing plus its findings, named by id ref.
 // When the engine ran without verify keys (signature_mode != production), the
 // chain is reported unverified (fail closed), never silently intact.
-function verifyChain() {
-  const result = spawnSync("runx", ["verify", "--json"], { env: process.env, encoding: "utf8" });
+function verifyChain(receiptIds) {
+  const reports = (receiptIds.length > 0 ? receiptIds : [null]).map((receiptId) => {
+    const args = ["verify"];
+    if (receiptId) args.push(receiptId);
+    args.push("--json");
+    const result = spawnSync("runx", args, { env: process.env, encoding: "utf8" });
+    let report;
+    try {
+      report = JSON.parse(result.stdout || "{}");
+    } catch {
+      throw new Error((result.stderr || "").trim() || "runx verify failed");
+    }
+    return report;
+  });
   // verify exits non-zero when the chain is invalid; the JSON report still
   // carries the verdict, so parse it before treating the exit as a hard error.
-  let report;
-  try {
-    report = JSON.parse(result.stdout || "{}");
-  } catch {
-    throw new Error((result.stderr || "").trim() || "runx verify failed");
-  }
-  if (report.signature_mode !== "production") {
+  if (reports.some((report) => report.signature_mode !== "production")) {
     return { checked: true, intact: null, breaks: [] };
   }
   const breaks = [];
-  for (const tree of Array.isArray(report.trees) ? report.trees : []) {
-    if (tree.parent_missing) {
-      breaks.push({
-        from_receipt_id: String(tree.parent_missing),
-        to_receipt_id: String(tree.root_receipt_id || ""),
-        reason: "parent receipt missing from the verified tree",
-      });
-    }
-    for (const finding of Array.isArray(tree.findings) ? tree.findings : []) {
-      breaks.push({
-        from_receipt_id: String(tree.root_receipt_id || ""),
-        to_receipt_id: String(finding.path || ""),
-        reason: stringValue(finding.message) || stringValue(finding.code) || "verification finding",
-      });
+  for (const report of reports) {
+    for (const tree of Array.isArray(report.trees) ? report.trees : []) {
+      if (tree.parent_missing) {
+        breaks.push({
+          from_receipt_id: String(tree.parent_missing),
+          to_receipt_id: String(tree.root_receipt_id || ""),
+          reason: "parent receipt missing from the verified tree",
+        });
+      }
+      for (const finding of Array.isArray(tree.findings) ? tree.findings : []) {
+        breaks.push({
+          from_receipt_id: String(tree.root_receipt_id || ""),
+          to_receipt_id: String(finding.path || ""),
+          reason: stringValue(finding.message) || stringValue(finding.code) || "verification finding",
+        });
+      }
     }
   }
-  return { checked: true, intact: report.valid === true, breaks };
+  return { checked: true, intact: reports.every((report) => report.valid === true), breaks };
 }
 
 // Project ONE receipt down to an id-stub. Accepts the engine row shape
@@ -180,6 +229,7 @@ function projectIdStub(row) {
     skill_ref: stringValue(row.skill_ref) || stringValue(row.name) || "",
     status: stringValue(row.status) || "",
     created_at: stringValue(row.created_at) || "",
+    verification_status: stringValue(row.verification_status) || stringValue(row.verification?.status) || "unknown",
   };
 }
 

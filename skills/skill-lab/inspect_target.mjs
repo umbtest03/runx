@@ -41,7 +41,8 @@ process.stdout.write(`${JSON.stringify({
     failure_evidence_present: Boolean(
       stringValue(inputs.receipt_id)
       || stringValue(inputs.receipt_summary)
-      || stringValue(inputs.harness_output),
+      || stringValue(inputs.harness_output)
+      || isRecord(inputs.failure_packet),
     ),
   },
 }, null, 2)}\n`);
@@ -89,4 +90,8 @@ function isInside(root, candidate) {
 
 function stringValue(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function isRecord(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }

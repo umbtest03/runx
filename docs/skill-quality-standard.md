@@ -70,6 +70,34 @@ cannot prove a provider mutation, network result, payment, send, publish, or
 other external effect. Live destructive proof is never required when a faithful
 sandbox plus refusal and approval cases establish the same boundary safely.
 
+## Provider operation contract
+
+A reusable provider operation keeps governance, transport, and proof separate:
+
+1. Resolve a bounded provider operation and credential grant without exposing
+   provider secrets to the model, skill inputs, command arguments, or artifacts.
+2. Validate scope, audience, payload bounds, and idempotency before the provider
+   call. Reads need no human approval; an external mutation is approved at the
+   consequential boundary, not during harmless planning or inspection.
+3. Execute through a declared tool, adapter, MCP server, or HTTP boundary. Agent
+   prose may choose or author inputs but may not stand in for transport.
+4. Record provider acknowledgement separately from finality. An accepted
+   request is not delivered, published, paid, or applied unless provider
+   evidence proves that terminal state.
+5. Read back the provider object by a stable provider id or deterministic
+   request coordinate. A read-only operation may use the bounded provider
+   response itself as readback when it includes the requested resource identity
+   and fresh response evidence.
+6. Seal the receipt with the attempted scope, idempotency key when relevant,
+   provider evidence reference, truthful terminal state, and recovery posture.
+
+Fixtures prove request construction, refusal, approval, retry, and readback
+parsing. They do not prove a live provider accepted or applied an operation.
+The keyless NWS forecast lane is the reference read shape; Nitrosend is the
+reference credentialed account-operation shape. New provider skills should
+reuse this contract instead of inventing adjacent credential loading, approval,
+or finality logic.
+
 ## Agent execution and consent
 
 Agent work is valid for judgment and authorship. It must be isolated from

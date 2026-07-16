@@ -10,11 +10,12 @@ runx:
 Diagnose what went wrong in a skill or graph execution and propose the
 smallest change that fixes it.
 
-Read the receipt or failure summary. Identify what was attempted, what
-succeeded, and where it broke. The receipt contains step statuses
-(`sealed`, `failure`, `policy_denied`, `needs_agent`),
-exit codes, stderr, scope admission decisions,
-and timing.
+Resolve `receipt_id` through the native `ledger read` runner, then combine that
+receipt's status and verification posture with the supplied failure summary or
+harness output. Identify what was attempted, what succeeded, and where it
+broke. Do not claim the native history projection contains hydrated step output,
+stderr, or receipt bodies; those details must come from the supplied bounded
+failure evidence.
 
 Distinguish root cause from symptoms. A graph may report failure at step 4,
 but the root cause may be bad output from step 2 that propagated through
@@ -58,7 +59,8 @@ cause. Do not bundle unrelated improvements.
 
 ## Output
 
-The output shape is formalised as JSON Schema at
+The stable failure packet is consumed directly by `skill-lab improve`. Its
+output shape is formalised as JSON Schema at
 [review-receipt-output.schema.json](../../schemas/review-receipt-output.schema.json).
 Agents should self-validate before returning, and downstream
 consumers (notably the `skill-lab improve` runner) may validate on receipt.
@@ -75,9 +77,11 @@ consumers (notably the `skill-lab improve` runner) may validate on receipt.
 
 ## Inputs
 
-All optional — supply whichever evidence is available:
+Supply whichever evidence is available:
 
 - `receipt_id`: receipt id to inspect.
 - `receipt_summary`: sanitized receipt or harness summary.
 - `harness_output`: failed harness output or assertion text.
 - `skill_path`: path to the skill being improved.
+- `receipt_rows`: native-projection rows for deterministic replay only; live
+  runs resolve `receipt_id` from the configured receipt store.

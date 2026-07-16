@@ -1,8 +1,8 @@
 skill: ledger
-version: "0.2.1"
+version: "0.3.0"
 catalog:
   kind: skill
-  audience: public
+  audience: operator
   visibility: public
   role: canonical
   execution: read
@@ -10,33 +10,8 @@ catalog:
   requires_adapter: false
   approval: none
 runners:
-  ledger:
-    default: true
-    type: agent-task
-    agent: analyst
-    task: ledger
-    outputs:
-      ledger_answer: object
-      matched_receipts: array
-      chain_verification: object
-      summary: string
-    artifacts:
-      wrap_as: ledger_answer_packet
-      packet: runx.ledger_answer.v1
-    inputs:
-      question:
-        type: string
-        required: true
-        description: "The audit question to answer against the receipt ledger."
-      filter:
-        type: json
-        required: false
-        description: "Query narrowing: principal, skill_ref, status, and time_range (from/to)."
-      proof:
-        type: json
-        required: false
-        description: "Chain-verification request over the matched receipts, e.g. { verify_chain: true }."
   read:
+    default: true
     type: cli-tool
     command: node
     args:
@@ -53,16 +28,20 @@ runners:
       question:
         type: string
         required: false
-        description: "The audit question to answer against the receipt ledger."
+        description: The audit question bounding this read.
       filter:
         type: json
         required: false
-        description: "Query narrowing: principal, skill_ref, status, and time_range (from/to)."
+        description: Query narrowing by principal, skill_ref, status, source, actor, time_range, and a bounded limit.
+      receipt_ids:
+        type: json
+        required: false
+        description: Exact receipt ids to resolve through native runx history.
       proof:
         type: json
         required: false
-        description: "Chain-verification request over the matched receipts, e.g. { verify_chain: true }."
+        description: "Chain-verification request, for example { verify_chain: true }."
       receipts:
         type: json
         required: false
-        description: "Optional explicit ledger rows for replay or controlled evaluation; when present, the reader uses them instead of shelling runx history."
+        description: Explicit native-projection rows for replay; live reads use runx history.

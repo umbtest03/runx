@@ -15,9 +15,9 @@ inspect target and catalog
 → decide new skill, extension, or no skill
 → author a bounded file bundle
 → validate paths and secret posture
+→ inspect and safely replay the staged package
 → write through fs.write_bundle
-→ inspect the package
-→ run safe native harnesses
+→ verify the written package
 ```
 
 Use the generic host `skill-creator` for platform-wide authoring guidance when
@@ -29,16 +29,17 @@ invoke the appropriate `skill-lab` runner so the work is bounded and receipted.
 - `design`: read-only catalog-fit and package design. Return `no_skill` when an
   existing skill or graph already owns the job.
 - `build` (default): create or update a package, write its bounded file bundle,
-  inspect it, and run its harness when its catalog execution is read or plan.
+  after its staged package passes native inspection and any safe harness.
 - `improve`: turn one receipt or harness failure into a bounded package update,
-  then validate it.
+  preflight it, then verify the written result.
 - `harness`: add fixture files to an existing package and replay the safe native
-  harness.
+  harness before and after the write.
 
 `build`, `improve`, and `harness` write local workspace files. They never
 publish, install, push, or mutate an external provider. Execute-target packages
 are inspected but their harness is skipped until a separately approved sandbox
-or provider test exists.
+or provider test exists. Invalid staged packages stop before the target package
+is touched.
 
 ## Authoring rules
 
@@ -68,5 +69,5 @@ or provider test exists.
 - `repo_root` (optional): workspace root; defaults to the caller workspace.
 - `target_dir` (required for mutating runners): repo-relative package directory.
 - `project_context` (optional): product, repository, and operator constraints.
-- `receipt_id`, `receipt_summary`, `harness_output` (improve): bounded failure
-  evidence; at least one is required.
+- `receipt_id`, `receipt_summary`, `harness_output`, `failure_packet` (improve):
+  bounded failure evidence, including the stable packet from `review-receipt`.

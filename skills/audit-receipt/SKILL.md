@@ -7,11 +7,12 @@ runx:
 
 # Receipt Auditor
 
-Audit a sealed run for authority over-reach, using its own receipt as evidence.
+Audit a sealed run for authority over-reach, binding the review to its native
+receipt identity and verification posture.
 
-runx seals a receipt for every run: the authority proof, the acts performed, the
-decisions taken, the refusals, and hashed material references. That receipt is
-the evidence. This skill reads a sealed receipt and answers one governance
+Runx seals a receipt for every run. This skill resolves the exact receipt id
+through `ledger read`, then uses a bounded authority and act summary for details
+that native history deliberately does not hydrate. It answers one governance
 question: did the run stay inside the authority it was granted? It flags scopes
 exercised that were never granted, mutating acts that ran without an approval
 gate, refusals that were not recorded, and any raw secret material that leaked
@@ -72,8 +73,9 @@ grant from usage, this one verifies a run honored its grant.
 
 ## Procedure
 
-1. Resolve the receipt from `receipt_id` or use the provided sanitized
-   `receipt_summary`.
+1. Resolve `receipt_id` through the native ledger and verify the matched tree
+   when keys are available. Use the provided sanitized `receipt_summary` for
+   detailed authority and act evidence.
 2. Extract the authority proof, granted scopes, acts, approvals, refusals,
    material references, and receipt signature metadata.
 3. Normalize exercised scopes from the acts and compare them with the granted
@@ -139,6 +141,8 @@ investigate.
 - `granted_scopes` (optional): the authority the run was granted, when not
   derivable from the receipt alone.
 - `objective` (optional): operator intent that focuses the audit.
+- `receipt_rows` (optional): native-projection rows for deterministic replay;
+  live runs resolve `receipt_id` from the configured receipt store.
 
 At least one of `receipt_id` or `receipt_summary` is required; with neither, the
 skill returns `needs_more_evidence`.

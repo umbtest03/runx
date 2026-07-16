@@ -1,7 +1,7 @@
 skill: audit-receipt
-version: "0.1.1"
+version: "0.2.0"
 catalog:
-  kind: skill
+  kind: graph
   audience: operator
   visibility: public
   role: canonical
@@ -12,28 +12,61 @@ catalog:
 runners:
   audit:
     default: true
-    type: agent-task
-    agent: reviewer
-    task: audit-receipt
-    outputs:
-      receipt_audit: object
-    artifacts:
-      wrap_as: receipt_audit_packet
-      packet: runx.receipt_audit.v1
+    type: graph
     inputs:
       receipt_id:
         type: string
         required: false
-        description: The receipt id to audit.
+        description: Exact receipt id to resolve through the native ledger.
       receipt_summary:
         type: string
         required: false
-        description: Sanitized receipt or its proof/acts summary when the full receipt is unavailable.
+        description: Sanitized authority, act, approval, refusal, and material-reference summary.
       granted_scopes:
         type: json
         required: false
-        description: The authority the run was granted, when not derivable from the receipt alone.
+        description: Granted authority when it is not present in the bounded summary.
       objective:
         type: string
         required: false
-        description: Operator intent that focuses the audit.
+        description: Operator intent focusing the audit.
+      receipt_rows:
+        type: json
+        required: false
+        description: Explicit native-projection rows for deterministic replay only.
+    graph:
+      name: audit-receipt
+      steps:
+        - id: evidence
+          label: resolve and verify receipt evidence
+          skill: ../ledger
+          runner: read
+          inputs:
+            question: Resolve the exact receipt referenced by this governance audit.
+            receipt_ids:
+              - $input.receipt_id
+            proof:
+              verify_chain: true
+            receipts: $input.receipt_rows
+        - id: audit
+          label: audit authority against bounded receipt evidence
+          run:
+            type: agent-task
+            agent: reviewer
+            task: audit-receipt
+            outputs:
+              receipt_audit: object
+          instructions: >
+            Audit one run for authority over-reach, ungated mutation,
+            unrecorded refusal, or exposed material. Native ledger evidence
+            proves receipt identity, status, and verification posture; detailed
+            authority and act claims must be grounded in the supplied bounded
+            receipt_summary and granted_scopes. If a receipt id is supplied but
+            not resolved, or the detailed evidence is insufficient, return
+            needs_more_evidence rather than clean. Do not repair the skill or
+            mutate the ledger.
+          context:
+            receipt_evidence: evidence.ledger_answer_packet.data
+          artifacts:
+            wrap_as: receipt_audit_packet
+            packet: runx.receipt_audit.v1

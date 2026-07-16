@@ -1,0 +1,28 @@
+name: read-ledger-by-exact-id
+kind: skill
+target: ..
+runner: read
+inputs:
+  question: Resolve one exact receipt from the supplied ledger slice.
+  receipt_ids:
+    - rcpt_target
+  receipts:
+    - receipt_id: rcpt_target
+      skill_ref: runx/skill-lab
+      status: closed
+      created_at: "2026-07-16T00:00:00Z"
+      verification_status: verified
+    - receipt_id: rcpt_other
+      skill_ref: runx/release
+      status: closed
+      created_at: "2026-07-16T00:00:00Z"
+      verification_status: verified
+expect:
+  status: sealed
+  receipt:
+    schema: runx.receipt.v1
+metadata:
+  public_skill: ledger
+  source_case: read-ledger-by-exact-id
+  source: skills-fixture
+  runner_kind: cli-tool

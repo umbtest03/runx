@@ -11,7 +11,7 @@
     "locally_proven": 66,
     "failed": 0,
     "unproven": 0,
-    "meets_full_bar": 11
+    "meets_full_bar": 12
   },
   "skills": [
     {
@@ -92,11 +92,15 @@
       "path": "skills/audit-receipt/X.yaml",
       "archetype": "workflow",
       "decision_status": "pending_review",
-      "preliminary_route": "keep",
+      "preliminary_route": "improve",
       "managed_agent_acts": 1,
-      "capabilities": [],
+      "capabilities": [
+        "cli-tool:node"
+      ],
       "static_findings": [],
-      "improvement_findings": [],
+      "improvement_findings": [
+        "add standalone operation-boundary proof"
+      ],
       "local_trial": "passed",
       "operation_proof": "not_required",
       "provider_readback": "not_required",
@@ -111,9 +115,9 @@
           "status": "passed",
           "receipt": {
             "schema": "runx.receipt.v1",
-            "id": "sha256:1c57af09f9f553a23ce2bf6c2dead21f0e13197f73d2041f5c7cf109b947b0d6",
+            "id": "sha256:5874784d3a4d06fba98c8bacba328558e4d5eee57de6b92a1e3efaef44473588",
             "disposition": "closed",
-            "reason_code": "agent_act_closed"
+            "reason_code": "graph_closed"
           }
         },
         {
@@ -124,9 +128,9 @@
           "status": "passed",
           "receipt": {
             "schema": "runx.receipt.v1",
-            "id": "sha256:b58fdc3a58f6b61ca6bf55f28b7b4ad92fe5d1eb6af3301a2b4de91f7f7c7023",
+            "id": "sha256:5874784d3a4d06fba98c8bacba328558e4d5eee57de6b92a1e3efaef44473588",
             "disposition": "closed",
-            "reason_code": "agent_act_closed"
+            "reason_code": "graph_closed"
           }
         },
         {
@@ -137,9 +141,9 @@
           "status": "passed",
           "receipt": {
             "schema": "runx.receipt.v1",
-            "id": "sha256:9a2c59906c9d92a5c9e0ffa8f384f45870fb60ceb1b775431fb42e198eb55721",
+            "id": "sha256:5874784d3a4d06fba98c8bacba328558e4d5eee57de6b92a1e3efaef44473588",
             "disposition": "closed",
-            "reason_code": "agent_act_closed"
+            "reason_code": "graph_closed"
           }
         }
       ]
@@ -1118,9 +1122,9 @@
           "status": "passed",
           "receipt": {
             "schema": "runx.receipt.v1",
-            "id": "sha256:1f138cb94e75b939649c4fb5de618e10396db55266c51be43894a6b2f4be4a3b",
+            "id": "sha256:e7b97afe4eb917b79e392e3fa40cb461073ed91b28099212db14c295d9a61e41",
             "disposition": "closed",
-            "reason_code": "process_closed"
+            "reason_code": "graph_closed"
           }
         },
         {
@@ -1131,9 +1135,9 @@
           "status": "passed",
           "receipt": {
             "schema": "runx.receipt.v1",
-            "id": "sha256:7db83a227b0dd97125726ccc74d46dcd4758cc9122f41c1af1f91720bb4d277e",
+            "id": "sha256:e7b97afe4eb917b79e392e3fa40cb461073ed91b28099212db14c295d9a61e41",
             "disposition": "closed",
-            "reason_code": "process_closed"
+            "reason_code": "graph_closed"
           }
         },
         {
@@ -1144,9 +1148,9 @@
           "status": "passed",
           "receipt": {
             "schema": "runx.receipt.v1",
-            "id": "sha256:d2aada6daeda4573e60fb953be80d7529d2a4616ff63ce6d97e329e0e87d169a",
+            "id": "sha256:e7b97afe4eb917b79e392e3fa40cb461073ed91b28099212db14c295d9a61e41",
             "disposition": "closed",
-            "reason_code": "process_closed"
+            "reason_code": "graph_closed"
           }
         }
       ]
@@ -1157,7 +1161,7 @@
       "archetype": "operation",
       "decision_status": "pending_review",
       "preliminary_route": "keep",
-      "managed_agent_acts": 1,
+      "managed_agent_acts": 0,
       "capabilities": [
         "cli-tool:node"
       ],
@@ -1172,27 +1176,40 @@
         {
           "name": "ledger-answer-with-chain-proof",
           "path": "skills/ledger/fixtures/ledger-answer-with-chain-proof.yaml",
-          "runner": "ledger",
-          "proof_type": "agent_contract",
+          "runner": "read",
+          "proof_type": "operation",
           "status": "passed",
           "receipt": {
             "schema": "runx.receipt.v1",
-            "id": "sha256:0096ae58f680837dcfe01de24d00b4470b21e011a66acaa22cbf1ffe35cc8250",
+            "id": "sha256:12652c08477e6f5bced494eed72d385b18ded7297a6393f75af414e513bbd460",
             "disposition": "closed",
-            "reason_code": "agent_act_closed"
+            "reason_code": "process_closed"
           }
         },
         {
           "name": "ledger-needs-question",
           "path": "skills/ledger/fixtures/ledger-needs-question.yaml",
-          "runner": "ledger",
-          "proof_type": "agent_contract",
+          "runner": "read",
+          "proof_type": "operation",
           "status": "passed",
           "receipt": {
             "schema": "runx.receipt.v1",
-            "id": "sha256:8986a5e49b69820c6576947d4a592aec1334714dd1275d9e379839aa5f318522",
+            "id": "sha256:28b576fc69fc9e86d09cf7f5f9a8c99ef213be3ccacc76087116829a47a551f1",
             "disposition": "closed",
-            "reason_code": "agent_act_closed"
+            "reason_code": "process_closed"
+          }
+        },
+        {
+          "name": "read-ledger-by-exact-id",
+          "path": "skills/ledger/fixtures/read-ledger-by-exact-id.yaml",
+          "runner": "read",
+          "proof_type": "operation",
+          "status": "passed",
+          "receipt": {
+            "schema": "runx.receipt.v1",
+            "id": "sha256:7067f8596620309bb956e4dee23160c025439a4831cd5a889f5a091b35163ba0",
+            "disposition": "closed",
+            "reason_code": "process_closed"
           }
         },
         {
@@ -1691,8 +1708,19 @@
       "improvement_findings": [],
       "local_trial": "passed",
       "operation_proof": "passed",
-      "provider_readback": "passed_by_live_http_fixture",
-      "provider_trial": null,
+      "provider_readback": "passed",
+      "provider_trial": {
+        "status": "passed",
+        "lane": "read_only",
+        "runner": "forecast",
+        "capability": "http:https://api.weather.gov/gridpoints/{office}/{grid_x},{grid_y}/forecast",
+        "receipt_id": "sha256:5ac7f93c7684606e3122e4200e881396a54634a0c22fb49221ac59b142367bdb",
+        "http_status": 200,
+        "observed_at": "2026-07-16T15:46:02.263Z",
+        "managed_agent": false,
+        "mutation": false,
+        "credential_material": "not_required"
+      },
       "meets_full_bar": true,
       "cases": [
         {
@@ -2268,7 +2296,7 @@
           "status": "passed",
           "harness": {
             "status": "passed",
-            "case_count": 4
+            "case_count": 3
           }
         }
       ]
@@ -2406,11 +2434,15 @@
       "path": "skills/review-receipt/X.yaml",
       "archetype": "builder",
       "decision_status": "pending_review",
-      "preliminary_route": "keep",
+      "preliminary_route": "improve",
       "managed_agent_acts": 1,
-      "capabilities": [],
+      "capabilities": [
+        "cli-tool:node"
+      ],
       "static_findings": [],
-      "improvement_findings": [],
+      "improvement_findings": [
+        "add standalone operation-boundary proof"
+      ],
       "local_trial": "passed",
       "operation_proof": "not_required",
       "provider_readback": "not_required",
@@ -2469,21 +2501,23 @@
       "archetype": "operation",
       "decision_status": "pending_review",
       "preliminary_route": "keep",
-      "managed_agent_acts": 1,
-      "capabilities": [],
+      "managed_agent_acts": 0,
+      "capabilities": [
+        "cli-tool:node"
+      ],
       "static_findings": [],
       "improvement_findings": [],
       "local_trial": "passed",
-      "operation_proof": "missing",
+      "operation_proof": "passed",
       "provider_readback": "not_required",
       "provider_trial": null,
-      "meets_full_bar": false,
+      "meets_full_bar": true,
       "cases": [
         {
-          "name": "catalog-behavior-overview",
+          "name": "reports-native-history-and-catalog-coverage",
           "path": "skills/run-history",
           "runner": null,
-          "proof_type": "agent_contract",
+          "proof_type": "operation",
           "status": "passed",
           "harness": {
             "status": "passed",

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.runx.ai/runx/security/least_privilege/v1.json",
   "x-runx-packet-id": "runx.security.least_privilege.v1",
-  "x-runx-generated-from": "skills/least-privilege/X.yaml#root.runners.audit",
+  "x-runx-generated-from": "skills/least-privilege/X.yaml#root.runners.audit.graph.steps.1",
   "type": "object",
   "required": [
     "attenuation_proposals",

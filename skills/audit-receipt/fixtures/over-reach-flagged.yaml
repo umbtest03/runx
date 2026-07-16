@@ -4,8 +4,15 @@ target: ..
 runner: audit
 inputs:
   receipt_id: rcpt_doc_bot_5582
+  receipt_rows:
+    - receipt_id: rcpt_doc_bot_5582
+      skill_ref: docs-bot
+      status: closed
+      created_at: "2026-07-16T00:00:00Z"
+      verification_status: verified
   receipt_summary: "Sealed run of a docs bot. Authority proof granted repo.read only. Acts: one observation that read files, and one act that exercised repo.write to push a commit. No approval gate recorded for the write. Material referenced by hash."
-  granted_scopes: '["repo.read"]'
+  granted_scopes:
+    - repo.read
   objective: Audit whether the run exceeded its grant.
 caller:
   answers:

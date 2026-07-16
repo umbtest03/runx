@@ -4,9 +4,15 @@ const inputs = readInputs();
 const subject = stringValue(inputs.subject) || "unknown";
 const grantedScopes = stringArray(inputs.granted_scopes, "granted_scopes");
 const usageSummary = readUsageSummary(inputs.usage_summary);
+const receiptIds = optionalStringArray(inputs.receipt_ids);
+const ledgerEvidence = readLedgerEvidence(inputs.ledger_evidence);
+const matchedReceiptIds = new Set(ledgerEvidence.matched_receipts.map((entry) => stringValue(entry?.receipt_id)).filter(Boolean));
+const missingReceiptIds = receiptIds.filter((receiptId) => !matchedReceiptIds.has(receiptId));
 const observed = collectObservedUsage(usageSummary);
-
-const scopeDiff = grantedScopes.map((scope) => classifyScope(scope, observed));
+const evidenceReady = receiptIds.length > 0 && missingReceiptIds.length === 0 && observed.size > 0;
+const scopeDiff = evidenceReady
+  ? grantedScopes.map((scope) => classifyScope(scope, observed))
+  : grantedScopes.map((scope) => deferredScope(scope));
 const removedScopes = scopeDiff.filter((entry) => entry.classification === "remove").map((entry) => entry.granted_scope);
 const narrowedScopes = scopeDiff
   .filter((entry) => entry.classification === "narrow" && entry.proposal)
@@ -20,11 +26,20 @@ const attenuatedGrant = [
 ];
 
 const limitations = [];
+if (receiptIds.length === 0) {
+  limitations.push("No receipt ids were supplied; scope observations are not attributable to sealed runs.");
+}
+if (missingReceiptIds.length > 0) {
+  limitations.push(`Native ledger evidence did not resolve ${missingReceiptIds.length} supplied receipt id(s).`);
+}
 if (observed.size === 0) {
   limitations.push("No observed scope usage was provided; the grant cannot be safely narrowed.");
 }
+if (evidenceReady) {
+  limitations.push("Native history proves the receipt references and statuses; normalized scope observations remain caller-supplied because history does not expose hydrated receipt bodies.");
+}
 
-const status = observed.size === 0
+const status = !evidenceReady
   ? "needs_more_evidence"
   : removedScopes.length > 0 || narrowedScopes.length > 0
     ? "attenuation_proposed"
@@ -34,7 +49,10 @@ const packet = {
   status,
   subject,
   evidence: {
-    receipt_ids: Array.isArray(usageSummary.receipt_ids) ? usageSummary.receipt_ids.map(String) : [],
+    receipt_ids: receiptIds,
+    matched_receipt_ids: [...matchedReceiptIds],
+    missing_receipt_ids: missingReceiptIds,
+    chain_verification: ledgerEvidence.chain_verification,
     receipt_window: stringValue(usageSummary.receipt_window) || null,
     grant_source: stringValue(inputs.grant_source) || null,
     limitations,
@@ -92,6 +110,18 @@ function readUsageSummary(value) {
   return value;
 }
 
+function readLedgerEvidence(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { matched_receipts: [], chain_verification: { checked: false, intact: null, breaks: [] } };
+  }
+  return {
+    matched_receipts: Array.isArray(value.matched_receipts) ? value.matched_receipts : [],
+    chain_verification: value.chain_verification && typeof value.chain_verification === "object"
+      ? value.chain_verification
+      : { checked: false, intact: null, breaks: [] },
+  };
+}
+
 function stringArray(value, field) {
   if (!Array.isArray(value) || value.length === 0) {
     throw new Error(`${field} must be a non-empty array`);
@@ -102,6 +132,11 @@ function stringArray(value, field) {
     }
     return entry.trim();
   });
+}
+
+function optionalStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((entry) => typeof entry === "string" && entry.trim()).map((entry) => entry.trim()))];
 }
 
 function collectObservedUsage(summary) {
@@ -155,10 +190,23 @@ function classifyScope(scope, observed) {
   });
 }
 
+function deferredScope(scope) {
+  return diffEntry({
+    scope,
+    normalized: normalizeScope(scope),
+    observedUse: { count: 0, receipt_refs: [] },
+    classification: "defer",
+    proposal: null,
+    rationale: "Receipt-backed usage evidence is incomplete, so this authority must remain unchanged.",
+  });
+}
+
 function observedNarrowerScope(scope, observed) {
-  if (!scope.endsWith("*")) return null;
-  const prefix = scope.slice(0, -1);
-  const matches = [...observed.entries()].filter(([used]) => used.startsWith(prefix));
+  const wildcardPrefix = scope.endsWith("*") ? scope.slice(0, -1) : null;
+  const writePrefix = scope.endsWith(":write") ? scope.slice(0, -"write".length) : null;
+  const matches = [...observed.entries()].filter(([used]) =>
+    wildcardPrefix ? used.startsWith(wildcardPrefix) : writePrefix ? used === `${writePrefix}read` : false,
+  );
   if (matches.length === 0) return null;
   return {
     scopes: matches.map(([used]) => used),

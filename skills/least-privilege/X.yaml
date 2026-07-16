@@ -1,7 +1,7 @@
 skill: least-privilege
-version: "0.1.1"
+version: "0.2.0"
 catalog:
-  kind: skill
+  kind: graph
   audience: operator
   visibility: public
   role: canonical
@@ -12,31 +12,64 @@ catalog:
 runners:
   audit:
     default: true
-    type: cli-tool
-    command: node
-    args:
-      - run.mjs
-    outputs:
-      audit_report: object
-      attenuation_proposals: array
-      verdict: string
-    artifacts:
-      wrap_as: least_privilege_packet
-      packet: runx.security.least_privilege.v1
+    type: graph
     inputs:
       subject:
         type: string
         required: false
-        description: "Label for what is being audited: a skill id, grant id, or principal."
+        description: Skill, grant, or principal being audited.
       granted_scopes:
         type: json
         required: true
-        description: The scopes currently granted to the subject.
+        description: Current scopes granted to the subject.
+      receipt_ids:
+        type: json
+        required: true
+        description: Receipt ids that support the normalized usage summary.
       usage_summary:
         type: json
         required: true
-        description: "Observed usage derived from receipts: for each scope or resource, the verbs actually exercised."
+        description: Normalized observed scopes with counts and receipt references.
       objective:
         type: string
         required: false
-        description: Operator intent that focuses the review.
+        description: Operator intent focusing the audit.
+      receipt_rows:
+        type: json
+        required: false
+        description: Explicit native-projection rows for deterministic replay only.
+    graph:
+      name: least-privilege
+      steps:
+        - id: evidence
+          label: resolve receipt evidence
+          skill: ../ledger
+          runner: read
+          inputs:
+            question: Resolve the receipts supporting this least-privilege audit.
+            receipt_ids: $input.receipt_ids
+            proof:
+              verify_chain: true
+            receipts: $input.receipt_rows
+        - id: analyze
+          label: compare grant with receipt-backed usage
+          inputs:
+            subject: $input.subject
+            granted_scopes: $input.granted_scopes
+            receipt_ids: $input.receipt_ids
+            usage_summary: $input.usage_summary
+            objective: $input.objective
+          context:
+            ledger_evidence: evidence.ledger_answer_packet.data
+          run:
+            type: cli-tool
+            command: node
+            args:
+              - run.mjs
+          outputs:
+            audit_report: object
+            attenuation_proposals: array
+            verdict: string
+          artifacts:
+            wrap_as: least_privilege_packet
+            packet: runx.security.least_privilege.v1

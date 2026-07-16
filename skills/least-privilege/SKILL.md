@@ -1,19 +1,22 @@
 ---
 name: least-privilege
-description: Compare the scopes a subject was granted against the scopes its receipts show it actually used, and propose the narrowest grant that still works.
+description: Verify the receipt ids behind a normalized authority-usage summary, compare that evidence with granted scopes, and propose the narrowest grant the evidence supports.
 runx:
   category: security
 ---
 
 # Least Privilege Auditor
 
-Turn granted authority plus observed usage into a bounded attenuation proposal.
+Turn granted authority plus attributable observed usage into a bounded
+attenuation proposal.
 
-runx keeps a receipt of every scope a run actually exercised. This skill reads
-that proof. It compares what a subject (a skill, a grant, or a principal) was
-granted against what its receipts show it used, then proposes the narrowest
-grant that still covers real usage. The output is a reviewable attenuation
-proposal, not an automatic change.
+This skill resolves every supporting receipt id through the native `ledger`
+runner before it compares a normalized usage summary with the current grant.
+Native history proves that the cited receipts exist and records their status and
+verification posture; the caller remains responsible for the normalized scope
+observations because the history projection does not expose hydrated receipt
+bodies. Missing receipt proof defers every scope. The output is a reviewable
+attenuation proposal, not an automatic change.
 
 ## What this skill does
 
@@ -63,9 +66,10 @@ proposal, not an automatic change.
    - Gate: if a scope cannot be parsed, keep it as `defer` and request the
      missing policy semantics instead of treating it as unused.
 
-3. Build the usage model from receipts.
-   - Extract actual exercised verbs and resources from receipt steps, tool
-     calls, policy checks, denied checks, and completion status.
+3. Build the usage model from attributable evidence.
+   - Resolve each supporting receipt id through `ledger read`.
+   - Read exercised verbs and resources from the supplied normalized usage
+     summary and preserve its receipt references.
    - Count successful use separately from denied or dry-run checks.
    - Do not infer scope usage from a successful high-level task alone; cite the
      receipt step or policy check that exercised the authority.
@@ -168,8 +172,8 @@ granted_scopes:
   - drive.files.read:/reports/*
   - drive.files.write:/reports/*
   - drive.files.delete:/reports/*
+receipt_ids: [rx_101, rx_102]
 usage_summary:
-  receipt_ids: [rx_101, rx_102]
   observed:
     - scope: drive.files.read:/reports/*
       count: 8
@@ -207,9 +211,11 @@ authority. The read and write scopes stay because each was used at least once.
   is being audited.
 - `granted_scopes` (required): the current scopes granted to the subject,
   preferably in canonical policy syntax.
-- `usage_summary` (required): receipt-derived usage. Include receipt ids, step
-  refs, observed verbs, resources, success or denial status, and the time
-  window when available.
+- `receipt_ids` (required): exact receipt ids supporting the usage summary.
+- `usage_summary` (required): normalized receipt-derived usage with an
+  `observed` array of scope, count, and receipt refs.
+- `receipt_rows` (optional): native-projection rows for deterministic replay;
+  live runs resolve `receipt_ids` from the configured receipt store.
 - `objective` (optional): operator intent that focuses the review, such as
   "prepare for public publish" or "post-incident attenuation".
 - `policy_notes` (optional): reserved scopes, compliance constraints, or
