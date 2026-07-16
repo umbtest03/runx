@@ -630,9 +630,12 @@ fn cli_rejects_secret_env_value_on_argv() -> Result<(), Box<dyn std::error::Erro
 }
 
 fn native_command() -> Result<Command, Box<dyn std::error::Error>> {
-    Ok(crate::support::isolated_runx_command_with_inherited_cwd(
-        "local-credential-test-key",
-    ))
+    let mut command =
+        crate::support::isolated_runx_command_with_inherited_cwd("local-credential-test-key");
+    // These tests exercise credential and env delivery, not OS sandbox support.
+    // Keep them portable to runners where namespace creation is unavailable.
+    command.env("RUNX_SANDBOX_ALLOW_DECLARED_POLICY_ONLY", "local");
+    Ok(command)
 }
 
 fn run_with_stdin(
