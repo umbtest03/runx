@@ -195,8 +195,6 @@ jobs:
           node-version: 24
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-      - name: Install sandbox backend
-        run: sudo apt-get update && sudo apt-get install --yes bubblewrap
       - name: Cargo cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -223,6 +221,10 @@ jobs:
           RUNX_RECEIPT_SIGN_KID: ci-authoring-smoke
           RUNX_RECEIPT_SIGN_ED25519_SEED_BASE64: QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=
           RUNX_RECEIPT_SIGN_ISSUER_TYPE: hosted
+          # GitHub-hosted runners do not grant the user namespaces bubblewrap
+          # needs. This behavioral sweep opts into the runtime's explicit local
+          # degradation path; sandbox enforcement remains covered by Rust tests.
+          RUNX_SANDBOX_ALLOW_DECLARED_POLICY_ONLY: local
         run: |
           set -euo pipefail
           node scripts/harness-sweep.mjs \

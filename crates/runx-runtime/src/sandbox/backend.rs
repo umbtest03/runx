@@ -1,5 +1,9 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+#[cfg(target_os = "linux")]
+use std::process::{Command, Stdio};
+#[cfg(target_os = "linux")]
+use std::sync::OnceLock;
 
 use runx_core::policy::SandboxProfile;
 use runx_parser::SkillSandbox;
@@ -89,7 +93,7 @@ fn declared_policy_only_denied_reason(reason: &str) -> String {
 fn platform_sandbox_runtime(profile: &str) -> SandboxRuntime {
     #[cfg(target_os = "linux")]
     {
-        if let Some(path) = find_trusted_executable("bwrap") {
+        if let Some(path) = find_usable_bwrap() {
             SandboxRuntime::Bubblewrap { path }
         } else {
             SandboxRuntime::DeclaredPolicyOnly {
@@ -114,6 +118,33 @@ fn platform_sandbox_runtime(profile: &str) -> SandboxRuntime {
             reason: missing_sandbox_backend_reason(profile),
         }
     }
+}
+
+#[cfg(target_os = "linux")]
+fn find_usable_bwrap() -> Option<PathBuf> {
+    static USABLE_BWRAP: OnceLock<Option<PathBuf>> = OnceLock::new();
+    USABLE_BWRAP
+        .get_or_init(|| {
+            let path = find_trusted_executable("bwrap")?;
+            Command::new(&path)
+                .args([
+                    "--unshare-all",
+                    "--die-with-parent",
+                    "--ro-bind",
+                    "/usr",
+                    "/usr",
+                    "--",
+                    "/usr/bin/true",
+                ])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .ok()?
+                .success()
+                .then_some(path)
+        })
+        .clone()
 }
 
 fn missing_sandbox_backend_reason(profile: &str) -> String {
