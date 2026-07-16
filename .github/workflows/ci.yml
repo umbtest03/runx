@@ -183,22 +183,31 @@ jobs:
   authoring-smoke:
     # Drift guard: scaffold -> harness end to end. Reds the build the moment the
     # `runx new` native scaffold breaks (broken templates, harness regressions),
-    # so the authoring path can never silently rot. Native skills carry no npm
-    # deps and no build step, so this is scaffold then harness, nothing else.
+    # so the authoring path can never silently rot. Skills carry no per-package
+    # install or build step; the shared repository tool catalog consumes the
+    # workspace authoring package installed once below.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.18.2
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
           node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Cargo cache
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: crates
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       - name: Build runx
         working-directory: crates
         run: cargo build -p runx-cli
