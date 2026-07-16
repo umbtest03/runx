@@ -949,57 +949,10 @@ fn cli_tool_source(step: &GraphStep) -> Result<SkillSource, RuntimeError> {
             reason: "missing run configuration".to_owned(),
         });
     };
-    let command = optional_string(run, "command").ok_or_else(|| RuntimeError::InvalidRunStep {
+    runx_parser::validate_skill_source(run, None).map_err(|source| RuntimeError::InvalidRunStep {
         step_id: step.id.clone(),
-        reason: "run.command is required for a cli-tool step".to_owned(),
-    })?;
-    let args = cli_tool_args(step, run)?;
-    Ok(SkillSource {
-        act: None,
-        source_type: SourceKind::CliTool,
-        command: Some(command),
-        args,
-        cwd: optional_string(run, "cwd"),
-        timeout_seconds: None,
-        input_mode: None,
-        sandbox: None,
-        server: None,
-        catalog_ref: None,
-        tool: None,
-        arguments: None,
-        agent_card_url: None,
-        agent_identity: None,
-        agent: None,
-        task: None,
-        hook: None,
-        outputs: optional_object(run, "outputs"),
-        graph: None,
-        http: None,
-        raw: run.clone(),
+        reason: source.to_string(),
     })
-}
-
-fn cli_tool_args(step: &GraphStep, run: &JsonObject) -> Result<Vec<String>, RuntimeError> {
-    let Some(value) = run.get("args") else {
-        return Ok(Vec::new());
-    };
-    let JsonValue::Array(values) = value else {
-        return Err(RuntimeError::InvalidRunStep {
-            step_id: step.id.clone(),
-            reason: "run.args must be an array".to_owned(),
-        });
-    };
-    values
-        .iter()
-        .enumerate()
-        .map(|(index, value)| match value {
-            JsonValue::String(arg) => Ok(arg.clone()),
-            _ => Err(RuntimeError::InvalidRunStep {
-                step_id: step.id.clone(),
-                reason: format!("run.args[{index}] must be a string"),
-            }),
-        })
-        .collect()
 }
 
 // The shared close for an agent act: a resolved host response becomes the

@@ -139,14 +139,87 @@ fn mcp_native_binary_reports_mid_session_framing_fault() -> Result<(), Box<dyn s
     Ok(())
 }
 
+#[test]
+fn mcp_native_binary_uses_one_workspace_env_snapshot_per_session()
+-> Result<(), Box<dyn std::error::Error>> {
+    let workspace = TestTempDir::new("runx-mcp-workspace-env")?;
+    let runx_dir = workspace.path().join(".runx");
+    fs::create_dir_all(&runx_dir)?;
+    fs::write(
+        runx_dir.join("project.json"),
+        r#"{"version":1,"project_id":"proj_mcp_workspace_env","created_at":"2026-07-16T00:00:00Z"}"#,
+    )?;
+    fs::write(
+        workspace.path().join(".env"),
+        "MCP_DOGFOOD_MARKER=initial-snapshot\n",
+    )?;
+    let skill_dir = write_workspace_env_mcp_skill(workspace.path())?;
+    let mut server =
+        spawn_mcp_server_at(&[skill_dir.display().to_string()], workspace.path(), None)?;
+
+    write_frame(server.stdin_mut()?, &initialize_request(1))?;
+    let initialize = server.read_response("initialize", MCP_INITIALIZE_TIMEOUT)?;
+    assert_eq!(
+        path_text(&initialize, &["result", "protocolVersion"])?,
+        "2025-06-18"
+    );
+    write_frame(server.stdin_mut()?, &initialized_notification())?;
+
+    // A long-lived MCP server must keep the command-entry snapshot. Reloading
+    // the file between calls would make one operator session non-deterministic.
+    fs::write(
+        workspace.path().join(".env"),
+        "MCP_DOGFOOD_MARKER=changed-after-start\n",
+    )?;
+    write_frame(
+        server.stdin_mut()?,
+        &request(
+            2,
+            "tools/call",
+            json!({
+                "name": "mcp-workspace-env",
+                "arguments": {},
+            }),
+        ),
+    )?;
+    let response = server.read_response("tools/call workspace env", MCP_REQUEST_TIMEOUT)?;
+    assert_eq!(
+        path_text(&response, &["result", "content", "0", "text"])?,
+        "initial-snapshot"
+    );
+
+    server.close_stdin();
+    let status = server.wait_timeout(Duration::from_secs(10))?;
+    assert!(
+        status.success(),
+        "runx mcp serve exited with {status}; stderr: {}",
+        server.stderr_string()?
+    );
+    Ok(())
+}
+
 fn spawn_mcp_server(args: &[String]) -> Result<McpProcess, Box<dyn std::error::Error>> {
     let repo_root = repo_root()?;
+    spawn_mcp_server_at(args, &repo_root, Some(&repo_root))
+}
+
+fn spawn_mcp_server_at(
+    args: &[String],
+    cwd: &Path,
+    runx_cwd: Option<&Path>,
+) -> Result<McpProcess, Box<dyn std::error::Error>> {
     let mut command = Command::new(env!("CARGO_BIN_EXE_runx"));
     crate::support::apply_fixture_signing(&mut command, "mcp-dogfood-test-key");
+    command
+        .current_dir(cwd)
+        .env_remove("MCP_DOGFOOD_MARKER")
+        .env("RUNX_SANDBOX_ALLOW_DECLARED_POLICY_ONLY", "local");
+    if let Some(runx_cwd) = runx_cwd {
+        command.env("RUNX_CWD", runx_cwd);
+    } else {
+        command.env_remove("RUNX_CWD");
+    }
     let mut child = command
-        .current_dir(&repo_root)
-        .env("RUNX_CWD", &repo_root)
-        .env("RUNX_SANDBOX_ALLOW_DECLARED_POLICY_ONLY", "local")
         .arg("mcp")
         .arg("serve")
         .args(args)
@@ -400,6 +473,42 @@ runx:
 ---
 
 Echo the provided message through a local MCP server fixture.
+"#
+        ),
+    )?;
+    Ok(skill_dir)
+}
+
+fn write_workspace_env_mcp_skill(workspace: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let skill_dir = workspace.join("mcp-workspace-env");
+    fs::create_dir_all(&skill_dir)?;
+    let server_path = repo_root()?.join("fixtures/runtime/adapters/mcp/stdio-server.py");
+    let server_arg = serde_json::to_string(&server_path.display().to_string())?;
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        format!(
+            r#"---
+name: mcp-workspace-env
+description: Return an allowlisted workspace value through an MCP server.
+source:
+  type: mcp
+  server:
+    command: python3
+    args:
+      - {server_arg}
+  tool: env
+  arguments:
+    name: MCP_DOGFOOD_MARKER
+  timeout_seconds: 15
+  sandbox:
+    profile: readonly
+    cwd_policy: workspace
+    env_allowlist:
+      - MCP_DOGFOOD_MARKER
+    require_enforcement: false
+---
+
+Return the allowlisted workspace marker.
 "#
         ),
     )?;
